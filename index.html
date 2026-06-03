@@ -157,7 +157,12 @@
         // 1. Core Config & Map Init
         const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        
+        // UPDATED: Swapped the messy OpenStreetMap for the clean, uncluttered Carto Voyager map style!
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
+            maxZoom: 19,
+            attribution: '&copy; CartoDB'
+        }).addTo(map);
 
         // 2. State Variables
         let watchId = null, lastLat = 0, lastLng = 0;
@@ -167,7 +172,7 @@
         const riders = {}; 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-        // 3. DOM Cache (Optimized element lookups)
+        // 3. DOM Cache
         const el = (id) => document.getElementById(id);
         const startBtn = el('startBtn'), usernameInput = el('username'), destinationInput = el('destination');
         const usernameMic = el('usernameMic'), destinationMic = el('destinationMic');
