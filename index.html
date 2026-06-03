@@ -38,8 +38,6 @@
             border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; 
             gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
-
-        /* FIXED: Only lifts when a text input box is active. Ignores button taps entirely! */
         #controls:has(input:focus) { transform: translateY(-95px); }
         
         .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
@@ -106,6 +104,33 @@
             70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
             100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
+
+        /* Styling for the custom Leaflet toggle switch */
+        .radius-toggle-container {
+            background-color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            color: #1e4620;
+            cursor: pointer;
+            user-select: none;
+            border: 2px solid rgba(0,0,0,0.2);
+            background-clip: padding-box;
+        }
+        .radius-toggle-container input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: #2d6a30;
+        }
+        .radius-toggle-container label {
+            cursor: pointer;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -170,10 +195,46 @@
         let isSharing = false, isChatOpen = false, unreadCount = 0;
         let wakeLock = null, oldBroadcastedName = "Anonymous"; 
         let cycleBuddyIndex = 0, soloZoomToggle = false; 
+        let isRadiusFilterActive = true; // NEW: The default state for the 50-mile geofence
         const riders = {}; 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-        // 3. DOM Cache
+        // 3. Custom Leaflet Radius Toggle Control
+        const RadiusControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function (map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
+                container.innerHTML = '<input type="checkbox" id="radiusToggle" checked><label for="radiusToggle">50mi Only</label>';
+                
+                // Prevent map clicks when tapping the box
+                L.DomEvent.disableClickPropagation(container);
+                
+                return container;
+            }
+        });
+        map.addControl(new RadiusControl());
+
+        // Event Listener for the Toggle Checkbox
+        document.getElementById('radiusToggle').addEventListener('change', (e) => {
+            isRadiusFilterActive = e.target.checked;
+            
+            // If turned back ON, instantly sweep the map and delete anyone outside the 50 miles
+            if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0) {
+                Object.keys(riders).forEach(user => {
+                    if (!user.includes('(You)')) {
+                        const marker = riders[user];
+                        const distanceInMiles = map.distance([lastLat, lastLng], marker.getLatLng()) / 1609.34;
+                        if (distanceInMiles > 50) {
+                            map.removeLayer(marker);
+                            delete riders[user];
+                        }
+                    }
+                });
+                updateLiveRiderCounter();
+            }
+        });
+
+        // 4. DOM Cache
         const el = (id) => document.getElementById(id);
         const startBtn = el('startBtn'), usernameInput = el('username'), destinationInput = el('destination');
         const usernameMic = el('usernameMic'), destinationMic = el('destinationMic');
@@ -195,12 +256,26 @@
             }
         }, {passive: true});
 
-        // 4. Supabase Live Channel
+        // 5. Supabase Live Channel
         const channel = supabaseClient.channel('ride-room', { config: { broadcast: { ack: false, self: false } } });
 
         channel
             .on('broadcast', { event: 'location-update' }, ({ payload }) => {
                 const { user, dest, lat, lng, status } = payload;
+                
+                // UPDATED: Check if the radius filter is active before enforcing the 50-mile limit
+                if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0 && !user.includes('(You)')) {
+                    const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
+                    if (distanceInMiles > 50) {
+                        if (riders[user]) { 
+                            map.removeLayer(riders[user]); 
+                            delete riders[user]; 
+                            updateLiveRiderCounter();
+                        }
+                        return; // Block drawing the pin
+                    }
+                }
+
                 if (status === 'offline') {
                     if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; }
                 } else { updateRiderMarker(user, dest, lat, lng); }
@@ -242,7 +317,7 @@
                 }
             });
 
-        // 5. App Logic & Utilities
+        // 6. App Logic & Utilities
         const updateLiveRiderCounter = () => {
             const online = Object.keys(riders).filter(k => !k.includes('(You)')).length + (isSharing ? 1 : 0);
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
@@ -358,7 +433,7 @@
             }
         }
 
-        // 6. Chat Controllers
+        // 7. Chat Controllers
         chatToggleBtn.addEventListener('click', () => { isChatOpen = true; unreadCount = 0; chatBadge.style.display = 'none'; chatOverlay.classList.add('open'); });
         closeChatBtn.addEventListener('click', () => { isChatOpen = false; chatOverlay.classList.remove('open'); });
 
@@ -380,7 +455,7 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 7. Voice & Strict Viewport Reset
+        // 8. Voice & Strict Viewport Reset
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const setupVoiceInput = (btn, input, autoSubmit = false) => {
@@ -437,7 +512,7 @@
 
         const resetPlaceholder = (inputEl) => { inputEl.placeholder = inputEl.id === 'username' ? "Enter your name" : inputEl.id === 'destination' ? "Destination (optional)" : "Type a message..."; };
 
-        // 8. Wake Lock & Service Worker
+        // 9. Wake Lock & Service Worker
         async function requestWakeLock() { if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
         function releaseWakeLock() { if (wakeLock) wakeLock.release().then(() => wakeLock = null); }
         if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
