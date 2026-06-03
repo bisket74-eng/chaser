@@ -9,658 +9,96 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
     
+    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        html, body {
-            padding: 0;
-            margin: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        #map {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        #appHeader {
-            position: absolute;
-            top: 25px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 10;
-            font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 46px; 
-            color: #1e4620; 
-            text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
-            font-weight: bold;
-            letter-spacing: 1px;
-            pointer-events: none; 
-            white-space: nowrap;
-        }
-        
-        #controls {
-            position: absolute;
-            bottom: 20px;
-            left: 15px;
-            z-index: 10;
-            background: #e2f0d9; 
-            padding: 16px; 
-            border-radius: 18px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.35);
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 74%; 
-            max-width: 340px;
-            box-sizing: border-box;
-        }
-        
-        .control-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between; 
-            width: 100%;
-            gap: 8px;
-        }
-        
-        .control-row input {
-            flex: 1;
-            max-width: 200px; 
-            padding: 12px; 
-            border-radius: 8px;
-            border: 2px solid #2d6a30;
-            background-color: #1e4620;
-            color: #ffffff;
-            font-size: 16px; 
-            box-sizing: border-box;
-            font-weight: 500;
-        }
-        
-        .control-row input::placeholder {
-            color: #a3cfbb; 
-            font-style: italic;
-        }
-        
-        .mic-btn {
-            width: 44px;
-            height: 44px;
-            background-color: #2d6a30;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
-            flex-shrink: 0; 
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        .mic-btn:active { transform: scale(0.92); }
-        .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
-        .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
-
-        #startBtn {
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            font-size: 16px; 
-            background-color: #2d6a30;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.2s ease;
-            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
-            width: 100%;
-            box-sizing: border-box;
-        }
-        #startBtn.sharing-active { background-color: #dc3545; }
-
-        #chatToggleBtn {
-            position: absolute;
-            bottom: 54px; 
-            right: 15px;
-            z-index: 11;
-            width: 60px; 
-            height: 60px;
-            background-color: #1e4620;
-            border: 3px solid #e2f0d9;
-            border-radius: 50%;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.41);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.1s ease;
-        }
-        #chatToggleBtn:active { transform: scale(0.92); }
-        #chatToggleBtn svg { width: 28px; height: 28px; fill: #ffffff; }
-        
-        #chatBadge {
-            position: absolute;
-            top: -3px;
-            right: -3px;
-            background-color: #dc3545;
-            color: white;
-            border-radius: 50%;
-            padding: 4px 8px;
-            font-size: 12px;
-            font-weight: bold;
-            display: none;
-            border: 2px solid white;
-        }
-
-        #chatOverlay {
-            position: absolute;
-            top: 0;
-            right: -100%;
-            width: 100%;
-            max-width: 340px;
-            height: 100%;
-            background-color: #ffffff;
-            z-index: 20;
-            box-shadow: -4px 0 20px rgba(0,0,0,0.25);
-            display: flex;
-            flex-direction: column;
-            transition: right 0.3s ease-in-out;
-        }
-        #chatOverlay.open {
-            right: 0;
-        }
-        
-        #chatHeader {
-            background-color: #1e4620;
-            color: white;
-            padding: 16px;
-            font-weight: bold;
-            font-size: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #closeChatBtn {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 22px;
-            cursor: pointer;
-        }
-        
-        #chatMessages {
-            flex: 1;
-            padding: 16px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            background-color: #e2f0d9; 
-            position: relative;
-        }
-        
-        .msg-bubble {
-            position: relative; 
-            background-color: #ffffff; 
-            padding: 12px 28px 12px 12px; 
-            border-radius: 12px;
-            max-width: 85%;
-            align-self: flex-start;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-            z-index: 1; 
-        }
-        .msg-bubble.is-me {
-            background-color: #1e4620; 
-            color: white;
-            align-self: flex-end;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
-        }
-        .msg-user { font-size: 12px; font-weight: bold; color: #2d6a30; margin-bottom: 4px; }
-        .msg-bubble.is-me .msg-user { color: #a3cfbb; }
-        .msg-text { font-size: 14px; word-break: break-word; }
-        
-        .msg-delete-btn {
-            position: absolute;
-            top: 6px;
-            right: 8px;
-            background: none;
-            border: none;
-            color: #a3cfbb;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 0;
-            margin: 0;
-            line-height: 1;
-        }
-        .msg-delete-btn:hover {
-            color: #ffffff;
-        }
-        
-        #chatInputArea {
-            padding: 12px;
-            background-color: #ffffff;
-            border-top: 1px solid #ddd;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            z-index: 2;
-        }
-        #chatInputArea input {
-            flex: 1;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            font-size: 15px;
-        }
-
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); }
-            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-        }
+        /* [KEEP ALL YOUR EXISTING CSS HERE] */
+        html, body { padding: 0; margin: 0; width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
+        #appHeader { position: absolute; top: 25px; left: 50%; transform: translateX(-50%); z-index: 10; font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 46px; color: #1e4620; text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3); font-weight: bold; pointer-events: none; white-space: nowrap; }
+        #controls { position: absolute; bottom: 20px; left: 15px; z-index: 10; background: #e2f0d9; padding: 16px; border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; }
+        .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
+        .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; }
+        .mic-btn { width: 44px; height: 44px; background-color: #2d6a30; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.25); flex-shrink: 0; transition: background-color 0.2s ease; }
+        #startBtn { padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; cursor: pointer; font-weight: bold; width: 100%; }
+        #riderCounterWidget { font-size: 12px; color: #1e4620; font-weight: bold; text-align: center; margin-top: 5px; }
+        #chatToggleBtn { position: absolute; bottom: 54px; right: 15px; z-index: 11; width: 60px; height: 60px; background-color: #1e4620; border: 3px solid #e2f0d9; border-radius: 50%; box-shadow: 0 6px 20px rgba(0,0,0,0.41); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        #chatOverlay { position: absolute; top: 0; right: -100%; width: 100%; max-width: 340px; height: 100%; background-color: #ffffff; z-index: 20; box-shadow: -4px 0 20px rgba(0,0,0,0.25); display: flex; flex-direction: column; transition: right 0.3s ease-in-out; }
+        #chatOverlay.open { right: 0; }
+        #chatHeader { background-color: #1e4620; color: white; padding: 16px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+        #chatMessages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background-color: #e2f0d9; }
+        .msg-bubble { position: relative; background-color: #ffffff; padding: 12px 28px 12px 12px; border-radius: 12px; max-width: 85%; align-self: flex-start; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+        .msg-bubble.is-me { background-color: #1e4620; color: white; align-self: flex-end; }
+        .msg-delete-btn { position: absolute; top: 6px; right: 8px; background: none; border: none; color: #a3cfbb; font-size: 14px; cursor: pointer; }
+        #chatInputArea { padding: 12px; background-color: #ffffff; border-top: 1px solid #ddd; display: flex; gap: 8px; align-items: center; }
+        #chatInputArea input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; }
     </style>
 </head>
 <body>
 
     <div id="appHeader">Buddy Finder</div>
-
     <div id="map"></div>
-
     <div id="controls">
         <div class="control-row">
             <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
-            <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
-                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
+            <button class="mic-btn" id="usernameMic" type="button"><svg viewBox="0 0 24 24" width="20" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>
         </div>
-        
-        <div class="control-row">
-            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" />
-            <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
-                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
-        </div>
-        
         <button id="startBtn">Start Sharing Location</button>
+        <div id="riderCounterWidget">Riders Online: 0</div>
     </div>
-
-    <button id="chatToggleBtn" type="button" title="Open Group Chat">
-        <div id="chatBadge">0</div>
-        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-    </button>
-
+    <button id="chatToggleBtn" type="button"><svg viewBox="0 0 24 24" width="28" fill="white"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg></button>
     <div id="chatOverlay">
-        <div id="chatHeader">
-            <span>Group Chat Room</span>
-            <button id="closeChatBtn" type="button">✕</button>
-        </div>
+        <div id="chatHeader"><span>Group Chat</span><button id="closeChatBtn" style="background:none; border:none; color:white; font-size:20px;">✕</button></div>
         <div id="chatMessages"></div>
-        <div id="chatInputArea">
-            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" />
-            <button class="mic-btn" id="chatMic" type="button" title="Speak message">
-                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
-        </div>
+        <div id="chatInputArea"><input type="text" id="chatMsgInput" placeholder="Type..." /><button class="mic-btn" id="chatMic" type="button"><svg viewBox="0 0 24 24" width="20" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
     <script>
-        // 1. YOUR SUPABASE CREDENTIALS
-        const SUPABASE_URL = "https://xnwwngqennvwajlhvclj.supabase.co"; 
-        const SUPABASE_ANON_KEY = "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8";
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // 2. INITIALIZE THE MAP
+        const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-        // 3. APP STATE
-        let watchId = null;
-        let lastLat = 0, lastLng = 0;
-        let isSharing = false, isChatOpen = false; 
-        let unreadCount = 0;
-        let wakeLock = null;
-        let oldBroadcastedName = "Anonymous"; // Track previous name for clean disconnects
-        const riders = {}; 
-
-        let myDeviceId = localStorage.getItem('rider_device_uuid');
-        if (!myDeviceId) {
-            myDeviceId = 'dev-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
-            localStorage.setItem('rider_device_uuid', myDeviceId);
-        }
-
-        // Bind layout elements
-        const startBtn = document.getElementById('startBtn');
-        const usernameInput = document.getElementById('username');
-        const destinationInput = document.getElementById('destination');
-        const usernameMic = document.getElementById('usernameMic');
-        const destinationMic = document.getElementById('destinationMic');
+        let riders = {};
+        const channel = supabaseClient.channel('ride-room', { config: { broadcast: { ack: false, self: false } } });
         
-        const chatToggleBtn = document.getElementById('chatToggleBtn');
-        const chatOverlay = document.getElementById('chatOverlay');
-        const closeChatBtn = document.getElementById('closeChatBtn');
-        const chatMessages = document.getElementById('chatMessages');
-        const chatMsgInput = document.getElementById('chatMsgInput');
-        const chatMic = document.getElementById('chatMic');
-        const chatBadge = document.getElementById('chatBadge');
-
-        const savedName = localStorage.getItem('rider_saved_name');
-        if (savedName) usernameInput.value = savedName;
-
-        // 4. JOIN LOCATION BROADCAST CHANNEL
-        let channel = supabaseClient.channel('ride-room', {
-            config: { broadcast: { ack: false, self: false } }
-        });
-
-        channel
-            .on('broadcast', { event: 'location-update' }, (payload) => {
-                const { user, dest, lat, lng, status } = payload.payload;
-                if (status === 'offline') {
-                    if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; }
-                } else {
-                    updateRiderMarker(user, dest, lat, lng);
-                }
-            })
-            .subscribe();
-
-        // 5. MESSAGING REALTIME STACK
-        function initializeDatabaseRealtime() {
-            supabaseClient
-                .channel('db-chat')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
-                    const { msg_id, username, message, device_id } = payload.new;
-                    const isMe = device_id === myDeviceId;
-                    
-                    if (!isMe) {
-                        appendMessage(msg_id, username, message, false, payload.new.id, device_id);
-                        if (!isChatOpen) {
-                            unreadCount++;
-                            chatBadge.innerText = unreadCount;
-                            chatBadge.style.display = 'block';
-                        }
-                    }
-                })
-                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_chat' }, (payload) => {
-                    const elements = document.querySelectorAll('.msg-bubble');
-                    elements.forEach(el => {
-                        if (el.dataset.dbId == payload.old.id) {
-                            el.remove();
-                        }
-                    });
-                })
-                .subscribe((status) => {
-                    if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-                        setTimeout(initializeDatabaseRealtime, 3000);
-                    }
-                });
-        }
-        
-        initializeDatabaseRealtime();
-
-        // 6. TRACKING SYSTEMS
-        startBtn.addEventListener('click', () => {
-            if (!isSharing) {
-                // If the name box is blank when starting, default it to a placeholder, but don't force block them
-                if (!usernameInput.value.trim()) {
-                    usernameInput.value = "Anonymous";
-                }
-                localStorage.setItem('rider_saved_name', usernameInput.value.trim());
-                oldBroadcastedName = usernameInput.value.trim();
-                
-                isSharing = true;
-                startBtn.innerText = "Stop Sharing Location";
-                startBtn.classList.add('sharing-active');
-
-                if ("geolocation" in navigator) {
-                    watchId = navigator.geolocation.watchPosition((position) => {
-                        lastLat = position.coords.latitude; lastLng = position.coords.longitude;
-                        if (Object.keys(riders).length === 0) map.setView([lastLat, lastLng], 15);
-                        broadcastCurrentState();
-                    }, () => { stopSharingLocation(); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
-                    requestWakeLock();
-                } else { stopSharingLocation(); }
-            } else { stopSharingLocation(); }
-        });
-
-        // FIXED LIVE UPDATER: Instantly recalculates, swaps labels, clears old pins, and pushes updates across the wire
-        function broadcastCurrentState() {
-            if (!isSharing || lastLat === 0 || lastLng === 0) return;
-            
-            const currentUser = usernameInput.value.trim() || "Anonymous";
-            const currentDest = destinationInput.value.trim();
-
-            // NEW REMOVAL SAFETY: If you type a new name while active, wipe your old map labels immediately so ghost names don't cluster
-            if (oldBroadcastedName !== currentUser) {
-                // Remove local user marker under old name profile
-                if (riders[`${oldBroadcastedName} (You)`]) {
-                    map.removeLayer(riders[`${oldBroadcastedName} (You)`]);
-                    delete riders[`${oldBroadcastedName} (You)`];
-                }
-                // Send a quick broadcast out ordering everyone else to scrub your old ghost name off their screen
-                channel.send({
-                    type: 'broadcast', event: 'location-update',
-                    payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' }
-                });
-                // Commit the fresh active name choice
-                oldBroadcastedName = currentUser;
-            }
-
-            // Draw new active map pin layout configuration
-            updateRiderMarker(`${currentUser} (You)`, currentDest, lastLat, lastLng);
-            
-            // Sync straight up to the group server
-            channel.send({
-                type: 'broadcast', event: 'location-update',
-                payload: { user: currentUser, dest: currentDest, lat: lastLat, lng: lastLng, status: 'online' }
-            });
+        // NEW: Load recent chat history from DB on open, then use Broadcast for live talk
+        async function fetchRecentChats() {
+            const { data } = await supabaseClient.from('group_chat').select('*').order('created_at', { ascending: false }).limit(10);
+            if(data) data.reverse().forEach(m => appendMessage(m.msg_id, m.username, m.message, m.device_id === localStorage.getItem('rider_device_uuid')));
         }
 
-        function stopSharingLocation() {
-            isSharing = false;
-            destinationInput.value = "";
-            startBtn.innerText = "Start Sharing Location";
-            startBtn.classList.remove('sharing-active');
-            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            
-            const currentUser = usernameInput.value.trim() || "Anonymous";
-            channel.send({
-                type: 'broadcast', event: 'location-update',
-                payload: { user: currentUser, dest: '', lat: 0, lng: 0, status: 'offline' }
-            });
-            
-            Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
-            lastLat = 0; lastLng = 0;
-            oldBroadcastedName = "Anonymous";
-            releaseWakeLock();
-        }
+        channel.on('broadcast', { event: 'group-live-chat' }, (payload) => {
+            appendMessage(payload.payload.msgId, payload.payload.user, payload.payload.message, false);
+        }).subscribe();
 
-        function updateRiderMarker(user, dest, lat, lng) {
-            let popupContent = `<b>${user}</b>`;
-            if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
-            if (riders[user]) {
-                riders[user].setLatLng([lat, lng]); riders[user].setPopupContent(popupContent);
-            } else {
-                riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent).openPopup();
-            }
-        }
-
-        // 7. CHAT LOGIC PANELS
-        chatToggleBtn.addEventListener('click', async () => {
-            isChatOpen = true;
-            unreadCount = 0;
-            chatBadge.style.display = 'none';
-            chatOverlay.classList.add('open');
-            
-            await loadSavedChatHistory();
-        });
-
-        closeChatBtn.addEventListener('click', () => {
-            isChatOpen = false;
-            chatOverlay.classList.remove('open');
-        });
-
-        chatMsgInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { sendGroupMessage(); }
-        });
-
-        async function loadSavedChatHistory() {
-            chatMessages.innerHTML = ""; 
-
-            const { data, error } = await supabaseClient
-                .from('group_chat')
-                .select('*')
-                .order('created_at', { ascending: true })
-                .limit(50);
-
-            if (!error && data) {
-                data.forEach(msg => {
-                    const isMe = msg.device_id === myDeviceId;
-                    appendMessage(msg.msg_id, msg.username, msg.message, isMe, msg.id, msg.device_id);
-                });
-            }
-        }
+        // [INSERT YOUR EXISTING TRACKING LOGIC HERE]
 
         async function sendGroupMessage() {
-            const rawMessage = chatMsgInput.value.trim();
-            if (!rawMessage) return;
-            const author = usernameInput.value.trim() || "Anonymous";
-            const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-            
-            chatMsgInput.value = "";
-            appendMessage(uniqueMsgId, author, rawMessage, true, 99999, myDeviceId);
-
-            const { data, error } = await supabaseClient
-                .from('group_chat')
-                .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage, device_id: myDeviceId }])
-                .select();
-
-            if (error) {
-                alert("Supabase Error: " + error.message + " | Code: " + error.code);
-                const failedBubble = document.getElementById(uniqueMsgId);
-                if (failedBubble) failedBubble.remove();
-            } else if (data && data[0]) {
-                const activeBubble = document.getElementById(uniqueMsgId);
-                if (activeBubble) {
-                    activeBubble.dataset.dbId = data[0].id;
-                    const existingDelBtn = activeBubble.querySelector('.msg-delete-btn');
-                    if (!existingDelBtn) {
-                        activeBubble.innerHTML += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${uniqueMsgId}', ${data[0].id})">✕</button>`;
-                    }
-                }
-            }
+            const msg = document.getElementById('chatMsgInput').value.trim();
+            if(!msg) return;
+            const author = document.getElementById('username').value || "Anonymous";
+            const id = 'msg-' + Date.now();
+            appendMessage(id, author, msg, true);
+            channel.send({ type: 'broadcast', event: 'group-live-chat', payload: { msgId: id, user: author, message: msg } });
+            // Save to DB so new users can see it
+            await supabaseClient.from('group_chat').insert([{ msg_id: id, username: author, message: msg, device_id: localStorage.getItem('rider_device_uuid') }]);
+            document.getElementById('chatMsgInput').value = "";
         }
 
-        function appendMessage(id, user, msg, isMe, rowDatabaseId = null, senderDeviceId = null) {
-            if (document.getElementById(id)) return;
-
-            const wrapper = document.createElement('div');
-            wrapper.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
-            wrapper.id = id;
-            if (rowDatabaseId) wrapper.dataset.dbId = rowDatabaseId;
-            
-            let displayName = isMe ? 'You' : user;
-            let htmlContent = `<div class="msg-user">${displayName}</div><div class="msg-text">${msg}</div>`;
-            
-            if (senderDeviceId === myDeviceId && rowDatabaseId) {
-                htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}', ${rowDatabaseId})">✕</button>`;
-            }
-            
-            wrapper.innerHTML = htmlContent;
-            chatMessages.appendChild(wrapper);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        function appendMessage(id, user, msg, isMe) {
+            const div = document.createElement('div');
+            div.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
+            div.innerHTML = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>` + (isMe ? `<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>` : '');
+            document.getElementById('chatMessages').appendChild(div);
         }
 
-        async function requestMessageDeletion(uiId, dbRowId) {
-            const localBubble = document.getElementById(uiId);
-            if (localBubble) localBubble.remove();
-
-            if (dbRowId !== 99999) {
-                await supabaseClient
-                    .from('group_chat')
-                    .delete()
-                    .eq('id', dbRowId);
-            }
-        }
-
-        // 8. VOICE RECOGNITION & VIEWPORT MANAGEMENT
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            setupVoiceInput(usernameMic, usernameInput);
-            setupVoiceInput(destinationMic, destinationInput);
-            setupVoiceInput(chatMic, chatMsgInput, true);
-        } else {
-            usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
-        }
-
-        function closeKeyboardAndSnapWindow(inputEl) {
-            inputEl.blur(); 
-            setTimeout(() => {
-                window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                if (map) { map.invalidateSize(); }
-            }, 80);
-        }
-
-        usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(usernameInput); });
-        destinationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(destinationInput); });
-        chatMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(chatMsgInput); });
-
-        function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
-
-            const triggerAction = (e) => { 
-                e.preventDefault(); e.stopPropagation(); inputEl.blur(); 
-                if (buttonEl.classList.contains('listening')) { recognition.stop(); } 
-                else { try { recognition.start(); } catch(err) {} } 
-            };
-            buttonEl.addEventListener('click', triggerAction);
-
-            recognition.onstart = () => { buttonEl.classList.add('listening'); inputEl.value = ""; inputEl.placeholder = "Listening..."; };
-            recognition.onresult = (event) => {
-                inputEl.value = event.results[0][0].transcript.replace(/[.\s]+$/g, ''); 
-                if (inputEl.id === 'username') localStorage.setItem('rider_saved_name', inputEl.value);
-                
-                if (autoSubmit) { 
-                    sendGroupMessage(); 
-                } else { 
-                    broadcastCurrentState(); 
-                }
-            };
-            recognition.onerror = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); };
-            recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); closeKeyboardAndSnapWindow(inputEl); };
-        }
-
-        // NEW INTERCEPTORS: Detect live adjustments to text fields while sharing and instantly re-run state broadcasts
-        usernameInput.addEventListener('input', () => { 
-            usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); 
-            localStorage.setItem('rider_saved_name', usernameInput.value.trim()); 
-            broadcastCurrentState(); // Realtime push to map labels while riding
+        document.getElementById('chatToggleBtn').addEventListener('click', () => {
+            document.getElementById('chatOverlay').classList.add('open');
+            fetchRecentChats();
         });
-        destinationInput.addEventListener('input', broadcastCurrentState);
-
-        function resetPlaceholder(inputEl) {
-            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
-            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
-            else inputEl.placeholder = "Type a message...";
-        }
-
-        // 9. WAKE LOCK
-        async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
-        function releaseWakeLock() { if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); } }
-
-        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
     </script>
 </body>
 </html>
