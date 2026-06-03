@@ -31,40 +31,61 @@
             height: 100%;
             z-index: 1;
         }
+
+        /* NEW: Beautiful cursive header floating at the absolute top center */
+        #appHeader {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            font-family: "Brush Script MT", "Comic Sans MS", cursive;
+            font-size: 34px;
+            color: #1e4620; /* Dark Green text color match */
+            text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
+            font-weight: bold;
+            letter-spacing: 1px;
+            pointer-events: none; /* Allows clicks to pass right through the text to the map */
+            white-space: nowrap;
+        }
         
+        /* UPDATED: Bigger, wider left control hub bar */
         #controls {
             position: absolute;
             bottom: 20px;
-            left: 15px; /* Pushed slightly left to accommodate the right side chat floating button */
+            left: 15px;
             z-index: 10;
-            background: #e2f0d9; /* Light Green panel wrapper */
-            padding: 12px;
-            border-radius: 16px;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            background: #e2f0d9; /* Light Green wrapper container */
+            padding: 16px; /* Expanded padding */
+            border-radius: 18px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.35);
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            width: 65%; /* Adjusted size to share the bottom row space perfectly */
-            max-width: 280px;
+            gap: 12px;
+            width: 72%; /* Wider alignment box wrapper */
+            max-width: 340px;
             box-sizing: border-box;
         }
         
+        /* Layout container wrapping inputs next to their respective mic targets */
         .control-row {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 10px; /* Comfortable breathing space */
             width: 100%;
         }
         
+        /* UPDATED: Larger dark green inputs with 16px crisp white font */
         .control-row input {
             flex: 1;
-            padding: 10px;
+            padding: 12px; /* Taller text fields */
             border-radius: 8px;
             border: 2px solid #2d6a30;
-            background-color: #1e4620; /* Dark Forest Green input */
+            background-color: #1e4620;
             color: #ffffff;
-            font-size: 14px;
+            font-size: 16px; /* Scaled up font */
             box-sizing: border-box;
+            font-weight: 500;
         }
         
         .control-row input::placeholder {
@@ -72,9 +93,10 @@
             font-style: italic;
         }
         
+        /* UPDATED: Slightly heavier microphone action targets */
         .mic-btn {
-            width: 38px;
-            height: 38px;
+            width: 44px;
+            height: 44px;
             background-color: #2d6a30;
             border: none;
             border-radius: 50%;
@@ -82,88 +104,91 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.25);
             flex-shrink: 0;
             transition: background-color 0.2s ease, transform 0.1s ease;
             -webkit-tap-highlight-color: transparent;
         }
         
         .mic-btn:active { transform: scale(0.92); }
-        .mic-btn svg { width: 18px; height: 18px; fill: #ffffff; pointer-events: none; }
+        .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
         .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
+        /* UPDATED: Enhanced larger Main activation button */
         #startBtn {
-            padding: 10px;
+            padding: 12px;
             border-radius: 8px;
             border: none;
-            font-size: 14px;
+            font-size: 16px; /* Scaled up button text */
             background-color: #2d6a30;
             color: white;
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.2s ease;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+            box-shadow: 0 3px 8px rgba(0,0,0,0.2);
         }
         #startBtn.sharing-active { background-color: #dc3545; }
 
-        /* NEW CHAT TOGGLE BUTTON (Lower Right Corner) */
+        /* UPDATED: Elevated right chat anchor button centering with the left panel bar */
         #chatToggleBtn {
             position: absolute;
-            bottom: 20px;
+            bottom: 54px; /* Lifted higher to vertically align with the center of left bar */
             right: 15px;
             z-index: 11;
-            width: 55px;
-            height: 55px;
-            background-color: #1e4620; /* Matching Dark Green style */
+            width: 60px; /* Slightly larger circle canvas */
+            height: 60px;
+            background-color: #1e4620;
             border: 3px solid #e2f0d9;
             border-radius: 50%;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.41);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: transform 0.1s ease;
         }
-        #chatToggleBtn svg { width: 26px; height: 26px; fill: #ffffff; }
+        #chatToggleBtn:active { transform: scale(0.92); }
+        #chatToggleBtn svg { width: 28px; height: 28px; fill: #ffffff; }
         
-        /* Message counter badge */
         #chatBadge {
             position: absolute;
-            top: -2px;
-            right: -2px;
-            background-color: #dc3545; /* Notification Red */
+            top: -3px;
+            right: -3px;
+            background-color: #dc3545;
             color: white;
             border-radius: 50%;
-            padding: 3px 7px;
-            font-size: 11px;
+            padding: 4px 8px;
+            font-size: 12px;
             font-weight: bold;
-            display: none; /* Invisible until an unread message drops in */
+            display: none;
             border: 2px solid white;
         }
 
-        /* LIVE CHAT BOX OVERLAY INTERFACE */
+        /* LIVE CHAT DRAWER LAYOUT OVERLAY */
         #chatOverlay {
             position: absolute;
             top: 0;
-            right: -100%; /* Invisible slider canvas position */
+            right: -100%;
             width: 100%;
-            max-width: 320px;
+            max-width: 340px;
             height: 100%;
             background-color: #ffffff;
             z-index: 20;
-            box-shadow: -4px 0 15px rgba(0,0,0,0.2);
+            box-shadow: -4px 0 20px rgba(0,0,0,0.25);
             display: flex;
             flex-direction: column;
             transition: right 0.3s ease-in-out;
         }
         #chatOverlay.open {
-            right: 0; /* Slides open into main sightline */
+            right: 0;
         }
         
         #chatHeader {
             background-color: #1e4620;
             color: white;
-            padding: 15px;
+            padding: 16px;
             font-weight: bold;
+            font-size: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -172,51 +197,51 @@
             background: none;
             border: none;
             color: white;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
         }
         
         #chatMessages {
             flex: 1;
-            padding: 15px;
+            padding: 16px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
             background-color: #f4f7f4;
         }
         
         .msg-bubble {
             background-color: #e2f0d9;
-            padding: 10px;
-            border-radius: 10px;
+            padding: 12px;
+            border-radius: 12px;
             max-width: 85%;
             align-self: flex-start;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
         .msg-bubble.is-me {
             background-color: #1e4620;
             color: white;
             align-self: flex-end;
         }
-        .msg-user { font-size: 11px; font-weight: bold; color: #2d6a30; margin-bottom: 3px; }
+        .msg-user { font-size: 12px; font-weight: bold; color: #2d6a30; margin-bottom: 4px; }
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
-        .msg-text { font-size: 13px; word-break: break-word; }
+        .msg-text { font-size: 14px; word-break: break-word; }
         
         #chatInputArea {
-            padding: 10px;
+            padding: 12px;
             background-color: #ffffff;
             border-top: 1px solid #ddd;
             display: flex;
-            gap: 6px;
+            gap: 8px;
             align-items: center;
         }
         #chatInputArea input {
             flex: 1;
-            padding: 10px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             border: 1px solid #ccc;
-            font-size: 14px;
+            font-size: 15px;
         }
 
         @keyframes pulse {
@@ -227,6 +252,8 @@
     </style>
 </head>
 <body>
+
+    <div id="appHeader">Buddy Finder</div>
 
     <div id="map"></div>
 
@@ -289,7 +316,7 @@
         let wakeLock = null;
         const riders = {}; 
 
-        // DOM nodes
+        // Bind control layout components
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -321,12 +348,10 @@
                     updateRiderMarker(user, dest, lat, lng);
                 }
             })
-            // NEW LISTENER: Listen for text messages sent across the room
             .on('broadcast', { event: 'chat-message' }, (payload) => {
                 const { user, message } = payload.payload;
                 appendMessage(user, message, false);
                 
-                // Trigger the badge ticker if the panel is currently hidden
                 if (!isChatOpen) {
                     unreadCount++;
                     chatBadge.innerText = unreadCount;
@@ -335,7 +360,7 @@
             })
             .subscribe();
 
-        // 5. TRACKING ENGINE CONTROLLER
+        // 5. TOGGLE BUTTON & TRACKING LOGIC
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
                 if (!usernameInput.value.trim()) { alert("Please enter a name so others know who you are!"); return; }
@@ -391,11 +416,11 @@
             }
         }
 
-        // 6. LIVE CHAT PANEL TOGGLES & SEND MECHANISMS
+        // 6. CHAT PANEL CONTROLLERS
         chatToggleBtn.addEventListener('click', () => {
             isChatOpen = true;
             unreadCount = 0;
-            chatBadge.style.display = 'none'; // Clear the counter badge
+            chatBadge.style.display = 'none';
             chatOverlay.classList.add('open');
         });
 
@@ -405,9 +430,7 @@
         });
 
         chatMsgInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                sendGroupMessage();
-            }
+            if (e.key === 'Enter') { sendGroupMessage(); }
         });
 
         function sendGroupMessage() {
@@ -415,14 +438,11 @@
             if (!rawMessage) return;
             const author = usernameInput.value.trim() || "Anonymous";
             
-            // Append locally as "Me" bubble
             appendMessage(author, rawMessage, true);
             chatMsgInput.value = "";
 
-            // Transmit to everyone else in the session channel
             channel.send({
-                type: 'broadcast',
-                event: 'chat-message',
+                type: 'broadcast', event: 'chat-message',
                 payload: { user: author, message: rawMessage }
             });
         }
@@ -432,15 +452,15 @@
             wrapper.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
             wrapper.innerHTML = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
             chatMessages.appendChild(wrapper);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scolls down to see new messages
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 7. VOICE RECOGNITION INFRASTRUCTURE
+        // 7. HANDSFREE DICTATION AUDIO CONVERTERS
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
             setupVoiceInput(destinationMic, destinationInput);
-            setupVoiceInput(chatMic, chatMsgInput, true); // True tells it to hit the send script instantly
+            setupVoiceInput(chatMic, chatMsgInput, true);
         } else {
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
@@ -457,11 +477,8 @@
                 inputEl.value = event.results[0][0].transcript.replace(/[.\s]+$/g, ''); 
                 if (inputEl.id === 'username') localStorage.setItem('rider_saved_name', inputEl.value);
                 
-                if (autoSubmit) {
-                    sendGroupMessage(); // Automatically shoots text off to chat room after speaking
-                } else {
-                    broadcastCurrentState();
-                }
+                if (autoSubmit) { sendGroupMessage(); } 
+                else { broadcastCurrentState(); }
             };
             recognition.onerror = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); };
             recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); inputEl.blur(); };
@@ -480,7 +497,7 @@
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
         function releaseWakeLock() { if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); } }
 
-        // PWA Deployer
+        // Core execution registration loop
         if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
     </script>
 </body>
