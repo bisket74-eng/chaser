@@ -32,7 +32,7 @@
             z-index: 1;
         }
 
-        /* NEW: Beautiful cursive header floating at the absolute top center */
+        /* UPDATED: Significantly larger floating cursive header */
         #appHeader {
             position: absolute;
             top: 25px;
@@ -40,50 +40,51 @@
             transform: translateX(-50%);
             z-index: 10;
             font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 34px;
-            color: #1e4620; /* Dark Green text color match */
+            font-size: 46px; /* Scaled up bigger */
+            color: #1e4620; 
             text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
             letter-spacing: 1px;
-            pointer-events: none; /* Allows clicks to pass right through the text to the map */
+            pointer-events: none; 
             white-space: nowrap;
         }
         
-        /* UPDATED: Bigger, wider left control hub bar */
+        /* UPDATED: Structured control container layout */
         #controls {
             position: absolute;
             bottom: 20px;
             left: 15px;
             z-index: 10;
-            background: #e2f0d9; /* Light Green wrapper container */
-            padding: 16px; /* Expanded padding */
+            background: #e2f0d9; 
+            padding: 16px; 
             border-radius: 18px;
             box-shadow: 0 8px 25px rgba(0,0,0,0.35);
             display: flex;
             flex-direction: column;
             gap: 12px;
-            width: 72%; /* Wider alignment box wrapper */
+            width: 74%; 
             max-width: 340px;
             box-sizing: border-box;
         }
         
-        /* Layout container wrapping inputs next to their respective mic targets */
         .control-row {
             display: flex;
             align-items: center;
-            gap: 10px; /* Comfortable breathing space */
+            justify-content: space-between; /* Pushes input and mic to opposite sides neatly */
             width: 100%;
+            gap: 8px;
         }
         
-        /* UPDATED: Larger dark green inputs with 16px crisp white font */
+        /* UPDATED: Shortened input boxes so they never push the mic off the background */
         .control-row input {
             flex: 1;
-            padding: 12px; /* Taller text fields */
+            max-width: 200px; /* Constrained width fix */
+            padding: 12px; 
             border-radius: 8px;
             border: 2px solid #2d6a30;
             background-color: #1e4620;
             color: #ffffff;
-            font-size: 16px; /* Scaled up font */
+            font-size: 16px; 
             box-sizing: border-box;
             font-weight: 500;
         }
@@ -93,7 +94,6 @@
             font-style: italic;
         }
         
-        /* UPDATED: Slightly heavier microphone action targets */
         .mic-btn {
             width: 44px;
             height: 44px;
@@ -105,7 +105,7 @@
             align-items: center;
             justify-content: center;
             box-shadow: 0 3px 8px rgba(0,0,0,0.25);
-            flex-shrink: 0;
+            flex-shrink: 0; 
             transition: background-color 0.2s ease, transform 0.1s ease;
             -webkit-tap-highlight-color: transparent;
         }
@@ -114,28 +114,29 @@
         .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
         .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
-        /* UPDATED: Enhanced larger Main activation button */
         #startBtn {
             padding: 12px;
             border-radius: 8px;
             border: none;
-            font-size: 16px; /* Scaled up button text */
+            font-size: 16px; 
             background-color: #2d6a30;
             color: white;
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.2s ease;
             box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+            width: 100%;
+            box-sizing: border-box;
         }
         #startBtn.sharing-active { background-color: #dc3545; }
 
-        /* UPDATED: Elevated right chat anchor button centering with the left panel bar */
+        /* Centered right chat button setup */
         #chatToggleBtn {
             position: absolute;
-            bottom: 54px; /* Lifted higher to vertically align with the center of left bar */
+            bottom: 54px; 
             right: 15px;
             z-index: 11;
-            width: 60px; /* Slightly larger circle canvas */
+            width: 60px; 
             height: 60px;
             background-color: #1e4620;
             border: 3px solid #e2f0d9;
@@ -164,7 +165,7 @@
             border: 2px solid white;
         }
 
-        /* LIVE CHAT DRAWER LAYOUT OVERLAY */
+        /* Chat drawer layer */
         #chatOverlay {
             position: absolute;
             top: 0;
@@ -212,8 +213,9 @@
         }
         
         .msg-bubble {
+            position: relative; /* Context parent container for the absolute delete button placement */
             background-color: #e2f0d9;
-            padding: 12px;
+            padding: 12px 28px 12px 12px; /* Extra padding right so text never collides with the X button */
             border-radius: 12px;
             max-width: 85%;
             align-self: flex-start;
@@ -227,6 +229,25 @@
         .msg-user { font-size: 12px; font-weight: bold; color: #2d6a30; margin-bottom: 4px; }
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
         .msg-text { font-size: 14px; word-break: break-word; }
+        
+        /* NEW: The message removal layout trigger button */
+        .msg-delete-btn {
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #a3cfbb;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            line-height: 1;
+        }
+        .msg-delete-btn:hover {
+            color: #ffffff;
+        }
         
         #chatInputArea {
             padding: 12px;
@@ -349,13 +370,21 @@
                 }
             })
             .on('broadcast', { event: 'chat-message' }, (payload) => {
-                const { user, message } = payload.payload;
-                appendMessage(user, message, false);
+                const { msgId, user, message } = payload.payload;
+                appendMessage(msgId, user, message, false);
                 
                 if (!isChatOpen) {
                     unreadCount++;
                     chatBadge.innerText = unreadCount;
                     chatBadge.style.display = 'block';
+                }
+            })
+            // NEW LISTENER: Checks for a message deletion call and clears it from screen layout
+            .on('broadcast', { event: 'delete-message' }, (payload) => {
+                const { msgId } = payload.payload;
+                const targetedBubble = document.getElementById(msgId);
+                if (targetedBubble) {
+                    targetedBubble.remove();
                 }
             })
             .subscribe();
@@ -438,21 +467,50 @@
             if (!rawMessage) return;
             const author = usernameInput.value.trim() || "Anonymous";
             
-            appendMessage(author, rawMessage, true);
+            // Generate a completely random ID string for this specific message block
+            const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+            
+            // Append locally as "Me" bubble
+            appendMessage(uniqueMsgId, author, rawMessage, true);
             chatMsgInput.value = "";
 
             channel.send({
                 type: 'broadcast', event: 'chat-message',
-                payload: { user: author, message: rawMessage }
+                payload: { msgId: uniqueMsgId, user: author, message: rawMessage }
             });
         }
 
-        function appendMessage(user, msg, isMe) {
+        // UPDATED: Inserts a deletion option if the message belongs to you
+        function appendMessage(id, user, msg, isMe) {
             const wrapper = document.createElement('div');
             wrapper.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
-            wrapper.innerHTML = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
+            wrapper.id = id; // Set the tracking ID directly to the HTML tag
+            
+            let htmlContent = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
+            
+            if (isMe) {
+                // Insert the absolute X deletion button markup
+                htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}')">✕</button>`;
+            }
+            
+            wrapper.innerHTML = htmlContent;
             chatMessages.appendChild(wrapper);
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // NEW LOGIC: Clears local UI node and fires a broadcast order to wipe it everywhere else
+        function requestMessageDeletion(id) {
+            const localBubble = document.getElementById(id);
+            if (localBubble) {
+                localBubble.remove();
+                
+                // Broadcast the deletion order payload over Supabase
+                channel.send({
+                    type: 'broadcast',
+                    event: 'delete-message',
+                    payload: { msgId: id }
+                });
+            }
         }
 
         // 7. HANDSFREE DICTATION AUDIO CONVERTERS
@@ -484,7 +542,7 @@
             recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); inputEl.blur(); };
         }
 
-        usernameInput.addEventListener('input', () => { localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
+        usernameInput.addEventListener('input', () => { usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
         destinationInput.addEventListener('input', broadcastCurrentState);
 
         function resetPlaceholder(inputEl) {
@@ -497,7 +555,6 @@
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
         function releaseWakeLock() { if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); } }
 
-        // Core execution registration loop
         if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
     </script>
 </body>
