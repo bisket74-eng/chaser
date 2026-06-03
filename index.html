@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Group Ride Tracker</title>
+    
+    <meta name="theme-color" content="#1e4620" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
     <link rel="manifest" href="./manifest.json" />
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -28,101 +32,191 @@
             z-index: 1;
         }
         
-        /* UPDATED: Stretched out wide bar layout with Light Green background */
         #controls {
             position: absolute;
             bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 15px; /* Pushed slightly left to accommodate the right side chat floating button */
             z-index: 10;
-            background: #e2f0d9; /* Light Green */
-            padding: 15px;
+            background: #e2f0d9; /* Light Green panel wrapper */
+            padding: 12px;
             border-radius: 16px;
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            width: 90%; /* Stretched wider across the screen */
-            max-width: 400px; /* Generous desktop/tablet cap */
+            gap: 10px;
+            width: 65%; /* Adjusted size to share the bottom row space perfectly */
+            max-width: 280px;
             box-sizing: border-box;
         }
         
-        /* Layout row splitting the text field from its standalone mic button */
         .control-row {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
             width: 100%;
         }
         
-        /* UPDATED: Inputs are now Dark Green with White Font */
         .control-row input {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             border: 2px solid #2d6a30;
-            background-color: #1e4620; /* Dark Green background */
-            color: #ffffff; /* White text */
-            font-size: 15px;
+            background-color: #1e4620; /* Dark Forest Green input */
+            color: #ffffff;
+            font-size: 14px;
             box-sizing: border-box;
-            font-weight: 500;
         }
         
-        /* Light green text styling for the field placeholders */
         .control-row input::placeholder {
             color: #a3cfbb; 
             font-style: italic;
         }
         
-        /* UPDATED: Prominent, easy-to-tap standalone microphone buttons */
         .mic-btn {
-            width: 45px; /* Significantly larger target area for easy tapping */
-            height: 45px;
-            background-color: #2d6a30; /* Dark green theme match */
+            width: 38px;
+            height: 38px;
+            background-color: #2d6a30;
             border: none;
-            border-radius: 50%; /* Perfect circle */
+            border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-            flex-shrink: 0; /* Prevents button from squeezing on tiny screens */
+            flex-shrink: 0;
             transition: background-color 0.2s ease, transform 0.1s ease;
-            -webkit-tap-highlight-color: transparent; /* Removes flashing on mobile tap */
+            -webkit-tap-highlight-color: transparent;
         }
         
-        .mic-btn active {
-            transform: scale(0.92); /* Squishes slightly when pushed down so you feel it */
-        }
-        
-        .mic-btn svg {
-            width: 22px;
-            height: 22px;
-            fill: #ffffff; /* Crisp white icon */
-            pointer-events: none; /* CRITICAL FIX: Stops the click passing through to the keyboard */
-        }
-        
-        /* Glow active color when recording */
-        .mic-btn.listening {
-            background-color: #dc3545 !important; /* Forces bright red status */
-            animation: pulse 1.5s infinite;
-        }
+        .mic-btn:active { transform: scale(0.92); }
+        .mic-btn svg { width: 18px; height: 18px; fill: #ffffff; pointer-events: none; }
+        .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
         #startBtn {
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             border: none;
-            font-size: 16px;
-            background-color: #2d6a30; /* Dark Green match */
+            font-size: 14px;
+            background-color: #2d6a30;
             color: white;
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.2s ease;
-            margin-top: 4px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
-        #startBtn.sharing-active {
-            background-color: #dc3545; /* Dark Red Stop tracking button */
+        #startBtn.sharing-active { background-color: #dc3545; }
+
+        /* NEW CHAT TOGGLE BUTTON (Lower Right Corner) */
+        #chatToggleBtn {
+            position: absolute;
+            bottom: 20px;
+            right: 15px;
+            z-index: 11;
+            width: 55px;
+            height: 55px;
+            background-color: #1e4620; /* Matching Dark Green style */
+            border: 3px solid #e2f0d9;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #chatToggleBtn svg { width: 26px; height: 26px; fill: #ffffff; }
+        
+        /* Message counter badge */
+        #chatBadge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background-color: #dc3545; /* Notification Red */
+            color: white;
+            border-radius: 50%;
+            padding: 3px 7px;
+            font-size: 11px;
+            font-weight: bold;
+            display: none; /* Invisible until an unread message drops in */
+            border: 2px solid white;
+        }
+
+        /* LIVE CHAT BOX OVERLAY INTERFACE */
+        #chatOverlay {
+            position: absolute;
+            top: 0;
+            right: -100%; /* Invisible slider canvas position */
+            width: 100%;
+            max-width: 320px;
+            height: 100%;
+            background-color: #ffffff;
+            z-index: 20;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s ease-in-out;
+        }
+        #chatOverlay.open {
+            right: 0; /* Slides open into main sightline */
+        }
+        
+        #chatHeader {
+            background-color: #1e4620;
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #closeChatBtn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        #chatMessages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background-color: #f4f7f4;
+        }
+        
+        .msg-bubble {
+            background-color: #e2f0d9;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 85%;
+            align-self: flex-start;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .msg-bubble.is-me {
+            background-color: #1e4620;
+            color: white;
+            align-self: flex-end;
+        }
+        .msg-user { font-size: 11px; font-weight: bold; color: #2d6a30; margin-bottom: 3px; }
+        .msg-bubble.is-me .msg-user { color: #a3cfbb; }
+        .msg-text { font-size: 13px; word-break: break-word; }
+        
+        #chatInputArea {
+            padding: 10px;
+            background-color: #ffffff;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        #chatInputArea input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
         }
 
         @keyframes pulse {
@@ -154,6 +248,25 @@
         <button id="startBtn">Start Sharing Location</button>
     </div>
 
+    <button id="chatToggleBtn" type="button" title="Open Group Chat">
+        <div id="chatBadge">0</div>
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+    </button>
+
+    <div id="chatOverlay">
+        <div id="chatHeader">
+            <span>Group Chat Room</span>
+            <button id="closeChatBtn" type="button">✕</button>
+        </div>
+        <div id="chatMessages"></div>
+        <div id="chatInputArea">
+            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" />
+            <button class="mic-btn" id="chatMic" type="button" title="Speak message">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
@@ -166,32 +279,33 @@
 
         // 2. INITIALIZE THE MAP
         const map = L.map('map').setView([0, 0], 2);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
         // 3. APP STATE
         let watchId = null;
-        let lastLat = 0;
-        let lastLng = 0;
-        let isSharing = false; 
+        let lastLat = 0, lastLng = 0;
+        let isSharing = false, isChatOpen = false; 
+        let unreadCount = 0;
         let wakeLock = null;
         const riders = {}; 
 
-        // DOM elements
+        // DOM nodes
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
         const usernameMic = document.getElementById('usernameMic');
         const destinationMic = document.getElementById('destinationMic');
+        
+        const chatToggleBtn = document.getElementById('chatToggleBtn');
+        const chatOverlay = document.getElementById('chatOverlay');
+        const closeChatBtn = document.getElementById('closeChatBtn');
+        const chatMessages = document.getElementById('chatMessages');
+        const chatMsgInput = document.getElementById('chatMsgInput');
+        const chatMic = document.getElementById('chatMic');
+        const chatBadge = document.getElementById('chatBadge');
 
-        // Check local memory for previously saved name
         const savedName = localStorage.getItem('rider_saved_name');
-        if (savedName) {
-            usernameInput.value = savedName;
-        }
+        if (savedName) usernameInput.value = savedName;
 
         // 4. JOIN THE REAL-TIME CHANNEL
         const channel = supabaseClient.channel('ride-room', {
@@ -201,85 +315,54 @@
         channel
             .on('broadcast', { event: 'location-update' }, (payload) => {
                 const { user, dest, lat, lng, status } = payload.payload;
-                
                 if (status === 'offline') {
-                    if (riders[user]) {
-                        map.removeLayer(riders[user]);
-                        delete riders[user];
-                    }
+                    if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; }
                 } else {
                     updateRiderMarker(user, dest, lat, lng);
                 }
             })
+            // NEW LISTENER: Listen for text messages sent across the room
+            .on('broadcast', { event: 'chat-message' }, (payload) => {
+                const { user, message } = payload.payload;
+                appendMessage(user, message, false);
+                
+                // Trigger the badge ticker if the panel is currently hidden
+                if (!isChatOpen) {
+                    unreadCount++;
+                    chatBadge.innerText = unreadCount;
+                    chatBadge.style.display = 'block';
+                }
+            })
             .subscribe();
 
-        // 5. TOGGLE BUTTON & TRACKING LOGIC
+        // 5. TRACKING ENGINE CONTROLLER
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
-                // START SHARING MODE
-                if (!usernameInput.value.trim()) {
-                    alert("Please enter a name so others know who you are!");
-                    return;
-                }
-                
+                if (!usernameInput.value.trim()) { alert("Please enter a name so others know who you are!"); return; }
                 localStorage.setItem('rider_saved_name', usernameInput.value.trim());
-                
                 isSharing = true;
                 startBtn.innerText = "Stop Sharing Location";
                 startBtn.classList.add('sharing-active');
 
                 if ("geolocation" in navigator) {
-                    watchId = navigator.geolocation.watchPosition(
-                        (position) => {
-                            lastLat = position.coords.latitude;
-                            lastLng = position.coords.longitude;
-                            
-                            if (Object.keys(riders).length === 0) {
-                                map.setView([lastLat, lastLng], 15);
-                            }
-
-                            broadcastCurrentState();
-                        },
-                        (error) => {
-                            console.error("Error getting location: ", error);
-                            alert("Could not access your location. Ensure location services are enabled.");
-                            stopSharingLocation(); 
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            maximumAge: 0,
-                            timeout: 5000
-                        }
-                    );
-                    
+                    watchId = navigator.geolocation.watchPosition((position) => {
+                        lastLat = position.coords.latitude; lastLng = position.coords.longitude;
+                        if (Object.keys(riders).length === 0) map.setView([lastLat, lastLng], 15);
+                        broadcastCurrentState();
+                    }, () => { stopSharingLocation(); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
                     requestWakeLock();
-                } else {
-                    alert("Your browser doesn't support geolocation.");
-                    stopSharingLocation();
-                }
-            } else {
-                stopSharingLocation();
-            }
+                } else { stopSharingLocation(); }
+            } else { stopSharingLocation(); }
         });
 
         function broadcastCurrentState() {
             if (!isSharing || lastLat === 0 || lastLng === 0) return;
-
             const currentUser = usernameInput.value.trim() || "Anonymous";
             const currentDest = destinationInput.value.trim();
-
             updateRiderMarker(`${currentUser} (You)`, currentDest, lastLat, lastLng);
-
             channel.send({
-                type: 'broadcast',
-                event: 'location-update',
-                payload: { 
-                    user: currentUser, 
-                    dest: currentDest, 
-                    lat: lastLat, 
-                    lng: lastLng, 
-                    status: 'online' 
-                }
+                type: 'broadcast', event: 'location-update',
+                payload: { user: currentUser, dest: currentDest, lat: lastLat, lng: lastLng, status: 'online' }
             });
         }
 
@@ -288,152 +371,117 @@
             destinationInput.value = "";
             startBtn.innerText = "Start Sharing Location";
             startBtn.classList.remove('sharing-active');
-
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
-                watchId = null;
-            }
-
+            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             channel.send({
-                type: 'broadcast',
-                event: 'location-update',
+                type: 'broadcast', event: 'location-update',
                 payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' }
             });
-
-            Object.keys(riders).forEach(key => {
-                if (key.includes('(You)')) {
-                    map.removeLayer(riders[key]);
-                    delete riders[key];
-                }
-            });
-
-            lastLat = 0;
-            lastLng = 0;
+            Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
+            lastLat = 0; lastLng = 0;
             releaseWakeLock();
         }
 
-        // 6. UPDATE OR CREATE MARKERS ON THE MAP
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
-            if (dest) {
-                popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
-            }
-
+            if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
             if (riders[user]) {
-                riders[user].setLatLng([lat, lng]);
-                riders[user].setPopupContent(popupContent);
+                riders[user].setLatLng([lat, lng]); riders[user].setPopupContent(popupContent);
             } else {
-                const marker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup(popupContent)
-                    .openPopup();
-                riders[user] = marker;
+                riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent).openPopup();
             }
         }
 
-        // 7. HANDSFREE VOICE SPEECH DICTATION (UPGRADED WITH KEYBOARD BLOCKER)
+        // 6. LIVE CHAT PANEL TOGGLES & SEND MECHANISMS
+        chatToggleBtn.addEventListener('click', () => {
+            isChatOpen = true;
+            unreadCount = 0;
+            chatBadge.style.display = 'none'; // Clear the counter badge
+            chatOverlay.classList.add('open');
+        });
+
+        closeChatBtn.addEventListener('click', () => {
+            isChatOpen = false;
+            chatOverlay.classList.remove('open');
+        });
+
+        chatMsgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                sendGroupMessage();
+            }
+        });
+
+        function sendGroupMessage() {
+            const rawMessage = chatMsgInput.value.trim();
+            if (!rawMessage) return;
+            const author = usernameInput.value.trim() || "Anonymous";
+            
+            // Append locally as "Me" bubble
+            appendMessage(author, rawMessage, true);
+            chatMsgInput.value = "";
+
+            // Transmit to everyone else in the session channel
+            channel.send({
+                type: 'broadcast',
+                event: 'chat-message',
+                payload: { user: author, message: rawMessage }
+            });
+        }
+
+        function appendMessage(user, msg, isMe) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
+            wrapper.innerHTML = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
+            chatMessages.appendChild(wrapper);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scolls down to see new messages
+        }
+
+        // 7. VOICE RECOGNITION INFRASTRUCTURE
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
             setupVoiceInput(destinationMic, destinationInput);
+            setupVoiceInput(chatMic, chatMsgInput, true); // True tells it to hit the send script instantly
         } else {
-            usernameMic.style.display = 'none';
-            destinationMic.style.display = 'none';
-            console.warn("Speech recognition engine is not supported on this browser device.");
+            usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        function setupVoiceInput(buttonEl, inputEl) {
+        function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
             const recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
+            recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
 
-            // Use 'touchstart' and 'click' overrides to prevent native element focusing mechanics
-            const triggerAction = (e) => {
-                e.preventDefault(); // STOPS KEYBOARD EVENT
-                e.stopPropagation();
-                
-                if (buttonEl.classList.contains('listening')) {
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
-            };
-
+            const triggerAction = (e) => { e.preventDefault(); e.stopPropagation(); if (buttonEl.classList.contains('listening')) { recognition.stop(); } else { recognition.start(); } };
             buttonEl.addEventListener('click', triggerAction);
 
-            recognition.onstart = () => {
-                buttonEl.classList.add('listening');
-                inputEl.value = ""; // Clear existing text on fresh dictation push
-                inputEl.placeholder = "Listening...";
-            };
-
+            recognition.onstart = () => { buttonEl.classList.add('listening'); inputEl.value = ""; inputEl.placeholder = "Listening..."; };
             recognition.onresult = (event) => {
-                const speechToText = event.results[0][0].transcript;
-                inputEl.value = speechToText.replace(/[.\s]+$/g, ''); 
+                inputEl.value = event.results[0][0].transcript.replace(/[.\s]+$/g, ''); 
+                if (inputEl.id === 'username') localStorage.setItem('rider_saved_name', inputEl.value);
                 
-                if (inputEl.id === 'username') {
-                    localStorage.setItem('rider_saved_name', inputEl.value);
+                if (autoSubmit) {
+                    sendGroupMessage(); // Automatically shoots text off to chat room after speaking
+                } else {
+                    broadcastCurrentState();
                 }
-
-                broadcastCurrentState();
             };
-
-            recognition.onerror = (event) => {
-                console.error("Speech Recognition Error: ", event.error);
-                buttonEl.classList.remove('listening');
-                resetPlaceholder(inputEl);
-            };
-
-            recognition.onend = () => {
-                buttonEl.classList.remove('listening');
-                resetPlaceholder(inputEl);
-                inputEl.blur(); // Explicitly forces the phone viewport to close input focus boundaries
-            };
+            recognition.onerror = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); };
+            recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); inputEl.blur(); };
         }
 
-        // Live typing synchronization 
-        usernameInput.addEventListener('input', () => {
-            localStorage.setItem('rider_saved_name', usernameInput.value.trim());
-            broadcastCurrentState();
-        });
+        usernameInput.addEventListener('input', () => { localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
         destinationInput.addEventListener('input', broadcastCurrentState);
 
         function resetPlaceholder(inputEl) {
-            if (inputEl.id === 'username') {
-                inputEl.placeholder = "Enter your name";
-            } else {
-                inputEl.placeholder = "Destination (optional)";
-            }
+            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
+            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
+            else inputEl.placeholder = "Type a message...";
         }
 
-        // 8. WAKE LOCK MANAGEMENT
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.warn(`Wake Lock failed: ${err.message}`);
-                }
-            }
-        }
+        // 8. WAKE LOCK
+        async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
+        function releaseWakeLock() { if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); } }
 
-        function releaseWakeLock() {
-            if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                });
-            }
-        }
-
-        // PWA Service Worker Core
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('PWA Service Worker online!'))
-                    .catch(err => console.error('PWA Worker initialization failed:', err));
-            });
-        }
+        // PWA Deployer
+        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js'); }); }
     </script>
 </body>
 </html>
