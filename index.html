@@ -158,7 +158,6 @@
         const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
         
-        // UPDATED: Swapped the messy OpenStreetMap for the clean, uncluttered Carto Voyager map style!
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
             maxZoom: 19,
             attribution: '&copy; CartoDB'
@@ -404,10 +403,24 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
+        // FIXED: Hard drops focus on everything to absolutely kill the :focus-within CSS block
         const closeKeyboardAndSnapWindow = (inputEl, event = null) => {
             if (event) { event.preventDefault(); event.stopPropagation(); }
-            inputEl.blur(); if (document.activeElement) document.activeElement.blur(); 
-            setTimeout(() => { window.scrollTo(0, 0); document.body.scrollTop = 0; if (map) map.invalidateSize(); }, 80);
+            
+            // Aggressively strip focus from all specific inputs to break the :focus-within lock
+            usernameInput.blur();
+            destinationInput.blur();
+            chatMsgInput.blur();
+            
+            if (document.activeElement) document.activeElement.blur(); 
+            
+            setTimeout(() => { 
+                // A secondary blur just in case the browser tried to auto-jump at the last millisecond
+                if (document.activeElement) document.activeElement.blur();
+                window.scrollTo(0, 0); 
+                document.body.scrollTop = 0; 
+                if (map) map.invalidateSize(); 
+            }, 80);
         };
 
         const enforceKeyboardDrop = (e, targetInput) => {
