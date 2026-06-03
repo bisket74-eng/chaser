@@ -12,13 +12,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        /* UPDATED: Fixed viewport lock and dark green background to eliminate the white keyboard flash */
         html, body {
             padding: 0;
             margin: 0;
             width: 100%;
-            height: 100%; /* Fallback */
-            height: 100dvh; /* Dynamic Viewport Height blocks mobile resize gaps */
+            height: 100%; 
+            height: 100dvh; 
             background-color: #1e4620; 
             overflow: hidden;
             font-family: Arial, sans-serif;
@@ -81,6 +80,7 @@
             background-color: #cbdcc3;
         }
         
+        /* UPDATED: Added a smooth slide transition and a focus-within lift trigger */
         #controls {
             position: absolute;
             bottom: 20px;
@@ -96,6 +96,12 @@
             width: 74%; 
             max-width: 340px;
             box-sizing: border-box;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* The magic trick: lifts the entire card 95 pixels when you tap a text box */
+        #controls:focus-within {
+            transform: translateY(-95px);
         }
         
         .control-row {
@@ -406,7 +412,6 @@
             let touchEndX = e.changedTouches[0].screenX;
             let touchEndY = e.changedTouches[0].screenY;
             
-            // Requires a clean swipe to the right, ignoring up/down scrolling
             if (touchEndX - touchStartX > 60 && Math.abs(touchEndY - touchStartY) < 40) {
                 isChatOpen = false;
                 chatOverlay.classList.remove('open');
@@ -750,30 +755,25 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        // UPDATED KEYBOARD LOCK: Forces the browser to completely drop focus and refuse any auto-jumping to the next box
         function closeKeyboardAndSnapWindow(inputEl, event = null) {
             if (event) {
                 event.preventDefault(); 
                 event.stopPropagation();
             }
             
-            // Hard strip focus from the current input
             inputEl.blur(); 
             
-            // Extra safety net: forcefully blur whatever the browser is trying to jump to next
             if (document.activeElement) {
                 document.activeElement.blur(); 
             }
             
             setTimeout(() => {
-                // Hard reset the visual screen coordinates so no white space can survive
                 window.scrollTo(0, 0);
                 document.body.scrollTop = 0; 
                 if (map) { map.invalidateSize(); }
             }, 80);
         }
 
-        // Using a strict handler to catch the Enter key and execute the lock
         const enforceKeyboardDrop = (e, targetInput) => {
             if (e.key === 'Enter' || e.keyCode === 13) {
                 closeKeyboardAndSnapWindow(targetInput, e);
