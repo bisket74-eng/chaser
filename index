@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Ride Tracker</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            z-index: 1;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 80%;
+            max-width: 300px;
+        }
+        input, button {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:disabled {
+            background-color: #cccccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div id="controls">
+        <input type="text" id="username" placeholder="Enter your name" />
+        <button id="startBtn">Start Sharing Location</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <script>
+        // 1. YOUR SUPABASE CREDENTIALS
+        const SUPABASE_URL = "https://xnwwngqennvwajlhvclj.supabase.co"; 
+        const SUPABASE_ANON_KEY = "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8";
+
+        // Fixed variable name conflict here
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // 2. INITIALIZE THE MAP
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Load free OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 3. APP STATE
+        let watchId = null;
+        let myUsername = "";
+        const riders = {}; // Keeps track of other rider map markers
+
+        // 4. JOIN THE REAL-TIME CHANNEL
+        // Fixed to reference supabaseClient correctly
+        const channel = supabaseClient.channel('ride-room', {
+            config: { broadcast: { ack: false, self: false } }
+        });
+
+        // Listen for incoming coordinate updates from other riders
+        channel
+            .on('broadcast', { event: 'location-update' }, (payload) => {
+                const { user, lat, lng } = payload.payload;
+                updateRiderMarker(user, lat, lng);
+            })
+            .subscribe();
+
+        // 5. BUTTON CLICKS & TRACKING LOGIC
+        document.getElementById('startBtn').addEventListener('click', () => {
+            const nameInput = document.getElementById('username').value.trim();
+            if (!nameInput) {
+                alert("Please enter a name so others know who you are!");
+                return;
+            }
+            myUsername = nameInput;
+            
+            // Lock UI elements
+            document.getElementById('username').disabled = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn').innerText = "Sharing Location...";
+
+            // Start polling native phone GPS
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        
+                        // Center map on yourself when you first start tracking
+                        if (Object.keys(riders).length === 0) {
+                            map.setView([latitude, longitude], 15);
+                        }
+
+                        // Plot/Update your own marker locally
+                        updateRiderMarker(`${myUsername} (You)`, latitude, longitude);
+
+                        // Broadcast your new coordinates to everyone else in the channel
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'location-update',
+                            payload: { user: myUsername, lat: latitude, lng: longitude }
+                        });
+                    },
+                    (error) => {
+                        console.error("Error getting location: ", error);
+                        alert("Could not access your location. Ensure location services are enabled.");
+                    },
+                    {
+                        enableHighAccuracy: true, // Forces phone to use GPS hardware
+                        maximumAge: 0,
+                        timeout: 5000
+                    }
+                );
+                
+                // Keep the mobile screen awake if browser supports WakeLock
+                requestWakeLock();
+            } else {
+                alert("Your browser doesn't support geolocation.");
+            }
+        });
+
+        // 6. UPDATE OR CREATE MARKERS ON THE MAP
+        function updateRiderMarker(user, lat, lng) {
+            if (riders[user]) {
+                // If rider marker already exists, smoothly slide it to new coords
+                riders[user].setLatLng([lat, lng]);
+            } else {
+                // Otherwise, create a brand new map pin for them
+                const marker = L.marker([lat, lng]).addTo(map)
+                    .bindPopup(user)
+                    .openPopup();
+                riders[user] = marker;
+            }
+        }
+
+        // 7. WAKE LOCK (Prevents phone screens from sleeping during the ride)
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    await navigator.wakeLock.request('screen');
+                    console.log("Screen Wake Lock active.");
+                } catch (err) {
+                    console.warn(`Wake Lock failed: ${err.message}`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
