@@ -7,7 +7,7 @@
     
     <meta name="theme-color" content="#1e4620" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    
+    <link rel="manifest" href="./manifest.json" />
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
@@ -196,6 +196,7 @@
             cursor: pointer;
         }
         
+        /* UPDATED: Clear light green backdrop, lightning bolt code entirely removed */
         #chatMessages {
             flex: 1;
             padding: 16px;
@@ -205,21 +206,6 @@
             gap: 12px;
             background-color: #e2f0d9; 
             position: relative;
-        }
-        
-        #chatMessages::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff200'><path d='M11 21h-1l1.5-6.5h-4c-.55 0-.85-.56-.52-1l6.5-11h1l-1.5 6.5h4c.55 0 .85.56.52 1l-6.5 11z' opacity='0.25'/></svg>");
-            background-repeat: no-repeat;
-            background-position: center center;
-            background-size: 95% 95%; 
-            pointer-events: none; 
-            z-index: 0;
         }
         
         .msg-bubble {
@@ -242,7 +228,6 @@
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
         .msg-text { font-size: 14px; word-break: break-word; }
         
-        /* Master Deletion Switch layout styling */
         .msg-delete-btn {
             position: absolute;
             top: 6px;
@@ -350,14 +335,13 @@
         let wakeLock = null;
         const riders = {}; 
 
-        // CRITICAL FIX: Persistent identity generator that survives full system power downs
         let myDeviceId = localStorage.getItem('rider_device_uuid');
         if (!myDeviceId) {
             myDeviceId = 'dev-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
             localStorage.setItem('rider_device_uuid', myDeviceId);
         }
 
-        // Bind layout elements
+        // Bind elements
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -375,8 +359,8 @@
         const savedName = localStorage.getItem('rider_saved_name');
         if (savedName) usernameInput.value = savedName;
 
-        // 4. REAL-TIME CONNECTIONS
-        const channel = supabaseClient.channel('ride-room', {
+        // 4. JOIN LOCATION BROADCAST CHANNEL
+        let channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
         });
 
@@ -391,33 +375,41 @@
             })
             .subscribe();
 
-        // Database listener loop tracking messaging injections
-        supabaseClient
-            .channel('db-chat')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
-                const { msg_id, username, message, device_id } = payload.new;
-                const isMe = device_id === myDeviceId;
-                
-                if (!isMe) {
-                    appendMessage(msg_id, username, message, false, payload.new.id, device_id);
-                    if (!isChatOpen) {
-                        unreadCount++;
-                        chatBadge.innerText = unreadCount;
-                        chatBadge.style.display = 'block';
+        // 5. SECURE MESSAGING STACK
+        function initializeDatabaseRealtime() {
+            supabaseClient
+                .channel('db-chat')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
+                    const { msg_id, username, message, device_id } = payload.new;
+                    const isMe = device_id === myDeviceId;
+                    
+                    if (!isMe) {
+                        appendMessage(msg_id, username, message, false, payload.new.id, device_id);
+                        if (!isChatOpen) {
+                            unreadCount++;
+                            chatBadge.innerText = unreadCount;
+                            chatBadge.style.display = 'block';
+                        }
                     }
-                }
-            })
-            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_chat' }, (payload) => {
-                const elements = document.querySelectorAll('.msg-bubble');
-                elements.forEach(el => {
-                    if (el.dataset.dbId == payload.old.id) {
-                        el.remove();
+                })
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_chat' }, (payload) => {
+                    const elements = document.querySelectorAll('.msg-bubble');
+                    elements.forEach(el => {
+                        if (el.dataset.dbId == payload.old.id) {
+                            el.remove();
+                        }
+                    });
+                })
+                .subscribe((status) => {
+                    if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                        setTimeout(initializeDatabaseRealtime, 3000);
                     }
                 });
-            })
-            .subscribe();
+        }
+        
+        initializeDatabaseRealtime();
 
-        // 5. TOGGLE BUTTON & TRACKING LOGIC
+        // 6. TRACKING SYSTEMS
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
                 if (!usernameInput.value.trim()) { alert("Please enter a name so others know who you are!"); return; }
@@ -473,7 +465,7 @@
             }
         }
 
-        // 6. CHAT CONTROLLERS
+        // 7. CHAT LOGIC PANELS
         chatToggleBtn.addEventListener('click', async () => {
             isChatOpen = true;
             unreadCount = 0;
@@ -538,8 +530,7 @@
             let displayName = isMe ? 'You' : user;
             let htmlContent = `<div class="msg-user">${displayName}</div><div class="msg-text">${msg}</div>`;
             
-            // UPDATED MASTER SWITCH: Injects deletion X button to clear ANY message off your phone screen layout
-            if (rowDatabaseId) {
+            if (senderDeviceId === myDeviceId && rowDatabaseId) {
                 htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}', ${rowDatabaseId})">✕</button>`;
             }
             
@@ -552,14 +543,13 @@
             const localBubble = document.getElementById(uiId);
             if (localBubble) localBubble.remove();
 
-            // Fire delete rule straight down into database schema
             await supabaseClient
                 .from('group_chat')
                 .delete()
                 .eq('id', dbRowId);
         }
 
-        // 7. HANDSFREE DICTATION AUDIO CONVERTERS
+        // 8. VOICE INPUT CONVERTERS
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
@@ -573,7 +563,21 @@
             const recognition = new SpeechRecognition();
             recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
 
-            const triggerAction = (e) => { e.preventDefault(); e.stopPropagation(); if (buttonEl.classList.contains('listening')) { recognition.stop(); } else { recognition.start(); } };
+            const triggerAction = (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                inputEl.blur(); 
+                
+                if (buttonEl.classList.contains('listening')) { 
+                    recognition.stop(); 
+                } else { 
+                    try {
+                        recognition.start(); 
+                    } catch(err) {
+                        console.warn("Speech session active:", err);
+                    }
+                } 
+            };
             buttonEl.addEventListener('click', triggerAction);
 
             recognition.onstart = () => { buttonEl.classList.add('listening'); inputEl.value = ""; inputEl.placeholder = "Listening..."; };
@@ -597,7 +601,7 @@
             else inputEl.placeholder = "Type a message...";
         }
 
-        // 8. WAKE LOCK
+        // 9. WAKE LOCK
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
         function releaseWakeLock() { if (wakeLock !== null) { wakeLock.release().then(() => { wakeLock = null; }); } }
 
