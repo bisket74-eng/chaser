@@ -40,7 +40,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            pointer-events: none;
             white-space: nowrap;
         }
 
@@ -51,17 +50,27 @@
             text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
             letter-spacing: 1px;
+            pointer-events: none; /* Keep text transparent to clicks */
         }
 
+        /* UPDATED: Unlocked pointer events and styled to feel like a premium clickable dashboard button */
         #riderCounterWidget {
             font-size: 13px;
             color: #1e4620;
             font-weight: bold;
             background-color: #e2f0d9;
-            padding: 4px 12px;
+            padding: 6px 14px;
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
             margin-top: 4px;
+            pointer-events: auto; /* Allows clicks/taps directly on phone screens */
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #riderCounterWidget:active {
+            transform: scale(0.94);
+            background-color: #cbdcc3;
         }
         
         #controls {
@@ -355,6 +364,9 @@
         let oldBroadcastedName = "Anonymous"; 
         const riders = {}; 
 
+        // NEW: Tracks the rolling index position for cycling through online riders on button clicks
+        let cycleBuddyIndex = 0;
+
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
         // Bind layout components
@@ -416,6 +428,41 @@
             
             riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
+
+        // NEW MASTER TELEPORT LOOP: Tapping the Buddies Online badge hops to the next buddy automatically
+        riderCounterWidget.addEventListener('click', () => {
+            // Filter your master pin cache to isolate only real foreign riding buddies
+            const activeBuddyNames = Object.keys(riders).filter(key => !key.includes('(You)'));
+            
+            if (activeBuddyNames.length === 0) {
+                // If nobody else is around, smoothly re-center the viewfinder on your own location pin instead
+                const myActiveName = usernameInput.value.trim() || "Anonymous";
+                const myPin = riders[`${myActiveName} (You)`];
+                if (myPin) {
+                    map.setView(myPin.getLatLng(), 17, { animate: true, duration: 0.8 });
+                    myPin.openPopup();
+                }
+                return;
+            }
+
+            // Reset loop counters if riders drop off or index overflows array size boundaries
+            if (cycleBuddyIndex >= activeBuddyNames.length) {
+                cycleBuddyIndex = 0;
+            }
+
+            // Grab the selected target buddy's marker details from map data cache
+            const targetedName = activeBuddyNames[cycleBuddyIndex];
+            const targetedMarker = riders[targetedName];
+
+            if (targetedMarker) {
+                // Fly straight over their location grid and zoom in tight (Zoom Level 17)
+                map.setView(targetedMarker.getLatLng(), 17, { animate: true, duration: 0.8 });
+                targetedMarker.openPopup();
+            }
+
+            // Increment index steps forward so your next click catches the next person in line
+            cycleBuddyIndex = (cycleBuddyIndex + 1) % activeBuddyNames.length;
+        });
 
         // 5. TRACKING SYSTEMS
         startBtn.addEventListener('click', () => {
@@ -486,7 +533,6 @@
             releaseWakeLock();
         }
 
-        // UPDATED PIN & NAME TAG GENERATOR: Binds toggle zoom scripts to BOTH elements seamlessly
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -497,10 +543,8 @@
             } else {
                 riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
                 
-                // Keep track of zoom status right on the marker object
                 riders[user].dataset = { isZoomedIn: false };
                 
-                // The Shared Toggle Function
                 const handleZoomToggle = (markerObj, targetLatLng) => {
                     if (!markerObj.dataset.isZoomedIn) {
                         map.setView(targetLatLng, 17, { animate: true, duration: 0.8 });
@@ -512,20 +556,15 @@
                     markerObj.openPopup();
                 };
                 
-                // INTERCEPTOR 1: Tapping the physical pin icon
                 riders[user].on('click', function(e) {
-                    L.DomEvent.stopPropagation(e); // Stop event bubble fights
+                    L.DomEvent.stopPropagation(e); 
                     handleZoomToggle(this, e.latlng);
                 });
                 
-                // INTERCEPTOR 2: Tapping the floating white name tag label wrapper box
                 riders[user].on('popupopen', function(e) {
                     const popupElement = e.popup.getElement();
                     if (popupElement) {
-                        // Unbind any legacy clicks to keep memory lanes clean
                         popupElement.onclick = null;
-                        
-                        // Listen for taps straight on the popup name block layout
                         popupElement.onclick = (event) => {
                             L.DomEvent.stopPropagation(event);
                             handleZoomToggle(this, this.getLatLng());
@@ -648,12 +687,6 @@
             broadcastCurrentState(); 
         });
         destinationInput.addEventListener('input', broadcastCurrentState);
-
-        function resetPlaceholder(inputEl) {
-            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
-            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
-            else inputEl.placeholder = "Type a message...";
-        }
 
         // 8. WAKE LOCK
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
