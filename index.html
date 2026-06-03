@@ -50,10 +50,9 @@
             text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
             letter-spacing: 1px;
-            pointer-events: none; /* Keep text transparent to clicks */
+            pointer-events: none; 
         }
 
-        /* UPDATED: Unlocked pointer events and styled to feel like a premium clickable dashboard button */
         #riderCounterWidget {
             font-size: 13px;
             color: #1e4620;
@@ -63,7 +62,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.25);
             margin-top: 4px;
-            pointer-events: auto; /* Allows clicks/taps directly on phone screens */
+            pointer-events: auto; 
             cursor: pointer;
             transition: transform 0.1s ease, background-color 0.2s ease;
             -webkit-tap-highlight-color: transparent;
@@ -364,7 +363,6 @@
         let oldBroadcastedName = "Anonymous"; 
         const riders = {}; 
 
-        // NEW: Tracks the rolling index position for cycling through online riders on button clicks
         let cycleBuddyIndex = 0;
 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
@@ -429,39 +427,61 @@
             riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
 
-        // NEW MASTER TELEPORT LOOP: Tapping the Buddies Online badge hops to the next buddy automatically
+        // NEW ENHANCED COMPONENT: Offset view positioning utility
+        function getOffsetLatLng(targetLatLng) {
+            // Converts the geographical coordinate into pixel coordinates based on current zoom boundaries
+            const targetPoint = map.project(targetLatLng, map.getZoom());
+            // Shifts the vertical center point upward by 110 pixels to comfortably clear the bottom green control card
+            const offsetPoint = targetPoint.add([0, 110]);
+            // Translates it right back into standard map coordinates
+            return map.unproject(offsetPoint, map.getZoom());
+        }
+
+        // UPDATED MASTER CYCLING LOOP: Now supports whole-group zooming out at the end of the loop!
         riderCounterWidget.addEventListener('click', () => {
-            // Filter your master pin cache to isolate only real foreign riding buddies
             const activeBuddyNames = Object.keys(riders).filter(key => !key.includes('(You)'));
-            
-            if (activeBuddyNames.length === 0) {
-                // If nobody else is around, smoothly re-center the viewfinder on your own location pin instead
-                const myActiveName = usernameInput.value.trim() || "Anonymous";
-                const myPin = riders[`${myActiveName} (You)`];
-                if (myPin) {
-                    map.setView(myPin.getLatLng(), 17, { animate: true, duration: 0.8 });
-                    myPin.openPopup();
+            const myActiveName = usernameInput.value.trim() || "Anonymous";
+            const mySelfKey = `${myActiveName} (You)`;
+
+            // Compile total active target array elements (Foreign buddies + yourself)
+            let masterLoopList = [...activeBuddyNames];
+            if (riders[mySelfKey]) {
+                masterLoopList.push(mySelfKey);
+            }
+
+            if (masterLoopList.length === 0) return;
+
+            // NEW: If you have tapped through every single person, execute the pull-back layout zoom view!
+            if (cycleBuddyIndex >= masterLoopList.length) {
+                // Compile matching layout boundaries enclosing every single pin currently online
+                const allPinsGroup = [];
+                Object.keys(riders).forEach(key => {
+                    allPinsGroup.push(riders[key].getLatLng());
+                });
+
+                if (allPinsGroup.length > 0) {
+                    const boundsGroup = L.latLngBounds(allPinsGroup);
+                    // Shrink map out to encapsulate the entire gang smoothly, applying an offset buffer
+                    map.fitBounds(boundsGroup, { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 }
+                
+                // Reset index tracker right back to zero so the next click handles individual buddies fresh
+                cycleBuddyIndex = 0;
                 return;
             }
 
-            // Reset loop counters if riders drop off or index overflows array size boundaries
-            if (cycleBuddyIndex >= activeBuddyNames.length) {
-                cycleBuddyIndex = 0;
-            }
-
-            // Grab the selected target buddy's marker details from map data cache
-            const targetedName = activeBuddyNames[cycleBuddyIndex];
+            const targetedName = masterLoopList[cycleBuddyIndex];
             const targetedMarker = riders[targetedName];
 
             if (targetedMarker) {
-                // Fly straight over their location grid and zoom in tight (Zoom Level 17)
-                map.setView(targetedMarker.getLatLng(), 17, { animate: true, duration: 0.8 });
+                // Locks close focus scale boundary parameters (Zoom level 17)
+                map.setZoom(17);
+                const safetyOffsetCenter = getOffsetLatLng(targetedMarker.getLatLng());
+                map.panTo(safetyOffsetCenter, { animate: true, duration: 0.8 });
                 targetedMarker.openPopup();
             }
 
-            // Increment index steps forward so your next click catches the next person in line
-            cycleBuddyIndex = (cycleBuddyIndex + 1) % activeBuddyNames.length;
+            cycleBuddyIndex++;
         });
 
         // 5. TRACKING SYSTEMS
@@ -478,7 +498,13 @@
                 if ("geolocation" in navigator) {
                     watchId = navigator.geolocation.watchPosition((position) => {
                         lastLat = position.coords.latitude; lastLng = position.coords.longitude;
-                        if (Object.keys(riders).length === 0) map.setView([lastLat, lastLng], 15);
+                        
+                        // Cold load viewport layout positioning configuration
+                        if (Object.keys(riders).length === 0 && lastLat !== 0) {
+                            map.setZoom(15);
+                            const initialCenteredView = getOffsetLatLng([lastLat, lastLng]);
+                            map.setView(initialCenteredView, 15);
+                        }
                         broadcastCurrentState();
                     }, () => { stopSharingLocation(); }, { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
                     requestWakeLock();
@@ -529,10 +555,12 @@
             Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             lastLat = 0; lastLng = 0;
             oldBroadcastedName = "Anonymous";
+            cycleBuddyIndex = 0;
             updateLiveRiderCounter();
             releaseWakeLock();
         }
 
+        // UPDATED POSITION ENGINE: Live panning events now apply the offset safety buffer automatically
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -540,17 +568,26 @@
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]); 
                 riders[user].setPopupContent(popupContent);
+                
+                // NEW LIVE TRACKER POSITION LOCK: If you are actively moving on a map trail under active tracking, push map center forward using the vertical offset 
+                if (user.includes('(You)') && isSharing) {
+                    const trackingCenterOffset = getOffsetLatLng([lat, lng]);
+                    map.panTo(trackingCenterOffset, { animate: true, duration: 0.5 });
+                }
             } else {
                 riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
-                
                 riders[user].dataset = { isZoomedIn: false };
                 
                 const handleZoomToggle = (markerObj, targetLatLng) => {
                     if (!markerObj.dataset.isZoomedIn) {
-                        map.setView(targetLatLng, 17, { animate: true, duration: 0.8 });
+                        map.setZoom(17);
+                        const offsetTargetIn = getOffsetLatLng(targetLatLng);
+                        map.panTo(offsetTargetIn, { animate: true, duration: 0.8 });
                         markerObj.dataset.isZoomedIn = true;
                     } else {
-                        map.setView(targetLatLng, 12, { animate: true, duration: 0.8 });
+                        map.setZoom(12);
+                        const offsetTargetOut = getOffsetLatLng(targetLatLng);
+                        map.panTo(offsetTargetOut, { animate: true, duration: 0.8 });
                         markerObj.dataset.isZoomedIn = false;
                     }
                     markerObj.openPopup();
@@ -687,6 +724,12 @@
             broadcastCurrentState(); 
         });
         destinationInput.addEventListener('input', broadcastCurrentState);
+
+        function resetPlaceholder(inputEl) {
+            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
+            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
+            else inputEl.placeholder = "Type a message...";
+        }
 
         // 8. WAKE LOCK
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
