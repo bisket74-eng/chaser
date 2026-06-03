@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
     
+    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
@@ -291,7 +292,8 @@
 
     <div id="appHeaderContainer">
         <div id="appHeader">Buddy Finder</div>
-        <div id="riderCounterWidget">Riders Online: 1</div>
+        <!-- UPDATED: Wording changed to Buddies Online, and initialized clean at 0 -->
+        <div id="riderCounterWidget">Buddies Online: 0</div>
     </div>
 
     <div id="map"></div>
@@ -333,7 +335,9 @@
         </div>
     </div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Supabase JS Client -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <script>
@@ -406,10 +410,11 @@
             })
             .subscribe();
 
-        // FIXED REALTIME PRESENCE MATH: Safely counts active foreign map markers + your device session
+        // FIXED REALTIME PRESENCE MATH: Only starts the count at 1 if you are actively sharing location
         function updateLiveRiderCounter() {
-            const count = Object.keys(riders).length + 1;
-            riderCounterWidget.innerText = `Riders Online: ${count}`;
+            const myPresenceCount = isSharing ? 1 : 0;
+            const totalBuddiesOnline = Object.keys(riders).length + myPresenceCount;
+            riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
 
         // 5. TRACKING SYSTEMS
