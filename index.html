@@ -486,7 +486,7 @@
             releaseWakeLock();
         }
 
-        // UPDATED PIN GENERATOR: Tracks a custom toggle flag so tapping toggles zoom in and out
+        // UPDATED PIN & NAME TAG GENERATOR: Binds toggle zoom scripts to BOTH elements seamlessly
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -497,21 +497,39 @@
             } else {
                 riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
                 
-                // Track whether this specific pin is zoomed in or not
+                // Keep track of zoom status right on the marker object
                 riders[user].dataset = { isZoomedIn: false };
                 
-                // Fixed zoom toggle script loop
-                riders[user].on('click', function(e) {
-                    if (!this.dataset.isZoomedIn) {
-                        // FIRST TAP: Fly close into street level (Zoom Level 17)
-                        map.setView(e.latlng, 17, { animate: true, duration: 0.8 });
-                        this.dataset.isZoomedIn = true;
-                        this.openPopup();
+                // The Shared Toggle Function
+                const handleZoomToggle = (markerObj, targetLatLng) => {
+                    if (!markerObj.dataset.isZoomedIn) {
+                        map.setView(targetLatLng, 17, { animate: true, duration: 0.8 });
+                        markerObj.dataset.isZoomedIn = true;
                     } else {
-                        // SECOND TAP: Slide backward to show a broad region (Zoom Level 12)
-                        map.setView(e.latlng, 12, { animate: true, duration: 0.8 });
-                        this.dataset.isZoomedIn = false;
-                        this.openPopup();
+                        map.setView(targetLatLng, 12, { animate: true, duration: 0.8 });
+                        markerObj.dataset.isZoomedIn = false;
+                    }
+                    markerObj.openPopup();
+                };
+                
+                // INTERCEPTOR 1: Tapping the physical pin icon
+                riders[user].on('click', function(e) {
+                    L.DomEvent.stopPropagation(e); // Stop event bubble fights
+                    handleZoomToggle(this, e.latlng);
+                });
+                
+                // INTERCEPTOR 2: Tapping the floating white name tag label wrapper box
+                riders[user].on('popupopen', function(e) {
+                    const popupElement = e.popup.getElement();
+                    if (popupElement) {
+                        // Unbind any legacy clicks to keep memory lanes clean
+                        popupElement.onclick = null;
+                        
+                        // Listen for taps straight on the popup name block layout
+                        popupElement.onclick = (event) => {
+                            L.DomEvent.stopPropagation(event);
+                            handleZoomToggle(this, this.getLatLng());
+                        };
                     }
                 });
                 
