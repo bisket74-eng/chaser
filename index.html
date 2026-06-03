@@ -43,18 +43,55 @@
             width: 85%;
             max-width: 280px;
         }
-        input, button {
+        
+        /* Container layout to embed the microphone icon neatly inside the input wrapper */
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-wrapper input {
+            width: 100%;
+            padding: 10px 40px 10px 10px; /* Leave room on the right for the mic */
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .input-wrapper input::placeholder {
+            color: #aaa;
+            font-style: italic;
+        }
+        
+        /* Styling for the embedded mic icon buttons */
+        .mic-btn {
+            position: absolute;
+            right: 10px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mic-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #777; /* Default gray mic color */
+            transition: fill 0.2s ease;
+        }
+        /* Turns the mic icon bright red when active */
+        .mic-btn.listening svg {
+            fill: #dc3545;
+        }
+
+        #startBtn {
             padding: 10px;
             border-radius: 6px;
             border: 1px solid #ccc;
             font-size: 14px;
-        }
-        /* Custom styling to make the optional text inside placeholder look light */
-        input::placeholder {
-            color: #aaa;
-            font-style: italic;
-        }
-        button {
             background-color: #007bff;
             color: white;
             border: none;
@@ -63,7 +100,7 @@
             transition: background-color 0.2s ease;
             margin-top: 5px;
         }
-        button.sharing-active {
+        #startBtn.sharing-active {
             background-color: #dc3545;
         }
     </style>
@@ -73,8 +110,20 @@
     <div id="map"></div>
 
     <div id="controls">
-        <input type="text" id="username" placeholder="Enter your name" />
-        <input type="text" id="destination" placeholder="Destination (optional)" />
+        <div class="input-wrapper">
+            <input type="text" id="username" placeholder="Enter your name" />
+            <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+        
+        <div class="input-wrapper">
+            <input type="text" id="destination" placeholder="Destination (optional)" />
+            <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+        
         <button id="startBtn">Start Sharing Location</button>
     </div>
 
@@ -104,6 +153,19 @@
         let wakeLock = null;
         const riders = {}; 
 
+        // DOM elements
+        const startBtn = document.getElementById('startBtn');
+        const usernameInput = document.getElementById('username');
+        const destinationInput = document.getElementById('destination');
+        const usernameMic = document.getElementById('usernameMic');
+        const destinationMic = document.getElementById('destinationMic');
+
+        // Check local memory for previously saved name
+        const savedName = localStorage.getItem('rider_saved_name');
+        if (savedName) {
+            usernameInput.value = savedName;
+        }
+
         // 4. JOIN THE REAL-TIME CHANNEL
         const channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
@@ -125,10 +187,6 @@
             .subscribe();
 
         // 5. TOGGLE BUTTON & TRACKING LOGIC
-        const startBtn = document.getElementById('startBtn');
-        const usernameInput = document.getElementById('username');
-        const destinationInput = document.getElementById('destination');
-
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
                 // START SHARING MODE
@@ -138,11 +196,15 @@
                     return;
                 }
                 myUsername = nameInput;
-                myDestination = destinationInput.value.trim(); // Grab the destination info
+                myDestination = destinationInput.value.trim();
+                
+                localStorage.setItem('rider_saved_name', myUsername);
                 
                 isSharing = true;
                 usernameInput.disabled = true;
                 destinationInput.disabled = true;
+                usernameMic.disabled = true;
+                destinationMic.disabled = true;
                 startBtn.innerText = "Stop Sharing Location";
                 startBtn.classList.add('sharing-active');
 
@@ -187,16 +249,19 @@
                     stopSharingLocation();
                 }
             } else {
-                // STOP SHARING MODE
                 stopSharingLocation();
             }
         });
 
-        // Clean closure function
         function stopSharingLocation() {
             isSharing = false;
             usernameInput.disabled = false;
             destinationInput.disabled = false;
+            usernameMic.disabled = false;
+            destinationMic.disabled = false;
+            
+            destinationInput.value = "";
+            
             startBtn.innerText = "Start Sharing Location";
             startBtn.classList.remove('sharing-active');
 
@@ -222,7 +287,6 @@
 
         // 6. UPDATE OR CREATE MARKERS ON THE MAP
         function updateRiderMarker(user, dest, lat, lng) {
-            // Build the popup label layout dynamically based on if a destination was entered
             let popupContent = `<b>${user}</b>`;
             if (dest) {
                 popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -230,7 +294,7 @@
 
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]);
-                riders[user].setPopupContent(popupContent); // Keep the destination info fresh if it changes
+                riders[user].setPopupContent(popupContent);
             } else {
                 const marker = L.marker([lat, lng]).addTo(map)
                     .bindPopup(popupContent)
@@ -239,7 +303,65 @@
             }
         }
 
-        // 7. WAKE LOCK MANAGEMENT
+        // 7. NEW LOGIC: HANDSFREE VOICE SPEECH DICTATION
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+            setupVoiceInput(usernameMic, usernameInput);
+            setupVoiceInput(destinationMic, destinationInput);
+        } else {
+            // Hide mic buttons if user is using an old browser that doesn't support speech tracking
+            usernameMic.style.display = 'none';
+            destinationMic.style.display = 'none';
+            console.warn("Speech recognition engine is not supported on this browser device.");
+        }
+
+        function setupVoiceInput(buttonEl, inputEl) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            buttonEl.addEventListener('click', () => {
+                if (buttonEl.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+
+            recognition.onstart = () => {
+                buttonEl.classList.add('listening');
+                inputEl.placeholder = "Listening...";
+            };
+
+            recognition.onresult = (event) => {
+                const speechToText = event.results[0][0].transcript;
+                // Take spoken words and clean out accidental trailing punctuation marks
+                inputEl.value = speechToText.replace(/[.\s]+$/g, ''); 
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech Recognition Error: ", event.error);
+                buttonEl.classList.remove('listening');
+                resetPlaceholder(inputEl);
+            };
+
+            recognition.onend = () => {
+                buttonEl.classList.remove('listening');
+                resetPlaceholder(inputEl);
+            };
+        }
+
+        function resetPlaceholder(inputEl) {
+            if (inputEl.id === 'username') {
+                inputEl.placeholder = "Enter your name";
+            } else {
+                inputEl.placeholder = "Destination (optional)";
+            }
+        }
+
+        // 8. WAKE LOCK MANAGEMENT
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
