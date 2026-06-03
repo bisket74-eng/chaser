@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Group Ride Tracker</title>
     <link rel="manifest" href="./manifest.json" />
-
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        /* FIX: Forces the browser window to allocate full screen space */
         html, body {
             padding: 0;
             margin: 0;
@@ -18,8 +17,6 @@
             overflow: hidden;
             font-family: Arial, sans-serif;
         }
-        
-        /* FIX: Ensures the map container anchors to all four corners of the screen */
         #map {
             position: absolute;
             top: 0;
@@ -30,7 +27,6 @@
             height: 100%;
             z-index: 1;
         }
-        
         #controls {
             position: absolute;
             bottom: 30px;
@@ -59,9 +55,11 @@
             border: none;
             cursor: pointer;
             font-weight: bold;
+            transition: background-color 0.2s ease;
         }
-        button:disabled {
-            background-color: #cccccc;
+        /* Style for when sharing is active */
+        button.sharing-active {
+            background-color: #dc3545; /* Red stop button */
         }
     </style>
 </head>
@@ -85,10 +83,8 @@
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 2. INITIALIZE THE MAP
-        // Default view opens up to a broad view of the world until location is loaded
         const map = L.map('map').setView([0, 0], 2);
         
-        // Load free OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap contributors'
@@ -97,90 +93,126 @@
         // 3. APP STATE
         let watchId = null;
         let myUsername = "";
-        const riders = {}; // Keeps track of other rider map markers
+        let isSharing = false; // Tracks whether we are actively tracking or not
+        let wakeLock = null;
+        const riders = {}; 
 
         // 4. JOIN THE REAL-TIME CHANNEL
         const channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
         });
 
-        // Listen for incoming coordinate updates from other riders
         channel
             .on('broadcast', { event: 'location-update' }, (payload) => {
-                const { user, lat, lng } = payload.payload;
-                updateRiderMarker(user, lat, lng);
+                const { user, lat, lng, status } = payload.payload;
+                
+                // If another rider sends a "disconnected" status, remove their pin
+                if (status === 'offline') {
+                    if (riders[user]) {
+                        map.removeLayer(riders[user]);
+                        delete riders[user];
+                    }
+                } else {
+                    updateRiderMarker(user, lat, lng);
+                }
             })
             .subscribe();
 
-        // 5. BUTTON CLICKS & TRACKING LOGIC
-        document.getElementById('startBtn').addEventListener('click', () => {
-            const nameInput = document.getElementById('username').value.trim();
-            if (!nameInput) {
-                alert("Please enter a name so others know who you are!");
-                return;
-            }
-            myUsername = nameInput;
-            
-            // Lock UI elements
-            document.getElementById('username').disabled = true;
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('startBtn').innerText = "Sharing Location...";
+        // 5. TOGGLE BUTTON & TRACKING LOGIC
+        const startBtn = document.getElementById('startBtn');
+        const usernameInput = document.getElementById('username');
 
-            // Start polling native phone GPS
-            if ("geolocation" in navigator) {
-                watchId = navigator.geolocation.watchPosition(
-                    (position) => {
-                        const { latitude, longitude } = position.coords;
-                        
-                        // Center map on yourself when you first start tracking
-                        if (Object.keys(riders).length === 0) {
-                            map.setView([latitude, longitude], 15);
-                        }
-
-                        // Plot/Update your own marker locally
-                        updateRiderMarker(`${myUsername} (You)`, latitude, longitude);
-
-                        // Broadcast your new coordinates to everyone else in the channel
-                        channel.send({
-                            type: 'broadcast',
-                            event: 'location-update',
-                            payload: { user: myUsername, lat: latitude, lng: longitude }
-                        });
-                    },
-                    (error) => {
-                        console.error("Error getting location: ", error);
-                        alert("Could not access your location. Ensure location services are enabled.");
-                    },
-                    {
-                        enableHighAccuracy: true, // Forces phone to use GPS hardware instead of cell towers
-                        maximumAge: 0,
-                        timeout: 5000
-                    }
-                );
+        startBtn.addEventListener('click', () => {
+            if (!isSharing) {
+                // START SHARING MODE
+                const nameInput = usernameInput.value.trim();
+                if (!nameInput) {
+                    alert("Please enter a name so others know who you are!");
+                    return;
+                }
+                myUsername = nameInput;
                 
-                // Keep the mobile screen awake if browser supports WakeLock
-                requestWakeLock();
-            } else {
-                alert("Your browser doesn't support geolocation.");
-            }
-            // Register the PWA Service Worker
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('Service Worker registered successfully!', reg))
-            .catch(err => console.error('Service Worker registration failed:', err));
-    });
-}
+                isSharing = true;
+                usernameInput.disabled = true;
+                startBtn.innerText = "Stop Sharing Location";
+                startBtn.classList.add('sharing-active');
 
+                if ("geolocation" in navigator) {
+                    watchId = navigator.geolocation.watchPosition(
+                        (position) => {
+                            const { latitude, longitude } = position.coords;
+                            
+                            if (Object.keys(riders).length === 0) {
+                                map.setView([latitude, longitude], 15);
+                            }
+
+                            updateRiderMarker(`${myUsername} (You)`, latitude, longitude);
+
+                            channel.send({
+                                type: 'broadcast',
+                                event: 'location-update',
+                                payload: { user: myUsername, lat: latitude, lng: longitude, status: 'online' }
+                            });
+                        },
+                        (error) => {
+                            console.error("Error getting location: ", error);
+                            alert("Could not access your location. Ensure location services are enabled.");
+                            stopSharingLocation(); // Reset UI if GPS fails
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            maximumAge: 0,
+                            timeout: 5000
+                        }
+                    );
+                    
+                    requestWakeLock();
+                } else {
+                    alert("Your browser doesn't support geolocation.");
+                    stopSharingLocation();
+                }
+            } else {
+                // STOP SHARING MODE
+                stopSharingLocation();
+            }
         });
+
+        // Helper function to handle cleanly turning off tracking
+        function stopSharingLocation() {
+            isSharing = false;
+            usernameInput.disabled = false;
+            startBtn.innerText = "Start Sharing Location";
+            startBtn.classList.remove('sharing-active');
+
+            // 1. Kill the active GPS engine
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // 2. Alert the room that you stopped sharing so your marker disappears from their screens
+            channel.send({
+                type: 'broadcast',
+                event: 'location-update',
+                payload: { user: myUsername, lat: 0, lng: 0, status: 'offline' }
+            });
+
+            // 3. Remove your own local "(You)" map pin
+            const myLocalKey = `${myUsername} (You)`;
+            if (riders[myLocalKey]) {
+                map.removeLayer(riders[myLocalKey]);
+                delete riders[myLocalKey];
+            }
+
+            // 4. Let the screen sleep again
+            releaseWakeLock();
+        }
 
         // 6. UPDATE OR CREATE MARKERS ON THE MAP
         function updateRiderMarker(user, lat, lng) {
             if (riders[user]) {
-                // If rider marker already exists, smoothly slide it to new coords
                 riders[user].setLatLng([lat, lng]);
             } else {
-                // Otherwise, create a brand new map pin for them
                 const marker = L.marker([lat, lng]).addTo(map)
                     .bindPopup(user)
                     .openPopup();
@@ -188,16 +220,34 @@ if ('serviceWorker' in navigator) {
             }
         }
 
-        // 7. WAKE LOCK (Optional helper to prevent phone screens from sleeping during the ride)
+        // 7. WAKE LOCK MANAGEMENT
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
-                    await navigator.wakeLock.request('screen');
+                    wakeLock = await navigator.wakeLock.request('screen');
                     console.log("Screen Wake Lock active.");
                 } catch (err) {
                     console.warn(`Wake Lock failed: ${err.message}`);
                 }
             }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log("Screen Wake Lock released.");
+                });
+            }
+        }
+
+        // Register the PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registered successfully!', reg))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            });
         }
     </script>
 </body>
