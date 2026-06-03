@@ -9,16 +9,9 @@
         html, body { padding: 0; margin: 0; width: 100%; height: 100dvh; background-color: #1e4620; overflow: hidden; font-family: Arial, sans-serif; position: fixed; }
         #map { position: fixed; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* Perfect Alignment: Matching Leaflet's 44x44px sizing */
-        .radius-control-box {
-            background: white; width: 44px; height: 88px; border-radius: 4px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden;
-        }
-        .radius-text { 
-            height: 44px; display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 10px; font-weight: bold; color: #333; border-bottom: 1px solid #ddd;
-        }
-        .cursive-r { font-family: "Brush Script MT", cursive; font-size: 14px; margin-top: -4px; }
+        /* Radius Control Box - Matches Zoom Button Size */
+        .radius-control-box { background: white; width: 44px; height: 88px; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: flex; flex-direction: column; overflow: hidden; }
+        .radius-text { height: 44px; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: bold; color: #333; border-bottom: 1px solid #ddd; }
         .radius-checkbox { height: 44px; display: flex; justify-content: center; align-items: center; cursor: pointer; }
         .radius-checkbox input { width: 20px; height: 20px; accent-color: #2d6a30; }
 
@@ -32,8 +25,6 @@
         .control-row input { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; }
         .mic-btn { width: 44px; height: 44px; background-color: #2d6a30; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
         #startBtn { padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; cursor: pointer; font-weight: bold; }
-        #startBtn.sharing-active { background-color: #dc3545; }
-        
         #chatToggleBtn { position: absolute; bottom: 54px; right: 15px; z-index: 11; width: 60px; height: 60px; background-color: #1e4620; border-radius: 50%; border: 3px solid #e2f0d9; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         #chatOverlay { position: absolute; top: 0; right: -100%; width: 100%; max-width: 340px; height: 100%; background-color: #ffffff; z-index: 20; transition: right 0.3s; display: flex; flex-direction: column; }
         #chatOverlay.open { right: 0; }
@@ -45,49 +36,47 @@
     </style>
 </head>
 <body>
-
     <div id="appHeaderContainer">
         <div id="appHeader">Buddy Finder</div>
         <div id="riderCounterWidget">Buddies Online: 0</div>
     </div>
-
     <div id="map"></div>
-
     <div id="controls">
         <div class="control-row"><input type="text" id="username" placeholder="Name" enterkeyhint="done" /><button class="mic-btn" id="usernameMic"><svg viewBox="0 0 24 24" width="20" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button></div>
         <div class="control-row"><input type="text" id="destination" placeholder="Destination" enterkeyhint="done" /><button class="mic-btn" id="destinationMic"><svg viewBox="0 0 24 24" width="20" fill="white"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button></div>
         <button id="startBtn">Start Sharing Location</button>
     </div>
-
     <button id="chatToggleBtn"><svg viewBox="0 0 24 24" width="28" fill="white"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg></button>
-
     <div id="chatOverlay">
         <div id="chatHeader">Group Chat <button id="closeChatBtn" style="background:none; border:none; color:white; font-size:20px;">✕</button></div>
         <div id="chatMessages"></div>
         <div id="chatInputArea"><input type="text" id="chatMsgInput" /><button class="mic-btn" id="chatMic" style="width:40px; height:40px;">🎤</button></div>
     </div>
-
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script>
         const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
-
-        // Custom UI Control
         const RadiusControl = L.Control.extend({
             options: { position: 'topleft' },
-            onAdd: function() {
-                const c = L.DomUtil.create('div', 'radius-control-box');
-                c.innerHTML = '<div class="radius-text">50mi<div class="cursive-r">r</div></div><div class="radius-checkbox"><input type="checkbox" id="radiusToggle" checked></div>';
-                L.DomEvent.disableClickPropagation(c);
-                return c;
-            }
+            onAdd: function() { const c = L.DomUtil.create('div', 'radius-control-box'); c.innerHTML = '<div class="radius-text">50mi</div><div class="radius-checkbox"><input type="checkbox" id="radiusToggle" checked></div>'; L.DomEvent.disableClickPropagation(c); return c; }
         });
         map.addControl(new RadiusControl());
-
-        // Standard logic for syncing/tracking omitted for length—ensure your previous logic is here.
-        // ... (Existing logic for Supabase, Markers, Voice, and Input handling)
+        let riders = {}, isSharing = false, isRadiusFilterActive = true, lastLat = 0, lastLng = 0;
+        document.getElementById('radiusToggle').addEventListener('change', (e) => isRadiusFilterActive = e.target.checked);
+        const el = (id) => document.getElementById(id);
+        const channel = supabaseClient.channel('ride-room', { config: { broadcast: { ack: false, self: false } } });
+        channel.on('broadcast', { event: 'location-update' }, ({ payload }) => {
+            const { user, dest, lat, lng, status } = payload;
+            if (isRadiusFilterActive && lastLat && lastLng && !user.includes('(You)') && (map.distance([lastLat, lastLng], [lat, lng]) / 1609.34 > 50)) { if(riders[user]) { map.removeLayer(riders[user]); delete riders[user]; } return; }
+            if (status === 'offline') { if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; } } else { updateRiderMarker(user, dest, lat, lng); }
+        }).subscribe();
+        function updateRiderMarker(user, dest, lat, lng) {
+            if (riders[user]) riders[user].setLatLng([lat, lng]);
+            else riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${user}</b><br>${dest}`);
+        }
+        [el('username'), el('destination'), el('chatMsgInput')].forEach(i => i.addEventListener('keydown', e => { if(e.key === 'Enter') { i.blur(); setTimeout(() => { window.scrollTo(0,0); map.invalidateSize(); }, 80); } }));
     </script>
 </body>
 </html>
