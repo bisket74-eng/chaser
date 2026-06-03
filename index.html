@@ -27,78 +27,108 @@
             height: 100%;
             z-index: 1;
         }
+        
+        /* UPDATED: Stretched out wide bar layout with Light Green background */
         #controls {
             position: absolute;
-            bottom: 30px;
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
-            background: rgba(255, 255, 255, 0.95);
+            background: #e2f0d9; /* Light Green */
             padding: 15px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border-radius: 16px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            width: 85%;
-            max-width: 280px;
-        }
-        
-        .input-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-        .input-wrapper input {
-            width: 100%;
-            padding: 10px 40px 10px 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
+            gap: 12px;
+            width: 90%; /* Stretched wider across the screen */
+            max-width: 400px; /* Generous desktop/tablet cap */
             box-sizing: border-box;
         }
-        .input-wrapper input::placeholder {
-            color: #aaa;
+        
+        /* Layout row splitting the text field from its standalone mic button */
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        /* UPDATED: Inputs are now Dark Green with White Font */
+        .control-row input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 2px solid #2d6a30;
+            background-color: #1e4620; /* Dark Green background */
+            color: #ffffff; /* White text */
+            font-size: 15px;
+            box-sizing: border-box;
+            font-weight: 500;
+        }
+        
+        /* Light green text styling for the field placeholders */
+        .control-row input::placeholder {
+            color: #a3cfbb; 
             font-style: italic;
         }
         
+        /* UPDATED: Prominent, easy-to-tap standalone microphone buttons */
         .mic-btn {
-            position: absolute;
-            right: 10px;
-            background: none;
+            width: 45px; /* Significantly larger target area for easy tapping */
+            height: 45px;
+            background-color: #2d6a30; /* Dark green theme match */
             border: none;
+            border-radius: 50%; /* Perfect circle */
             cursor: pointer;
-            padding: 0;
-            margin: 0;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            flex-shrink: 0; /* Prevents button from squeezing on tiny screens */
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            -webkit-tap-highlight-color: transparent; /* Removes flashing on mobile tap */
         }
+        
+        .mic-btn active {
+            transform: scale(0.92); /* Squishes slightly when pushed down so you feel it */
+        }
+        
         .mic-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: #777;
-            transition: fill 0.2s ease;
+            width: 22px;
+            height: 22px;
+            fill: #ffffff; /* Crisp white icon */
+            pointer-events: none; /* CRITICAL FIX: Stops the click passing through to the keyboard */
         }
-        .mic-btn.listening svg {
-            fill: #dc3545;
+        
+        /* Glow active color when recording */
+        .mic-btn.listening {
+            background-color: #dc3545 !important; /* Forces bright red status */
+            animation: pulse 1.5s infinite;
         }
 
         #startBtn {
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-            background-color: #007bff;
-            color: white;
+            padding: 12px;
+            border-radius: 8px;
             border: none;
+            font-size: 16px;
+            background-color: #2d6a30; /* Dark Green match */
+            color: white;
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.2s ease;
-            margin-top: 5px;
+            margin-top: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
         #startBtn.sharing-active {
-            background-color: #dc3545;
+            background-color: #dc3545; /* Dark Red Stop tracking button */
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
     </style>
 </head>
@@ -107,15 +137,15 @@
     <div id="map"></div>
 
     <div id="controls">
-        <div class="input-wrapper">
-            <input type="text" id="username" placeholder="Enter your name" />
+        <div class="control-row">
+            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
             <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
         </div>
         
-        <div class="input-wrapper">
-            <input type="text" id="destination" placeholder="Destination (optional)" />
+        <div class="control-row">
+            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" />
             <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
@@ -192,7 +222,6 @@
                     return;
                 }
                 
-                // Save the initial name to device memory
                 localStorage.setItem('rider_saved_name', usernameInput.value.trim());
                 
                 isSharing = true;
@@ -233,17 +262,14 @@
             }
         });
 
-        // Function that grabs whatever is currently in the text boxes and broadcasts it
         function broadcastCurrentState() {
             if (!isSharing || lastLat === 0 || lastLng === 0) return;
 
             const currentUser = usernameInput.value.trim() || "Anonymous";
             const currentDest = destinationInput.value.trim();
 
-            // Update your local pin with the fresh text box inputs
             updateRiderMarker(`${currentUser} (You)`, currentDest, lastLat, lastLng);
 
-            // Send out the fresh details to everyone else in the room
             channel.send({
                 type: 'broadcast',
                 event: 'location-update',
@@ -259,12 +285,7 @@
 
         function stopSharingLocation() {
             isSharing = false;
-            
-            const currentUser = usernameInput.value.trim() || "Anonymous";
-            
-            // Clear out the destination text field instantly
             destinationInput.value = "";
-            
             startBtn.innerText = "Start Sharing Location";
             startBtn.classList.remove('sharing-active');
 
@@ -273,14 +294,12 @@
                 watchId = null;
             }
 
-            // Broadcast that you've disconnected
             channel.send({
                 type: 'broadcast',
                 event: 'location-update',
-                payload: { user: currentUser, dest: '', lat: 0, lng: 0, status: 'offline' }
+                payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' }
             });
 
-            // Wipe out any local pins representing you
             Object.keys(riders).forEach(key => {
                 if (key.includes('(You)')) {
                     map.removeLayer(riders[key]);
@@ -311,7 +330,7 @@
             }
         }
 
-        // 7. HANDSFREE VOICE SPEECH DICTATION
+        // 7. HANDSFREE VOICE SPEECH DICTATION (UPGRADED WITH KEYBOARD BLOCKER)
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
@@ -329,16 +348,23 @@
             recognition.interimResults = false;
             recognition.lang = 'en-US';
 
-            buttonEl.addEventListener('click', () => {
+            // Use 'touchstart' and 'click' overrides to prevent native element focusing mechanics
+            const triggerAction = (e) => {
+                e.preventDefault(); // STOPS KEYBOARD EVENT
+                e.stopPropagation();
+                
                 if (buttonEl.classList.contains('listening')) {
                     recognition.stop();
                 } else {
                     recognition.start();
                 }
-            });
+            };
+
+            buttonEl.addEventListener('click', triggerAction);
 
             recognition.onstart = () => {
                 buttonEl.classList.add('listening');
+                inputEl.value = ""; // Clear existing text on fresh dictation push
                 inputEl.placeholder = "Listening...";
             };
 
@@ -346,12 +372,10 @@
                 const speechToText = event.results[0][0].transcript;
                 inputEl.value = speechToText.replace(/[.\s]+$/g, ''); 
                 
-                // Save name to memory if it's the username box being changed
                 if (inputEl.id === 'username') {
                     localStorage.setItem('rider_saved_name', inputEl.value);
                 }
 
-                // FIX: Instantly fire off the change to the group map while riding
                 broadcastCurrentState();
             };
 
@@ -364,10 +388,11 @@
             recognition.onend = () => {
                 buttonEl.classList.remove('listening');
                 resetPlaceholder(inputEl);
+                inputEl.blur(); // Explicitly forces the phone viewport to close input focus boundaries
             };
         }
 
-        // Let manually typed adjustments trigger real-time updates too
+        // Live typing synchronization 
         usernameInput.addEventListener('input', () => {
             localStorage.setItem('rider_saved_name', usernameInput.value.trim());
             broadcastCurrentState();
