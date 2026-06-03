@@ -44,7 +44,6 @@
             max-width: 280px;
         }
         
-        /* Container layout to embed the microphone icon neatly inside the input wrapper */
         .input-wrapper {
             position: relative;
             display: flex;
@@ -52,7 +51,7 @@
         }
         .input-wrapper input {
             width: 100%;
-            padding: 10px 40px 10px 10px; /* Leave room on the right for the mic */
+            padding: 10px 40px 10px 10px;
             border-radius: 6px;
             border: 1px solid #ccc;
             font-size: 14px;
@@ -63,7 +62,6 @@
             font-style: italic;
         }
         
-        /* Styling for the embedded mic icon buttons */
         .mic-btn {
             position: absolute;
             right: 10px;
@@ -79,10 +77,9 @@
         .mic-btn svg {
             width: 20px;
             height: 20px;
-            fill: #777; /* Default gray mic color */
+            fill: #777;
             transition: fill 0.2s ease;
         }
-        /* Turns the mic icon bright red when active */
         .mic-btn.listening svg {
             fill: #dc3545;
         }
@@ -147,8 +144,8 @@
 
         // 3. APP STATE
         let watchId = null;
-        let myUsername = "";
-        let myDestination = "";
+        let lastLat = 0;
+        let lastLng = 0;
         let isSharing = false; 
         let wakeLock = null;
         const riders = {}; 
@@ -190,46 +187,29 @@
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
                 // START SHARING MODE
-                const nameInput = usernameInput.value.trim();
-                if (!nameInput) {
+                if (!usernameInput.value.trim()) {
                     alert("Please enter a name so others know who you are!");
                     return;
                 }
-                myUsername = nameInput;
-                myDestination = destinationInput.value.trim();
                 
-                localStorage.setItem('rider_saved_name', myUsername);
+                // Save the initial name to device memory
+                localStorage.setItem('rider_saved_name', usernameInput.value.trim());
                 
                 isSharing = true;
-                usernameInput.disabled = true;
-                destinationInput.disabled = true;
-                usernameMic.disabled = true;
-                destinationMic.disabled = true;
                 startBtn.innerText = "Stop Sharing Location";
                 startBtn.classList.add('sharing-active');
 
                 if ("geolocation" in navigator) {
                     watchId = navigator.geolocation.watchPosition(
                         (position) => {
-                            const { latitude, longitude } = position.coords;
+                            lastLat = position.coords.latitude;
+                            lastLng = position.coords.longitude;
                             
                             if (Object.keys(riders).length === 0) {
-                                map.setView([latitude, longitude], 15);
+                                map.setView([lastLat, lastLng], 15);
                             }
 
-                            updateRiderMarker(`${myUsername} (You)`, myDestination, latitude, longitude);
-
-                            channel.send({
-                                type: 'broadcast',
-                                event: 'location-update',
-                                payload: { 
-                                    user: myUsername, 
-                                    dest: myDestination, 
-                                    lat: latitude, 
-                                    lng: longitude, 
-                                    status: 'online' 
-                                }
-                            });
+                            broadcastCurrentState();
                         },
                         (error) => {
                             console.error("Error getting location: ", error);
@@ -253,13 +233,36 @@
             }
         });
 
+        // Function that grabs whatever is currently in the text boxes and broadcasts it
+        function broadcastCurrentState() {
+            if (!isSharing || lastLat === 0 || lastLng === 0) return;
+
+            const currentUser = usernameInput.value.trim() || "Anonymous";
+            const currentDest = destinationInput.value.trim();
+
+            // Update your local pin with the fresh text box inputs
+            updateRiderMarker(`${currentUser} (You)`, currentDest, lastLat, lastLng);
+
+            // Send out the fresh details to everyone else in the room
+            channel.send({
+                type: 'broadcast',
+                event: 'location-update',
+                payload: { 
+                    user: currentUser, 
+                    dest: currentDest, 
+                    lat: lastLat, 
+                    lng: lastLng, 
+                    status: 'online' 
+                }
+            });
+        }
+
         function stopSharingLocation() {
             isSharing = false;
-            usernameInput.disabled = false;
-            destinationInput.disabled = false;
-            usernameMic.disabled = false;
-            destinationMic.disabled = false;
             
+            const currentUser = usernameInput.value.trim() || "Anonymous";
+            
+            // Clear out the destination text field instantly
             destinationInput.value = "";
             
             startBtn.innerText = "Start Sharing Location";
@@ -270,18 +273,23 @@
                 watchId = null;
             }
 
+            // Broadcast that you've disconnected
             channel.send({
                 type: 'broadcast',
                 event: 'location-update',
-                payload: { user: myUsername, dest: '', lat: 0, lng: 0, status: 'offline' }
+                payload: { user: currentUser, dest: '', lat: 0, lng: 0, status: 'offline' }
             });
 
-            const myLocalKey = `${myUsername} (You)`;
-            if (riders[myLocalKey]) {
-                map.removeLayer(riders[myLocalKey]);
-                delete riders[myLocalKey];
-            }
+            // Wipe out any local pins representing you
+            Object.keys(riders).forEach(key => {
+                if (key.includes('(You)')) {
+                    map.removeLayer(riders[key]);
+                    delete riders[key];
+                }
+            });
 
+            lastLat = 0;
+            lastLng = 0;
             releaseWakeLock();
         }
 
@@ -303,14 +311,13 @@
             }
         }
 
-        // 7. NEW LOGIC: HANDSFREE VOICE SPEECH DICTATION
+        // 7. HANDSFREE VOICE SPEECH DICTATION
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
             setupVoiceInput(destinationMic, destinationInput);
         } else {
-            // Hide mic buttons if user is using an old browser that doesn't support speech tracking
             usernameMic.style.display = 'none';
             destinationMic.style.display = 'none';
             console.warn("Speech recognition engine is not supported on this browser device.");
@@ -337,8 +344,15 @@
 
             recognition.onresult = (event) => {
                 const speechToText = event.results[0][0].transcript;
-                // Take spoken words and clean out accidental trailing punctuation marks
                 inputEl.value = speechToText.replace(/[.\s]+$/g, ''); 
+                
+                // Save name to memory if it's the username box being changed
+                if (inputEl.id === 'username') {
+                    localStorage.setItem('rider_saved_name', inputEl.value);
+                }
+
+                // FIX: Instantly fire off the change to the group map while riding
+                broadcastCurrentState();
             };
 
             recognition.onerror = (event) => {
@@ -352,6 +366,13 @@
                 resetPlaceholder(inputEl);
             };
         }
+
+        // Let manually typed adjustments trigger real-time updates too
+        usernameInput.addEventListener('input', () => {
+            localStorage.setItem('rider_saved_name', usernameInput.value.trim());
+            broadcastCurrentState();
+        });
+        destinationInput.addEventListener('input', broadcastCurrentState);
 
         function resetPlaceholder(inputEl) {
             if (inputEl.id === 'username') {
