@@ -492,10 +492,6 @@
                 .order('created_at', { ascending: true })
                 .limit(50);
 
-            if (error) {
-                console.error("Failed to load past chats:", error);
-            }
-
             if (!error && data) {
                 data.forEach(msg => {
                     const isMe = msg.device_id === myDeviceId;
@@ -504,7 +500,6 @@
             }
         }
 
-        // DIAGNOSTIC UPGRADE: Forces text onto the screen instantly so you see it type, then checks for errors
         async function sendGroupMessage() {
             const rawMessage = chatMsgInput.value.trim();
             if (!rawMessage) return;
@@ -512,29 +507,21 @@
             const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             
             chatMsgInput.value = "";
-
-            // Force print locally immediately so it's not frozen
             appendMessage(uniqueMsgId, author, rawMessage, true, 99999, myDeviceId);
 
-            // Attempt to send to Supabase database
             const { data, error } = await supabaseClient
                 .from('group_chat')
                 .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage, device_id: myDeviceId }])
                 .select();
 
-            // DIAGNOSTIC ALERT: If Supabase blocks it, this pop-up will reveal exactly what error is stopping the text
             if (error) {
                 alert("Supabase Error: " + error.message + " | Code: " + error.code);
-                console.error("Database insert error details:", error);
-                // Remove the bubble if it failed completely
                 const failedBubble = document.getElementById(uniqueMsgId);
                 if (failedBubble) failedBubble.remove();
             } else if (data && data[0]) {
-                // Update the temporary ID with the real database row ID
                 const activeBubble = document.getElementById(uniqueMsgId);
                 if (activeBubble) {
                     activeBubble.dataset.dbId = data[0].id;
-                    // Re-render delete button with correct database key
                     const existingDelBtn = activeBubble.querySelector('.msg-delete-btn');
                     if (!existingDelBtn) {
                         activeBubble.innerHTML += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${uniqueMsgId}', ${data[0].id})">✕</button>`;
@@ -575,7 +562,7 @@
             }
         }
 
-        // 8. VOICE INPUT CONVERTERS
+        // 8. VOICE INPUT CONVERTERS & NEW AUTOMATIC KEYBOARD RE-SNAP SCRIPT
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
@@ -584,6 +571,36 @@
         } else {
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
+
+        // NEW GLOBAL UTILITY: Shuts down input tracking, closes keyboard, and commands window viewport to snap cleanly back onto the map layout borders
+        function closeKeyboardAndSnapWindow(inputEl) {
+            inputEl.blur(); // Drops phone cursor focus (forces keyboard down)
+            
+            // FIX: Forces the mobile viewport to completely refresh its layout boundaries, instantly wiping away any white gaps left behind by the keyboard
+            setTimeout(() => {
+                window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                if (map) {
+                    map.invalidateSize(); // Informs Leaflet engine to resize map container to full screen height instantly
+                }
+            }, 80);
+        }
+
+        // Catch manual typed 'Enter' events to shut down inputs and pull keyboard away automatically
+        usernameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                closeKeyboardAndSnapWindow(usernameInput);
+            }
+        });
+        destinationInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                closeKeyboardAndSnapWindow(destinationInput);
+            }
+        });
+        chatMsgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                closeKeyboardAndSnapWindow(chatMsgInput);
+            }
+        });
 
         function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
             const recognition = new SpeechRecognition();
@@ -611,11 +628,19 @@
                 inputEl.value = event.results[0][0].transcript.replace(/[.\s]+$/g, ''); 
                 if (inputEl.id === 'username') localStorage.setItem('rider_saved_name', inputEl.value);
                 
-                if (autoSubmit) { sendGroupMessage(); } 
-                else { broadcastCurrentState(); }
+                if (autoSubmit) { 
+                    sendGroupMessage(); 
+                } else { 
+                    broadcastCurrentState(); 
+                }
             };
             recognition.onerror = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); };
-            recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); inputEl.blur(); };
+            recognition.onend = () => { 
+                buttonEl.classList.remove('listening'); 
+                resetPlaceholder(inputEl); 
+                // FIX: Closes layout boundaries automatically after voice dictation ends
+                closeKeyboardAndSnapWindow(inputEl);
+            };
         }
 
         usernameInput.addEventListener('input', () => { usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
