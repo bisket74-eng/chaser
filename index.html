@@ -486,7 +486,7 @@
             releaseWakeLock();
         }
 
-        // UPDATED FIXED MARKER GENERATOR: Pin intercepts tap events and handles zoom animations seamlessly
+        // UPDATED PIN GENERATOR: Tracks a custom toggle flag so tapping toggles zoom in and out
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -495,18 +495,26 @@
                 riders[user].setLatLng([lat, lng]); 
                 riders[user].setPopupContent(popupContent);
             } else {
-                // Instantiates fresh mapping layers tracking individual rider tokens
                 riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
                 
-                // NEW FIX: Smooth zoom event listener triggered upon pinning tap actions
+                // Track whether this specific pin is zoomed in or not
+                riders[user].dataset = { isZoomedIn: false };
+                
+                // Fixed zoom toggle script loop
                 riders[user].on('click', function(e) {
-                    // Pulls focus directly over coordinate points, centering view screen and bumping zoom scale up tightly (Zoom Level 17)
-                    map.setView(e.latlng, 17, { animate: true, duration: 0.8 });
-                    // Automatically opens up text details on screen cleanly
-                    this.openPopup();
+                    if (!this.dataset.isZoomedIn) {
+                        // FIRST TAP: Fly close into street level (Zoom Level 17)
+                        map.setView(e.latlng, 17, { animate: true, duration: 0.8 });
+                        this.dataset.isZoomedIn = true;
+                        this.openPopup();
+                    } else {
+                        // SECOND TAP: Slide backward to show a broad region (Zoom Level 12)
+                        map.setView(e.latlng, 12, { animate: true, duration: 0.8 });
+                        this.dataset.isZoomedIn = false;
+                        this.openPopup();
+                    }
                 });
                 
-                // Opens details on the cold initialization frame
                 riders[user].openPopup();
             }
         }
