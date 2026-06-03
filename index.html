@@ -53,13 +53,13 @@
             letter-spacing: 1px;
         }
 
-        /* NEW LOCATION: Riders online counter sits neatly underneath the cursive header */
+        /* The live counter widget placed cleanly under the cursive header script */
         #riderCounterWidget {
             font-size: 13px;
             color: #1e4620;
             font-weight: bold;
             background-color: #e2f0d9;
-            padding: 4px 10px;
+            padding: 4px 12px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             margin-top: 4px;
@@ -356,7 +356,6 @@
         let oldBroadcastedName = "Anonymous"; 
         const riders = {}; 
 
-        // Generate dynamic single-session identity key
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
         // Bind layout components
@@ -393,7 +392,6 @@
                 }
                 updateLiveRiderCounter(); 
             })
-            // Pure live stream channel interceptor for rapid texting airwaves
             .on('broadcast', { event: 'group-live-chat' }, (payload) => {
                 const { msgId, user, message, token } = payload.payload;
                 
@@ -408,6 +406,7 @@
             })
             .subscribe();
 
+        // FIXED REALTIME PRESENCE MATH: Safely counts active foreign map markers + your device session
         function updateLiveRiderCounter() {
             const count = Object.keys(riders).length + 1;
             riderCounterWidget.innerText = `Riders Online: ${count}`;
@@ -500,10 +499,13 @@
             chatOverlay.classList.add('open');
         });
 
-        // FIXED: Sliding close execution script trigger
         closeChatBtn.addEventListener('click', () => {
             isChatOpen = false;
             chatOverlay.classList.remove('open');
+        });
+
+        chatMsgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { sendGroupMessage(); }
         });
 
         function sendGroupMessage() {
