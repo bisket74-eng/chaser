@@ -2,46 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Group Ride Tracker</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        body, html {
-            margin: 0;
+        /* FIX: Forces the browser window to allocate full screen space */
+        html, body {
             padding: 0;
-            height: 100%;
+            margin: 0;
             width: 100%;
+            height: 100%;
+            overflow: hidden;
             font-family: Arial, sans-serif;
         }
+        
+        /* FIX: Ensures the map container anchors to all four corners of the screen */
         #map {
-            height: 100%;
-            width: 100%;
             position: absolute;
             top: 0;
             bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
             z-index: 1;
         }
+        
         #controls {
             position: absolute;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 10;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             display: flex;
             flex-direction: column;
             gap: 10px;
-            width: 80%;
-            max-width: 300px;
+            width: 85%;
+            max-width: 280px;
         }
         input, button {
-            padding: 8px;
-            border-radius: 4px;
+            padding: 10px;
+            border-radius: 6px;
             border: 1px solid #ccc;
             font-size: 14px;
         }
@@ -74,10 +81,10 @@
         const SUPABASE_URL = "https://xnwwngqennvwajlhvclj.supabase.co"; 
         const SUPABASE_ANON_KEY = "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8";
 
-        // Fixed variable name conflict here
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // 2. INITIALIZE THE MAP
+        // Default view opens up to a broad view of the world until location is loaded
         const map = L.map('map').setView([0, 0], 2);
         
         // Load free OpenStreetMap tiles
@@ -92,7 +99,6 @@
         const riders = {}; // Keeps track of other rider map markers
 
         // 4. JOIN THE REAL-TIME CHANNEL
-        // Fixed to reference supabaseClient correctly
         const channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
         });
@@ -145,7 +151,7 @@
                         alert("Could not access your location. Ensure location services are enabled.");
                     },
                     {
-                        enableHighAccuracy: true, // Forces phone to use GPS hardware
+                        enableHighAccuracy: true, // Forces phone to use GPS hardware instead of cell towers
                         maximumAge: 0,
                         timeout: 5000
                     }
@@ -172,7 +178,7 @@
             }
         }
 
-        // 7. WAKE LOCK (Prevents phone screens from sleeping during the ride)
+        // 7. WAKE LOCK (Optional helper to prevent phone screens from sleeping during the ride)
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
