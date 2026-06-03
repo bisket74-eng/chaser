@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Group Ride Tracker</title>
     
     <meta name="theme-color" content="#1e4620" />
@@ -12,16 +12,20 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
+        /* UPDATED: Fixed viewport lock and dark green background to eliminate the white keyboard flash */
         html, body {
             padding: 0;
             margin: 0;
             width: 100%;
-            height: 100%;
+            height: 100%; /* Fallback */
+            height: 100dvh; /* Dynamic Viewport Height blocks mobile resize gaps */
+            background-color: #1e4620; 
             overflow: hidden;
             font-family: Arial, sans-serif;
+            position: fixed; 
         }
         #map {
-            position: absolute;
+            position: fixed;
             top: 0;
             bottom: 0;
             left: 0;
@@ -43,7 +47,6 @@
             white-space: nowrap;
         }
 
-        /* UPDATED: Bolder, slightly larger, with a heavier stroke/shadow to pop off the map */
         #appHeader {
             font-family: "Brush Script MT", "Comic Sans MS", cursive;
             font-size: 52px; 
@@ -312,14 +315,14 @@
 
     <div id="controls">
         <div class="control-row">
-            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
+            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" enterkeyhint="done" />
             <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
         </div>
         
         <div class="control-row">
-            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" />
+            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" enterkeyhint="done" />
             <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
@@ -340,7 +343,7 @@
         </div>
         <div id="chatMessages"></div>
         <div id="chatInputArea">
-            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" />
+            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
             <button class="mic-btn" id="chatMic" type="button" title="Speak message">
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
@@ -372,7 +375,6 @@
 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-        // Bind layout components
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -391,7 +393,7 @@
         const savedName = localStorage.getItem('rider_saved_name');
         if (savedName) usernameInput.value = savedName;
 
-        // NEW: Swipe-to-Close Gesture Tracker
+        // Swipe-to-Close Gesture Tracker
         let touchStartX = 0;
         let touchStartY = 0;
         
@@ -404,7 +406,7 @@
             let touchEndX = e.changedTouches[0].screenX;
             let touchEndY = e.changedTouches[0].screenY;
             
-            // If they swipe right by more than 60px, AND keep it mostly horizontal (so we don't block normal scrolling)
+            // Requires a clean swipe to the right, ignoring up/down scrolling
             if (touchEndX - touchStartX > 60 && Math.abs(touchEndY - touchStartY) < 40) {
                 isChatOpen = false;
                 chatOverlay.classList.remove('open');
@@ -748,24 +750,42 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        // UPDATED: Strictly blocks automatic cursor jumping and forces mobile screens to rebuild their layout height instantly
+        // UPDATED KEYBOARD LOCK: Forces the browser to completely drop focus and refuse any auto-jumping to the next box
         function closeKeyboardAndSnapWindow(inputEl, event = null) {
             if (event) {
-                event.preventDefault(); // Denies the phone keyboard permission to move to the next box
+                event.preventDefault(); 
+                event.stopPropagation();
             }
+            
+            // Hard strip focus from the current input
             inputEl.blur(); 
             
+            // Extra safety net: forcefully blur whatever the browser is trying to jump to next
+            if (document.activeElement) {
+                document.activeElement.blur(); 
+            }
+            
             setTimeout(() => {
-                // Hard reset coordinates to wipe out dead white space left by keyboard
+                // Hard reset the visual screen coordinates so no white space can survive
                 window.scrollTo(0, 0);
                 document.body.scrollTop = 0; 
                 if (map) { map.invalidateSize(); }
-            }, 100);
+            }, 80);
         }
 
-        usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(usernameInput, e); });
-        destinationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(destinationInput, e); });
-        chatMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { closeKeyboardAndSnapWindow(chatMsgInput, e); sendGroupMessage(); } });
+        // Using a strict handler to catch the Enter key and execute the lock
+        const enforceKeyboardDrop = (e, targetInput) => {
+            if (e.key === 'Enter' || e.keyCode === 13) {
+                closeKeyboardAndSnapWindow(targetInput, e);
+                if (targetInput.id === 'chatMsgInput') {
+                    sendGroupMessage();
+                }
+            }
+        };
+
+        usernameInput.addEventListener('keydown', (e) => enforceKeyboardDrop(e, usernameInput));
+        destinationInput.addEventListener('keydown', (e) => enforceKeyboardDrop(e, destinationInput));
+        chatMsgInput.addEventListener('keydown', (e) => enforceKeyboardDrop(e, chatMsgInput));
 
         function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
             const recognition = new SpeechRecognition();
