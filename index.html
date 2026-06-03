@@ -53,7 +53,6 @@
             letter-spacing: 1px;
         }
 
-        /* The live counter widget placed cleanly under the cursive header script */
         #riderCounterWidget {
             font-size: 13px;
             color: #1e4620;
@@ -406,7 +405,6 @@
             })
             .subscribe();
 
-        // FIXED PRESENCE MATH: Filters out your own marker pin so you aren't counted twice!
         function updateLiveRiderCounter() {
             let totalBuddiesOnline = isSharing ? 1 : 0;
             
@@ -488,13 +486,28 @@
             releaseWakeLock();
         }
 
+        // UPDATED FIXED MARKER GENERATOR: Pin intercepts tap events and handles zoom animations seamlessly
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
+            
             if (riders[user]) {
-                riders[user].setLatLng([lat, lng]); riders[user].setPopupContent(popupContent);
+                riders[user].setLatLng([lat, lng]); 
+                riders[user].setPopupContent(popupContent);
             } else {
-                riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent).openPopup();
+                // Instantiates fresh mapping layers tracking individual rider tokens
+                riders[user] = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
+                
+                // NEW FIX: Smooth zoom event listener triggered upon pinning tap actions
+                riders[user].on('click', function(e) {
+                    // Pulls focus directly over coordinate points, centering view screen and bumping zoom scale up tightly (Zoom Level 17)
+                    map.setView(e.latlng, 17, { animate: true, duration: 0.8 });
+                    // Automatically opens up text details on screen cleanly
+                    this.openPopup();
+                });
+                
+                // Opens details on the cold initialization frame
+                riders[user].openPopup();
             }
         }
 
@@ -609,6 +622,12 @@
             broadcastCurrentState(); 
         });
         destinationInput.addEventListener('input', broadcastCurrentState);
+
+        function resetPlaceholder(inputEl) {
+            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
+            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
+            else inputEl.placeholder = "Type a message...";
+        }
 
         // 8. WAKE LOCK
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
