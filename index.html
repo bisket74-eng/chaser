@@ -10,7 +10,6 @@
     
     <link rel="manifest" href="./manifest.json" />
     
-    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
@@ -209,7 +208,6 @@
             position: relative;
         }
         
-        /* FIX: Render a full-size electric lightning bolt that tracks the entire length of the phone screen */
         #chatMessages::before {
             content: "";
             position: absolute;
@@ -217,11 +215,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* Uses a detailed, sharp lightning path layout colored vibrant electric yellow with enhanced 0.25 opacity */
             background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff200'><path d='M11 21h-1l1.5-6.5h-4c-.55 0-.85-.56-.52-1l6.5-11h1l-1.5 6.5h4c.55 0 .85.56.52 1l-6.5 11z' opacity='0.25'/></svg>");
             background-repeat: no-repeat;
             background-position: center center;
-            background-size: 95% 95%; /* Maximized to span across the entire drawer layout borders */
+            background-size: 95% 95%; 
             pointer-events: none; 
             z-index: 0;
         }
@@ -234,7 +231,7 @@
             max-width: 85%;
             align-self: flex-start;
             box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-            z-index: 1; /* Floats safely on top of the giant yellow graphic layout */
+            z-index: 1; 
         }
         .msg-bubble.is-me {
             background-color: #1e4620; 
@@ -331,9 +328,7 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Supabase JS Client -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <script>
@@ -347,13 +342,20 @@
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-        // 3. APP STATE
+        // 3. APP STATE & NEW DEVICE ID GENERATOR
         let watchId = null;
         let lastLat = 0, lastLng = 0;
         let isSharing = false, isChatOpen = false; 
         let unreadCount = 0;
         let wakeLock = null;
         const riders = {}; 
+
+        // NEW FIX: Generates a secret internal tracking fingerprint for this exact browser device
+        let myDeviceId = localStorage.getItem('rider_device_uuid');
+        if (!myDeviceId) {
+            myDeviceId = 'dev-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+            localStorage.setItem('rider_device_uuid', myDeviceId);
+        }
 
         // Bind layout nodes
         const startBtn = document.getElementById('startBtn');
@@ -393,11 +395,13 @@
         supabaseClient
             .channel('db-chat')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
-                const { msg_id, username, message } = payload.new;
-                const activeUser = usernameInput.value.trim() || "Anonymous";
+                const { msg_id, username, message, device_id } = payload.new;
                 
-                if (username !== activeUser) {
-                    appendMessage(msg_id, username, message, false);
+                // UPDATED: Check device fingerprint instead of name text to identify if it's yours
+                const isMe = device_id === myDeviceId;
+                
+                if (!isMe) {
+                    appendMessage(msg_id, username, message, false, payload.new.id, device_id);
                     if (!isChatOpen) {
                         unreadCount++;
                         chatBadge.innerText = unreadCount;
@@ -492,7 +496,6 @@
 
         async function loadSavedChatHistory() {
             chatMessages.innerHTML = ""; 
-            const activeUser = usernameInput.value.trim() || "Anonymous";
 
             const { data, error } = await supabaseClient
                 .from('group_chat')
@@ -502,8 +505,9 @@
 
             if (!error && data) {
                 data.forEach(msg => {
-                    const isMe = msg.username === activeUser;
-                    appendMessage(msg.msg_id, msg.username, msg.message, isMe, msg.id);
+                    // UPDATED: Check device fingerprint column to verify true owner status
+                    const isMe = msg.device_id === myDeviceId;
+                    appendMessage(msg.msg_id, msg.username, msg.message, isMe, msg.id, msg.device_id);
                 });
             }
         }
@@ -516,19 +520,20 @@
             
             chatMsgInput.value = "";
 
+            // UPDATED: Push your custom device_id along with the message to the database table row
             const { data, error } = await supabaseClient
                 .from('group_chat')
-                .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage }])
+                .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage, device_id: myDeviceId }])
                 .select();
 
             if (!error && data) {
-                appendMessage(uniqueMsgId, author, rawMessage, true, data[0].id);
+                appendMessage(uniqueMsgId, author, rawMessage, true, data[0].id, myDeviceId);
             } else {
                 console.error("Database insert error:", error);
             }
         }
 
-        function appendMessage(id, user, msg, isMe, rowDatabaseId = null) {
+        function appendMessage(id, user, msg, isMe, rowDatabaseId = null, senderDeviceId = null) {
             if (document.getElementById(id)) return;
 
             const wrapper = document.createElement('div');
@@ -536,9 +541,13 @@
             wrapper.id = id;
             if (rowDatabaseId) wrapper.dataset.dbId = rowDatabaseId;
             
-            let htmlContent = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
+            let displayName = isMe ? 'You' : user;
+            let htmlContent = `<div class="msg-user">${displayName}</div><div class="msg-text">${msg}</div>`;
             
-            if (isMe && rowDatabaseId) {
+            // NEW FIX: Unlock delete button for ANY message originating from this machine's fingerprint
+            const absoluteOwnerOverride = (senderDeviceId === myDeviceId) || isMe;
+            
+            if (absoluteOwnerOverride && rowDatabaseId) {
                 htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}', ${rowDatabaseId})">✕</button>`;
             }
             
