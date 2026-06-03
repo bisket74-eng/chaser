@@ -10,6 +10,7 @@
     
     <link rel="manifest" href="./manifest.json" />
     
+    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
@@ -197,6 +198,7 @@
             cursor: pointer;
         }
         
+        /* UPDATED: Chat feed background is now Light Green with an embedded custom Pale Yellow lightning bolt design */
         #chatMessages {
             flex: 1;
             padding: 16px;
@@ -204,22 +206,42 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            background-color: #f4f7f4;
+            background-color: #e2f0d9; /* Light Green Chat Screen Background */
+            position: relative;
+        }
+        
+        /* NEW: Custom overlay container rendering a massive, transparent lightning bolt centered in the feed */
+        #chatMessages::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Embedded SVG of a sharp lightning bolt, colored an ultra-faint pale yellow (opacity 0.15) */
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fff275'><path d='M19 9h-4V3H5v10h4v8z' opacity='0.15'/></svg>");
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: 70% auto; /* Forces bolt to stretch prominently across page */
+            pointer-events: none; /* Prevents background layer from blocking text selections or scrolling gestures */
+            z-index: 0;
         }
         
         .msg-bubble {
             position: relative; 
-            background-color: #e2f0d9;
+            background-color: #ffffff; /* Flipped incoming bubbles to white for crisp legibility over light green background */
             padding: 12px 28px 12px 12px; 
             border-radius: 12px;
             max-width: 85%;
             align-self: flex-start;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+            z-index: 1; /* Ensures text floats cleanly above background lightning bolt graphic */
         }
         .msg-bubble.is-me {
-            background-color: #1e4620;
+            background-color: #1e4620; /* Dark Green theme match for user messages */
             color: white;
             align-self: flex-end;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.15);
         }
         .msg-user { font-size: 12px; font-weight: bold; color: #2d6a30; margin-bottom: 4px; }
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
@@ -250,6 +272,7 @@
             display: flex;
             gap: 8px;
             align-items: center;
+            z-index: 2;
         }
         #chatInputArea input {
             flex: 1;
@@ -309,7 +332,9 @@
         </div>
     </div>
 
+    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Supabase JS Client -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <script>
@@ -331,7 +356,7 @@
         let wakeLock = null;
         const riders = {}; 
 
-        // Bind elements
+        // Bind layout nodes
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -349,7 +374,7 @@
         const savedName = localStorage.getItem('rider_saved_name');
         if (savedName) usernameInput.value = savedName;
 
-        // 4. JOIN THE REAL-TIME CHANNEL
+        // 4. JOIN THE REAL-TIME LOCATION CHANNEL
         const channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
         });
@@ -365,14 +390,13 @@
             })
             .subscribe();
 
-        // NEW: Realtime listener pointing directly at our database table for instant incoming text chats
+        // Realtime Postgres database listener loop targeting chat insertion changes
         supabaseClient
             .channel('db-chat')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
                 const { msg_id, username, message } = payload.new;
                 const activeUser = usernameInput.value.trim() || "Anonymous";
                 
-                // If the message came from someone else, print it out
                 if (username !== activeUser) {
                     appendMessage(msg_id, username, message, false);
                     if (!isChatOpen) {
@@ -382,10 +406,7 @@
                     }
                 }
             })
-            // Realtime listener for message deletions inside the database table
             .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_chat' }, (payload) => {
-                const deletedId = payload.old.msg_id;
-                // If it's a null match, we lookup via cache tracking filters
                 const elements = document.querySelectorAll('.msg-bubble');
                 elements.forEach(el => {
                     if (el.dataset.dbId == payload.old.id) {
@@ -451,14 +472,13 @@
             }
         }
 
-        // 6. CHAT PANEL CONTROLLERS (WITH RETRIEVAL HISTORY ENGINE)
+        // 6. CHAT WINDOW CONTROLLER LOGIC
         chatToggleBtn.addEventListener('click', async () => {
             isChatOpen = true;
             unreadCount = 0;
             chatBadge.style.display = 'none';
             chatOverlay.classList.add('open');
             
-            // Fetch past chat database logs to rebuild screen when clicking open
             await loadSavedChatHistory();
         });
 
@@ -471,9 +491,8 @@
             if (e.key === 'Enter') { sendGroupMessage(); }
         });
 
-        // NEW: Pulls down the last 50 text messages from the database
         async function loadSavedChatHistory() {
-            chatMessages.innerHTML = ""; // Clear loader canvas
+            chatMessages.innerHTML = ""; 
             const activeUser = usernameInput.value.trim() || "Anonymous";
 
             const { data, error } = await supabaseClient
@@ -490,7 +509,6 @@
             }
         }
 
-        // NEW: Saves message right to the permanent database table
         async function sendGroupMessage() {
             const rawMessage = chatMsgInput.value.trim();
             if (!rawMessage) return;
@@ -499,7 +517,7 @@
             
             chatMsgInput.value = "";
 
-            // Insert into Supabase table
+            // Push payload data to the remote postgres schema container
             const { data, error } = await supabaseClient
                 .from('group_chat')
                 .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage }])
@@ -507,11 +525,12 @@
 
             if (!error && data) {
                 appendMessage(uniqueMsgId, author, rawMessage, true, data[0].id);
+            } else {
+                console.error("Database insert error:", error);
             }
         }
 
         function appendMessage(id, user, msg, isMe, rowDatabaseId = null) {
-            // Prevent duplicated prints if row triggers hit twice
             if (document.getElementById(id)) return;
 
             const wrapper = document.createElement('div');
@@ -530,7 +549,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // NEW: Deletes the message from the backend database table completely
         async function requestMessageDeletion(uiId, dbRowId) {
             const localBubble = document.getElementById(uiId);
             if (localBubble) localBubble.remove();
