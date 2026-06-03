@@ -38,7 +38,9 @@
             border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; 
             gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
-        #controls:focus-within { transform: translateY(-95px); }
+
+        /* FIXED: Only lifts when a text input box is active. Ignores button taps entirely! */
+        #controls:has(input:focus) { transform: translateY(-95px); }
         
         .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
         .control-row input {
@@ -403,11 +405,9 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        // FIXED: Hard drops focus on everything to absolutely kill the :focus-within CSS block
         const closeKeyboardAndSnapWindow = (inputEl, event = null) => {
             if (event) { event.preventDefault(); event.stopPropagation(); }
             
-            // Aggressively strip focus from all specific inputs to break the :focus-within lock
             usernameInput.blur();
             destinationInput.blur();
             chatMsgInput.blur();
@@ -415,7 +415,6 @@
             if (document.activeElement) document.activeElement.blur(); 
             
             setTimeout(() => { 
-                // A secondary blur just in case the browser tried to auto-jump at the last millisecond
                 if (document.activeElement) document.activeElement.blur();
                 window.scrollTo(0, 0); 
                 document.body.scrollTop = 0; 
