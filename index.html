@@ -9,7 +9,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
     
-    <!-- Leaflet Map CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
@@ -292,7 +291,6 @@
 
     <div id="appHeaderContainer">
         <div id="appHeader">Buddy Finder</div>
-        <!-- UPDATED: Wording changed to Buddies Online, and initialized clean at 0 -->
         <div id="riderCounterWidget">Buddies Online: 0</div>
     </div>
 
@@ -335,9 +333,7 @@
         </div>
     </div>
 
-    <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Supabase JS Client -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 
     <script>
@@ -410,10 +406,16 @@
             })
             .subscribe();
 
-        // FIXED REALTIME PRESENCE MATH: Only starts the count at 1 if you are actively sharing location
+        // FIXED PRESENCE MATH: Filters out your own marker pin so you aren't counted twice!
         function updateLiveRiderCounter() {
-            const myPresenceCount = isSharing ? 1 : 0;
-            const totalBuddiesOnline = Object.keys(riders).length + myPresenceCount;
+            let totalBuddiesOnline = isSharing ? 1 : 0;
+            
+            Object.keys(riders).forEach(key => {
+                if (!key.includes('(You)')) {
+                    totalBuddiesOnline++;
+                }
+            });
+            
             riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
 
@@ -607,12 +609,6 @@
             broadcastCurrentState(); 
         });
         destinationInput.addEventListener('input', broadcastCurrentState);
-
-        function resetPlaceholder(inputEl) {
-            if (inputEl.id === 'username') inputEl.placeholder = "Enter your name";
-            else if (inputEl.id === 'destination') inputEl.placeholder = "Destination (optional)";
-            else inputEl.placeholder = "Type a message...";
-        }
 
         // 8. WAKE LOCK
         async function requestWakeLock() { if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} } }
