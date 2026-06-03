@@ -49,6 +49,11 @@
             border: 1px solid #ccc;
             font-size: 14px;
         }
+        /* Custom styling to make the optional text inside placeholder look light */
+        input::placeholder {
+            color: #aaa;
+            font-style: italic;
+        }
         button {
             background-color: #007bff;
             color: white;
@@ -56,10 +61,10 @@
             cursor: pointer;
             font-weight: bold;
             transition: background-color 0.2s ease;
+            margin-top: 5px;
         }
-        /* Style for when sharing is active */
         button.sharing-active {
-            background-color: #dc3545; /* Red stop button */
+            background-color: #dc3545;
         }
     </style>
 </head>
@@ -69,6 +74,7 @@
 
     <div id="controls">
         <input type="text" id="username" placeholder="Enter your name" />
+        <input type="text" id="destination" placeholder="Destination (optional)" />
         <button id="startBtn">Start Sharing Location</button>
     </div>
 
@@ -93,7 +99,8 @@
         // 3. APP STATE
         let watchId = null;
         let myUsername = "";
-        let isSharing = false; // Tracks whether we are actively tracking or not
+        let myDestination = "";
+        let isSharing = false; 
         let wakeLock = null;
         const riders = {}; 
 
@@ -104,16 +111,15 @@
 
         channel
             .on('broadcast', { event: 'location-update' }, (payload) => {
-                const { user, lat, lng, status } = payload.payload;
+                const { user, dest, lat, lng, status } = payload.payload;
                 
-                // If another rider sends a "disconnected" status, remove their pin
                 if (status === 'offline') {
                     if (riders[user]) {
                         map.removeLayer(riders[user]);
                         delete riders[user];
                     }
                 } else {
-                    updateRiderMarker(user, lat, lng);
+                    updateRiderMarker(user, dest, lat, lng);
                 }
             })
             .subscribe();
@@ -121,6 +127,7 @@
         // 5. TOGGLE BUTTON & TRACKING LOGIC
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
+        const destinationInput = document.getElementById('destination');
 
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
@@ -131,9 +138,11 @@
                     return;
                 }
                 myUsername = nameInput;
+                myDestination = destinationInput.value.trim(); // Grab the destination info
                 
                 isSharing = true;
                 usernameInput.disabled = true;
+                destinationInput.disabled = true;
                 startBtn.innerText = "Stop Sharing Location";
                 startBtn.classList.add('sharing-active');
 
@@ -146,18 +155,24 @@
                                 map.setView([latitude, longitude], 15);
                             }
 
-                            updateRiderMarker(`${myUsername} (You)`, latitude, longitude);
+                            updateRiderMarker(`${myUsername} (You)`, myDestination, latitude, longitude);
 
                             channel.send({
                                 type: 'broadcast',
                                 event: 'location-update',
-                                payload: { user: myUsername, lat: latitude, lng: longitude, status: 'online' }
+                                payload: { 
+                                    user: myUsername, 
+                                    dest: myDestination, 
+                                    lat: latitude, 
+                                    lng: longitude, 
+                                    status: 'online' 
+                                }
                             });
                         },
                         (error) => {
                             console.error("Error getting location: ", error);
                             alert("Could not access your location. Ensure location services are enabled.");
-                            stopSharingLocation(); // Reset UI if GPS fails
+                            stopSharingLocation(); 
                         },
                         {
                             enableHighAccuracy: true,
@@ -177,44 +192,48 @@
             }
         });
 
-        // Helper function to handle cleanly turning off tracking
+        // Clean closure function
         function stopSharingLocation() {
             isSharing = false;
             usernameInput.disabled = false;
+            destinationInput.disabled = false;
             startBtn.innerText = "Start Sharing Location";
             startBtn.classList.remove('sharing-active');
 
-            // 1. Kill the active GPS engine
             if (watchId !== null) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
             }
 
-            // 2. Alert the room that you stopped sharing so your marker disappears from their screens
             channel.send({
                 type: 'broadcast',
                 event: 'location-update',
-                payload: { user: myUsername, lat: 0, lng: 0, status: 'offline' }
+                payload: { user: myUsername, dest: '', lat: 0, lng: 0, status: 'offline' }
             });
 
-            // 3. Remove your own local "(You)" map pin
             const myLocalKey = `${myUsername} (You)`;
             if (riders[myLocalKey]) {
                 map.removeLayer(riders[myLocalKey]);
                 delete riders[myLocalKey];
             }
 
-            // 4. Let the screen sleep again
             releaseWakeLock();
         }
 
         // 6. UPDATE OR CREATE MARKERS ON THE MAP
-        function updateRiderMarker(user, lat, lng) {
+        function updateRiderMarker(user, dest, lat, lng) {
+            // Build the popup label layout dynamically based on if a destination was entered
+            let popupContent = `<b>${user}</b>`;
+            if (dest) {
+                popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
+            }
+
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]);
+                riders[user].setPopupContent(popupContent); // Keep the destination info fresh if it changes
             } else {
                 const marker = L.marker([lat, lng]).addTo(map)
-                    .bindPopup(user)
+                    .bindPopup(popupContent)
                     .openPopup();
                 riders[user] = marker;
             }
@@ -225,7 +244,6 @@
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log("Screen Wake Lock active.");
                 } catch (err) {
                     console.warn(`Wake Lock failed: ${err.message}`);
                 }
@@ -236,17 +254,16 @@
             if (wakeLock !== null) {
                 wakeLock.release().then(() => {
                     wakeLock = null;
-                    console.log("Screen Wake Lock released.");
                 });
             }
         }
 
-        // Register the PWA Service Worker
+        // PWA Service Worker Core
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker registered successfully!', reg))
-                    .catch(err => console.error('Service Worker registration failed:', err));
+                    .then(reg => console.log('PWA Service Worker online!'))
+                    .catch(err => console.error('PWA Worker initialization failed:', err));
             });
         }
     </script>
