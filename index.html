@@ -364,6 +364,7 @@
         const riders = {}; 
 
         let cycleBuddyIndex = 0;
+        let soloZoomToggle = false; // Flag to smoothly toggle zoom when riding completely alone
 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
@@ -427,33 +428,49 @@
             riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
 
-        // NEW ENHANCED COMPONENT: Offset view positioning utility
         function getOffsetLatLng(targetLatLng) {
-            // Converts the geographical coordinate into pixel coordinates based on current zoom boundaries
             const targetPoint = map.project(targetLatLng, map.getZoom());
-            // Shifts the vertical center point upward by 110 pixels to comfortably clear the bottom green control card
             const offsetPoint = targetPoint.add([0, 110]);
-            // Translates it right back into standard map coordinates
             return map.unproject(offsetPoint, map.getZoom());
         }
 
-        // UPDATED MASTER CYCLING LOOP: Now supports whole-group zooming out at the end of the loop!
+        // FIXED MASTER CYCLING LOOP: Handles solo vs group configurations flawlessly
         riderCounterWidget.addEventListener('click', () => {
             const activeBuddyNames = Object.keys(riders).filter(key => !key.includes('(You)'));
             const myActiveName = usernameInput.value.trim() || "Anonymous";
             const mySelfKey = `${myActiveName} (You)`;
 
-            // Compile total active target array elements (Foreign buddies + yourself)
+            // 1. SOLO CONFIGURATION TRAFFIC CONTROL
+            if (activeBuddyNames.length === 0) {
+                const myPin = riders[mySelfKey];
+                if (!myPin) return; // If not sharing yet, ignore clicks
+
+                if (!soloZoomToggle) {
+                    // Tap 1: Zoom in close, centering with the safety offset card buffer
+                    map.setZoom(17);
+                    const initialCenteredView = getOffsetLatLng(myPin.getLatLng());
+                    map.panTo(initialCenteredView, { animate: true, duration: 0.8 });
+                    myPin.openPopup();
+                    soloZoomToggle = true;
+                } else {
+                    // Tap 2: Pull cleanly back out to a wide full-view scale (Zoom Level 12)
+                    map.setZoom(12);
+                    const broadCenteredView = getOffsetLatLng(myPin.getLatLng());
+                    map.panTo(broadCenteredView, { animate: true, duration: 0.8 });
+                    myPin.openPopup();
+                    soloZoomToggle = false;
+                }
+                return;
+            }
+
+            // 2. GROUP CONFIGURATION TRAFFIC CONTROL (More than one rider online)
             let masterLoopList = [...activeBuddyNames];
             if (riders[mySelfKey]) {
                 masterLoopList.push(mySelfKey);
             }
 
-            if (masterLoopList.length === 0) return;
-
-            // NEW: If you have tapped through every single person, execute the pull-back layout zoom view!
+            // If we've cycled through everyone, pull back to show the master bird's-eye view of the group
             if (cycleBuddyIndex >= masterLoopList.length) {
-                // Compile matching layout boundaries enclosing every single pin currently online
                 const allPinsGroup = [];
                 Object.keys(riders).forEach(key => {
                     allPinsGroup.push(riders[key].getLatLng());
@@ -461,20 +478,18 @@
 
                 if (allPinsGroup.length > 0) {
                     const boundsGroup = L.latLngBounds(allPinsGroup);
-                    // Shrink map out to encapsulate the entire gang smoothly, applying an offset buffer
                     map.fitBounds(boundsGroup, { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 }
                 
-                // Reset index tracker right back to zero so the next click handles individual buddies fresh
                 cycleBuddyIndex = 0;
                 return;
             }
 
+            // Focus on the specific buddy in the queue
             const targetedName = masterLoopList[cycleBuddyIndex];
             const targetedMarker = riders[targetedName];
 
             if (targetedMarker) {
-                // Locks close focus scale boundary parameters (Zoom level 17)
                 map.setZoom(17);
                 const safetyOffsetCenter = getOffsetLatLng(targetedMarker.getLatLng());
                 map.panTo(safetyOffsetCenter, { animate: true, duration: 0.8 });
@@ -499,7 +514,6 @@
                     watchId = navigator.geolocation.watchPosition((position) => {
                         lastLat = position.coords.latitude; lastLng = position.coords.longitude;
                         
-                        // Cold load viewport layout positioning configuration
                         if (Object.keys(riders).length === 0 && lastLat !== 0) {
                             map.setZoom(15);
                             const initialCenteredView = getOffsetLatLng([lastLat, lastLng]);
@@ -556,11 +570,11 @@
             lastLat = 0; lastLng = 0;
             oldBroadcastedName = "Anonymous";
             cycleBuddyIndex = 0;
+            soloZoomToggle = false; 
             updateLiveRiderCounter();
             releaseWakeLock();
         }
 
-        // UPDATED POSITION ENGINE: Live panning events now apply the offset safety buffer automatically
         function updateRiderMarker(user, dest, lat, lng) {
             let popupContent = `<b>${user}</b>`;
             if (dest) popupContent += `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>`;
@@ -569,7 +583,6 @@
                 riders[user].setLatLng([lat, lng]); 
                 riders[user].setPopupContent(popupContent);
                 
-                // NEW LIVE TRACKER POSITION LOCK: If you are actively moving on a map trail under active tracking, push map center forward using the vertical offset 
                 if (user.includes('(You)') && isSharing) {
                     const trackingCenterOffset = getOffsetLatLng([lat, lng]);
                     map.panTo(trackingCenterOffset, { animate: true, duration: 0.5 });
