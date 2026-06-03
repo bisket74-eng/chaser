@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Group Ride Tracker</title>
-    
+    <link rel="manifest" href="./manifest.json" />
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
@@ -162,6 +163,15 @@
             } else {
                 alert("Your browser doesn't support geolocation.");
             }
+            // Register the PWA Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('Service Worker registered successfully!', reg))
+            .catch(err => console.error('Service Worker registration failed:', err));
+    });
+}
+
         });
 
         // 6. UPDATE OR CREATE MARKERS ON THE MAP
