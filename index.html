@@ -32,7 +32,6 @@
             z-index: 1;
         }
 
-        /* UPDATED: Significantly larger floating cursive header */
         #appHeader {
             position: absolute;
             top: 25px;
@@ -40,7 +39,7 @@
             transform: translateX(-50%);
             z-index: 10;
             font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 46px; /* Scaled up bigger */
+            font-size: 46px; 
             color: #1e4620; 
             text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
             font-weight: bold;
@@ -49,7 +48,6 @@
             white-space: nowrap;
         }
         
-        /* UPDATED: Structured control container layout */
         #controls {
             position: absolute;
             bottom: 20px;
@@ -70,15 +68,14 @@
         .control-row {
             display: flex;
             align-items: center;
-            justify-content: space-between; /* Pushes input and mic to opposite sides neatly */
+            justify-content: space-between; 
             width: 100%;
             gap: 8px;
         }
         
-        /* UPDATED: Shortened input boxes so they never push the mic off the background */
         .control-row input {
             flex: 1;
-            max-width: 200px; /* Constrained width fix */
+            max-width: 200px; 
             padding: 12px; 
             border-radius: 8px;
             border: 2px solid #2d6a30;
@@ -130,7 +127,6 @@
         }
         #startBtn.sharing-active { background-color: #dc3545; }
 
-        /* Centered right chat button setup */
         #chatToggleBtn {
             position: absolute;
             bottom: 54px; 
@@ -165,7 +161,6 @@
             border: 2px solid white;
         }
 
-        /* Chat drawer layer */
         #chatOverlay {
             position: absolute;
             top: 0;
@@ -213,9 +208,9 @@
         }
         
         .msg-bubble {
-            position: relative; /* Context parent container for the absolute delete button placement */
+            position: relative; 
             background-color: #e2f0d9;
-            padding: 12px 28px 12px 12px; /* Extra padding right so text never collides with the X button */
+            padding: 12px 28px 12px 12px; 
             border-radius: 12px;
             max-width: 85%;
             align-self: flex-start;
@@ -230,7 +225,6 @@
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
         .msg-text { font-size: 14px; word-break: break-word; }
         
-        /* NEW: The message removal layout trigger button */
         .msg-delete-btn {
             position: absolute;
             top: 6px;
@@ -337,7 +331,7 @@
         let wakeLock = null;
         const riders = {}; 
 
-        // Bind control layout components
+        // Bind elements
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -369,23 +363,35 @@
                     updateRiderMarker(user, dest, lat, lng);
                 }
             })
-            .on('broadcast', { event: 'chat-message' }, (payload) => {
-                const { msgId, user, message } = payload.payload;
-                appendMessage(msgId, user, message, false);
+            .subscribe();
+
+        // NEW: Realtime listener pointing directly at our database table for instant incoming text chats
+        supabaseClient
+            .channel('db-chat')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'group_chat' }, (payload) => {
+                const { msg_id, username, message } = payload.new;
+                const activeUser = usernameInput.value.trim() || "Anonymous";
                 
-                if (!isChatOpen) {
-                    unreadCount++;
-                    chatBadge.innerText = unreadCount;
-                    chatBadge.style.display = 'block';
+                // If the message came from someone else, print it out
+                if (username !== activeUser) {
+                    appendMessage(msg_id, username, message, false);
+                    if (!isChatOpen) {
+                        unreadCount++;
+                        chatBadge.innerText = unreadCount;
+                        chatBadge.style.display = 'block';
+                    }
                 }
             })
-            // NEW LISTENER: Checks for a message deletion call and clears it from screen layout
-            .on('broadcast', { event: 'delete-message' }, (payload) => {
-                const { msgId } = payload.payload;
-                const targetedBubble = document.getElementById(msgId);
-                if (targetedBubble) {
-                    targetedBubble.remove();
-                }
+            // Realtime listener for message deletions inside the database table
+            .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'group_chat' }, (payload) => {
+                const deletedId = payload.old.msg_id;
+                // If it's a null match, we lookup via cache tracking filters
+                const elements = document.querySelectorAll('.msg-bubble');
+                elements.forEach(el => {
+                    if (el.dataset.dbId == payload.old.id) {
+                        el.remove();
+                    }
+                });
             })
             .subscribe();
 
@@ -445,12 +451,15 @@
             }
         }
 
-        // 6. CHAT PANEL CONTROLLERS
-        chatToggleBtn.addEventListener('click', () => {
+        // 6. CHAT PANEL CONTROLLERS (WITH RETRIEVAL HISTORY ENGINE)
+        chatToggleBtn.addEventListener('click', async () => {
             isChatOpen = true;
             unreadCount = 0;
             chatBadge.style.display = 'none';
             chatOverlay.classList.add('open');
+            
+            // Fetch past chat database logs to rebuild screen when clicking open
+            await loadSavedChatHistory();
         });
 
         closeChatBtn.addEventListener('click', () => {
@@ -462,35 +471,58 @@
             if (e.key === 'Enter') { sendGroupMessage(); }
         });
 
-        function sendGroupMessage() {
+        // NEW: Pulls down the last 50 text messages from the database
+        async function loadSavedChatHistory() {
+            chatMessages.innerHTML = ""; // Clear loader canvas
+            const activeUser = usernameInput.value.trim() || "Anonymous";
+
+            const { data, error } = await supabaseClient
+                .from('group_chat')
+                .select('*')
+                .order('created_at', { ascending: true })
+                .limit(50);
+
+            if (!error && data) {
+                data.forEach(msg => {
+                    const isMe = msg.username === activeUser;
+                    appendMessage(msg.msg_id, msg.username, msg.message, isMe, msg.id);
+                });
+            }
+        }
+
+        // NEW: Saves message right to the permanent database table
+        async function sendGroupMessage() {
             const rawMessage = chatMsgInput.value.trim();
             if (!rawMessage) return;
             const author = usernameInput.value.trim() || "Anonymous";
-            
-            // Generate a completely random ID string for this specific message block
             const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             
-            // Append locally as "Me" bubble
-            appendMessage(uniqueMsgId, author, rawMessage, true);
             chatMsgInput.value = "";
 
-            channel.send({
-                type: 'broadcast', event: 'chat-message',
-                payload: { msgId: uniqueMsgId, user: author, message: rawMessage }
-            });
+            // Insert into Supabase table
+            const { data, error } = await supabaseClient
+                .from('group_chat')
+                .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage }])
+                .select();
+
+            if (!error && data) {
+                appendMessage(uniqueMsgId, author, rawMessage, true, data[0].id);
+            }
         }
 
-        // UPDATED: Inserts a deletion option if the message belongs to you
-        function appendMessage(id, user, msg, isMe) {
+        function appendMessage(id, user, msg, isMe, rowDatabaseId = null) {
+            // Prevent duplicated prints if row triggers hit twice
+            if (document.getElementById(id)) return;
+
             const wrapper = document.createElement('div');
             wrapper.className = `msg-bubble ${isMe ? 'is-me' : ''}`;
-            wrapper.id = id; // Set the tracking ID directly to the HTML tag
+            wrapper.id = id;
+            if (rowDatabaseId) wrapper.dataset.dbId = rowDatabaseId;
             
             let htmlContent = `<div class="msg-user">${isMe ? 'You' : user}</div><div class="msg-text">${msg}</div>`;
             
-            if (isMe) {
-                // Insert the absolute X deletion button markup
-                htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}')">✕</button>`;
+            if (isMe && rowDatabaseId) {
+                htmlContent += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${id}', ${rowDatabaseId})">✕</button>`;
             }
             
             wrapper.innerHTML = htmlContent;
@@ -498,19 +530,15 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // NEW LOGIC: Clears local UI node and fires a broadcast order to wipe it everywhere else
-        function requestMessageDeletion(id) {
-            const localBubble = document.getElementById(id);
-            if (localBubble) {
-                localBubble.remove();
-                
-                // Broadcast the deletion order payload over Supabase
-                channel.send({
-                    type: 'broadcast',
-                    event: 'delete-message',
-                    payload: { msgId: id }
-                });
-            }
+        // NEW: Deletes the message from the backend database table completely
+        async function requestMessageDeletion(uiId, dbRowId) {
+            const localBubble = document.getElementById(uiId);
+            if (localBubble) localBubble.remove();
+
+            await supabaseClient
+                .from('group_chat')
+                .delete()
+                .eq('id', dbRowId);
         }
 
         // 7. HANDSFREE DICTATION AUDIO CONVERTERS
