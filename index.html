@@ -332,6 +332,7 @@
         let isSharing = false, isChatOpen = false; 
         let unreadCount = 0;
         let wakeLock = null;
+        let oldBroadcastedName = "Anonymous"; // Track previous name for clean disconnects
         const riders = {}; 
 
         let myDeviceId = localStorage.getItem('rider_device_uuid');
@@ -340,7 +341,7 @@
             localStorage.setItem('rider_device_uuid', myDeviceId);
         }
 
-        // Bind elements
+        // Bind layout elements
         const startBtn = document.getElementById('startBtn');
         const usernameInput = document.getElementById('username');
         const destinationInput = document.getElementById('destination');
@@ -374,7 +375,7 @@
             })
             .subscribe();
 
-        // 5. SECURE MESSAGING STACK
+        // 5. MESSAGING REALTIME STACK
         function initializeDatabaseRealtime() {
             supabaseClient
                 .channel('db-chat')
@@ -411,8 +412,13 @@
         // 6. TRACKING SYSTEMS
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
-                if (!usernameInput.value.trim()) { alert("Please enter a name so others know who you are!"); return; }
+                // If the name box is blank when starting, default it to a placeholder, but don't force block them
+                if (!usernameInput.value.trim()) {
+                    usernameInput.value = "Anonymous";
+                }
                 localStorage.setItem('rider_saved_name', usernameInput.value.trim());
+                oldBroadcastedName = usernameInput.value.trim();
+                
                 isSharing = true;
                 startBtn.innerText = "Stop Sharing Location";
                 startBtn.classList.add('sharing-active');
@@ -428,11 +434,33 @@
             } else { stopSharingLocation(); }
         });
 
+        // FIXED LIVE UPDATER: Instantly recalculates, swaps labels, clears old pins, and pushes updates across the wire
         function broadcastCurrentState() {
             if (!isSharing || lastLat === 0 || lastLng === 0) return;
+            
             const currentUser = usernameInput.value.trim() || "Anonymous";
             const currentDest = destinationInput.value.trim();
+
+            // NEW REMOVAL SAFETY: If you type a new name while active, wipe your old map labels immediately so ghost names don't cluster
+            if (oldBroadcastedName !== currentUser) {
+                // Remove local user marker under old name profile
+                if (riders[`${oldBroadcastedName} (You)`]) {
+                    map.removeLayer(riders[`${oldBroadcastedName} (You)`]);
+                    delete riders[`${oldBroadcastedName} (You)`];
+                }
+                // Send a quick broadcast out ordering everyone else to scrub your old ghost name off their screen
+                channel.send({
+                    type: 'broadcast', event: 'location-update',
+                    payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' }
+                });
+                // Commit the fresh active name choice
+                oldBroadcastedName = currentUser;
+            }
+
+            // Draw new active map pin layout configuration
             updateRiderMarker(`${currentUser} (You)`, currentDest, lastLat, lastLng);
+            
+            // Sync straight up to the group server
             channel.send({
                 type: 'broadcast', event: 'location-update',
                 payload: { user: currentUser, dest: currentDest, lat: lastLat, lng: lastLng, status: 'online' }
@@ -445,12 +473,16 @@
             startBtn.innerText = "Start Sharing Location";
             startBtn.classList.remove('sharing-active');
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            
+            const currentUser = usernameInput.value.trim() || "Anonymous";
             channel.send({
                 type: 'broadcast', event: 'location-update',
-                payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' }
+                payload: { user: currentUser, dest: '', lat: 0, lng: 0, status: 'offline' }
             });
+            
             Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             lastLat = 0; lastLng = 0;
+            oldBroadcastedName = "Anonymous";
             releaseWakeLock();
         }
 
@@ -562,7 +594,7 @@
             }
         }
 
-        // 8. VOICE INPUT CONVERTERS & NEW AUTOMATIC KEYBOARD RE-SNAP SCRIPT
+        // 8. VOICE RECOGNITION & VIEWPORT MANAGEMENT
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
@@ -572,54 +604,26 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        // NEW GLOBAL UTILITY: Shuts down input tracking, closes keyboard, and commands window viewport to snap cleanly back onto the map layout borders
         function closeKeyboardAndSnapWindow(inputEl) {
-            inputEl.blur(); // Drops phone cursor focus (forces keyboard down)
-            
-            // FIX: Forces the mobile viewport to completely refresh its layout boundaries, instantly wiping away any white gaps left behind by the keyboard
+            inputEl.blur(); 
             setTimeout(() => {
                 window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-                if (map) {
-                    map.invalidateSize(); // Informs Leaflet engine to resize map container to full screen height instantly
-                }
+                if (map) { map.invalidateSize(); }
             }, 80);
         }
 
-        // Catch manual typed 'Enter' events to shut down inputs and pull keyboard away automatically
-        usernameInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                closeKeyboardAndSnapWindow(usernameInput);
-            }
-        });
-        destinationInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                closeKeyboardAndSnapWindow(destinationInput);
-            }
-        });
-        chatMsgInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                closeKeyboardAndSnapWindow(chatMsgInput);
-            }
-        });
+        usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(usernameInput); });
+        destinationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(destinationInput); });
+        chatMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(chatMsgInput); });
 
         function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
             const recognition = new SpeechRecognition();
             recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
 
             const triggerAction = (e) => { 
-                e.preventDefault(); 
-                e.stopPropagation(); 
-                inputEl.blur(); 
-                
-                if (buttonEl.classList.contains('listening')) { 
-                    recognition.stop(); 
-                } else { 
-                    try {
-                        recognition.start(); 
-                    } catch(err) {
-                        console.warn("Speech session active:", err);
-                    }
-                } 
+                e.preventDefault(); e.stopPropagation(); inputEl.blur(); 
+                if (buttonEl.classList.contains('listening')) { recognition.stop(); } 
+                else { try { recognition.start(); } catch(err) {} } 
             };
             buttonEl.addEventListener('click', triggerAction);
 
@@ -635,15 +639,15 @@
                 }
             };
             recognition.onerror = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); };
-            recognition.onend = () => { 
-                buttonEl.classList.remove('listening'); 
-                resetPlaceholder(inputEl); 
-                // FIX: Closes layout boundaries automatically after voice dictation ends
-                closeKeyboardAndSnapWindow(inputEl);
-            };
+            recognition.onend = () => { buttonEl.classList.remove('listening'); resetPlaceholder(inputEl); closeKeyboardAndSnapWindow(inputEl); };
         }
 
-        usernameInput.addEventListener('input', () => { usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
+        // NEW INTERCEPTORS: Detect live adjustments to text fields while sharing and instantly re-run state broadcasts
+        usernameInput.addEventListener('input', () => { 
+            usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); 
+            localStorage.setItem('rider_saved_name', usernameInput.value.trim()); 
+            broadcastCurrentState(); // Realtime push to map labels while riding
+        });
         destinationInput.addEventListener('input', broadcastCurrentState);
 
         function resetPlaceholder(inputEl) {
