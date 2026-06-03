@@ -43,13 +43,19 @@
             white-space: nowrap;
         }
 
+        /* UPDATED: Bolder, slightly larger, with a heavier stroke/shadow to pop off the map */
         #appHeader {
             font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 46px; 
+            font-size: 52px; 
             color: #1e4620; 
-            text-shadow: 2px 2px 0px #e2f0d9, -1px -1px 0px #e2f0d9, 1px -1px 0px #e2f0d9, -1px 1px 0px #e2f0d9, 4px 4px 8px rgba(0,0,0,0.3);
-            font-weight: bold;
-            letter-spacing: 1px;
+            font-weight: 900;
+            text-shadow: 
+                3px 3px 0px #e2f0d9, 
+                -2px -2px 0px #e2f0d9, 
+                2px -2px 0px #e2f0d9, 
+                -2px 2px 0px #e2f0d9, 
+                6px 6px 12px rgba(0,0,0,0.4);
+            letter-spacing: 1.5px;
             pointer-events: none; 
         }
 
@@ -250,7 +256,7 @@
         }
         .msg-user { font-size: 12px; font-weight: bold; color: #2d6a30; margin-bottom: 4px; }
         .msg-bubble.is-me .msg-user { color: #a3cfbb; }
-        .msg-user-stamp { display: none; } /* Hidden memory tracker string placeholder */
+        .msg-user-stamp { display: none; }
         .msg-text { font-size: 14px; word-break: break-word; }
         
         .msg-delete-btn {
@@ -364,7 +370,6 @@
         let cycleBuddyIndex = 0;
         let soloZoomToggle = false; 
 
-        // Generate dynamic single-session identity token
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
         // Bind layout components
@@ -386,7 +391,27 @@
         const savedName = localStorage.getItem('rider_saved_name');
         if (savedName) usernameInput.value = savedName;
 
-        // 4. AIRWAVE CHANNEL (100% PURE BROADCAST WALKIE-TALKIE MODE WITH HYBRID LIVE-SYNC)
+        // NEW: Swipe-to-Close Gesture Tracker
+        let touchStartX = 0;
+        let touchStartY = 0;
+        
+        chatOverlay.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: true});
+
+        chatOverlay.addEventListener('touchend', (e) => {
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+            
+            // If they swipe right by more than 60px, AND keep it mostly horizontal (so we don't block normal scrolling)
+            if (touchEndX - touchStartX > 60 && Math.abs(touchEndY - touchStartY) < 40) {
+                isChatOpen = false;
+                chatOverlay.classList.remove('open');
+            }
+        }, {passive: true});
+
+        // 4. AIRWAVE CHANNEL
         let channel = supabaseClient.channel('ride-room', {
             config: { broadcast: { ack: false, self: false } }
         });
@@ -413,11 +438,9 @@
                     }
                 }
             })
-            // NEW SYNC LISTENER A: An early arrival is asking for the active chat room logs
             .on('broadcast', { event: 'request-chat-sync' }, (payload) => {
                 const { requestedByToken } = payload.payload;
                 
-                // Compile current on-screen text logs to replicate across the airwaves
                 const activeBubbles = document.querySelectorAll('.msg-bubble');
                 if (activeBubbles.length === 0) return;
 
@@ -426,8 +449,6 @@
                     const originalUser = bubble.querySelector('.msg-user').innerText;
                     const textContent = bubble.querySelector('.msg-text').innerText;
                     const bubbleUiId = bubble.id;
-                    
-                    // Track whether the message belonged to us vs someone else before cloning
                     const internalStamp = originalUser === "You" ? 'is-original-me' : 'is-foreign';
 
                     bundledHistory.push({
@@ -438,29 +459,22 @@
                     });
                 });
 
-                // Shoot the replica text package back over the air straight to the late-joiner
                 channel.send({
                     type: 'broadcast',
                     event: 'provide-chat-sync',
                     payload: { targetToken: requestedByToken, historyPackage: bundledHistory }
                 });
             })
-            // NEW SYNC LISTENER B: Captures the cloned history package and paints it onto your blank menu layout
             .on('broadcast', { event: 'provide-chat-sync' }, (payload) => {
                 const { targetToken, historyPackage } = payload.payload;
-                
-                // Only build if the package was specifically tailored for your session handshake
                 if (targetToken !== sessionMsgToken) return;
 
-                // Loop through and construct the synchronized room view layout safely
                 historyPackage.forEach(msg => {
-                    // If you sent the message earlier in a previous tab focus, keep it on your right side
                     const evaluateOwnership = msg.stamp === 'is-original-me';
                     appendMessage(msg.msgId, msg.user, msg.message, evaluateOwnership);
                 });
             })
             .subscribe((status) => {
-                // Once the handshake successfully binds onto the server airwaves, immediately ask for history updates
                 if (status === 'SUBSCRIBED') {
                     setTimeout(() => {
                         channel.send({
@@ -474,13 +488,9 @@
 
         function updateLiveRiderCounter() {
             let totalBuddiesOnline = isSharing ? 1 : 0;
-            
             Object.keys(riders).forEach(key => {
-                if (!key.includes('(You)')) {
-                    totalBuddiesOnline++;
-                }
+                if (!key.includes('(You)')) totalBuddiesOnline++;
             });
-            
             riderCounterWidget.innerText = `Buddies Online: ${totalBuddiesOnline}`;
         }
 
@@ -688,10 +698,6 @@
             chatOverlay.classList.remove('open');
         });
 
-        chatMsgInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { sendGroupMessage(); }
-        });
-
         function sendGroupMessage() {
             const rawMessage = chatMsgInput.value.trim();
             if (!rawMessage) return;
@@ -732,7 +738,7 @@
             if (localBubble) localBubble.remove();
         }
 
-        // 7. VOICE AND VIEWPORT SYSTEMS
+        // 7. VOICE AND STRICT VIEWPORT FOCUS SYSTEMS
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             setupVoiceInput(usernameMic, usernameInput);
@@ -742,17 +748,24 @@
             usernameMic.style.display = 'none'; destinationMic.style.display = 'none'; chatMic.style.display = 'none';
         }
 
-        function closeKeyboardAndSnapWindow(inputEl) {
+        // UPDATED: Strictly blocks automatic cursor jumping and forces mobile screens to rebuild their layout height instantly
+        function closeKeyboardAndSnapWindow(inputEl, event = null) {
+            if (event) {
+                event.preventDefault(); // Denies the phone keyboard permission to move to the next box
+            }
             inputEl.blur(); 
+            
             setTimeout(() => {
-                window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                // Hard reset coordinates to wipe out dead white space left by keyboard
+                window.scrollTo(0, 0);
+                document.body.scrollTop = 0; 
                 if (map) { map.invalidateSize(); }
-            }, 80);
+            }, 100);
         }
 
-        usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(usernameInput); });
-        destinationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(destinationInput); });
-        chatMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(chatMsgInput); });
+        usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(usernameInput, e); });
+        destinationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') closeKeyboardAndSnapWindow(destinationInput, e); });
+        chatMsgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { closeKeyboardAndSnapWindow(chatMsgInput, e); sendGroupMessage(); } });
 
         function setupVoiceInput(buttonEl, inputEl, autoSubmit = false) {
             const recognition = new SpeechRecognition();
