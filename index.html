@@ -196,7 +196,6 @@
             cursor: pointer;
         }
         
-        /* UPDATED: Clear light green backdrop, lightning bolt code entirely removed */
         #chatMessages {
             flex: 1;
             padding: 16px;
@@ -493,6 +492,10 @@
                 .order('created_at', { ascending: true })
                 .limit(50);
 
+            if (error) {
+                console.error("Failed to load past chats:", error);
+            }
+
             if (!error && data) {
                 data.forEach(msg => {
                     const isMe = msg.device_id === myDeviceId;
@@ -501,6 +504,7 @@
             }
         }
 
+        // DIAGNOSTIC UPGRADE: Forces text onto the screen instantly so you see it type, then checks for errors
         async function sendGroupMessage() {
             const rawMessage = chatMsgInput.value.trim();
             if (!rawMessage) return;
@@ -509,13 +513,33 @@
             
             chatMsgInput.value = "";
 
+            // Force print locally immediately so it's not frozen
+            appendMessage(uniqueMsgId, author, rawMessage, true, 99999, myDeviceId);
+
+            // Attempt to send to Supabase database
             const { data, error } = await supabaseClient
                 .from('group_chat')
                 .insert([{ msg_id: uniqueMsgId, username: author, message: rawMessage, device_id: myDeviceId }])
                 .select();
 
-            if (!error && data) {
-                appendMessage(uniqueMsgId, author, rawMessage, true, data[0].id, myDeviceId);
+            // DIAGNOSTIC ALERT: If Supabase blocks it, this pop-up will reveal exactly what error is stopping the text
+            if (error) {
+                alert("Supabase Error: " + error.message + " | Code: " + error.code);
+                console.error("Database insert error details:", error);
+                // Remove the bubble if it failed completely
+                const failedBubble = document.getElementById(uniqueMsgId);
+                if (failedBubble) failedBubble.remove();
+            } else if (data && data[0]) {
+                // Update the temporary ID with the real database row ID
+                const activeBubble = document.getElementById(uniqueMsgId);
+                if (activeBubble) {
+                    activeBubble.dataset.dbId = data[0].id;
+                    // Re-render delete button with correct database key
+                    const existingDelBtn = activeBubble.querySelector('.msg-delete-btn');
+                    if (!existingDelBtn) {
+                        activeBubble.innerHTML += `<button class="msg-delete-btn" onclick="requestMessageDeletion('${uniqueMsgId}', ${data[0].id})">✕</button>`;
+                    }
+                }
             }
         }
 
@@ -543,10 +567,12 @@
             const localBubble = document.getElementById(uiId);
             if (localBubble) localBubble.remove();
 
-            await supabaseClient
-                .from('group_chat')
-                .delete()
-                .eq('id', dbRowId);
+            if (dbRowId !== 99999) {
+                await supabaseClient
+                    .from('group_chat')
+                    .delete()
+                    .eq('id', dbRowId);
+            }
         }
 
         // 8. VOICE INPUT CONVERTERS
