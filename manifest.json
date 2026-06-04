@@ -1,6 +1,6 @@
 {
-  "name": "Signal",
-  "short_name": "Signal",
+  "name": "Chaser",
+  "short_name": "Chaser",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#1e4620",
