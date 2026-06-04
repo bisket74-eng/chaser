@@ -75,8 +75,11 @@
         #roomModalOverlay.open { display: flex; }
         #roomModal { background: #e2f0d9; border-radius: 18px; padding: 20px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
         #roomModal h3 { margin: 0 0 10px 0; color: #1e4620; text-align: center; font-size: 18px; }
-        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #fff; text-align: center; font-size: 16px; width: 100%; box-sizing: border-box; font-family: monospace; letter-spacing: 2px; }
-        .modal-input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: normal; font-family: Arial, sans-serif; }
+        
+        /* VIBRANT GENERATOR FONT UPDATE */
+        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #ffd700; text-align: center; font-size: 24px; font-weight: 900; width: 100%; box-sizing: border-box; font-family: Arial, sans-serif; letter-spacing: 3px; text-transform: uppercase; }
+        .modal-input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: normal; font-family: Arial, sans-serif; font-size: 16px; font-weight: normal; }
+        
         .btn-row { display: flex; gap: 10px; margin-top: 5px; }
         .btn-row button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 15px; cursor: pointer; color: white; transition: opacity 0.2s; }
         .btn-row button:active { opacity: 0.8; }
@@ -384,10 +387,9 @@
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
             
-            // Allow them to clear the name box without breaking the map ping
             let currentUser = usernameInput.value.trim();
             if (!currentUser || currentUser.toLowerCase() === 'anonymous') {
-                currentUser = oldBroadcastedName; // Fallback to last known name temporarily
+                currentUser = oldBroadcastedName; 
             }
             
             if (oldBroadcastedName !== currentUser) {
@@ -410,13 +412,11 @@
         };
 
         startBtn.addEventListener('click', () => {
-            // FIX: If sharing, let them stop sharing even if name box is empty
             if (isSharing) {
                 stopSharingLocation();
                 return;
             }
             
-            // If NOT sharing, require a name before starting
             const name = usernameInput.value.trim();
             if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
             
@@ -435,13 +435,13 @@
             } else stopSharingLocation();
         });
 
-        // Disabled standard closeButton in options here
         function updateRiderMarker(user, dest, lat, lng, color) {
             const markerColor = color || '#ffffff';
+            // HEADING TO LABEL & LARGER FONT ADDED HERE
             const popupContent = `
                 <div style="background:${markerColor}; padding:8px 12px; border-radius:8px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
-                    <b style="font-size:16px;">${user}</b>
-                    ${dest ? `<br><small style="font-size:12px; color:#333;">${dest}</small>` : ''}
+                    <b style="font-size:18px;">${user}</b>
+                    ${dest ? `<br><span style="font-size:15px; color:#333; font-weight:500;">Heading to: ${dest}</span>` : ''}
                 </div>`;
             
             if (riders[user]) {
