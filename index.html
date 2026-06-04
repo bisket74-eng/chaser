@@ -89,7 +89,6 @@
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
         @keyframes aggressive-shake { 0%, 100% { transform: translateX(0); } 15%, 45%, 75% { transform: translateX(-8px); } 30%, 60%, 90% { transform: translateX(8px); } }
-        @keyframes ping-bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.85); } }
 
         .leaflet-control-zoom { display: flex !important; flex-direction: row !important; border: none !important; box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden; }
         .leaflet-control-zoom-in, .leaflet-control-zoom-out { border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important; width: 44px !important; height: 44px !important; line-height: 44px !important; }
@@ -185,27 +184,18 @@
         let cycleBuddyIndex = 0, soloZoomToggle = false; 
         let isRadiusFilterActive = true;
         let activeRoomCode = null;
-        
         const riders = {};
-        const riderData = {};
+        const riderColors = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
         const iconUnlocked = '<svg viewBox="0 0 24 24"><g transform="scale(-1, 1) translate(-24, 0)"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></g></svg>';
         const iconLocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
-        const iconRefresh = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#1e4620"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
 
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
 
         const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
         localStorage.setItem('rider_chat_color', myChatColor);
-
-        const saveRoster = () => {
-            if (!activeRoomCode) return;
-            const clean = {};
-            Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
-            localStorage.setItem('signal_roster_' + activeRoomCode, JSON.stringify(clean));
-        };
 
         let channel;
         const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
@@ -217,22 +207,17 @@
             channel
                 .on('broadcast', { event: 'location-update' }, ({ payload }) => {
                     const { user, dest, lat, lng, status, color } = payload;
-                    
+                    if (color) riderColors[user] = color;
                     if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0 && !user.includes('(You)')) {
                         const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                         if (distanceInMiles > 50) {
-                            if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; delete riderData[user]; updateLiveRiderCounter(); }
-                            saveRoster();
+                            if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; updateLiveRiderCounter(); }
                             return;
                         }
                     }
                     if (status === 'offline') {
-                        if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; delete riderData[user]; }
-                    } else { 
-                        riderData[user] = { dest, lat, lng, color, lastSeen: Date.now() };
-                        updateRiderMarker(user); 
-                    }
-                    saveRoster();
+                        if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; }
+                    } else { updateRiderMarker(user, dest, lat, lng, color); }
                     updateLiveRiderCounter();
                 })
                 .on('broadcast', { event: 'group-live-chat' }, ({ payload }) => {
@@ -244,35 +229,26 @@
                 .on('broadcast', { event: 'rename' }, ({ payload }) => {
                     document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
                 })
-                .on('broadcast', { event: 'request-roster-sync' }, ({ payload }) => {
-                    const clean = {};
-                    Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
-                    channel.send({ type: 'broadcast', event: 'provide-roster-sync', payload: { targetToken: payload.requestedByToken, roster: clean } });
+                .on('broadcast', { event: 'request-chat-sync' }, ({ payload }) => {
+                    const activeBubbles = document.querySelectorAll('.msg-bubble');
+                    if (!activeBubbles.length) return;
+                    const historyPackage = Array.from(activeBubbles).map(bubble => ({
+                        msgId: bubble.id,
+                        user: bubble.querySelector('.msg-user').innerText,
+                        message: bubble.querySelector('.msg-text').innerText,
+                        color: bubble.style.backgroundColor,
+                        authorId: Array.from(bubble.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
+                        stamp: !!bubble.querySelector('.msg-delete-btn') ? 'is-original-me' : 'is-foreign'
+                    }));
+                    channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
                 })
-                .on('broadcast', { event: 'provide-roster-sync' }, ({ payload }) => {
+                .on('broadcast', { event: 'provide-chat-sync' }, ({ payload }) => {
                     if (payload.targetToken !== sessionMsgToken) return;
-                    let updated = false;
-                    Object.keys(payload.roster).forEach(user => {
-                        const incomingData = payload.roster[user];
-                        const existingData = riderData[user];
-                        if (!existingData || incomingData.lastSeen > existingData.lastSeen) {
-                            riderData[user] = incomingData;
-                            updateRiderMarker(user);
-                            updated = true;
-                        }
-                    });
-                    if (updated) saveRoster();
-                    updateLiveRiderCounter();
-                })
-                .on('broadcast', { event: 'ping-request' }, ({ payload }) => {
-                    if (payload.targetUser === oldBroadcastedName && isSharing) broadcastCurrentState();
+                    payload.historyPackage.forEach(msg => appendMessage(msg.msgId, msg.user, msg.message, msg.stamp === 'is-original-me', msg.color, msg.authorId));
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        setTimeout(() => {
-                            channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } });
-                            channel.send({ type: 'broadcast', event: 'request-roster-sync', payload: { requestedByToken: sessionMsgToken } });
-                        }, 600);
+                        setTimeout(() => channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } }), 600);
                     }
                 });
         };
@@ -296,10 +272,9 @@
                     if (!user.includes('(You)')) {
                         const marker = riders[user];
                         const distanceInMiles = map.distance([lastLat, lastLng], marker.getLatLng()) / 1609.34;
-                        if (distanceInMiles > 50) { map.removeLayer(marker); delete riders[user]; delete riderData[user]; }
+                        if (distanceInMiles > 50) { map.removeLayer(marker); delete riders[user]; }
                     }
                 });
-                saveRoster();
                 updateLiveRiderCounter();
             }
         });
@@ -336,15 +311,9 @@
 
         const applyRoomCode = (code) => {
             if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
-            
-            Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; delete riderData[key]; } });
+            Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = code;
-            
-            const saved = JSON.parse(localStorage.getItem('signal_roster_' + activeRoomCode) || '{}');
-            Object.assign(riderData, saved);
-            Object.keys(riderData).forEach(user => updateRiderMarker(user));
-
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
@@ -357,8 +326,7 @@
 
         const leavePrivateRoom = () => {
             if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
-            
-            Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; delete riderData[key]; } });
+            Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = null;
             subscribeChannel();
@@ -393,6 +361,7 @@
                 const newCode = generateRoomCode();
                 generatedCodeEl.value = newCode;
                 
+                // UI Magic to make it obvious they don't enter it
                 modalOrText.style.opacity = '0.3';
                 roomCodeInput.value = "";
                 roomCodeInput.placeholder = "Give this to friends!";
@@ -402,7 +371,7 @@
         });
 
         joinRoomBtn.addEventListener('click', () => {
-            if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; } 
+            if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; } // Just stay in room
             
             const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
             if (code.length >= 4) {
@@ -439,7 +408,7 @@
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
         };
 
-        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, -120]), map.getZoom());
+        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, 110]), map.getZoom());
 
         riderCounterWidget.addEventListener('click', () => {
             const activeBuddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
@@ -454,7 +423,7 @@
             if (riders[mySelfKey]) masterLoopList.push(mySelfKey);
             if (cycleBuddyIndex >= masterLoopList.length) {
                 const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
-                if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
+                if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 cycleBuddyIndex = 0; return;
             }
             const targetedMarker = riders[masterLoopList[cycleBuddyIndex]];
@@ -470,20 +439,13 @@
                 currentUser = oldBroadcastedName; 
             }
             
-            if (riders[currentUser]) { map.removeLayer(riders[currentUser]); delete riders[currentUser]; delete riderData[currentUser]; }
-
             if (oldBroadcastedName !== currentUser) {
-                if (riders[`${oldBroadcastedName} (You)`]) { map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`]; delete riderData[`${oldBroadcastedName} (You)`]; }
+                if (riders[`${oldBroadcastedName} (You)`]) { map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`]; }
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
                 oldBroadcastedName = currentUser;
             }
-            
-            const meKey = `${currentUser} (You)`;
-            riderData[meKey] = { dest: destinationInput.value.trim(), lat: lastLat, lng: lastLng, color: myChatColor, lastSeen: Date.now() };
-            updateRiderMarker(meKey);
-            
+            updateRiderMarker(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: currentUser, dest: destinationInput.value.trim(), lat: lastLat, lng: lastLng, status: 'online', color: myChatColor } });
-            saveRoster();
             updateLiveRiderCounter();
         };
 
@@ -491,7 +453,7 @@
             isSharing = false; destinationInput.value = ""; startBtn.innerText = "Start Sharing Location"; startBtn.classList.remove('sharing-active');
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
-            Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; delete riderData[key]; } });
+            Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             lastLat = 0; lastLng = 0; cycleBuddyIndex = 0; soloZoomToggle = false;
             updateLiveRiderCounter(); releaseWakeLock();
         };
@@ -511,66 +473,28 @@
             isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
             
             if ("geolocation" in navigator) {
-                // FIXED IPHONE SILENT FAIL: Increased timeout to 15000 and added an alert so you know if it blocked you.
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
                     if (!Object.keys(riders).length && lastLat !== 0) { map.setZoom(15); map.setView(getOffsetLatLng([lastLat, lastLng]), 15); }
                     broadcastCurrentState();
-                }, (error) => {
-                    alert("iPhone Location Blocked!\n\n1. Check if GPS is enabled.\n2. Go to Settings > Safari > Location and set to 'Allow'.\n\nError: " + error.message);
-                    stopSharingLocation();
-                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
+                }, () => stopSharingLocation(), { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
                 requestWakeLock();
-            } else {
-                alert("GPS is not supported on this device.");
-                stopSharingLocation();
-            }
+            } else stopSharingLocation();
         });
 
-        window.pingUser = (targetUserName) => {
-            event.currentTarget.style.animation = 'ping-bounce 0.3s ease';
-            setTimeout(() => { if (event.currentTarget) event.currentTarget.style.animation = ''; }, 300);
-            channel.send({ type: 'broadcast', event: 'ping-request', payload: { targetUser: targetUserName } });
-        };
-
-        function updateRiderMarker(user) {
-            const data = riderData[user];
-            if (!data) return;
-            
-            const timeAgo = Math.floor((Date.now() - data.lastSeen) / 60000);
-            const markerColor = data.color || '#ffffff';
-            const isMe = user.includes('(You)');
-            
-            let dotColor = '#28a745'; 
-            let timeText = '&lt; 2m';
-            if (timeAgo >= 10) {
-                dotColor = '#dc3545';
-                timeText = '&gt; 10m';
-            } else if (timeAgo >= 2) {
-                dotColor = '#ffc107';
-                timeText = '&lt; 10m';
-            }
-            
-            const pingBtnHtml = isMe ? '' : `<button onclick="window.pingUser('${user}')" style="background:transparent; border:none; padding:2px; cursor:pointer; display:flex; align-items:center; justify-content:center; margin-left:10px;" title="Ping Location">${iconRefresh}</button>`;
-
+        function updateRiderMarker(user, dest, lat, lng, color) {
+            const markerColor = color || '#ffffff';
             const popupContent = `
-                <div style="background:${markerColor}; padding:12px 16px; border-radius:12px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.3); min-width: 140px;">
+                <div style="background:${markerColor}; padding:8px 12px; border-radius:8px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
                     <b style="font-size:18px;">${user}</b>
-                    ${data.dest ? `<br><span style="font-size:14px; color:#333; font-weight:500;">Heading to: ${data.dest}</span>` : ''}
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid rgba(0,0,0,0.15); padding-top:8px;">
-                        <div style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:bold; color:#333;">
-                            <div style="width:12px; height:12px; border-radius:50%; background:${dotColor}; border:1px solid rgba(0,0,0,0.2); box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
-                            ${timeText}
-                        </div>
-                        ${pingBtnHtml}
-                    </div>
+                    ${dest ? `<br><span style="font-size:15px; color:#333; font-weight:500;">Heading to: ${dest}</span>` : ''}
                 </div>`;
             
             if (riders[user]) {
-                riders[user].setLatLng([data.lat, data.lng]).setPopupContent(popupContent);
-                if (isMe && isSharing) map.panTo(getOffsetLatLng([data.lat, data.lng]), { animate: true, duration: 0.5 });
+                riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
+                if (user.includes('(You)') && isSharing) map.panTo(getOffsetLatLng([lat, lng]), { animate: true, duration: 0.5 });
             } else {
-                const marker = L.marker([data.lat, data.lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup', closeButton: false });
+                const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup', closeButton: false });
                 marker.dataset = { isZoomedIn: false };
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
@@ -581,19 +505,11 @@
                 marker.on('click', e => { L.DomEvent.stopPropagation(e); handleZoomToggle(e.latlng); });
                 marker.on('popupopen', e => {
                     const popupElement = e.popup.getElement();
-                    if (popupElement) popupElement.onclick = (event) => { 
-                        if (event.target.tagName !== 'BUTTON' && !event.target.closest('button')) {
-                            L.DomEvent.stopPropagation(event); handleZoomToggle(marker.getLatLng()); 
-                        }
-                    };
+                    if (popupElement) popupElement.onclick = (event) => { L.DomEvent.stopPropagation(event); handleZoomToggle(marker.getLatLng()); };
                 });
                 riders[user] = marker; marker.openPopup();
             }
         }
-
-        setInterval(() => {
-            Object.keys(riderData).forEach(user => updateRiderMarker(user));
-        }, 60000);
 
         chatToggleBtn.addEventListener('click', () => { isChatOpen = true; unreadCount = 0; chatBadge.style.display = 'none'; chatOverlay.classList.add('open'); });
         closeChatBtn.addEventListener('click', () => { isChatOpen = false; chatOverlay.classList.remove('open'); });
@@ -681,3 +597,42 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
