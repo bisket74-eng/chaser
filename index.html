@@ -12,79 +12,41 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        html, body {
-            padding: 0; margin: 0; width: 100%; height: 100%; height: 100dvh; 
-            background-color: #1e4620; overflow: hidden; font-family: Arial, sans-serif; position: fixed; 
-        }
+        html, body { padding: 0; margin: 0; width: 100%; height: 100%; height: 100dvh; background-color: #1e4620; overflow: hidden; font-family: Arial, sans-serif; position: fixed; }
         #map { position: fixed; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
 
         #appHeaderContainer { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
-        
-        #appHeader {
-            font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 75px; color: #1e4620; font-weight: 900;
-            text-shadow: 3px 3px 0px #e2f0d9, -2px -2px 0px #e2f0d9, 2px -2px 0px #e2f0d9, -2px 2px 0px #e2f0d9, 6px 6px 12px rgba(0,0,0,0.4);
-            letter-spacing: 1.5px; pointer-events: none; 
-        }
+        #appHeader { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 75px; color: #1e4620; font-weight: 900; text-shadow: 3px 3px 0px #e2f0d9, -2px -2px 0px #e2f0d9, 2px -2px 0px #e2f0d9, -2px 2px 0px #e2f0d9, 6px 6px 12px rgba(0,0,0,0.4); letter-spacing: 1.5px; pointer-events: none; }
 
-        #riderCounterWidget {
-            font-size: 15px; color: #1e4620; font-weight: bold; background-color: #e2f0d9; padding: 6px 14px;
-            border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); margin-top: 4px; pointer-events: auto; 
-            cursor: pointer; transition: transform 0.1s ease, background-color 0.2s ease; -webkit-tap-highlight-color: transparent;
-        }
+        #riderCounterWidget { font-size: 15px; color: #1e4620; font-weight: bold; background-color: #e2f0d9; padding: 6px 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); margin-top: 4px; pointer-events: auto; cursor: pointer; transition: transform 0.1s ease, background-color 0.2s ease; -webkit-tap-highlight-color: transparent; }
         #riderCounterWidget:active { transform: scale(0.94); background-color: #cbdcc3; }
         
-        #controls {
-            position: absolute; bottom: 20px; left: 15px; z-index: 10; background: #e2f0d9; padding: 16px; 
-            border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; 
-            gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
+        #controls { position: absolute; bottom: 20px; left: 15px; z-index: 10; background: #e2f0d9; padding: 16px; border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
         #controls:has(input:focus) { transform: translateY(-95px); }
         
         .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
-        .control-row input {
-            flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; 
-            background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500;
-        }
+        .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
         .control-row input.input-error { border-color: #dc3545 !important; animation: shake 0.35s ease; }
 
-        .mic-btn {
-            width: 44px; height: 44px; background-color: #2d6a30; border: none; border-radius: 50%; cursor: pointer; 
-            display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.25); flex-shrink: 0; 
-            transition: background-color 0.2s ease, transform 0.1s ease; -webkit-tap-highlight-color: transparent;
-        }
+        .mic-btn { width: 44px; height: 44px; background-color: #2d6a30; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.25); flex-shrink: 0; transition: background-color 0.2s ease, transform 0.1s ease; -webkit-tap-highlight-color: transparent; }
         .mic-btn:active { transform: scale(0.92); }
         .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
         .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
-        #startBtn {
-            padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; 
-            cursor: pointer; font-weight: bold; transition: background-color 0.2s ease; box-shadow: 0 3px 8px rgba(0,0,0,0.2); 
-            width: 100%; box-sizing: border-box;
-        }
+        #startBtn { padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; cursor: pointer; font-weight: bold; transition: background-color 0.2s ease; box-shadow: 0 3px 8px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box; }
         #startBtn.sharing-active { background-color: #dc3545; }
 
-        /* CHAT & LOCK buttons stacked bottom-right */
-        #chatToggleBtn, #roomLockBtn {
-            position: absolute; right: 15px; z-index: 11; width: 60px; height: 60px; background-color: #1e4620; 
-            border: 3px solid #e2f0d9; border-radius: 50%; box-shadow: 0 6px 20px rgba(0,0,0,0.41); cursor: pointer; 
-            display: flex; align-items: center; justify-content: center; transition: transform 0.1s ease;
-        }
+        #chatToggleBtn, #roomLockBtn { position: absolute; right: 15px; z-index: 11; width: 60px; height: 60px; background-color: #1e4620; border: 3px solid #e2f0d9; border-radius: 50%; box-shadow: 0 6px 20px rgba(0,0,0,0.41); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s ease; }
         #chatToggleBtn { bottom: 54px; }
         #roomLockBtn { bottom: 130px; }
         #chatToggleBtn:active, #roomLockBtn:active { transform: scale(0.92); }
         #chatToggleBtn svg, #roomLockBtn svg { width: 28px; height: 28px; fill: #ffffff; }
         #roomLockBtn.room-active { background-color: #b8860b; border-color: #ffd700; }
 
-        #chatBadge {
-            position: absolute; top: -3px; right: -3px; background-color: #dc3545; color: white; border-radius: 50%; 
-            padding: 4px 8px; font-size: 12px; font-weight: bold; display: none; border: 2px solid white;
-        }
+        #chatBadge { position: absolute; top: -3px; right: -3px; background-color: #dc3545; color: white; border-radius: 50%; padding: 4px 8px; font-size: 12px; font-weight: bold; display: none; border: 2px solid white; }
 
-        #chatOverlay {
-            position: absolute; top: 0; right: -100%; width: 100%; max-width: 340px; height: 100%; background-color: #ffffff; 
-            z-index: 20; box-shadow: -4px 0 20px rgba(0,0,0,0.25); display: flex; flex-direction: column; transition: right 0.3s ease-in-out;
-        }
+        #chatOverlay { position: absolute; top: 0; right: -100%; width: 100%; max-width: 340px; height: 100%; background-color: #ffffff; z-index: 20; box-shadow: -4px 0 20px rgba(0,0,0,0.25); display: flex; flex-direction: column; transition: right 0.3s ease-in-out; }
         #chatOverlay.open { right: 0; }
         
         #chatHeader { background-color: #1e4620; color: white; padding: 16px; font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
@@ -93,7 +55,7 @@
         
         .msg-bubble { position: relative; padding: 12px 28px 12px 12px; border-radius: 12px; max-width: 85%; align-self: flex-start; box-shadow: 0 2px 5px rgba(0,0,0,0.15); color: #111; }
         .msg-user { font-size: 14px; font-weight: bold; color: rgba(0,0,0,0.6); margin-bottom: 4px; text-transform: capitalize; }
-        .msg-text { font-size: 22px; word-break: break-word; }
+        .msg-text { font-size: 18px; word-break: break-word; }
         .msg-delete-btn { position: absolute; top: 6px; right: 8px; background: none; border: none; color: rgba(0,0,0,0.4); font-size: 14px; font-weight: bold; cursor: pointer; padding: 0; margin: 0; line-height: 1; }
         .msg-delete-btn:hover { color: #000; }
         
@@ -101,76 +63,34 @@
         #chatInputArea input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; color: #111; font-weight: 500; }
         #chatInputArea input::placeholder { color: rgba(0,0,0,0.5); font-weight: normal; }
 
-        /* ROOM MODAL */
-        #roomModalOverlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55);
-            z-index: 30; display: none; align-items: center; justify-content: center;
-        }
+        #roomModalOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 30; display: none; align-items: center; justify-content: center; }
         #roomModalOverlay.open { display: flex; }
-        #roomModal {
-            background: #e2f0d9; border-radius: 18px; padding: 24px; width: 85%; max-width: 320px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 14px;
-        }
-        #roomModal h3 { margin: 0; color: #1e4620; font-size: 18px; text-align: center; }
-        #roomModal .room-code-display {
-            background: #1e4620; color: #ffd700; font-size: 26px; font-weight: bold; letter-spacing: 4px;
-            text-align: center; padding: 12px; border-radius: 10px; font-family: monospace; cursor: pointer;
-        }
-        #roomModal .room-status {
-            font-size: 13px; color: #2d6a30; text-align: center; font-weight: bold; min-height: 18px;
-        }
-        #roomModal input {
-            padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620;
-            color: #fff; font-size: 18px; font-weight: bold; letter-spacing: 3px; text-align: center;
-            font-family: monospace; width: 100%; box-sizing: border-box; text-transform: uppercase;
-        }
-        #roomModal input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: 1px; font-size: 14px; }
-        .room-btn {
-            padding: 12px; border-radius: 8px; border: none; font-size: 15px; font-weight: bold;
-            cursor: pointer; width: 100%; box-sizing: border-box; transition: background-color 0.2s;
-        }
-        .room-btn-green { background-color: #2d6a30; color: white; }
-        .room-btn-gold { background-color: #b8860b; color: white; }
-        .room-btn-red { background-color: #dc3545; color: white; }
-        .room-btn-gray { background-color: #aaa; color: white; }
+        #roomModal { background: #e2f0d9; border-radius: 18px; padding: 20px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+        #roomModal h3 { margin: 0 0 10px 0; color: #1e4620; text-align: center; font-size: 18px; }
+        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #fff; text-align: center; font-size: 16px; width: 100%; box-sizing: border-box; font-family: monospace; letter-spacing: 2px; }
+        .modal-input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: normal; font-family: Arial, sans-serif; }
+        .btn-row { display: flex; gap: 10px; margin-top: 5px; }
+        .btn-row button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 15px; cursor: pointer; color: white; transition: opacity 0.2s; }
+        .btn-row button:active { opacity: 0.8; }
+        #leaveRoomBtn { background-color: #6c757d; }
+        #joinRoomBtn { background-color: #2d6a30; }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); }
-            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-6px); }
-            40% { transform: translateX(6px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
-        }
-
-        .leaflet-control-zoom {
-            display: flex !important; flex-direction: row !important; border: none !important;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden;
-        }
-        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
-            border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important;
-            width: 44px !important; height: 44px !important; line-height: 44px !important;
-        }
+        .leaflet-control-zoom { display: flex !important; flex-direction: row !important; border: none !important; box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden; }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out { border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important; width: 44px !important; height: 44px !important; line-height: 44px !important; }
         .leaflet-control-zoom-out { border-right: none !important; }
 
-        .radius-toggle-container {
-            background-color: white; height: 44px; padding: 0 16px; box-sizing: border-box; border-radius: 4px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
-            gap: 12px; color: #333; cursor: pointer; user-select: none;
-        }
-        .radius-label-wrapper {
-            display: flex; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; white-space: nowrap;
-        }
-        .radius-r {
-            font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 45px; font-weight: bold; margin-right: 9px; padding-bottom: 9px; color: #2d6a30;
-        }
+        .radius-toggle-container { background-color: white; height: 44px; padding: 0 16px; box-sizing: border-box; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; gap: 12px; color: #333; cursor: pointer; user-select: none; }
+        .radius-label-wrapper { display: flex; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; white-space: nowrap; }
+        .radius-r { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 45px; font-weight: bold; margin-right: 9px; padding-bottom: 9px; color: #2d6a30; }
         .radius-toggle-container input { cursor: pointer; width: 22px; height: 22px; margin: 0; accent-color: #2d6a30; }
+
+        /* Full color map popup */
+        .leaflet-popup-content-wrapper { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+        .leaflet-popup-tip { background: transparent !important; box-shadow: none !important; }
+        .colored-popup .leaflet-popup-content { margin: 0; }
     </style>
 </head>
 <body>
@@ -198,7 +118,6 @@
         <button id="startBtn">Start Sharing Location</button>
     </div>
 
-    <!-- Lock / Private Room Button -->
     <button id="roomLockBtn" type="button" title="Private Room">
         <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
     </button>
@@ -208,17 +127,15 @@
         <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
     </button>
 
-    <!-- Private Room Modal -->
     <div id="roomModalOverlay">
         <div id="roomModal">
-            <h3>🔒 Private Room</h3>
-            <div class="room-status" id="roomStatus">Public room — everyone can see you</div>
-            <div class="room-code-display" id="roomCodeDisplay">——————</div>
-            <button class="room-btn room-btn-green" id="generateCodeBtn">Generate My Room Code</button>
-            <input type="text" id="roomCodeInput" placeholder="Enter a code to join" maxlength="6" autocomplete="off" />
-            <button class="room-btn room-btn-gold" id="joinRoomBtn">Join This Room</button>
-            <button class="room-btn room-btn-red" id="leaveRoomBtn" style="display:none;">Leave Private Room</button>
-            <button class="room-btn room-btn-gray" id="closeRoomModalBtn">Close</button>
+            <h3>Enter Locked Room?</h3>
+            <input type="text" id="generatedCode" class="modal-input" placeholder="Tap to Generate Code" readonly />
+            <input type="text" id="roomCodeInput" class="modal-input" placeholder="Enter Code to Join" maxlength="6" autocomplete="off" />
+            <div class="btn-row">
+                <button id="leaveRoomBtn">Leave</button>
+                <button id="joinRoomBtn">Join</button>
+            </div>
         </div>
     </div>
 
@@ -240,12 +157,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 1. Core Config & Map Init
         const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; CartoDB' }).addTo(map);
 
-        // 2. State Variables
         let watchId = null, lastLat = 0, lastLng = 0;
         let isSharing = false, isChatOpen = false, unreadCount = 0;
         let wakeLock = null, oldBroadcastedName = "Anonymous"; 
@@ -256,16 +171,18 @@
         const riderColors = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
+        let myId = localStorage.getItem('rider_id');
+        if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
+
         const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
         localStorage.setItem('rider_chat_color', myChatColor);
 
-        // 3. Channel factory
         let channel;
         const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
 
         const subscribeChannel = () => {
             if (channel) channel.unsubscribe();
-            channel = supabaseClient.channel(buildChannelName(), { config: { broadcast: { ack: false, self: false } } });
+            channel = supabaseClient.channel(buildChannelName(), { config: { broadcast: { ack: true, self: false } } });
 
             channel
                 .on('broadcast', { event: 'location-update' }, ({ payload }) => {
@@ -285,9 +202,12 @@
                 })
                 .on('broadcast', { event: 'group-live-chat' }, ({ payload }) => {
                     if (payload.token !== sessionMsgToken) {
-                        appendMessage(payload.msgId, payload.user, payload.message, false, payload.color);
+                        appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
                         if (!isChatOpen) { chatBadge.innerText = ++unreadCount; chatBadge.style.display = 'block'; }
                     }
+                })
+                .on('broadcast', { event: 'rename' }, ({ payload }) => {
+                    document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
                 })
                 .on('broadcast', { event: 'request-chat-sync' }, ({ payload }) => {
                     const activeBubbles = document.querySelectorAll('.msg-bubble');
@@ -297,13 +217,14 @@
                         user: bubble.querySelector('.msg-user').innerText,
                         message: bubble.querySelector('.msg-text').innerText,
                         color: bubble.style.backgroundColor,
+                        authorId: Array.from(bubble.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
                         stamp: !!bubble.querySelector('.msg-delete-btn') ? 'is-original-me' : 'is-foreign'
                     }));
                     channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
                 })
                 .on('broadcast', { event: 'provide-chat-sync' }, ({ payload }) => {
                     if (payload.targetToken !== sessionMsgToken) return;
-                    payload.historyPackage.forEach(msg => appendMessage(msg.msgId, msg.user, msg.message, msg.stamp === 'is-original-me', msg.color));
+                    payload.historyPackage.forEach(msg => appendMessage(msg.msgId, msg.user, msg.message, msg.stamp === 'is-original-me', msg.color, msg.authorId));
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
@@ -313,7 +234,6 @@
         };
         subscribeChannel();
 
-        // 4. Radius Toggle Control
         const RadiusControl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function (map) {
@@ -339,7 +259,6 @@
             }
         });
 
-        // 5. DOM Cache
         const el = (id) => document.getElementById(id);
         const startBtn = el('startBtn'), usernameInput = el('username'), destinationInput = el('destination');
         const usernameMic = el('usernameMic'), destinationMic = el('destinationMic');
@@ -347,15 +266,12 @@
         const chatMessages = el('chatMessages'), chatMsgInput = el('chatMsgInput'), chatMic = el('chatMic');
         const chatBadge = el('chatBadge'), riderCounterWidget = el('riderCounterWidget');
         const roomLockBtn = el('roomLockBtn'), roomModalOverlay = el('roomModalOverlay');
-        const roomStatus = el('roomStatus'), roomCodeDisplay = el('roomCodeDisplay');
-        const generateCodeBtn = el('generateCodeBtn'), joinRoomBtn = el('joinRoomBtn');
-        const leaveRoomBtn = el('leaveRoomBtn'), closeRoomModalBtn = el('closeRoomModalBtn');
-        const roomCodeInput = el('roomCodeInput');
+        const generatedCodeEl = el('generatedCode'), roomCodeInput = el('roomCodeInput');
+        const generateCodeBtn = el('generateCodeBtn'), joinRoomBtn = el('joinRoomBtn'), leaveRoomBtn = el('leaveRoomBtn');
 
         usernameInput.value = localStorage.getItem('rider_saved_name') || "";
         chatMsgInput.style.backgroundColor = myChatColor;
 
-        // 6. Private Room Logic
         const generateRoomCode = () => {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
             let code = '';
@@ -371,12 +287,8 @@
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
-            roomCodeDisplay.textContent = code;
-            roomStatus.textContent = `Private room: ${code} (tap code to copy)`;
             roomLockBtn.classList.add('room-active');
-            generateCodeBtn.style.display = 'none';
-            leaveRoomBtn.style.display = 'block';
-            roomCodeInput.value = '';
+            roomModalOverlay.classList.remove('open');
         };
 
         const leavePrivateRoom = () => {
@@ -387,34 +299,36 @@
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
-            roomCodeDisplay.textContent = '——————';
-            roomStatus.textContent = 'Public room — everyone can see you';
             roomLockBtn.classList.remove('room-active');
-            generateCodeBtn.style.display = 'block';
-            leaveRoomBtn.style.display = 'none';
+            generatedCodeEl.value = '';
+            roomCodeInput.value = '';
         };
 
         roomLockBtn.addEventListener('click', () => { roomModalOverlay.classList.add('open'); });
-        closeRoomModalBtn.addEventListener('click', () => { roomModalOverlay.classList.remove('open'); });
         roomModalOverlay.addEventListener('click', (e) => { if (e.target === roomModalOverlay) roomModalOverlay.classList.remove('open'); });
-        generateCodeBtn.addEventListener('click', () => { applyRoomCode(generateRoomCode()); });
-        joinRoomBtn.addEventListener('click', () => {
-            const code = roomCodeInput.value.trim().toUpperCase();
-            if (code.length < 4) { roomCodeInput.style.borderColor = '#dc3545'; setTimeout(() => roomCodeInput.style.borderColor = '#2d6a30', 1500); return; }
-            applyRoomCode(code);
-        });
-        leaveRoomBtn.addEventListener('click', () => { leavePrivateRoom(); });
-        roomCodeDisplay.addEventListener('click', () => {
-            if (activeRoomCode) {
-                navigator.clipboard.writeText(activeRoomCode).then(() => {
-                    const orig = roomStatus.textContent;
-                    roomStatus.textContent = '✓ Code copied to clipboard!';
-                    setTimeout(() => roomStatus.textContent = orig, 2000);
-                }).catch(() => {});
+        
+        generatedCodeEl.addEventListener('click', () => {
+            if (!activeRoomCode) {
+                const newCode = generateRoomCode();
+                generatedCodeEl.value = newCode;
             }
         });
 
-        // 7. Name validation
+        joinRoomBtn.addEventListener('click', () => {
+            const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
+            if (code.length >= 4) {
+                applyRoomCode(code);
+            } else {
+                roomCodeInput.style.borderColor = '#dc3545';
+                setTimeout(() => roomCodeInput.style.borderColor = '#2d6a30', 1500);
+            }
+        });
+
+        leaveRoomBtn.addEventListener('click', () => {
+            if (activeRoomCode) leavePrivateRoom();
+            roomModalOverlay.classList.remove('open');
+        });
+
         const requireName = () => {
             usernameInput.classList.remove('input-error');
             void usernameInput.offsetWidth;
@@ -424,14 +338,12 @@
             setTimeout(() => { usernameInput.classList.remove('input-error'); usernameInput.placeholder = "Enter your name"; }, 2000);
         };
 
-        // 8. Swipe-to-close chat
         let touchStartX = 0, touchStartY = 0;
         chatOverlay.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; }, {passive: true});
         chatOverlay.addEventListener('touchend', (e) => {
             if (e.changedTouches[0].screenX - touchStartX > 60 && Math.abs(e.changedTouches[0].screenY - touchStartY) < 40) { isChatOpen = false; chatOverlay.classList.remove('open'); }
         }, {passive: true});
 
-        // 9. App Logic
         const updateLiveRiderCounter = () => {
             const online = Object.keys(riders).filter(k => !k.includes('(You)')).length + (isSharing ? 1 : 0);
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
@@ -462,7 +374,7 @@
 
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
-            const currentUser = usernameInput.value.trim() || "Anonymous";
+            const currentUser = usernameInput.value.trim();
             if (oldBroadcastedName !== currentUser) {
                 if (riders[`${oldBroadcastedName} (You)`]) { map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`]; }
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
@@ -483,11 +395,13 @@
         };
 
         startBtn.addEventListener('click', () => {
+            const name = usernameInput.value.trim();
+            if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
+            
             if (!isSharing) {
-                if (!usernameInput.value.trim()) { requireName(); return; }
-                usernameInput.value = usernameInput.value.trim();
-                localStorage.setItem('rider_saved_name', usernameInput.value);
-                oldBroadcastedName = usernameInput.value;
+                usernameInput.value = name;
+                localStorage.setItem('rider_saved_name', name);
+                oldBroadcastedName = name;
                 isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
                 if ("geolocation" in navigator) {
                     watchId = navigator.geolocation.watchPosition((pos) => {
@@ -500,13 +414,14 @@
             } else stopSharingLocation();
         });
 
-        // 10. Marker with color-matched popup label
         function updateRiderMarker(user, dest, lat, lng, color) {
-            const labelColor = color || '#ffffff';
+            const markerColor = color || '#ffffff';
             const popupContent = `
-                <div style="background:${labelColor}; padding:6px 10px; border-radius:8px; display:inline-block; color:#111;">
-                    <b>${user}</b>${dest ? `<br><span style="font-size:12px; color:#444;">Heading to: ${dest}</span>` : ''}
+                <div style="background:${markerColor}; padding:8px 12px; border-radius:8px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+                    <b style="font-size:16px;">${user}</b>
+                    ${dest ? `<br><small style="font-size:12px; color:#333;">${dest}</small>` : ''}
                 </div>`;
+            
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
                 if (user.includes('(You)') && isSharing) map.panTo(getOffsetLatLng([lat, lng]), { animate: true, duration: 0.5 });
@@ -528,24 +443,25 @@
             }
         }
 
-        // 11. Chat Controllers
         chatToggleBtn.addEventListener('click', () => { isChatOpen = true; unreadCount = 0; chatBadge.style.display = 'none'; chatOverlay.classList.add('open'); });
         closeChatBtn.addEventListener('click', () => { isChatOpen = false; chatOverlay.classList.remove('open'); });
 
         const sendGroupMessage = () => {
             if (!chatMsgInput.value.trim()) return;
-            if (!usernameInput.value.trim()) { chatOverlay.classList.remove('open'); isChatOpen = false; requireName(); return; }
-            const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             const currentName = usernameInput.value.trim();
-            appendMessage(uniqueMsgId, currentName, chatMsgInput.value.trim(), true, myChatColor);
-            channel.send({ type: 'broadcast', event: 'group-live-chat', payload: { msgId: uniqueMsgId, user: currentName, message: chatMsgInput.value.trim(), token: sessionMsgToken, color: myChatColor } });
+            if (!currentName || currentName.toLowerCase() === 'anonymous') { chatOverlay.classList.remove('open'); isChatOpen = false; requireName(); return; }
+            
+            const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+            appendMessage(uniqueMsgId, currentName, chatMsgInput.value.trim(), true, myChatColor, myId);
+            channel.send({ type: 'broadcast', event: 'group-live-chat', payload: { msgId: uniqueMsgId, user: currentName, message: chatMsgInput.value.trim(), token: sessionMsgToken, color: myChatColor, id: myId } });
             chatMsgInput.value = "";
         };
 
-        function appendMessage(id, user, msg, isMe, color) {
-            if (document.getElementById(id)) return;
+        function appendMessage(msgId, user, msg, isMe, color, authorId) {
+            if (document.getElementById(msgId)) return;
             const wrapper = document.createElement('div');
-            wrapper.className = 'msg-bubble'; wrapper.id = id;
+            wrapper.className = `msg-bubble bubble-${authorId || 'unknown'}`; 
+            wrapper.id = msgId;
             wrapper.style.backgroundColor = color || '#ffffff';
             wrapper.innerHTML = `
                 <div class="msg-user">${user}</div>
@@ -556,7 +472,6 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 12. Voice Input
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const setupVoiceInput = (btn, input, autoSubmit = false) => {
@@ -566,7 +481,10 @@
                 recognition.onstart = () => { btn.classList.add('listening'); input.value = ""; input.placeholder = "Listening..."; };
                 recognition.onresult = (e) => {
                     input.value = e.results[0][0].transcript.replace(/[.\s]+$/g, '');
-                    if (input.id === 'username') localStorage.setItem('rider_saved_name', input.value);
+                    if (input.id === 'username') {
+                        localStorage.setItem('rider_saved_name', input.value);
+                        channel.send({ type: 'broadcast', event: 'rename', payload: { id: myId, newName: input.value } });
+                    }
                     autoSubmit ? sendGroupMessage() : broadcastCurrentState();
                 };
                 recognition.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
@@ -590,12 +508,19 @@
         destinationInput.addEventListener('keydown', e => enforceKeyboardDrop(e, destinationInput));
         chatMsgInput.addEventListener('keydown', e => enforceKeyboardDrop(e, chatMsgInput));
         roomCodeInput.addEventListener('keydown', e => { if (e.key === 'Enter') joinRoomBtn.click(); });
-        usernameInput.addEventListener('input', () => { usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); localStorage.setItem('rider_saved_name', usernameInput.value.trim()); broadcastCurrentState(); });
+        
+        usernameInput.addEventListener('input', (e) => { 
+            usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); 
+            const newName = usernameInput.value.trim();
+            localStorage.setItem('rider_saved_name', newName); 
+            if (newName) channel.send({ type: 'broadcast', event: 'rename', payload: { id: myId, newName: newName } });
+            broadcastCurrentState(); 
+        });
+        
         destinationInput.addEventListener('input', broadcastCurrentState);
 
         const resetPlaceholder = (inputEl) => { inputEl.placeholder = inputEl.id === 'username' ? "Enter your name" : inputEl.id === 'destination' ? "Destination (optional)" : "Type a message..."; };
 
-        // 13. Wake Lock & Service Worker
         async function requestWakeLock() { if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
         function releaseWakeLock() { if (wakeLock) wakeLock.release().then(() => wakeLock = null); }
         if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
