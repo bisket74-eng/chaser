@@ -73,11 +73,14 @@
         #roomModalOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 30; display: none; align-items: center; justify-content: center; }
         #roomModalOverlay.open { display: flex; }
         #roomModal { background: #e2f0d9; border-radius: 18px; padding: 20px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
-        #roomModal h3 { margin: 0 0 10px 0; color: #1e4620; text-align: center; font-size: 18px; }
+        #roomModal h3 { margin: 0 0 5px 0; color: #1e4620; text-align: center; font-size: 18px; }
         
-        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #ffd700; text-align: center; font-size: 24px; font-weight: 900; width: 100%; box-sizing: border-box; font-family: Arial, sans-serif; letter-spacing: 3px; text-transform: uppercase; }
+        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #ffd700; text-align: center; font-size: 24px; font-weight: 900; width: 100%; box-sizing: border-box; font-family: Arial, sans-serif; letter-spacing: 3px; text-transform: uppercase; transition: all 0.2s; }
         .modal-input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: normal; font-family: Arial, sans-serif; font-size: 16px; font-weight: normal; }
+        .modal-input:disabled { opacity: 0.5; background: #2a2a2a; border-color: #555; }
         
+        #modalOrText { text-align: center; font-size: 14px; color: #1e4620; font-weight: bold; margin: -2px 0; transition: opacity 0.2s; }
+
         .btn-row { display: flex; gap: 10px; margin-top: 5px; }
         .btn-row button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: bold; font-size: 15px; cursor: pointer; color: white; transition: opacity 0.2s; }
         .btn-row button:active { opacity: 0.8; }
@@ -128,7 +131,11 @@
     </div>
 
     <button id="roomLockBtn" type="button" title="Private Room">
-        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>
+        <svg viewBox="0 0 24 24">
+            <g transform="scale(-1, 1) translate(-24, 0)">
+                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+            </g>
+        </svg>
     </button>
 
     <button id="chatToggleBtn" type="button" title="Open Group Chat">
@@ -139,8 +146,9 @@
     <div id="roomModalOverlay">
         <div id="roomModal">
             <h3>Enter Locked Room?</h3>
-            <input type="text" id="generatedCode" class="modal-input" placeholder="Tap to Generate Code" readonly />
-            <input type="text" id="roomCodeInput" class="modal-input" placeholder="Enter Code to Join" maxlength="6" autocomplete="off" />
+            <input type="text" id="generatedCode" class="modal-input" placeholder="Tap to CREATE New Code" readonly />
+            <div id="modalOrText">- OR -</div>
+            <input type="text" id="roomCodeInput" class="modal-input" placeholder="Enter a Code to JOIN" maxlength="6" autocomplete="off" />
             <div class="btn-row">
                 <button id="leaveRoomBtn">Leave</button>
                 <button id="joinRoomBtn">Join</button>
@@ -180,7 +188,7 @@
         const riderColors = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-        const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>';
+        const iconUnlocked = '<svg viewBox="0 0 24 24"><g transform="scale(-1, 1) translate(-24, 0)"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></g></svg>';
         const iconLocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 
         let myId = localStorage.getItem('rider_id');
@@ -280,6 +288,7 @@
         const roomLockBtn = el('roomLockBtn'), roomModalOverlay = el('roomModalOverlay');
         const generatedCodeEl = el('generatedCode'), roomCodeInput = el('roomCodeInput');
         const generateCodeBtn = el('generateCodeBtn'), joinRoomBtn = el('joinRoomBtn'), leaveRoomBtn = el('leaveRoomBtn');
+        const modalOrText = el('modalOrText');
 
         usernameInput.value = localStorage.getItem('rider_saved_name') || "";
         chatMsgInput.style.backgroundColor = myChatColor;
@@ -291,6 +300,15 @@
             return code;
         };
 
+        const resetModalUI = () => {
+            modalOrText.style.opacity = '1';
+            roomCodeInput.placeholder = "Enter a Code to JOIN";
+            roomCodeInput.disabled = false;
+            joinRoomBtn.innerText = "Join";
+            if (!activeRoomCode) generatedCodeEl.value = '';
+            roomCodeInput.value = '';
+        };
+
         const applyRoomCode = (code) => {
             if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
@@ -300,10 +318,10 @@
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
             
-            // Swap icon and styling
             roomLockBtn.classList.add('room-active');
             roomLockBtn.innerHTML = iconLocked;
             roomModalOverlay.classList.remove('open');
+            resetModalUI();
         };
 
         const leavePrivateRoom = () => {
@@ -315,25 +333,46 @@
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
             
-            // Swap icon and styling
             roomLockBtn.classList.remove('room-active');
             roomLockBtn.innerHTML = iconUnlocked;
-            
-            generatedCodeEl.value = '';
-            roomCodeInput.value = '';
+            resetModalUI();
         };
 
-        roomLockBtn.addEventListener('click', () => { roomModalOverlay.classList.add('open'); });
-        roomModalOverlay.addEventListener('click', (e) => { if (e.target === roomModalOverlay) roomModalOverlay.classList.remove('open'); });
+        roomLockBtn.addEventListener('click', () => { 
+            if (activeRoomCode) {
+                generatedCodeEl.value = activeRoomCode;
+                modalOrText.style.opacity = '0.3';
+                roomCodeInput.placeholder = "Give this to friends!";
+                roomCodeInput.disabled = true;
+                joinRoomBtn.innerText = "Stay in Room";
+            }
+            roomModalOverlay.classList.add('open'); 
+        });
+        
+        roomModalOverlay.addEventListener('click', (e) => { 
+            if (e.target === roomModalOverlay) {
+                roomModalOverlay.classList.remove('open');
+                if (!activeRoomCode) resetModalUI();
+            }
+        });
         
         generatedCodeEl.addEventListener('click', () => {
             if (!activeRoomCode) {
                 const newCode = generateRoomCode();
                 generatedCodeEl.value = newCode;
+                
+                // UI Magic to make it obvious they don't enter it
+                modalOrText.style.opacity = '0.3';
+                roomCodeInput.value = "";
+                roomCodeInput.placeholder = "Give this to friends!";
+                roomCodeInput.disabled = true;
+                joinRoomBtn.innerText = "Start Room";
             }
         });
 
         joinRoomBtn.addEventListener('click', () => {
+            if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; } // Just stay in room
+            
             const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
             if (code.length >= 4) {
                 applyRoomCode(code);
@@ -346,6 +385,7 @@
         leaveRoomBtn.addEventListener('click', () => {
             if (activeRoomCode) leavePrivateRoom();
             roomModalOverlay.classList.remove('open');
+            resetModalUI();
         });
 
         const requireName = () => {
