@@ -18,12 +18,16 @@
         #appHeaderContainer { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
         #appHeader { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 75px; color: #1e4620; font-weight: 900; text-shadow: 3px 3px 0px #e2f0d9, -2px -2px 0px #e2f0d9, 2px -2px 0px #e2f0d9, -2px 2px 0px #e2f0d9, 6px 6px 12px rgba(0,0,0,0.4); letter-spacing: 1.5px; pointer-events: none; }
 
-        #riderCounterWidget { font-size: 15px; color: #1e4620; font-weight: bold; background-color: #e2f0d9; padding: 6px 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); margin-top: 4px; pointer-events: auto; cursor: pointer; transition: transform 0.1s ease, background-color 0.2s ease; -webkit-tap-highlight-color: transparent; }
-        #riderCounterWidget:active { transform: scale(0.94); background-color: #cbdcc3; }
-        
+        /* pointer-events: none; completely disables clicking/active states */
+        #riderCounterWidget { font-size: 15px; color: #1e4620; font-weight: bold; background-color: #e2f0d9; padding: 6px 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); margin-top: 4px; pointer-events: none; }
+
         #controls { position: absolute; bottom: 20px; left: 15px; z-index: 10; background: #e2f0d9; padding: 16px; border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
         #controls:has(input:focus) { transform: translateY(-95px); }
         
+        /* New Wrapper for collapsing */
+        #inputsWrapper { display: flex; flex-direction: column; gap: 12px; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease; max-height: 200px; opacity: 1; }
+        #inputsWrapper.hidden { max-height: 0; opacity: 0; }
+
         .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
         .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; transition: all 0.2s; }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
@@ -41,7 +45,11 @@
         .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
         .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
-        #startBtn { padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; cursor: pointer; font-weight: bold; transition: background-color 0.2s ease; box-shadow: 0 3px 8px rgba(0,0,0,0.2); width: 100%; box-sizing: border-box; }
+        /* Collapse Toggle Button Styling */
+        #toggleInputsBtn svg { transition: transform 0.4s ease; width: 24px; height: 24px; }
+        #toggleInputsBtn.flipped svg { transform: rotate(180deg); }
+
+        #startBtn { flex: 1; padding: 12px; border-radius: 8px; border: none; font-size: 16px; background-color: #2d6a30; color: white; cursor: pointer; font-weight: bold; transition: background-color 0.2s ease; box-shadow: 0 3px 8px rgba(0,0,0,0.2); box-sizing: border-box; }
         #startBtn.sharing-active { background-color: #dc3545; }
 
         #chatToggleBtn, #roomLockBtn { position: absolute; right: 15px; z-index: 11; width: 60px; height: 60px; background-color: #1e4620; border: 3px solid #e2f0d9; border-radius: 50%; box-shadow: 0 6px 20px rgba(0,0,0,0.41); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s ease; }
@@ -115,19 +123,26 @@
     <div id="map"></div>
 
     <div id="controls">
-        <div class="control-row">
-            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" enterkeyhint="done" />
-            <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
-                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
+        <div id="inputsWrapper">
+            <div class="control-row">
+                <input type="text" id="username" placeholder="Enter your name" autocomplete="off" enterkeyhint="done" />
+                <button class="mic-btn" id="usernameMic" type="button" title="Speak name">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+            </div>
+            <div class="control-row">
+                <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" enterkeyhint="done" />
+                <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+                </button>
+            </div>
         </div>
         <div class="control-row">
-            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" enterkeyhint="done" />
-            <button class="mic-btn" id="destinationMic" type="button" title="Speak destination">
-                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            <button id="startBtn">Start Sharing Location</button>
+            <button class="mic-btn" id="toggleInputsBtn" type="button" title="Toggle Inputs">
+                <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
             </button>
         </div>
-        <button id="startBtn">Start Sharing Location</button>
     </div>
 
     <button id="roomLockBtn" type="button" title="Private Room">
@@ -181,9 +196,10 @@
         let watchId = null, lastLat = 0, lastLng = 0;
         let isSharing = false, isChatOpen = false, unreadCount = 0;
         let wakeLock = null, oldBroadcastedName = "Anonymous"; 
-        let cycleBuddyIndex = 0, soloZoomToggle = false; 
         let isRadiusFilterActive = true;
         let activeRoomCode = null;
+        let hasFramedGroup = false;
+
         const riders = {};
         const riderColors = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
@@ -194,8 +210,13 @@
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
 
-        const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
-        localStorage.setItem('rider_chat_color', myChatColor);
+        // Vibrant, highly distinct colors replacing random muddy generation
+        const distinctColors = ['#ff9999', '#ffcc99', '#ffff99', '#99ff99', '#99ffff', '#99ccff', '#cc99ff', '#ff99cc', '#ffb366', '#66ffb3', '#66b3ff', '#b366ff'];
+        let myChatColor = localStorage.getItem('rider_chat_color');
+        if (!myChatColor || myChatColor.startsWith('hsl')) {
+            myChatColor = distinctColors[Math.floor(Math.random() * distinctColors.length)];
+            localStorage.setItem('rider_chat_color', myChatColor);
+        }
 
         let channel;
         const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
@@ -208,6 +229,7 @@
                 .on('broadcast', { event: 'location-update' }, ({ payload }) => {
                     const { user, dest, lat, lng, status, color } = payload;
                     if (color) riderColors[user] = color;
+                    
                     if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0 && !user.includes('(You)')) {
                         const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                         if (distanceInMiles > 50) {
@@ -223,7 +245,11 @@
                 .on('broadcast', { event: 'group-live-chat' }, ({ payload }) => {
                     if (payload.token !== sessionMsgToken) {
                         appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
-                        if (!isChatOpen) { chatBadge.innerText = ++unreadCount; chatBadge.style.display = 'block'; }
+                        if (!isChatOpen) { 
+                            unreadCount++; 
+                            chatBadge.innerText = unreadCount; 
+                            chatBadge.style.display = 'block'; 
+                        }
                     }
                 })
                 .on('broadcast', { event: 'rename' }, ({ payload }) => {
@@ -238,7 +264,7 @@
                         message: bubble.querySelector('.msg-text').innerText,
                         color: bubble.style.backgroundColor,
                         authorId: Array.from(bubble.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
-                        stamp: !!bubble.querySelector('.msg-delete-btn') ? 'is-original-me' : 'is-foreign'
+                        stamp: 'is-foreign' // FIXED: Forces the sync to treat past messages as read-only for new people
                     }));
                     channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
                 })
@@ -248,7 +274,8 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        setTimeout(() => channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } }), 600);
+                        // FIXED: Increased to 1500ms to allow Supabase adequate time to connect before firing history request
+                        setTimeout(() => channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } }), 1500);
                     }
                 });
         };
@@ -289,6 +316,14 @@
         const generatedCodeEl = el('generatedCode'), roomCodeInput = el('roomCodeInput');
         const generateCodeBtn = el('generateCodeBtn'), joinRoomBtn = el('joinRoomBtn'), leaveRoomBtn = el('leaveRoomBtn');
         const modalOrText = el('modalOrText');
+        const toggleInputsBtn = el('toggleInputsBtn');
+        const inputsWrapper = el('inputsWrapper');
+
+        // Toggle UI logic
+        toggleInputsBtn.addEventListener('click', () => {
+            inputsWrapper.classList.toggle('hidden');
+            toggleInputsBtn.classList.toggle('flipped');
+        });
 
         usernameInput.value = localStorage.getItem('rider_saved_name') || "";
         chatMsgInput.style.backgroundColor = myChatColor;
@@ -360,8 +395,6 @@
             if (!activeRoomCode) {
                 const newCode = generateRoomCode();
                 generatedCodeEl.value = newCode;
-                
-                // UI Magic to make it obvious they don't enter it
                 modalOrText.style.opacity = '0.3';
                 roomCodeInput.value = "";
                 roomCodeInput.placeholder = "Give this to friends!";
@@ -371,7 +404,7 @@
         });
 
         joinRoomBtn.addEventListener('click', () => {
-            if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; } // Just stay in room
+            if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; } 
             
             const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
             if (code.length >= 4) {
@@ -410,27 +443,6 @@
 
         const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, 110]), map.getZoom());
 
-        riderCounterWidget.addEventListener('click', () => {
-            const activeBuddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
-            const mySelfKey = `${oldBroadcastedName} (You)`;
-            if (!activeBuddyNames.length) {
-                if (!riders[mySelfKey]) return;
-                map.setZoom(soloZoomToggle ? 12 : 17);
-                map.panTo(getOffsetLatLng(riders[mySelfKey].getLatLng()), { animate: true, duration: 0.8 });
-                riders[mySelfKey].openPopup(); soloZoomToggle = !soloZoomToggle; return;
-            }
-            const masterLoopList = [...activeBuddyNames];
-            if (riders[mySelfKey]) masterLoopList.push(mySelfKey);
-            if (cycleBuddyIndex >= masterLoopList.length) {
-                const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
-                if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
-                cycleBuddyIndex = 0; return;
-            }
-            const targetedMarker = riders[masterLoopList[cycleBuddyIndex]];
-            if (targetedMarker) { map.setZoom(17); map.panTo(getOffsetLatLng(targetedMarker.getLatLng()), { animate: true, duration: 0.8 }); targetedMarker.openPopup(); }
-            cycleBuddyIndex++;
-        });
-
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
             
@@ -444,17 +456,18 @@
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
                 oldBroadcastedName = currentUser;
             }
+            
             updateRiderMarker(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: currentUser, dest: destinationInput.value.trim(), lat: lastLat, lng: lastLng, status: 'online', color: myChatColor } });
             updateLiveRiderCounter();
         };
 
         const stopSharingLocation = () => {
-            isSharing = false; destinationInput.value = ""; startBtn.innerText = "Start Sharing Location"; startBtn.classList.remove('sharing-active');
+            isSharing = false; hasFramedGroup = false; destinationInput.value = ""; startBtn.innerText = "Start Sharing Location"; startBtn.classList.remove('sharing-active');
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
-            lastLat = 0; lastLng = 0; cycleBuddyIndex = 0; soloZoomToggle = false;
+            lastLat = 0; lastLng = 0;
             updateLiveRiderCounter(); releaseWakeLock();
         };
 
@@ -475,8 +488,21 @@
             if ("geolocation" in navigator) {
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
-                    if (!Object.keys(riders).length && lastLat !== 0) { map.setZoom(15); map.setView(getOffsetLatLng([lastLat, lastLng]), 15); }
                     broadcastCurrentState();
+                    
+                    // Smart Frame logic on connect
+                    if (!hasFramedGroup && lastLat !== 0) {
+                        hasFramedGroup = true;
+                        setTimeout(() => {
+                            const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
+                            if (allPinsGroup.length > 1) {
+                                map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
+                            } else {
+                                map.setZoom(15);
+                                map.panTo(getOffsetLatLng([lastLat, lastLng]), { animate: true });
+                            }
+                        }, 500); 
+                    }
                 }, () => stopSharingLocation(), { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
                 requestWakeLock();
             } else stopSharingLocation();
@@ -492,26 +518,48 @@
             
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
-                if (user.includes('(You)') && isSharing) map.panTo(getOffsetLatLng([lat, lng]), { animate: true, duration: 0.5 });
+                // Removed the disruptive self-centering panTo action here!
             } else {
                 const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup', closeButton: false });
                 marker.dataset = { isZoomedIn: false };
+                
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
-                    map.setZoom(zoomingIn ? 17 : 12);
-                    map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
-                    marker.dataset.isZoomedIn = zoomingIn; marker.openPopup();
+                    if (zoomingIn) {
+                        map.setZoom(18); // Zooms all the way in
+                        map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
+                    } else {
+                        // Zooms back out to frame the group
+                        const allPinsGroup = Object.values(riders).map(m => m.getLatLng());
+                        if (allPinsGroup.length > 1) {
+                            map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
+                        } else {
+                            map.setZoom(14); // Fallback for 1 person
+                            map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
+                        }
+                    }
+                    marker.dataset.isZoomedIn = zoomingIn; 
+                    if(zoomingIn) marker.openPopup();
                 };
+                
                 marker.on('click', e => { L.DomEvent.stopPropagation(e); handleZoomToggle(e.latlng); });
                 marker.on('popupopen', e => {
                     const popupElement = e.popup.getElement();
                     if (popupElement) popupElement.onclick = (event) => { L.DomEvent.stopPropagation(event); handleZoomToggle(marker.getLatLng()); };
                 });
+                
                 riders[user] = marker; marker.openPopup();
             }
         }
 
-        chatToggleBtn.addEventListener('click', () => { isChatOpen = true; unreadCount = 0; chatBadge.style.display = 'none'; chatOverlay.classList.add('open'); });
+        chatToggleBtn.addEventListener('click', () => { 
+            isChatOpen = true; 
+            unreadCount = 0; 
+            chatBadge.innerText = 0; 
+            chatBadge.style.display = 'none'; 
+            chatOverlay.classList.add('open'); 
+        });
+        
         closeChatBtn.addEventListener('click', () => { isChatOpen = false; chatOverlay.classList.remove('open'); });
 
         const sendGroupMessage = () => {
@@ -597,42 +645,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
