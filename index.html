@@ -28,7 +28,6 @@
         .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; transition: all 0.2s; }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
         
-        /* AGGRESSIVE ERROR HIGHLIGHT */
         .control-row input.input-error { 
             border: 3px solid #dc3545 !important; 
             background-color: #ffe6e6 !important; 
@@ -76,7 +75,6 @@
         #roomModal { background: #e2f0d9; border-radius: 18px; padding: 20px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
         #roomModal h3 { margin: 0 0 10px 0; color: #1e4620; text-align: center; font-size: 18px; }
         
-        /* VIBRANT GENERATOR FONT UPDATE */
         .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background: #1e4620; color: #ffd700; text-align: center; font-size: 24px; font-weight: 900; width: 100%; box-sizing: border-box; font-family: Arial, sans-serif; letter-spacing: 3px; text-transform: uppercase; }
         .modal-input::placeholder { color: #a3cfbb; font-style: italic; letter-spacing: normal; font-family: Arial, sans-serif; font-size: 16px; font-weight: normal; }
         
@@ -98,7 +96,6 @@
         .radius-r { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 45px; font-weight: bold; margin-right: 9px; padding-bottom: 9px; color: #2d6a30; }
         .radius-toggle-container input { cursor: pointer; width: 22px; height: 22px; margin: 0; accent-color: #2d6a30; }
 
-        /* Full color map popup with hidden X */
         .leaflet-popup-content-wrapper { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
         .leaflet-popup-tip { background: transparent !important; box-shadow: none !important; }
         .colored-popup .leaflet-popup-content { margin: 0; }
@@ -131,7 +128,7 @@
     </div>
 
     <button id="roomLockBtn" type="button" title="Private Room">
-        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>
     </button>
 
     <button id="chatToggleBtn" type="button" title="Open Group Chat">
@@ -182,6 +179,9 @@
         const riders = {};
         const riderColors = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
+
+        const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></svg>';
+        const iconLocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
@@ -299,7 +299,10 @@
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
+            
+            // Swap icon and styling
             roomLockBtn.classList.add('room-active');
+            roomLockBtn.innerHTML = iconLocked;
             roomModalOverlay.classList.remove('open');
         };
 
@@ -311,7 +314,11 @@
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
+            
+            // Swap icon and styling
             roomLockBtn.classList.remove('room-active');
+            roomLockBtn.innerHTML = iconUnlocked;
+            
             generatedCodeEl.value = '';
             roomCodeInput.value = '';
         };
@@ -437,7 +444,6 @@
 
         function updateRiderMarker(user, dest, lat, lng, color) {
             const markerColor = color || '#ffffff';
-            // HEADING TO LABEL & LARGER FONT ADDED HERE
             const popupContent = `
                 <div style="background:${markerColor}; padding:8px 12px; border-radius:8px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
                     <b style="font-size:18px;">${user}</b>
