@@ -18,7 +18,7 @@
         }
         #map { position: fixed; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* UI ADJUSTMENT 1: Pushed Header Down to clear buttons completely */
+        /* App Header Container - Pushed down to clear buttons completely */
         #appHeaderContainer { position: absolute; top: 75px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
         
         #appHeader {
@@ -127,40 +127,43 @@
             border-right: none !important;
         }
 
-        /* UI ADJUSTMENT 2: Radius Toggle Container perfectly matches Zoom button dimensions */
+        /* RADIUS TOGGLE: Longer box, bolder cursive 'r', matching height */
         .radius-toggle-container {
             background-color: white;
-            width: 88px; /* Exactly two 44px boxes */
             height: 44px; /* Matches zoom button height */
-            padding: 0 8px;
+            padding: 0 16px; /* Extra padding to make it comfortably long */
             box-sizing: border-box;
             border-radius: 4px;
             box-shadow: 0 1px 5px rgba(0,0,0,0.4);
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 12px; /* Space between text and checkbox */
             color: #333;
             cursor: pointer;
             user-select: none;
         }
         .radius-label-wrapper {
             display: flex;
-            align-items: baseline;
+            align-items: center; /* Ensures text and the 'r' center vertically */
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px; /* Slightly larger base text */
             font-weight: bold;
             line-height: 1;
+            white-space: nowrap; /* Forces text to stay on one line */
         }
         .radius-r {
             font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 18px;
-            margin-right: 2px;
+            font-size: 26px; /* Massive jump in size to stand out */
+            font-weight: bold;
+            margin-right: 6px;
+            padding-bottom: 2px; /* Visual tweak so it aligns nicely with "50 Mi" */
             color: #2d6a30;
         }
         .radius-toggle-container input {
             cursor: pointer;
-            width: 18px;
-            height: 18px;
+            width: 22px; /* Much larger checkbox */
+            height: 22px;
             margin: 0;
             accent-color: #2d6a30;
         }
@@ -237,7 +240,7 @@
             options: { position: 'topright' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
-                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50mi</label><input type="checkbox" id="radiusToggle" checked>';
+                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
                 
                 // Prevent map clicks when tapping the box
                 L.DomEvent.disableClickPropagation(container);
