@@ -18,13 +18,11 @@
         #appHeaderContainer { position: absolute; top: 65px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
         #appHeader { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 75px; color: #1e4620; font-weight: 900; text-shadow: 3px 3px 0px #e2f0d9, -2px -2px 0px #e2f0d9, 2px -2px 0px #e2f0d9, -2px 2px 0px #e2f0d9, 6px 6px 12px rgba(0,0,0,0.4); letter-spacing: 1.5px; pointer-events: none; }
 
-        /* pointer-events: none; completely disables clicking/active states */
         #riderCounterWidget { font-size: 15px; color: #1e4620; font-weight: bold; background-color: #e2f0d9; padding: 6px 14px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.25); margin-top: 4px; pointer-events: none; }
 
         #controls { position: absolute; bottom: 20px; left: 15px; z-index: 10; background: #e2f0d9; padding: 16px; border-radius: 18px; box-shadow: 0 8px 25px rgba(0,0,0,0.35); display: flex; flex-direction: column; gap: 12px; width: 74%; max-width: 340px; box-sizing: border-box; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
         #controls:has(input:focus) { transform: translateY(-95px); }
         
-        /* New Wrapper for collapsing */
         #inputsWrapper { display: flex; flex-direction: column; gap: 12px; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease; max-height: 200px; opacity: 1; }
         #inputsWrapper.hidden { max-height: 0; opacity: 0; }
 
@@ -45,7 +43,6 @@
         .mic-btn svg { width: 20px; height: 20px; fill: #ffffff; pointer-events: none; }
         .mic-btn.listening { background-color: #dc3545 !important; animation: pulse 1.5s infinite; }
 
-        /* Collapse Toggle Button Styling */
         #toggleInputsBtn svg { transition: transform 0.4s ease; width: 24px; height: 24px; }
         #toggleInputsBtn.flipped svg { transform: rotate(180deg); }
 
@@ -210,10 +207,10 @@
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
 
-        // Vibrant, highly distinct colors replacing random muddy generation
-        const distinctColors = ['#ff9999', '#ffcc99', '#ffff99', '#99ff99', '#99ffff', '#99ccff', '#cc99ff', '#ff99cc', '#ffb366', '#66ffb3', '#66b3ff', '#b366ff'];
+        // Pastel distinct colors
+        const distinctColors = ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8baff', '#ffbaff', '#dcd3ff', '#bafff0', '#ffd3b6', '#d4f0f0', '#ffc4e1'];
         let myChatColor = localStorage.getItem('rider_chat_color');
-        if (!myChatColor || myChatColor.startsWith('hsl')) {
+        if (!myChatColor || myChatColor.startsWith('hsl') || myChatColor.includes('99')) {
             myChatColor = distinctColors[Math.floor(Math.random() * distinctColors.length)];
             localStorage.setItem('rider_chat_color', myChatColor);
         }
@@ -264,7 +261,7 @@
                         message: bubble.querySelector('.msg-text').innerText,
                         color: bubble.style.backgroundColor,
                         authorId: Array.from(bubble.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
-                        stamp: 'is-foreign' // FIXED: Forces the sync to treat past messages as read-only for new people
+                        stamp: 'is-foreign' 
                     }));
                     channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
                 })
@@ -274,7 +271,6 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        // FIXED: Increased to 1500ms to allow Supabase adequate time to connect before firing history request
                         setTimeout(() => channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } }), 1500);
                     }
                 });
@@ -319,11 +315,21 @@
         const toggleInputsBtn = el('toggleInputsBtn');
         const inputsWrapper = el('inputsWrapper');
 
-        // Toggle UI logic
         toggleInputsBtn.addEventListener('click', () => {
             inputsWrapper.classList.toggle('hidden');
             toggleInputsBtn.classList.toggle('flipped');
         });
+
+        // Automatically drop focused input to bottom if visual keyboard is closed
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                if (window.visualViewport.height > window.innerHeight * 0.85) {
+                    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+                        document.activeElement.blur();
+                    }
+                }
+            });
+        }
 
         usernameInput.value = localStorage.getItem('rider_saved_name') || "";
         chatMsgInput.style.backgroundColor = myChatColor;
@@ -422,12 +428,18 @@
         });
 
         const requireName = () => {
-            usernameInput.classList.remove('input-error');
-            void usernameInput.offsetWidth;
-            usernameInput.classList.add('input-error');
-            usernameInput.placeholder = "Name required!";
-            usernameInput.focus();
-            setTimeout(() => { usernameInput.classList.remove('input-error'); usernameInput.placeholder = "Enter your name"; }, 2000);
+            if (inputsWrapper.classList.contains('hidden')) {
+                inputsWrapper.classList.remove('hidden');
+                toggleInputsBtn.classList.remove('flipped');
+            }
+            setTimeout(() => {
+                usernameInput.classList.remove('input-error');
+                void usernameInput.offsetWidth;
+                usernameInput.classList.add('input-error');
+                usernameInput.placeholder = "Name required!";
+                usernameInput.focus();
+                setTimeout(() => { usernameInput.classList.remove('input-error'); usernameInput.placeholder = "Enter your name"; }, 2000);
+            }, 50);
         };
 
         let touchStartX = 0, touchStartY = 0;
@@ -490,7 +502,6 @@
                     lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
                     broadcastCurrentState();
                     
-                    // Smart Frame logic on connect
                     if (!hasFramedGroup && lastLat !== 0) {
                         hasFramedGroup = true;
                         setTimeout(() => {
@@ -518,7 +529,6 @@
             
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
-                // Removed the disruptive self-centering panTo action here!
             } else {
                 const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup', closeButton: false });
                 marker.dataset = { isZoomedIn: false };
@@ -526,15 +536,14 @@
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
                     if (zoomingIn) {
-                        map.setZoom(18); // Zooms all the way in
+                        map.setZoom(18); 
                         map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
                     } else {
-                        // Zooms back out to frame the group
                         const allPinsGroup = Object.values(riders).map(m => m.getLatLng());
                         if (allPinsGroup.length > 1) {
                             map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                         } else {
-                            map.setZoom(14); // Fallback for 1 person
+                            map.setZoom(14); 
                             map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
                         }
                     }
@@ -565,7 +574,12 @@
         const sendGroupMessage = () => {
             if (!chatMsgInput.value.trim()) return;
             const currentName = usernameInput.value.trim();
-            if (!currentName || currentName.toLowerCase() === 'anonymous') { chatOverlay.classList.remove('open'); isChatOpen = false; requireName(); return; }
+            if (!currentName || currentName.toLowerCase() === 'anonymous') { 
+                chatOverlay.classList.remove('open'); 
+                isChatOpen = false; 
+                requireName(); 
+                return; 
+            }
             
             const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
             appendMessage(uniqueMsgId, currentName, chatMsgInput.value.trim(), true, myChatColor, myId);
