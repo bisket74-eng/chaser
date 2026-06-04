@@ -439,7 +439,6 @@
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
         };
 
-        // MATHEMATICAL FIX: Adding a negative offset pushes the pin DOWN into the viewable area
         const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, -120]), map.getZoom());
 
         riderCounterWidget.addEventListener('click', () => {
@@ -455,7 +454,6 @@
             if (riders[mySelfKey]) masterLoopList.push(mySelfKey);
             if (cycleBuddyIndex >= masterLoopList.length) {
                 const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
-                // Added top padding to prevent group bounds from hiding under the header
                 if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 cycleBuddyIndex = 0; return;
             }
@@ -513,13 +511,20 @@
             isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
             
             if ("geolocation" in navigator) {
+                // FIXED IPHONE SILENT FAIL: Increased timeout to 15000 and added an alert so you know if it blocked you.
                 watchId = navigator.geolocation.watchPosition((pos) => {
                     lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
                     if (!Object.keys(riders).length && lastLat !== 0) { map.setZoom(15); map.setView(getOffsetLatLng([lastLat, lastLng]), 15); }
                     broadcastCurrentState();
-                }, () => stopSharingLocation(), { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+                }, (error) => {
+                    alert("iPhone Location Blocked!\n\n1. Check if GPS is enabled.\n2. Go to Settings > Safari > Location and set to 'Allow'.\n\nError: " + error.message);
+                    stopSharingLocation();
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
                 requestWakeLock();
-            } else stopSharingLocation();
+            } else {
+                alert("GPS is not supported on this device.");
+                stopSharingLocation();
+            }
         });
 
         window.pingUser = (targetUserName) => {
