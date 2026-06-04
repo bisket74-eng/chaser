@@ -107,42 +107,30 @@
 
         /* Styling for the custom Leaflet toggle switch */
         .radius-toggle-container {
-    background-color: white;
-    padding: 8px 4px;
-    border-radius: 4px;
-    box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-
-    display: flex;
-    flex-direction: column;   /* stack vertically */
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-
-    font-weight: bold;
-    color: #1e4620;
-    cursor: pointer;
-    user-select: none;
-    border: 2px solid rgba(0,0,0,0.2);
-    background-clip: padding-box;
-
-    width: 38px; /* same width feel as zoom buttons */
-}
-
-.radius-toggle-container input {
-    cursor: pointer;
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    accent-color: #2d6a30;
-}
-
-.radius-toggle-container label {
-    cursor: pointer;
-    font-size: 10px;
-    text-align: center;
-    line-height: 1.1;
-    width: 100%;      
-}
+            background-color: white;
+            padding: 6px 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: bold;
+            color: #1e4620;
+            cursor: pointer;
+            user-select: none;
+            border: 2px solid rgba(0,0,0,0.2);
+            background-clip: padding-box;
+        }
+        .radius-toggle-container input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+            accent-color: #2d6a30;
+        }
+        .radius-toggle-container label {
+            cursor: pointer;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
@@ -216,13 +204,7 @@
             options: { position: 'topleft' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
-                container.innerHTML = container.innerHTML = 
-                    <input type="checkbox" id="radiusToggle" 
-     checked>
-        <label for="radiusToggle">
-        50mi<br>Only
-    </label>
-`;
+                container.innerHTML = '<input type="checkbox" id="radiusToggle" checked><label for="radiusToggle">50mi Only</label>';
                 
                 // Prevent map clicks when tapping the box
                 L.DomEvent.disableClickPropagation(container);
@@ -537,4 +519,3 @@
     </script>
 </body>
 </html>
-  
