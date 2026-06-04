@@ -28,7 +28,6 @@
         .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; transition: all 0.2s; }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
         
-        /* Aggressive Name Required Error */
         .control-row input.input-error { 
             border: 3px solid #dc3545 !important; 
             background-color: #ffe6e6 !important; 
@@ -71,7 +70,6 @@
         #chatInputArea input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 15px; color: #111; font-weight: 500; }
         #chatInputArea input::placeholder { color: rgba(0,0,0,0.5); font-weight: normal; }
 
-        /* Room Modal Enhancements */
         #roomModalOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 30; display: none; align-items: center; justify-content: center; }
         #roomModalOverlay.open { display: flex; }
         #roomModal { background: #e2f0d9; border-radius: 18px; padding: 20px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
@@ -91,6 +89,9 @@
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
         @keyframes aggressive-shake { 0%, 100% { transform: translateX(0); } 15%, 45%, 75% { transform: translateX(-8px); } 30%, 60%, 90% { transform: translateX(8px); } }
+        
+        /* Smooth bounce for the new ping button */
+        @keyframes ping-bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.85); } }
 
         .leaflet-control-zoom { display: flex !important; flex-direction: row !important; border: none !important; box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden; }
         .leaflet-control-zoom-in, .leaflet-control-zoom-out { border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important; width: 44px !important; height: 44px !important; line-height: 44px !important; }
@@ -101,7 +102,6 @@
         .radius-r { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 45px; font-weight: bold; margin-right: 9px; padding-bottom: 9px; color: #2d6a30; }
         .radius-toggle-container input { cursor: pointer; width: 22px; height: 22px; margin: 0; accent-color: #2d6a30; }
 
-        /* Full color map popup with hidden X */
         .leaflet-popup-content-wrapper { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
         .leaflet-popup-tip { background: transparent !important; box-shadow: none !important; }
         .colored-popup .leaflet-popup-content { margin: 0; }
@@ -189,11 +189,12 @@
         let activeRoomCode = null;
         
         const riders = {};
-        const riderData = {}; // Stores latest raw data for timer recalculations
+        const riderData = {};
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
         const iconUnlocked = '<svg viewBox="0 0 24 24"><g transform="scale(-1, 1) translate(-24, 0)"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></g></svg>';
         const iconLocked = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
+        const iconRefresh = '<svg viewBox="0 0 24 24" width="20" height="20" fill="#1e4620"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>';
 
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
@@ -496,6 +497,9 @@
         });
 
         window.pingUser = (targetUserName) => {
+            // Animates the button being pressed
+            event.currentTarget.style.animation = 'ping-bounce 0.3s ease';
+            setTimeout(() => { if (event.currentTarget) event.currentTarget.style.animation = ''; }, 300);
             channel.send({ type: 'broadcast', event: 'ping-request', payload: { targetUser: targetUserName } });
         };
 
@@ -507,14 +511,29 @@
             const markerColor = data.color || '#ffffff';
             const isMe = user.includes('(You)');
             
-            const pingBtnHtml = isMe ? '' : `<button onclick="window.pingUser('${user}')" style="margin-top:8px; padding:6px 12px; background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; width:100%; box-shadow:0 2px 4px rgba(0,0,0,0.2);">Ping Location</button>`;
+            let dotColor = '#28a745'; 
+            let timeText = '&lt; 2m';
+            if (timeAgo > 10) {
+                dotColor = '#dc3545';
+                timeText = '&gt; 10m';
+            } else if (timeAgo > 2) {
+                dotColor = '#ffc107';
+                timeText = '&lt; 10m';
+            }
+            
+            const pingBtnHtml = isMe ? '' : `<button onclick="window.pingUser('${user}')" style="background:transparent; border:none; padding:2px; cursor:pointer; display:flex; align-items:center; justify-content:center; margin-left:10px;" title="Ping Location">${iconRefresh}</button>`;
 
             const popupContent = `
-                <div style="background:${markerColor}; padding:8px 12px; border-radius:8px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 10px rgba(0,0,0,0.3);">
+                <div style="background:${markerColor}; padding:12px 16px; border-radius:12px; color:#000; border:2px solid #1e4620; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.3); min-width: 140px;">
                     <b style="font-size:18px;">${user}</b>
-                    ${data.dest ? `<br><span style="font-size:15px; color:#333; font-weight:500;">Heading to: ${data.dest}</span>` : ''}
-                    <div style="font-size:12px; color:#555; margin-top:4px; font-style:italic;">(updated ${timeAgo}m ago)</div>
-                    ${pingBtnHtml}
+                    ${data.dest ? `<br><span style="font-size:14px; color:#333; font-weight:500;">Heading to: ${data.dest}</span>` : ''}
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid rgba(0,0,0,0.15); padding-top:8px;">
+                        <div style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:bold; color:#333;">
+                            <div style="width:12px; height:12px; border-radius:50%; background:${dotColor}; border:1px solid rgba(0,0,0,0.2); box-shadow: 0 1px 2px rgba(0,0,0,0.2);"></div>
+                            ${timeText}
+                        </div>
+                        ${pingBtnHtml}
+                    </div>
                 </div>`;
             
             if (riders[user]) {
@@ -533,7 +552,7 @@
                 marker.on('popupopen', e => {
                     const popupElement = e.popup.getElement();
                     if (popupElement) popupElement.onclick = (event) => { 
-                        if (event.target.tagName !== 'BUTTON') {
+                        if (event.target.tagName !== 'BUTTON' && !event.target.closest('button')) {
                             L.DomEvent.stopPropagation(event); handleZoomToggle(marker.getLatLng()); 
                         }
                     };
@@ -542,7 +561,6 @@
             }
         }
 
-        // Loop to re-render timestamps every 60 seconds
         setInterval(() => {
             Object.keys(riderData).forEach(user => updateRiderMarker(user));
         }, 60000);
