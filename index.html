@@ -280,7 +280,7 @@
             options: { position: 'topright' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
-                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
+                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="checkboxRadius" id="radiusToggle" checked>';
                 L.DomEvent.disableClickPropagation(container);
                 return container;
             }
@@ -451,9 +451,6 @@
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
         };
 
-        // FIXED: Using a negative offset so the map centers higher, pushing the pin to the bottom half of the screen
-        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, -160]), map.getZoom());
-
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
             
@@ -509,7 +506,7 @@
                                 map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                             } else {
                                 map.setZoom(15);
-                                map.panTo(getOffsetLatLng([lastLat, lastLng]), { animate: true });
+                                map.panTo([lastLat, lastLng], { animate: true });
                             }
                         }, 500); 
                     }
@@ -535,15 +532,14 @@
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
                     if (zoomingIn) {
-                        map.setZoom(18); 
-                        map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
+                        // FIXED: Zooms in directly onto dead-center screen with no offset shifts
+                        map.setView(targetLatLng, 18, { animate: true, duration: 0.8 });
                     } else {
                         const allPinsGroup = Object.values(riders).map(m => m.getLatLng());
                         if (allPinsGroup.length > 1) {
                             map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                         } else {
-                            map.setZoom(14); 
-                            map.panTo(getOffsetLatLng(targetLatLng), { animate: true, duration: 0.8 });
+                            map.setView(targetLatLng, 14, { animate: true, duration: 0.8 });
                         }
                     }
                     marker.dataset.isZoomedIn = zoomingIn; 
