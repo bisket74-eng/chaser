@@ -200,11 +200,9 @@
         const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
         localStorage.setItem('rider_chat_color', myChatColor);
 
-        // HELPER: Saves the active pins to memory so they survive page reloads
         const saveRoster = () => {
             if (!activeRoomCode) return;
             const clean = {};
-            // Save everyone except yourself (you'll generate a fresh 'You' pin anyway)
             Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
             localStorage.setItem('signal_roster_' + activeRoomCode, JSON.stringify(clean));
         };
@@ -246,20 +244,17 @@
                 .on('broadcast', { event: 'rename' }, ({ payload }) => {
                     document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
                 })
-                // P2P SYNC: When someone new asks "Who is here?", we send them our memory bank
                 .on('broadcast', { event: 'request-roster-sync' }, ({ payload }) => {
                     const clean = {};
                     Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
                     channel.send({ type: 'broadcast', event: 'provide-roster-sync', payload: { targetToken: payload.requestedByToken, roster: clean } });
                 })
-                // P2P SYNC: When we receive memory bank info, we merge it to restore sleeping pins
                 .on('broadcast', { event: 'provide-roster-sync' }, ({ payload }) => {
                     if (payload.targetToken !== sessionMsgToken) return;
                     let updated = false;
                     Object.keys(payload.roster).forEach(user => {
                         const incomingData = payload.roster[user];
                         const existingData = riderData[user];
-                        // Only add it if we don't have it, or if their memory is fresher than ours
                         if (!existingData || incomingData.lastSeen > existingData.lastSeen) {
                             riderData[user] = incomingData;
                             updateRiderMarker(user);
@@ -274,7 +269,6 @@
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        // Immediately ask the group to sync chat and map data
                         setTimeout(() => {
                             channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } });
                             channel.send({ type: 'broadcast', event: 'request-roster-sync', payload: { requestedByToken: sessionMsgToken } });
@@ -347,7 +341,6 @@
             chatMessages.innerHTML = '';
             activeRoomCode = code;
             
-            // Instantly restore map pins from local memory before network even connects
             const saved = JSON.parse(localStorage.getItem('signal_roster_' + activeRoomCode) || '{}');
             Object.assign(riderData, saved);
             Object.keys(riderData).forEach(user => updateRiderMarker(user));
@@ -446,7 +439,8 @@
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
         };
 
-        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, 110]), map.getZoom());
+        // MATHEMATICAL FIX: Adding a negative offset pushes the pin DOWN into the viewable area
+        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, -120]), map.getZoom());
 
         riderCounterWidget.addEventListener('click', () => {
             const activeBuddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
@@ -461,7 +455,8 @@
             if (riders[mySelfKey]) masterLoopList.push(mySelfKey);
             if (cycleBuddyIndex >= masterLoopList.length) {
                 const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
-                if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
+                // Added top padding to prevent group bounds from hiding under the header
+                if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingTopLeft: [0, 140], paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 cycleBuddyIndex = 0; return;
             }
             const targetedMarker = riders[masterLoopList[cycleBuddyIndex]];
@@ -477,7 +472,6 @@
                 currentUser = oldBroadcastedName; 
             }
             
-            // If we started sharing and there's a stale memory pin of us, delete it
             if (riders[currentUser]) { map.removeLayer(riders[currentUser]); delete riders[currentUser]; delete riderData[currentUser]; }
 
             if (oldBroadcastedName !== currentUser) {
