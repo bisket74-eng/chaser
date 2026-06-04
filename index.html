@@ -25,9 +25,17 @@
         #controls:has(input:focus) { transform: translateY(-95px); }
         
         .control-row { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
-        .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; }
+        .control-row input { flex: 1; max-width: 200px; padding: 12px; border-radius: 8px; border: 2px solid #2d6a30; background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500; transition: all 0.2s; }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
-        .control-row input.input-error { border-color: #dc3545 !important; animation: shake 0.35s ease; }
+        
+        /* AGGRESSIVE ERROR HIGHLIGHT */
+        .control-row input.input-error { 
+            border: 3px solid #dc3545 !important; 
+            background-color: #ffe6e6 !important; 
+            color: #dc3545 !important;
+            box-shadow: 0 0 15px rgba(220, 53, 69, 0.8) !important;
+            animation: aggressive-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; 
+        }
 
         .mic-btn { width: 44px; height: 44px; background-color: #2d6a30; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.25); flex-shrink: 0; transition: background-color 0.2s ease, transform 0.1s ease; -webkit-tap-highlight-color: transparent; }
         .mic-btn:active { transform: scale(0.92); }
@@ -76,7 +84,7 @@
         #joinRoomBtn { background-color: #2d6a30; }
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
-        @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+        @keyframes aggressive-shake { 0%, 100% { transform: translateX(0); } 15%, 45%, 75% { transform: translateX(-8px); } 30%, 60%, 90% { transform: translateX(8px); } }
 
         .leaflet-control-zoom { display: flex !important; flex-direction: row !important; border: none !important; box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden; }
         .leaflet-control-zoom-in, .leaflet-control-zoom-out { border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important; width: 44px !important; height: 44px !important; line-height: 44px !important; }
@@ -87,10 +95,11 @@
         .radius-r { font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 45px; font-weight: bold; margin-right: 9px; padding-bottom: 9px; color: #2d6a30; }
         .radius-toggle-container input { cursor: pointer; width: 22px; height: 22px; margin: 0; accent-color: #2d6a30; }
 
-        /* Full color map popup */
+        /* Full color map popup with hidden X */
         .leaflet-popup-content-wrapper { background: transparent !important; box-shadow: none !important; padding: 0 !important; }
         .leaflet-popup-tip { background: transparent !important; box-shadow: none !important; }
         .colored-popup .leaflet-popup-content { margin: 0; }
+        .leaflet-popup-close-button { display: none !important; }
     </style>
 </head>
 <body>
@@ -280,7 +289,7 @@
         };
 
         const applyRoomCode = (code) => {
-            if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' } });
+            if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = code;
@@ -292,7 +301,7 @@
         };
 
         const leavePrivateRoom = () => {
-            if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' } });
+            if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = null;
@@ -353,7 +362,7 @@
 
         riderCounterWidget.addEventListener('click', () => {
             const activeBuddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
-            const mySelfKey = `${usernameInput.value.trim() || "Anonymous"} (You)`;
+            const mySelfKey = `${oldBroadcastedName} (You)`;
             if (!activeBuddyNames.length) {
                 if (!riders[mySelfKey]) return;
                 map.setZoom(soloZoomToggle ? 12 : 17);
@@ -374,7 +383,13 @@
 
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
-            const currentUser = usernameInput.value.trim();
+            
+            // Allow them to clear the name box without breaking the map ping
+            let currentUser = usernameInput.value.trim();
+            if (!currentUser || currentUser.toLowerCase() === 'anonymous') {
+                currentUser = oldBroadcastedName; // Fallback to last known name temporarily
+            }
+            
             if (oldBroadcastedName !== currentUser) {
                 if (riders[`${oldBroadcastedName} (You)`]) { map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`]; }
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
@@ -388,32 +403,39 @@
         const stopSharingLocation = () => {
             isSharing = false; destinationInput.value = ""; startBtn.innerText = "Start Sharing Location"; startBtn.classList.remove('sharing-active');
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            channel.send({ type: 'broadcast', event: 'location-update', payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' } });
+            channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
-            lastLat = 0; lastLng = 0; oldBroadcastedName = "Anonymous"; cycleBuddyIndex = 0; soloZoomToggle = false;
+            lastLat = 0; lastLng = 0; cycleBuddyIndex = 0; soloZoomToggle = false;
             updateLiveRiderCounter(); releaseWakeLock();
         };
 
         startBtn.addEventListener('click', () => {
+            // FIX: If sharing, let them stop sharing even if name box is empty
+            if (isSharing) {
+                stopSharingLocation();
+                return;
+            }
+            
+            // If NOT sharing, require a name before starting
             const name = usernameInput.value.trim();
             if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
             
-            if (!isSharing) {
-                usernameInput.value = name;
-                localStorage.setItem('rider_saved_name', name);
-                oldBroadcastedName = name;
-                isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
-                if ("geolocation" in navigator) {
-                    watchId = navigator.geolocation.watchPosition((pos) => {
-                        lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
-                        if (!Object.keys(riders).length && lastLat !== 0) { map.setZoom(15); map.setView(getOffsetLatLng([lastLat, lastLng]), 15); }
-                        broadcastCurrentState();
-                    }, () => stopSharingLocation(), { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
-                    requestWakeLock();
-                } else stopSharingLocation();
+            usernameInput.value = name;
+            localStorage.setItem('rider_saved_name', name);
+            oldBroadcastedName = name;
+            isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
+            
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition((pos) => {
+                    lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
+                    if (!Object.keys(riders).length && lastLat !== 0) { map.setZoom(15); map.setView(getOffsetLatLng([lastLat, lastLng]), 15); }
+                    broadcastCurrentState();
+                }, () => stopSharingLocation(), { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 });
+                requestWakeLock();
             } else stopSharingLocation();
         });
 
+        // Disabled standard closeButton in options here
         function updateRiderMarker(user, dest, lat, lng, color) {
             const markerColor = color || '#ffffff';
             const popupContent = `
@@ -426,7 +448,7 @@
                 riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
                 if (user.includes('(You)') && isSharing) map.panTo(getOffsetLatLng([lat, lng]), { animate: true, duration: 0.5 });
             } else {
-                const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup' });
+                const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent, { className: 'colored-popup', closeButton: false });
                 marker.dataset = { isZoomedIn: false };
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
@@ -512,8 +534,10 @@
         usernameInput.addEventListener('input', (e) => { 
             usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, ''); 
             const newName = usernameInput.value.trim();
-            localStorage.setItem('rider_saved_name', newName); 
-            if (newName) channel.send({ type: 'broadcast', event: 'rename', payload: { id: myId, newName: newName } });
+            if (newName) {
+                localStorage.setItem('rider_saved_name', newName); 
+                channel.send({ type: 'broadcast', event: 'rename', payload: { id: myId, newName: newName } });
+            }
             broadcastCurrentState(); 
         });
         
