@@ -89,8 +89,6 @@
 
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.6); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
         @keyframes aggressive-shake { 0%, 100% { transform: translateX(0); } 15%, 45%, 75% { transform: translateX(-8px); } 30%, 60%, 90% { transform: translateX(8px); } }
-        
-        /* Smooth bounce for the new ping button */
         @keyframes ping-bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.85); } }
 
         .leaflet-control-zoom { display: flex !important; flex-direction: row !important; border: none !important; box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden; }
@@ -202,6 +200,15 @@
         const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
         localStorage.setItem('rider_chat_color', myChatColor);
 
+        // HELPER: Saves the active pins to memory so they survive page reloads
+        const saveRoster = () => {
+            if (!activeRoomCode) return;
+            const clean = {};
+            // Save everyone except yourself (you'll generate a fresh 'You' pin anyway)
+            Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
+            localStorage.setItem('signal_roster_' + activeRoomCode, JSON.stringify(clean));
+        };
+
         let channel;
         const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
 
@@ -217,6 +224,7 @@
                         const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                         if (distanceInMiles > 50) {
                             if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; delete riderData[user]; updateLiveRiderCounter(); }
+                            saveRoster();
                             return;
                         }
                     }
@@ -226,6 +234,7 @@
                         riderData[user] = { dest, lat, lng, color, lastSeen: Date.now() };
                         updateRiderMarker(user); 
                     }
+                    saveRoster();
                     updateLiveRiderCounter();
                 })
                 .on('broadcast', { event: 'group-live-chat' }, ({ payload }) => {
@@ -237,29 +246,39 @@
                 .on('broadcast', { event: 'rename' }, ({ payload }) => {
                     document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
                 })
-                .on('broadcast', { event: 'request-chat-sync' }, ({ payload }) => {
-                    const activeBubbles = document.querySelectorAll('.msg-bubble');
-                    if (!activeBubbles.length) return;
-                    const historyPackage = Array.from(activeBubbles).map(bubble => ({
-                        msgId: bubble.id,
-                        user: bubble.querySelector('.msg-user').innerText,
-                        message: bubble.querySelector('.msg-text').innerText,
-                        color: bubble.style.backgroundColor,
-                        authorId: Array.from(bubble.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
-                        stamp: !!bubble.querySelector('.msg-delete-btn') ? 'is-original-me' : 'is-foreign'
-                    }));
-                    channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
+                // P2P SYNC: When someone new asks "Who is here?", we send them our memory bank
+                .on('broadcast', { event: 'request-roster-sync' }, ({ payload }) => {
+                    const clean = {};
+                    Object.keys(riderData).forEach(k => { if (!k.includes('(You)')) clean[k] = riderData[k]; });
+                    channel.send({ type: 'broadcast', event: 'provide-roster-sync', payload: { targetToken: payload.requestedByToken, roster: clean } });
                 })
-                .on('broadcast', { event: 'provide-chat-sync' }, ({ payload }) => {
+                // P2P SYNC: When we receive memory bank info, we merge it to restore sleeping pins
+                .on('broadcast', { event: 'provide-roster-sync' }, ({ payload }) => {
                     if (payload.targetToken !== sessionMsgToken) return;
-                    payload.historyPackage.forEach(msg => appendMessage(msg.msgId, msg.user, msg.message, msg.stamp === 'is-original-me', msg.color, msg.authorId));
+                    let updated = false;
+                    Object.keys(payload.roster).forEach(user => {
+                        const incomingData = payload.roster[user];
+                        const existingData = riderData[user];
+                        // Only add it if we don't have it, or if their memory is fresher than ours
+                        if (!existingData || incomingData.lastSeen > existingData.lastSeen) {
+                            riderData[user] = incomingData;
+                            updateRiderMarker(user);
+                            updated = true;
+                        }
+                    });
+                    if (updated) saveRoster();
+                    updateLiveRiderCounter();
                 })
                 .on('broadcast', { event: 'ping-request' }, ({ payload }) => {
                     if (payload.targetUser === oldBroadcastedName && isSharing) broadcastCurrentState();
                 })
                 .subscribe((status) => {
                     if (status === 'SUBSCRIBED') {
-                        setTimeout(() => channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } }), 600);
+                        // Immediately ask the group to sync chat and map data
+                        setTimeout(() => {
+                            channel.send({ type: 'broadcast', event: 'request-chat-sync', payload: { requestedByToken: sessionMsgToken } });
+                            channel.send({ type: 'broadcast', event: 'request-roster-sync', payload: { requestedByToken: sessionMsgToken } });
+                        }, 600);
                     }
                 });
         };
@@ -286,6 +305,7 @@
                         if (distanceInMiles > 50) { map.removeLayer(marker); delete riders[user]; delete riderData[user]; }
                     }
                 });
+                saveRoster();
                 updateLiveRiderCounter();
             }
         });
@@ -322,9 +342,16 @@
 
         const applyRoomCode = (code) => {
             if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
+            
             Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; delete riderData[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = code;
+            
+            // Instantly restore map pins from local memory before network even connects
+            const saved = JSON.parse(localStorage.getItem('signal_roster_' + activeRoomCode) || '{}');
+            Object.assign(riderData, saved);
+            Object.keys(riderData).forEach(user => updateRiderMarker(user));
+
             subscribeChannel();
             updateLiveRiderCounter();
             if (isSharing) setTimeout(broadcastCurrentState, 700);
@@ -337,6 +364,7 @@
 
         const leavePrivateRoom = () => {
             if (isSharing) channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
+            
             Object.keys(riders).forEach(key => { if (!key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; delete riderData[key]; } });
             chatMessages.innerHTML = '';
             activeRoomCode = null;
@@ -449,6 +477,9 @@
                 currentUser = oldBroadcastedName; 
             }
             
+            // If we started sharing and there's a stale memory pin of us, delete it
+            if (riders[currentUser]) { map.removeLayer(riders[currentUser]); delete riders[currentUser]; delete riderData[currentUser]; }
+
             if (oldBroadcastedName !== currentUser) {
                 if (riders[`${oldBroadcastedName} (You)`]) { map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`]; delete riderData[`${oldBroadcastedName} (You)`]; }
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
@@ -460,6 +491,7 @@
             updateRiderMarker(meKey);
             
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: currentUser, dest: destinationInput.value.trim(), lat: lastLat, lng: lastLng, status: 'online', color: myChatColor } });
+            saveRoster();
             updateLiveRiderCounter();
         };
 
@@ -497,7 +529,6 @@
         });
 
         window.pingUser = (targetUserName) => {
-            // Animates the button being pressed
             event.currentTarget.style.animation = 'ping-bounce 0.3s ease';
             setTimeout(() => { if (event.currentTarget) event.currentTarget.style.animation = ''; }, 300);
             channel.send({ type: 'broadcast', event: 'ping-request', payload: { targetUser: targetUserName } });
@@ -513,10 +544,10 @@
             
             let dotColor = '#28a745'; 
             let timeText = '&lt; 2m';
-            if (timeAgo > 10) {
+            if (timeAgo >= 10) {
                 dotColor = '#dc3545';
                 timeText = '&gt; 10m';
-            } else if (timeAgo > 2) {
+            } else if (timeAgo >= 2) {
                 dotColor = '#ffc107';
                 timeText = '&lt; 10m';
             }
