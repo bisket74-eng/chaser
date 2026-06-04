@@ -280,7 +280,7 @@
             options: { position: 'topright' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
-                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="checkboxRadius" id="radiusToggle" checked>';
+                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
                 L.DomEvent.disableClickPropagation(container);
                 return container;
             }
@@ -532,7 +532,6 @@
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
                     if (zoomingIn) {
-                        // FIXED: Zooms in directly onto dead-center screen with no offset shifts
                         map.setView(targetLatLng, 18, { animate: true, duration: 0.8 });
                     } else {
                         const allPinsGroup = Object.values(riders).map(m => m.getLatLng());
