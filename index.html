@@ -207,7 +207,6 @@
         let myId = localStorage.getItem('rider_id');
         if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2, 9); localStorage.setItem('rider_id', myId); }
 
-        // Pastel distinct colors
         const distinctColors = ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8baff', '#ffbaff', '#dcd3ff', '#bafff0', '#ffd3b6', '#d4f0f0', '#ffc4e1'];
         let myChatColor = localStorage.getItem('rider_chat_color');
         if (!myChatColor || myChatColor.startsWith('hsl') || myChatColor.includes('99')) {
@@ -320,7 +319,6 @@
             toggleInputsBtn.classList.toggle('flipped');
         });
 
-        // Automatically drop focused input to bottom if visual keyboard is closed
         if (window.visualViewport) {
             window.visualViewport.addEventListener('resize', () => {
                 if (window.visualViewport.height > window.innerHeight * 0.85) {
@@ -453,7 +451,8 @@
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
         };
 
-        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, 110]), map.getZoom());
+        // FIXED: Using a negative offset so the map centers higher, pushing the pin to the bottom half of the screen
+        const getOffsetLatLng = (targetLatLng) => map.unproject(map.project(targetLatLng, map.getZoom()).add([0, -160]), map.getZoom());
 
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
