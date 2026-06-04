@@ -18,8 +18,8 @@
         }
         #map { position: fixed; top: 0; bottom: 0; left: 0; right: 0; width: 100%; height: 100%; z-index: 1; }
 
-        /* UI ADJUSTMENT 1: Moved Header Down */
-        #appHeaderContainer { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
+        /* UI ADJUSTMENT 1: Pushed Header Down to clear buttons completely */
+        #appHeaderContainer { position: absolute; top: 75px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; flex-direction: column; align-items: center; white-space: nowrap; }
         
         #appHeader {
             font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 52px; color: #1e4620; font-weight: 900;
@@ -106,7 +106,7 @@
             100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
 
-        /* UI ADJUSTMENT 2: Force Leaflet Zoom Buttons to be Horizontal */
+        /* Leaflet Horizontal Zoom Buttons (Left side) */
         .leaflet-control-zoom {
             display: flex !important;
             flex-direction: row !important;
@@ -127,20 +127,35 @@
             border-right: none !important;
         }
 
-        /* UI ADJUSTMENT 3: Horizontal Top-Right Radius Toggle Container */
+        /* UI ADJUSTMENT 2: Radius Toggle Container perfectly matches Zoom button dimensions */
         .radius-toggle-container {
             background-color: white;
+            width: 88px; /* Exactly two 44px boxes */
             height: 44px; /* Matches zoom button height */
-            padding: 0 12px;
+            padding: 0 8px;
+            box-sizing: border-box;
             border-radius: 4px;
             box-shadow: 0 1px 5px rgba(0,0,0,0.4);
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-weight: bold;
+            justify-content: space-between;
             color: #333;
             cursor: pointer;
             user-select: none;
+        }
+        .radius-label-wrapper {
+            display: flex;
+            align-items: baseline;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .radius-r {
+            font-family: "Brush Script MT", "Comic Sans MS", cursive;
+            font-size: 18px;
+            margin-right: 2px;
+            color: #2d6a30;
         }
         .radius-toggle-container input {
             cursor: pointer;
@@ -148,11 +163,6 @@
             height: 18px;
             margin: 0;
             accent-color: #2d6a30;
-        }
-        .radius-toggle-container label {
-            cursor: pointer;
-            font-size: 14px;
-            line-height: 1;
         }
     </style>
 </head>
@@ -218,7 +228,7 @@
         let isSharing = false, isChatOpen = false, unreadCount = 0;
         let wakeLock = null, oldBroadcastedName = "Anonymous"; 
         let cycleBuddyIndex = 0, soloZoomToggle = false; 
-        let isRadiusFilterActive = true;
+        let isRadiusFilterActive = true; 
         const riders = {}; 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
@@ -227,9 +237,11 @@
             options: { position: 'topright' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
-                container.innerHTML = '<label for="radiusToggle">50mi Only</label><input type="checkbox" id="radiusToggle" checked>';
+                container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50mi</label><input type="checkbox" id="radiusToggle" checked>';
                 
+                // Prevent map clicks when tapping the box
                 L.DomEvent.disableClickPropagation(container);
+                
                 return container;
             }
         });
@@ -239,6 +251,7 @@
         document.getElementById('radiusToggle').addEventListener('change', (e) => {
             isRadiusFilterActive = e.target.checked;
             
+            // If turned back ON, instantly sweep the map and delete anyone outside the 50 miles
             if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0) {
                 Object.keys(riders).forEach(user => {
                     if (!user.includes('(You)')) {
@@ -283,6 +296,7 @@
             .on('broadcast', { event: 'location-update' }, ({ payload }) => {
                 const { user, dest, lat, lng, status } = payload;
                 
+                // Radius filter active check
                 if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0 && !user.includes('(You)')) {
                     const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                     if (distanceInMiles > 50) {
@@ -291,7 +305,7 @@
                             delete riders[user]; 
                             updateLiveRiderCounter();
                         }
-                        return;
+                        return; // Block drawing the pin
                     }
                 }
 
