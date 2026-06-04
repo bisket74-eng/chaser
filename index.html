@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
     
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
         html, body {
@@ -46,7 +46,8 @@
             background-color: #1e4620; color: #ffffff; font-size: 16px; box-sizing: border-box; font-weight: 500;
         }
         .control-row input::placeholder { color: #a3cfbb; font-style: italic; }
-        
+        .control-row input.input-error { border-color: #dc3545 !important; animation: shake 0.35s ease; }
+
         .mic-btn {
             width: 44px; height: 44px; background-color: #2d6a30; border: none; border-radius: 50%; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0,0,0,0.25); flex-shrink: 0; 
@@ -86,7 +87,6 @@
         #closeChatBtn { background: none; border: none; color: white; font-size: 22px; cursor: pointer; }
         #chatMessages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background-color: #e2f0d9; position: relative; }
         
-        /* CHAT BUBBLES: Left-aligned for everyone, dynamic colors applied in JS */
         .msg-bubble { position: relative; padding: 12px 28px 12px 12px; border-radius: 12px; max-width: 85%; align-self: flex-start; box-shadow: 0 2px 5px rgba(0,0,0,0.15); color: #111; }
         .msg-user { font-size: 12px; font-weight: bold; color: rgba(0,0,0,0.6); margin-bottom: 4px; text-transform: capitalize; }
         .msg-text { font-size: 14px; word-break: break-word; }
@@ -103,67 +103,37 @@
             100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
         }
 
-        /* Leaflet Horizontal Zoom Buttons (Left side) */
-        .leaflet-control-zoom {
-            display: flex !important;
-            flex-direction: row !important;
-            border: none !important;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important;
-            border-radius: 4px !important;
-            overflow: hidden;
-        }
-        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
-            border-radius: 0 !important;
-            border-bottom: none !important;
-            border-right: 1px solid #ccc !important;
-            width: 44px !important;
-            height: 44px !important;
-            line-height: 44px !important;
-        }
-        .leaflet-control-zoom-out {
-            border-right: none !important;
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
         }
 
-        /* RADIUS TOGGLE: Horizontal Box (Top Right) */
+        .leaflet-control-zoom {
+            display: flex !important; flex-direction: row !important; border: none !important;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important; border-radius: 4px !important; overflow: hidden;
+        }
+        .leaflet-control-zoom-in, .leaflet-control-zoom-out {
+            border-radius: 0 !important; border-bottom: none !important; border-right: 1px solid #ccc !important;
+            width: 44px !important; height: 44px !important; line-height: 44px !important;
+        }
+        .leaflet-control-zoom-out { border-right: none !important; }
+
         .radius-toggle-container {
-            background-color: white;
-            height: 44px; /* Matches zoom button height */
-            padding: 0 16px; 
-            box-sizing: border-box;
-            border-radius: 4px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px; 
-            color: #333;
-            cursor: pointer;
-            user-select: none;
+            background-color: white; height: 44px; padding: 0 16px; box-sizing: border-box; border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;
+            gap: 12px; color: #333; cursor: pointer; user-select: none;
         }
         .radius-label-wrapper {
-            display: flex;
-            align-items: center; 
-            cursor: pointer;
-            font-size: 16px; 
-            font-weight: bold;
-            line-height: 1;
-            white-space: nowrap; 
+            display: flex; align-items: center; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; white-space: nowrap;
         }
         .radius-r {
-            font-family: "Brush Script MT", "Comic Sans MS", cursive;
-            font-size: 26px; 
-            font-weight: bold;
-            margin-right: 6px;
-            padding-bottom: 2px; 
-            color: #2d6a30;
+            font-family: "Brush Script MT", "Comic Sans MS", cursive; font-size: 26px; font-weight: bold;
+            margin-right: 6px; padding-bottom: 2px; color: #2d6a30;
         }
-        .radius-toggle-container input {
-            cursor: pointer;
-            width: 22px; 
-            height: 22px;
-            margin: 0;
-            accent-color: #2d6a30;
-        }
+        .radius-toggle-container input { cursor: pointer; width: 22px; height: 22px; margin: 0; accent-color: #2d6a30; }
     </style>
 </head>
 <body>
@@ -210,20 +180,17 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
-        // 1. Core Config & Map Init
         const supabaseClient = supabase.createClient("https://xnwwngqennvwajlhvclj.supabase.co", "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8");
         const map = L.map('map').setView([0, 0], 2);
         
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { 
-            maxZoom: 19,
-            attribution: '&copy; CartoDB'
+            maxZoom: 19, attribution: '&copy; CartoDB'
         }).addTo(map);
 
-        // 2. State Variables & Random Chat Color Generation
         let watchId = null, lastLat = 0, lastLng = 0;
         let isSharing = false, isChatOpen = false, unreadCount = 0;
         let wakeLock = null, oldBroadcastedName = "Anonymous"; 
@@ -232,17 +199,14 @@
         const riders = {}; 
         const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-        // Generates a random pastel color (High lightness so text is always readable)
         const myChatColor = localStorage.getItem('rider_chat_color') || `hsl(${Math.floor(Math.random() * 360)}, 80%, 85%)`;
         localStorage.setItem('rider_chat_color', myChatColor);
 
-        // 3. Custom Leaflet Radius Toggle Control (Horizontal, Top-Right)
         const RadiusControl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function (map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
                 container.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
-                
                 L.DomEvent.disableClickPropagation(container);
                 return container;
             }
@@ -251,23 +215,18 @@
 
         document.getElementById('radiusToggle').addEventListener('change', (e) => {
             isRadiusFilterActive = e.target.checked;
-            
             if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0) {
                 Object.keys(riders).forEach(user => {
                     if (!user.includes('(You)')) {
                         const marker = riders[user];
                         const distanceInMiles = map.distance([lastLat, lastLng], marker.getLatLng()) / 1609.34;
-                        if (distanceInMiles > 50) {
-                            map.removeLayer(marker);
-                            delete riders[user];
-                        }
+                        if (distanceInMiles > 50) { map.removeLayer(marker); delete riders[user]; }
                     }
                 });
                 updateLiveRiderCounter();
             }
         });
 
-        // 4. DOM Cache & Tinting
         const el = (id) => document.getElementById(id);
         const startBtn = el('startBtn'), usernameInput = el('username'), destinationInput = el('destination');
         const usernameMic = el('usernameMic'), destinationMic = el('destinationMic');
@@ -276,41 +235,42 @@
         const chatBadge = el('chatBadge'), riderCounterWidget = el('riderCounterWidget');
 
         usernameInput.value = localStorage.getItem('rider_saved_name') || "";
-        
-        // Apply the user's assigned chat color to the text input box so they know their color
         chatMsgInput.style.backgroundColor = myChatColor;
 
-        // Swipe-to-Close Tracker
+        const requireName = () => {
+            usernameInput.classList.remove('input-error');
+            void usernameInput.offsetWidth;
+            usernameInput.classList.add('input-error');
+            usernameInput.placeholder = "Name required!";
+            usernameInput.focus();
+            setTimeout(() => {
+                usernameInput.classList.remove('input-error');
+                usernameInput.placeholder = "Enter your name";
+            }, 2000);
+        };
+
         let touchStartX = 0, touchStartY = 0;
         chatOverlay.addEventListener('touchstart', (e) => {
             touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY;
         }, {passive: true});
-
         chatOverlay.addEventListener('touchend', (e) => {
             if (e.changedTouches[0].screenX - touchStartX > 60 && Math.abs(e.changedTouches[0].screenY - touchStartY) < 40) {
                 isChatOpen = false; chatOverlay.classList.remove('open');
             }
         }, {passive: true});
 
-        // 5. Supabase Live Channel
         const channel = supabaseClient.channel('ride-room', { config: { broadcast: { ack: false, self: false } } });
 
         channel
             .on('broadcast', { event: 'location-update' }, ({ payload }) => {
                 const { user, dest, lat, lng, status } = payload;
-                
                 if (isRadiusFilterActive && lastLat !== 0 && lastLng !== 0 && !user.includes('(You)')) {
                     const distanceInMiles = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                     if (distanceInMiles > 50) {
-                        if (riders[user]) { 
-                            map.removeLayer(riders[user]); 
-                            delete riders[user]; 
-                            updateLiveRiderCounter();
-                        }
+                        if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; updateLiveRiderCounter(); }
                         return;
                     }
                 }
-
                 if (status === 'offline') {
                     if (riders[user]) { map.removeLayer(riders[user]); delete riders[user]; }
                 } else { updateRiderMarker(user, dest, lat, lng); }
@@ -319,28 +279,19 @@
             .on('broadcast', { event: 'group-live-chat' }, ({ payload }) => {
                 if (payload.token !== sessionMsgToken) {
                     appendMessage(payload.msgId, payload.user, payload.message, false, payload.color);
-                    if (!isChatOpen) {
-                        chatBadge.innerText = ++unreadCount;
-                        chatBadge.style.display = 'block';
-                    }
+                    if (!isChatOpen) { chatBadge.innerText = ++unreadCount; chatBadge.style.display = 'block'; }
                 }
             })
             .on('broadcast', { event: 'request-chat-sync' }, ({ payload }) => {
                 const activeBubbles = document.querySelectorAll('.msg-bubble');
                 if (!activeBubbles.length) return;
-
-                const historyPackage = Array.from(activeBubbles).map(bubble => {
-                    // Check if this bubble has the delete button (meaning it belongs to the local user)
-                    const isOriginalMe = !!bubble.querySelector('.msg-delete-btn');
-                    return {
-                        msgId: bubble.id,
-                        user: bubble.querySelector('.msg-user').innerText,
-                        message: bubble.querySelector('.msg-text').innerText,
-                        color: bubble.style.backgroundColor,
-                        stamp: isOriginalMe ? 'is-original-me' : 'is-foreign'
-                    };
-                });
-
+                const historyPackage = Array.from(activeBubbles).map(bubble => ({
+                    msgId: bubble.id,
+                    user: bubble.querySelector('.msg-user').innerText,
+                    message: bubble.querySelector('.msg-text').innerText,
+                    color: bubble.style.backgroundColor,
+                    stamp: !!bubble.querySelector('.msg-delete-btn') ? 'is-original-me' : 'is-foreign'
+                }));
                 channel.send({ type: 'broadcast', event: 'provide-chat-sync', payload: { targetToken: payload.requestedByToken, historyPackage } });
             })
             .on('broadcast', { event: 'provide-chat-sync' }, ({ payload }) => {
@@ -353,7 +304,6 @@
                 }
             });
 
-        // 6. App Logic & Utilities
         const updateLiveRiderCounter = () => {
             const online = Object.keys(riders).filter(k => !k.includes('(You)')).length + (isSharing ? 1 : 0);
             riderCounterWidget.innerText = `Buddies Online: ${online}`;
@@ -364,7 +314,6 @@
         riderCounterWidget.addEventListener('click', () => {
             const activeBuddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
             const mySelfKey = `${usernameInput.value.trim() || "Anonymous"} (You)`;
-
             if (!activeBuddyNames.length) {
                 if (!riders[mySelfKey]) return;
                 map.setZoom(soloZoomToggle ? 12 : 17);
@@ -373,17 +322,14 @@
                 soloZoomToggle = !soloZoomToggle;
                 return;
             }
-
             const masterLoopList = [...activeBuddyNames];
             if (riders[mySelfKey]) masterLoopList.push(mySelfKey);
-
             if (cycleBuddyIndex >= masterLoopList.length) {
                 const allPinsGroup = Object.values(riders).map(marker => marker.getLatLng());
                 if (allPinsGroup.length) map.fitBounds(L.latLngBounds(allPinsGroup), { paddingBottomRight: [0, 140], animate: true, duration: 1.0 });
                 cycleBuddyIndex = 0;
                 return;
             }
-
             const targetedMarker = riders[masterLoopList[cycleBuddyIndex]];
             if (targetedMarker) {
                 map.setZoom(17);
@@ -396,7 +342,6 @@
         const broadcastCurrentState = () => {
             if (!isSharing || !lastLat || !lastLng) return;
             const currentUser = usernameInput.value.trim() || "Anonymous";
-            
             if (oldBroadcastedName !== currentUser) {
                 if (riders[`${oldBroadcastedName} (You)`]) {
                     map.removeLayer(riders[`${oldBroadcastedName} (You)`]); delete riders[`${oldBroadcastedName} (You)`];
@@ -404,7 +349,6 @@
                 channel.send({ type: 'broadcast', event: 'location-update', payload: { user: oldBroadcastedName, dest: '', lat: 0, lng: 0, status: 'offline' } });
                 oldBroadcastedName = currentUser;
             }
-
             updateRiderMarker(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng);
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: currentUser, dest: destinationInput.value.trim(), lat: lastLat, lng: lastLng, status: 'online' } });
             updateLiveRiderCounter();
@@ -413,21 +357,19 @@
         const stopSharingLocation = () => {
             isSharing = false; destinationInput.value = ""; startBtn.innerText = "Start Sharing Location"; startBtn.classList.remove('sharing-active');
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-            
             channel.send({ type: 'broadcast', event: 'location-update', payload: { user: usernameInput.value.trim() || "Anonymous", dest: '', lat: 0, lng: 0, status: 'offline' } });
             Object.keys(riders).forEach(key => { if (key.includes('(You)')) { map.removeLayer(riders[key]); delete riders[key]; } });
-            
             lastLat = 0; lastLng = 0; oldBroadcastedName = "Anonymous"; cycleBuddyIndex = 0; soloZoomToggle = false; 
             updateLiveRiderCounter(); releaseWakeLock();
         };
 
         startBtn.addEventListener('click', () => {
             if (!isSharing) {
-                usernameInput.value = usernameInput.value.trim() || "Anonymous";
+                if (!usernameInput.value.trim()) { requireName(); return; }
+                usernameInput.value = usernameInput.value.trim();
                 localStorage.setItem('rider_saved_name', usernameInput.value);
                 oldBroadcastedName = usernameInput.value;
                 isSharing = true; startBtn.innerText = "Stop Sharing Location"; startBtn.classList.add('sharing-active');
-
                 if ("geolocation" in navigator) {
                     watchId = navigator.geolocation.watchPosition((pos) => {
                         lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
@@ -443,14 +385,12 @@
 
         function updateRiderMarker(user, dest, lat, lng) {
             const popupContent = `<b>${user}</b>${dest ? `<br><span style="color:#555; font-size:12px;">Heading to: ${dest}</span>` : ''}`;
-            
             if (riders[user]) {
                 riders[user].setLatLng([lat, lng]).setPopupContent(popupContent);
                 if (user.includes('(You)') && isSharing) map.panTo(getOffsetLatLng([lat, lng]), { animate: true, duration: 0.5 });
             } else {
                 const marker = L.marker([lat, lng]).addTo(map).bindPopup(popupContent);
                 marker.dataset = { isZoomedIn: false };
-                
                 const handleZoomToggle = (targetLatLng) => {
                     const zoomingIn = !marker.dataset.isZoomedIn;
                     map.setZoom(zoomingIn ? 17 : 12);
@@ -458,27 +398,28 @@
                     marker.dataset.isZoomedIn = zoomingIn;
                     marker.openPopup();
                 };
-                
                 marker.on('click', e => { L.DomEvent.stopPropagation(e); handleZoomToggle(e.latlng); });
                 marker.on('popupopen', e => {
                     const popupElement = e.popup.getElement();
                     if (popupElement) popupElement.onclick = (event) => { L.DomEvent.stopPropagation(event); handleZoomToggle(marker.getLatLng()); };
                 });
-                
                 riders[user] = marker; marker.openPopup();
             }
         }
 
-        // 7. Chat Controllers - UPDATED for dynamic colors and real names
         chatToggleBtn.addEventListener('click', () => { isChatOpen = true; unreadCount = 0; chatBadge.style.display = 'none'; chatOverlay.classList.add('open'); });
         closeChatBtn.addEventListener('click', () => { isChatOpen = false; chatOverlay.classList.remove('open'); });
 
         const sendGroupMessage = () => {
             if (!chatMsgInput.value.trim()) return;
+            if (!usernameInput.value.trim()) {
+                chatOverlay.classList.remove('open');
+                isChatOpen = false;
+                requireName();
+                return;
+            }
             const uniqueMsgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-            const currentName = usernameInput.value.trim() || "Anonymous";
-            
-            // Pass the user's generated color when sending
+            const currentName = usernameInput.value.trim();
             appendMessage(uniqueMsgId, currentName, chatMsgInput.value.trim(), true, myChatColor);
             channel.send({ type: 'broadcast', event: 'group-live-chat', payload: { msgId: uniqueMsgId, user: currentName, message: chatMsgInput.value.trim(), token: sessionMsgToken, color: myChatColor } });
             chatMsgInput.value = "";
@@ -487,11 +428,9 @@
         function appendMessage(id, user, msg, isMe, color) {
             if (document.getElementById(id)) return;
             const wrapper = document.createElement('div');
-            wrapper.className = `msg-bubble`;
+            wrapper.className = 'msg-bubble';
             wrapper.id = id;
-            wrapper.style.backgroundColor = color || '#ffffff'; // Inject the dynamic color
-            
-            // All bubbles are formatted identical. 'isMe' just controls if the delete button shows up.
+            wrapper.style.backgroundColor = color || '#ffffff';
             wrapper.innerHTML = `
                 <div class="msg-user">${user}</div>
                 <div class="msg-text">${msg}</div>
@@ -501,13 +440,11 @@
             chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // 8. Voice & Strict Viewport Reset
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition) {
             const setupVoiceInput = (btn, input, autoSubmit = false) => {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US';
-
                 btn.addEventListener('click', (e) => { 
                     e.preventDefault(); e.stopPropagation(); input.blur(); 
                     if (btn.classList.contains('listening')) recognition.stop(); else try { recognition.start(); } catch(err) {} 
@@ -528,17 +465,11 @@
 
         const closeKeyboardAndSnapWindow = (inputEl, event = null) => {
             if (event) { event.preventDefault(); event.stopPropagation(); }
-            
-            usernameInput.blur();
-            destinationInput.blur();
-            chatMsgInput.blur();
-            
+            usernameInput.blur(); destinationInput.blur(); chatMsgInput.blur();
             if (document.activeElement) document.activeElement.blur(); 
-            
             setTimeout(() => { 
                 if (document.activeElement) document.activeElement.blur();
-                window.scrollTo(0, 0); 
-                document.body.scrollTop = 0; 
+                window.scrollTo(0, 0); document.body.scrollTop = 0; 
                 if (map) map.invalidateSize(); 
             }, 80);
         };
@@ -558,7 +489,6 @@
 
         const resetPlaceholder = (inputEl) => { inputEl.placeholder = inputEl.id === 'username' ? "Enter your name" : inputEl.id === 'destination' ? "Destination (optional)" : "Type a message..."; };
 
-        // 9. Wake Lock & Service Worker
         async function requestWakeLock() { if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {} }
         function releaseWakeLock() { if (wakeLock) wakeLock.release().then(() => wakeLock = null); }
         if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
