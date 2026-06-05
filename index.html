@@ -103,29 +103,6 @@
             flex: 1;
         }
 
-        .nudge-refresh-btn {
-            background: #2d6a30;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            width: 22px;
-            height: 22px;
-            font-size: 14px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.35);
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-            pointer-events: auto !important;
-            z-index: 300;
-            transition: background 0.1s, transform 0.1s;
-        }
-        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.85); }
-
         .rider-label .dest-container {
             width: 100%;
             height: 18px;
@@ -328,10 +305,6 @@
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        document.body.addEventListener('click', () => { Notification.requestPermission(); }, { once: true });
-    }
-
     const generateRandomPastelColor = () => {
         const hue = Math.floor(Math.random() * 360);
         return `hsl(${hue}, 100%, 85%)`; 
@@ -353,9 +326,6 @@
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
-        
-        const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
-            `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
@@ -364,25 +334,11 @@
                      style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 6px; font-size:14px; box-sizing:border-box;">
                     <div class="label-top-row">
                         <div class="label-name-text">${displayName}${dotMarkup}</div>
-                        ${nudgeButtonMarkup}
                     </div>
                     ${destLine}
                 </div>
             </div>`;
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
-    };
-
-    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
-        if (event) { event.stopPropagation(); event.preventDefault(); }
-        let sourceSenderName = usernameInput.value.trim() || "A buddy";
-        
-        channel.send({
-            type: 'broadcast',
-            event: 'map-nudge-alert',
-            payload: { targetId: targetRiderId, sender: sourceSenderName }
-        });
-        
-        alert(`Sent a location update request to ${targetRiderName}!`);
     };
 
     const fitAllRiders = (animate = true) => {
@@ -447,32 +403,6 @@
             })
             .on('broadcast', { event:'rename' }, ({ payload }) => {
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
-            })
-            .on('broadcast', { event:'map-nudge-alert' }, ({ payload }) => {
-                if (payload.targetId === myId) {
-                    if ('vibrate' in navigator) { navigator.vibrate([400, 200, 400]); }
-                    
-                    // Fixed: Leverages the native Service Worker registration to pop a real background alert window directly on the device lock screen/tray
-                    if ('serviceWorker' in navigator) {
-                        navigator.serviceWorker.ready.then(registration => {
-                            registration.showNotification("Chaser Route Call", {
-                                body: `${payload.sender} is requesting your updated location on Chaser, please return to screen.`,
-                                icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png",
-                                tag: "chaser-nudge-alert",
-                                requireInteraction: true, // Holds the alert panel visible on the lock tray until clicked
-                                vibrate: [400, 200, 400]
-                            });
-                        });
-                    } else if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification("Chaser Route Call", {
-                            body: `${payload.sender} is requesting your updated location on Chaser, please return to screen.`,
-                            icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png"
-                        });
-                    }
-                    
-                    // Forces the map tracker back awake instantly upon receipt of the signal
-                    if (isSharing) { broadcastCurrentState(); }
-                }
             })
             .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
                 const bubbles = document.querySelectorAll('.msg-bubble');
