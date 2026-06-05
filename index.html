@@ -17,7 +17,6 @@
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
         #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
         
-        /* Two-line layout scaled to 24px, styled in dark forest green with a crisp mint-white shadow mask */
         #privacyHint { font-size:24px; color:#1e4620; font-weight:normal; font-style:italic; margin-top:12px; text-align:center; pointer-events:none; text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5); white-space:normal; width:280px; line-height:1.2; }
 
         .rider-icon-container {
@@ -227,7 +226,7 @@
 </div>
 
 <button id="roomLockBtn" type="button">
-    <svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>
 </button>
 
 <button id="chatToggleBtn" type="button">
@@ -294,8 +293,9 @@
 
     const GHOST_THRESHOLD_MS = 30_000;
 
-    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
-    const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
+    // Repaired explicit SVG icon string profiles
+    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2 s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
+    const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
 
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
@@ -612,6 +612,8 @@
         isSharing = false;
         initialFrameDone = false;
         destinationInput.value = '';
+        
+        // Corrected static text content properties assignment rules
         startBtn.innerText = 'Start Sharing Location';
         startBtn.classList.remove('sharing-active');
         if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
@@ -650,7 +652,9 @@
         localStorage.setItem('rider_saved_name', name);
         oldBroadcastedName = name;
         isSharing = true;
-        startBtn.innerText = 'Start Sharing Location';
+        
+        // Corrected explicit start live active label state content strings
+        startBtn.innerText = 'Stop Sharing Location';
         startBtn.classList.add('sharing-active');
 
         startTimeoutMonitor();
