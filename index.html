@@ -16,46 +16,92 @@
         #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:bold; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; }
 
-        /* ── Permanent name label above pin ── */
+        /* Container adjustment to align name label stack over standard Leaflet pins */
+        .rider-icon-container {
+            position: relative;
+            width: 0px !important;
+            height: 0px !important;
+        }
+
+        /* Standard Leaflet Marker Pin representation reconstructed */
+        .rider-physical-pin {
+            position: absolute;
+            bottom: 0;
+            left: -12px;
+            width: 25px;
+            height: 41px;
+            background-image: url('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 200;
+        }
+
         .rider-label {
-            background: rgba(255,255,255,0.92);
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.95);
             border: 2px solid #1e4620;
             border-radius: 8px;
-            padding: 3px 8px;
-            font-size: 13px;
+            padding: 6px 12px;
+            font-size: 15px;
             font-weight: bold;
             color: #111;
             white-space: nowrap;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: auto;
             cursor: pointer;
             text-align: center;
-            line-height: 1.3;
+            line-height: 1.4;
+            z-index: 201;
+            display: block;
+            min-width: 60px;
         }
+        
         .rider-label.ghost-label {
-            opacity: 0.6;
             border-style: dashed;
+            background: rgba(240,240,240,0.85);
         }
-        .rider-label .ghost-dot {
+
+        .rider-icon-container.ghost-marker-active .rider-physical-pin {
+            opacity: 0.4;
+            filter: grayscale(60%);
+        }
+
+        .status-tracker-dot {
             display: inline-block;
-            width: 8px; height: 8px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: #ef4444;
-            box-shadow: 0 0 5px rgba(239,68,68,0.9);
-            margin-left: 5px;
+            margin-left: 6px;
             vertical-align: middle;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        
+        .status-dot-active {
+            background: #28a745;
+            box-shadow: 0 0 6px #28a745;
+        }
+        
+        .status-dot-stale {
+            background: #dc3545;
+            box-shadow: 0 0 6px #dc3545;
             animation: redPulse 2s infinite;
         }
+
         .rider-label .dest-line {
-            font-size: 11px;
-            color: #555;
-            font-weight: normal;
+            font-size: 13px;
+            color: #2d6a30;
+            font-weight: 600;
+            margin-top: 2px;
+            border-top: 1px dashed rgba(0,0,0,0.15);
+            padding-top: 2px;
         }
 
-        @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(239,68,68,0.6);}50%{box-shadow:0 0 10px rgba(239,68,68,1);} }
-
-        /* Ghost pin faded */
-        .ghost-marker-img { opacity: 0.35; filter: grayscale(50%); }
+        @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(220,53,69,0.6);}50%{box-shadow:0 0 10px rgba(220,53,69,1);} }
 
         #controls { position:absolute; bottom:20px; left:15px; z-index:10; background:#e2f0d9; padding:16px; border-radius:18px; box-shadow:0 8px 25px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:12px; width:74%; max-width:340px; box-sizing:border-box; transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1); }
         #controls:has(input:focus) { transform:translateY(-95px); }
@@ -115,13 +161,12 @@
 
         .leaflet-control-zoom { display:flex!important; flex-direction:row!important; border:none!important; box-shadow:0 1px 5px rgba(0,0,0,0.4)!important; border-radius:4px!important; overflow:hidden; }
         .leaflet-control-zoom-in,.leaflet-control-zoom-out { border-radius:0!important; border-bottom:none!important; border-right:1px solid #ccc!important; width:44px!important; height:44px!important; line-height:44px!important; }
-        .leaflet-control-zoom-out { border-right:none!important; }
+        .leaflet-control-zoom-out { border-right:none !important; }
         .radius-toggle-container { background:white; height:44px; padding:0 16px; box-sizing:border-box; border-radius:4px; box-shadow:0 1px 5px rgba(0,0,0,0.4); display:flex; align-items:center; gap:12px; color:#333; cursor:pointer; user-select:none; }
         .radius-label-wrapper { display:flex; align-items:center; font-size:16px; font-weight:bold; white-space:nowrap; }
         .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
         .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
 
-        /* Hide default Leaflet popup chrome — we use divIcon labels instead */
         .leaflet-popup-content-wrapper,.leaflet-popup-tip { display:none!important; }
     </style>
 </head>
@@ -196,7 +241,6 @@
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // ── Supabase + Map ────────────────────────────────────────────────────────
     const supabaseClient = supabase.createClient(
         "https://xnwwngqennvwajlhvclj.supabase.co",
         "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
@@ -204,15 +248,13 @@
     const map = L.map('map', { zoomControl: true }).setView([0, 0], 2);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19, attribution:'&copy; CartoDB' }).addTo(map);
 
-    // ── State ─────────────────────────────────────────────────────────────────
     let watchId = null, lastLat = 0, lastLng = 0;
     let isSharing = false, isChatOpen = false, unreadCount = 0;
     let wakeLock = null, oldBroadcastedName = "Anonymous";
     let isRadiusFilterActive = true;
     let activeRoomCode = null;
-    let initialFrameDone = false;   // only frame once on first GPS fix
+    let initialFrameDone = false;   
 
-    // riders[name] = { marker, lastSeen, isGhost, dest, color }
     const riders = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
@@ -231,50 +273,39 @@
         localStorage.setItem('rider_chat_color', myChatColor);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const getAgeLabel = (ts) => {
-        if (!ts) return 'unknown';
-        const s = Math.floor((Date.now() - ts) / 1000);
-        if (s < 10)   return 'just now';
-        if (s < 60)   return `${s}s ago`;
-        if (s < 3600) return `${Math.floor(s/60)}m ago`;
-        return `${Math.floor(s/3600)}h ago`;
-    };
-
-    // Build the divIcon label shown above the pin at all zoom levels
     const buildLabelIcon = (name, dest, color, ghost) => {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
-        const ghostDot = ghost ? '<span class="ghost-dot"></span>' : '';
+        const dotStyle = ghost ? 'status-dot-stale' : 'status-dot-active';
         const destLine = dest ? `<div class="dest-line">→ ${dest}</div>` : '';
         const bgColor = color || '#ffffff';
+        
         const html = `
-            <div class="rider-label ${ghost ? 'ghost-label' : ''}"
-                 style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'};">
-                ${displayName}${ghostDot}
-                ${destLine}
+            <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
+                <div class="rider-physical-pin"></div>
+                <div class="rider-label ${ghost ? 'ghost-label' : ''}" style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'};">
+                    <span>${displayName}</span><span class="status-tracker-dot ${dotStyle}"></span>
+                    ${destLine}
+                </div>
             </div>`;
-        // Anchor so the bottom-center of the label sits above the pin top
-        return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[-4, 62], popupAnchor:[0,0] });
+        return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
     };
 
-    // ── Fit map to show all active riders (no animation fighting GPS updates) ─
     const fitAllRiders = (animate = true) => {
         const positions = Object.values(riders).map(r => r.marker.getLatLng());
         if (positions.length === 0) return;
         if (positions.length === 1) {
-            map.setView(positions[0], 15, { animate });
+            map.setView(positions[0], 14, { animate });
         } else {
             map.fitBounds(L.latLngBounds(positions), {
-                paddingTopLeft: [20, 160],
-                paddingBottomRight: [20, 160],
+                paddingTopLeft: [40, 180],
+                paddingBottomRight: [40, 180],
                 animate,
                 maxZoom: 16
             });
         }
     };
 
-    // ── Ghost watchdog ────────────────────────────────────────────────────────
     setInterval(() => {
         Object.keys(riders).forEach(name => {
             if (name.includes('(You)')) return;
@@ -285,15 +316,10 @@
                 r.isGhost = shouldBeGhost;
                 r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost));
             }
-            // Tick the "last seen" time in the label if ghost
-            if (r.isGhost) {
-                r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, true));
-            }
         });
         updateLiveRiderCounter();
-    }, 10_000);
+    }, 5000);
 
-    // ── Channel ───────────────────────────────────────────────────────────────
     let channel;
     const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
 
@@ -347,7 +373,6 @@
     };
     subscribeChannel();
 
-    // ── Radius filter ─────────────────────────────────────────────────────────
     const RadiusControl = L.Control.extend({
         options: { position:'topright' },
         onAdd() {
@@ -369,7 +394,6 @@
         }
     });
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
     const el = id => document.getElementById(id);
     const startBtn         = el('startBtn');
     const usernameInput    = el('username');
@@ -401,17 +425,15 @@
         toggleInputsBtn.classList.toggle('flipped');
     });
 
-    // ── Counter ───────────────────────────────────────────────────────────────
     const updateLiveRiderCounter = () => {
         const buddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
         const activeCount = buddyNames.filter(k => !riders[k].isGhost).length + (isSharing ? 1 : 0);
         const ghostCount  = buddyNames.filter(k =>  riders[k].isGhost).length;
         let text = `Buddies Online: ${activeCount}`;
-        if (ghostCount > 0) text += ` (${ghostCount} locked 📵)`;
+        if (ghostCount > 0) text += ` (${ghostCount} off-screen 📵)`;
         el('riderCounterWidget').innerText = text;
     };
 
-    // ── Rider markers ─────────────────────────────────────────────────────────
     const removeRider = name => {
         if (riders[name]) { map.removeLayer(riders[name].marker); delete riders[name]; }
     };
@@ -422,28 +444,21 @@
 
         if (riders[user]) {
             const r = riders[user];
-            const wasGhost = r.isGhost;
             r.lastSeen = now;
             r.dest = dest;
             r.color = markerColor;
             r.isGhost = false;
             r.marker.setLatLng([lat, lng]);
-            // Refresh label (un-ghost or update dest)
-            if (wasGhost || dest !== r.dest) {
-                r.marker.setIcon(buildLabelIcon(user, dest, markerColor, false));
-            }
-            // ── NO auto-pan here — user controls the map view ──
+            r.marker.setIcon(buildLabelIcon(user, dest, markerColor, false));
         } else {
-            // Brand new rider — create marker with label icon
             const marker = L.marker([lat, lng], {
                 icon: buildLabelIcon(user, dest, markerColor, false)
             }).addTo(map);
 
-            // Tap label → zoom in; tap again → fit all
             marker.on('click', e => {
                 L.DomEvent.stopPropagation(e);
                 if (!marker._zoomedIn) {
-                    map.setView([lat, lng], 17, { animate:true, duration:0.7 });
+                    map.setView([lat, lng], 18, { animate:true, duration:0.7 });
                     marker._zoomedIn = true;
                 } else {
                     fitAllRiders(true);
@@ -454,15 +469,12 @@
             marker._zoomedIn = false;
             riders[user] = { marker, lastSeen:now, isGhost:false, dest, color:markerColor };
 
-            // When a new buddy joins, gently re-frame to show everyone
-            // but only if the user hasn't manually zoomed/panned
             if (!user.includes('(You)')) {
                 setTimeout(() => fitAllRiders(true), 300);
             }
         }
     }
 
-    // ── Broadcast ─────────────────────────────────────────────────────────────
     const broadcastCurrentState = () => {
         if (!isSharing || !lastLat || !lastLng) return;
         let currentUser = usernameInput.value.trim();
@@ -513,7 +525,6 @@
                 lastLng = pos.coords.longitude;
                 broadcastCurrentState();
 
-                // One-time initial frame on first GPS fix
                 if (!initialFrameDone) {
                     initialFrameDone = true;
                     setTimeout(() => fitAllRiders(true), 400);
@@ -523,7 +534,6 @@
         } else stopSharingLocation();
     });
 
-    // ── Room modal ────────────────────────────────────────────────────────────
     const generateRoomCode = () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
@@ -573,7 +583,6 @@
     });
     leaveRoomBtn.addEventListener('click', () => { if (activeRoomCode) leavePrivateRoom(); roomModalOverlay.classList.remove('open'); resetModalUI(); });
 
-    // ── requireName ───────────────────────────────────────────────────────────
     const requireName = () => {
         if (inputsWrapper.classList.contains('hidden')) { inputsWrapper.classList.remove('hidden'); toggleInputsBtn.classList.remove('flipped'); }
         setTimeout(() => {
@@ -583,7 +592,6 @@
         }, 50);
     };
 
-    // ── Chat ──────────────────────────────────────────────────────────────────
     let touchStartX = 0, touchStartY = 0;
     chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; },{passive:true});
     chatOverlay.addEventListener('touchend', e => {
@@ -611,7 +619,6 @@
         chatMessages.appendChild(w); chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    // ── Voice input ───────────────────────────────────────────────────────────
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
         const setupVoiceInput = (btn, input, autoSubmit=false) => {
@@ -621,7 +628,7 @@
             rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
             rec.onresult = e => {
                 input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
-                if (input.id==='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); }
+                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); }
                 autoSubmit ? sendGroupMessage() : broadcastCurrentState();
             };
             rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
@@ -632,7 +639,6 @@
         setupVoiceInput(chatMic, chatMsgInput, true);
     } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
-    // ── Keyboard helpers ──────────────────────────────────────────────────────
     const closeKeyboard = (inputEl, event=null) => {
         if (event) { event.preventDefault(); event.stopPropagation(); }
         [usernameInput, destinationInput, chatMsgInput].forEach(i => i.blur());
@@ -655,7 +661,6 @@
 
     const resetPlaceholder = i => { i.placeholder = i.id==='username'?'Enter your name':i.id==='destination'?'Destination (optional)':'Type a message...'; };
 
-    // ── Wake lock ─────────────────────────────────────────────────────────────
     async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
     function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
 
