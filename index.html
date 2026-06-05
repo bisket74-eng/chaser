@@ -226,7 +226,7 @@
 </div>
 
 <button id="roomLockBtn" type="button">
-    <svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s-.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>
 </button>
 
 <button id="chatToggleBtn" type="button">
@@ -288,13 +288,13 @@
     let timeoutCheckInterval = null;
     const AUTO_TIMEOUT_MS = 7200000; 
 
-    const incomingRidersCache = {};
+    // Active local tracking storage layer array configurations
+    let incomingRidersCache = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
     const GHOST_THRESHOLD_MS = 30_000;
 
-    // Repaired explicit SVG icon string profiles
-    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2 s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
+    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
 
     let myId = localStorage.getItem('rider_id');
@@ -613,7 +613,6 @@
         initialFrameDone = false;
         destinationInput.value = '';
         
-        // Corrected static text content properties assignment rules
         startBtn.innerText = 'Start Sharing Location';
         startBtn.classList.remove('sharing-active');
         if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
@@ -653,7 +652,6 @@
         oldBroadcastedName = name;
         isSharing = true;
         
-        // Corrected explicit start live active label state content strings
         startBtn.innerText = 'Stop Sharing Location';
         startBtn.classList.add('sharing-active');
 
@@ -690,22 +688,36 @@
         if (!activeRoomCode) generatedCodeEl.value = '';
         roomCodeInput.value = '';
     };
+
+    const clearMemoryAndResetMap = () => {
+        // Drop old Leaflet pins safely from map layers before dropping cache objects
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (incomingRidersCache[name] && incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+            }
+        });
+        // Erase active rider traces to break public room duplication cycles
+        incomingRidersCache = {};
+        chatMessages.innerHTML = '';
+    };
+
     const applyRoomCode = code => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        Object.keys(incomingRidersCache).forEach(removeRider);
-        chatMessages.innerHTML = '';
+        clearMemoryAndResetMap();
         activeRoomCode = code;
-        subscribeChannel(); updateLiveRiderCounter();
+        subscribeChannel(); 
+        updateLiveRiderCounter();
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
     };
+
     const leavePrivateRoom = () => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        Object.keys(incomingRidersCache).forEach(removeRider);
-        chatMessages.innerHTML = '';
+        clearMemoryAndResetMap();
         activeRoomCode = null;
-        subscribeChannel(); updateLiveRiderCounter();
+        subscribeChannel(); 
+        updateLiveRiderCounter();
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
