@@ -70,7 +70,6 @@
         #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
         #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; padding:4px; }
         
-        /* New dedicated visual control interface styles for Chat Box Games system */
         #chatGamesTriggerBtn { background:#b8860b; color:white; border:2px solid #ffd700; border-radius:8px; font-size:13px; font-weight:bold; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:transform 0.1s; }
         #chatGamesTriggerBtn:active { transform:scale(0.92); }
 
@@ -87,7 +86,6 @@
         .inline-send-btn { position:absolute; right:4px; background:#2d6a30; border:none; border-radius:6px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
         .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
 
-        /* Game Hub Drawer Layout Overlays */
         #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:5; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
         #gameHubOverlay.open { display:flex; }
         .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
@@ -97,7 +95,6 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* Dedicated Live Active Sandbox Screen Box Container */
         #activeGameStage { position:absolute; top:54px; bottom:0; left:0; right:0; background:#0e2e10; z-index:6; display:none; flex-direction:column; box-sizing:border-box; }
         #activeGameStage.open { display:flex; }
         #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ffd700; }
@@ -183,7 +180,6 @@
     </div>
 </div>
 
-<!-- Chat Overlay Container with Game Center Integration -->
 <div id="chatOverlay">
     <div id="chatHeader">
         <button id="chatGamesTriggerBtn" type="button">🎮 Games</button>
@@ -191,7 +187,6 @@
         <button id="closeChatBtn" type="button">✕</button>
     </div>
     
-    <!-- Games Hub Dashboard Menu Layer -->
     <div id="gameHubOverlay">
         <div class="game-hub-headline">Chaser Game Center</div>
         <div class="game-grid-layout">
@@ -222,7 +217,6 @@
         </div>
     </div>
 
-    <!-- Active Canvas Game Engine View Layer -->
     <div id="activeGameStage">
         <div id="gameStageHeader">
             <span id="activeGameLabelTitle">Game Stage</span>
@@ -277,7 +271,7 @@
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s-.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
 
-    const VAPID_PUBLIC_KEY = 'YOUR_ACTUAL_LONG_VAPID_PUBLIC_KEY_HERE';
+    const VAPID_PUBLIC_KEY = 'BJ6VVHL4qJA-LKrNcBPFeYLPEwTkcIuiOs8Vscmce3hRDmP8sUVzDWE1XB56mzyXh6M5Y_8jUD-RcyJGDHdPSns';
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
 
@@ -342,11 +336,14 @@
         }
     };
 
-    /* Games Dashboard Overlay Interface Trigger Controllers */
+    /* ==========================================
+       CHASER ARCADE SYSTEM CONTROLLER
+       ========================================== */
     const gameHubOverlay = document.getElementById('gameHubOverlay');
     const activeGameStage = document.getElementById('activeGameStage');
     const gameCanvasContainer = document.getElementById('gameCanvasContainer');
     const activeGameLabelTitle = document.getElementById('activeGameLabelTitle');
+    let gameInterval = null;
 
     document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
         resetActivityTimer();
@@ -361,19 +358,29 @@
     function launchGameEngine(gameName, gameIcon) {
         resetActivityTimer();
         activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
-        activeGameStage.add('open');
+        activeGameStage.classList.add('open');
         
-        // Dynamic placeholder loading setup layout structure injection
-        gameCanvasContainer.innerHTML = `
-            <div style="background:#e2f0d9; color:#1e4620; padding:20px; border-radius:12px; box-shadow:0 6px 15px rgba(0,0,0,0.5); width:90%; max-width:280px;">
-                <h3 style="margin:0 0 10px 0;">${gameName}</h3>
-                <p style="font-size:14px; margin:0 0 16px 0; line-height:1.4; font-weight:normal;">Visual interface canvas initialized for ${gameName}. Ready to drop local code or join active room table channel match.</p>
-                <button onclick="broadcastGameScoreToRoom('${gameName}', '${gameIcon}')" style="width:100%; padding:10px; border:none; background:#2d6a30; color:white; border-radius:6px; font-weight:bold; cursor:pointer;">Share Score to Chat</button>
-            </div>`;
+        if (gameInterval) { clearInterval(gameInterval); gameInterval = null; }
+        gameCanvasContainer.innerHTML = '';
+
+        if (gameName === 'Hangman') {
+            initHangmanGame();
+        } else if (gameName === 'Chaser Match') {
+            initChaserMatchGame();
+        } else if (gameName === 'Checkers') {
+            initCheckersGame();
+        } else if (gameName === 'Solitaire') {
+            initSolitaireGame();
+        } else if (gameName === 'Crew Trivia') {
+            initTriviaGame();
+        } else if (gameName === 'Texas Holdem') {
+            initPokerGame();
+        }
     }
 
     function shutdownActiveGame() {
-        activeGameStage.remove('open');
+        if (gameInterval) { clearInterval(gameInterval); gameInterval = null; }
+        activeGameStage.classList.remove('open');
         gameCanvasContainer.innerHTML = '';
     }
 
@@ -389,6 +396,219 @@
         channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:scoreMessageText, token:sessionMsgToken, color:myChatColor, id:myId } });
         shutdownActiveGame();
         gameHubOverlay.classList.remove('open');
+    }
+
+    /* --- 1. HANGMAN ENGINE --- */
+    function initHangmanGame() {
+        const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
+        let targetWord = words[Math.floor(Math.random() * words.length)];
+        let guessedLetters = [];
+        let mistakes = 0;
+        const maxMistakes = 6;
+
+        const render = () => {
+            let displayWord = targetWord.split('').map(letter => guessedLetters.includes(letter) ? letter : '_').join(' ');
+            let gameOver = !displayWord.includes('_');
+            let gameLost = mistakes >= maxMistakes;
+
+            if (gameOver || gameLost) {
+                gameCanvasContainer.innerHTML = `
+                    <div style="background:#e2f0d9; color:#1e4620; padding:16px; border-radius:12px; width:260px;">
+                        <h3>${gameOver ? '🎉 You Won!' : '💀 Game Over'}</h3>
+                        <p style="font-weight:bold; font-size:18px; margin:10px 0;">Word was: ${targetWord}</p>
+                        <button onclick="broadcastGameScoreToRoom('Hangman', '🪓')" style="width:100%; padding:10px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Share Status to Chat</button>
+                    </div>`;
+                return;
+            }
+
+            let gallowsText = [' ┌───┐', ` │   ${mistakes>0?'O':' '}`, ` │  ${mistakes>2?'/':''}${mistakes>1?'│':''}${mistakes>3?'\\':''}`, ` │  ${mistakes>4?'/':''} ${mistakes>5?'\\':''}`, '─┴─'].join('\n');
+
+            let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+                <pre style="font-family:monospace; font-size:16px; line-height:1.2; background:rgba(0,0,0,0.3); padding:8px; border-radius:6px; color:#fff; margin:0;">${gallowsText}</pre>
+                <div style="font-size:24px; font-weight:bold; letter-spacing:2px; color:#fff;">${displayWord}</div>
+                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px;">`;
+            
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
+                let used = guessedLetters.includes(ltr);
+                html += `<button id="hangLtr-${ltr}" ${used?'disabled':''} style="padding:6px 2px; font-weight:bold; font-size:12px; background:${used?'#555':'#e2f0d9'}; color:${used?'#888':'#1e4620'}; border:none; border-radius:4px;" onclick="handleHangmanGuess('${ltr}')">${ltr}</button>`;
+            });
+            html += `</div></div>`;
+            gameCanvasContainer.innerHTML = html;
+        };
+
+        window.handleHangmanGuess = (ltr) => {
+            guessedLetters.push(ltr);
+            if (!targetWord.includes(ltr)) mistakes++;
+            render();
+        };
+        render();
+    }
+
+    /* --- 2. CHASER MATCH (CANDY CRUSH ENGINE) --- */
+    function initChaserMatchGame() {
+        let matchScore = 0;
+        let boardSize = 6;
+        let board = [];
+        let selectedTile = null;
+        const gems = ['💎', '🍓', '🍋', '🍏', '🍇', '⭐'];
+
+        for (let i = 0; i < boardSize * boardSize; i++) {
+            board.push(gems[Math.floor(Math.random() * gems.length)]);
+        }
+
+        window.handleGemTap = (idx) => {
+            if (selectedTile === null) {
+                selectedTile = idx;
+                document.getElementById(`gem-${idx}`).style.border = '2px solid #ffd700';
+            } else {
+                let prevIdx = selectedTile;
+                selectedTile = null;
+                let diff = Math.abs(prevIdx - idx);
+                if (diff === 1 || diff === boardSize) {
+                    let temp = board[prevIdx];
+                    board[prevIdx] = board[idx];
+                    board[idx] = temp;
+                    matchScore += 60;
+                }
+                renderMatchBoard();
+            }
+        };
+
+        function renderMatchBoard() {
+            let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+                <div style="color:#fff; font-size:16px; font-weight:bold;">Score: <span style="color:#ffd700;">${matchScore}</span></div>
+                <div style="display:grid; grid-template-columns: repeat(${boardSize}, 1fr); gap:6px; background:rgba(0,0,0,0.4); padding:8px; border-radius:10px;">`;
+            board.forEach((gem, i) => {
+                html += `<button id="gem-${i}" style="width:40px; height:40px; font-size:22px; background:#1e4620; border:1px solid rgba(255,255,255,0.15); border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;" onclick="handleGemTap(${i})">${gem}</button>`;
+            });
+            html += `</div><button onclick="broadcastGameScoreToRoom('Chaser Match', '💎')" style="margin-top:4px; padding:8px 16px; background:#b8860b; color:white; border:none; border-radius:6px; font-weight:bold;">End Match & Post</button></div>`;
+            gameCanvasContainer.innerHTML = html;
+        }
+        renderMatchBoard();
+    }
+
+    /* --- 3. CHECKERS ENGINE --- */
+    function initCheckersGame() {
+        let boardHtml = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+            <div style="font-size:12px; font-weight:normal; color:#a3cfbb; width:260px; text-align:center;">Local tactile checkers table grid simulation setup interface dashboard layer.</div>
+            <div style="display:grid; grid-template-columns: repeat(8, 30px); grid-template-rows: repeat(8, 30px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden;">`;
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                let isDark = (r + c) % 2 === 1;
+                let piece = '';
+                if (isDark && r < 3) piece = '<div style="width:18px; height:18px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
+                if (isDark && r > 4) piece = '<div style="width:18px; height:18px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
+                boardHtml += `<div style="width:30px; height:30px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center;">${piece}</div>`;
+            }
+        }
+        boardHtml += `</div><button onclick="broadcastGameScoreToRoom('Checkers', '🔴')" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Broadcast Action Hook</button></div>`;
+        gameCanvasContainer.innerHTML = boardHtml;
+    }
+
+    /* --- 4. SOLITAIRE ENGINE --- */
+    function initSolitaireGame() {
+        gameCanvasContainer.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:14px; width:100%;">
+                <div style="display:flex; gap:12px; justify-content:center; width:100%;">
+                    <div style="width:42px; height:60px; border:2px dashed #e2f0d9; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; color:#e2f0d9;">🎴</div>
+                    <div style="width:42px; height:60px; background:#fff; color:#dc3545; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:14px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.3);"><span>A</span><span>♥</span></div>
+                    <div style="width:42px; height:60px; border:2px solid rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
+                    <div style="width:42px; height:60px; border:2px solid rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
+                </div>
+                <div style="display:flex; gap:6px; justify-content:center; width:100%; height:100px;">
+                    <div style="width:34px; height:50px; background:#fff; color:#111; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">K♠</div>
+                    <div style="width:34px; height:50px; background:#fff; color:#dc3545; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">Q♦</div>
+                    <div style="width:34px; height:50px; background:#fff; color:#111; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">J♣</div>
+                </div>
+                <button onclick="broadcastGameScoreToRoom('Solitaire', '🃏')" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Share Score Matrix</button>
+            </div>`;
+    }
+
+    /* --- 5. CREW TRIVIA ENGINE (DYNAMIC CLOUD VERSION) --- */
+    function initTriviaGame() {
+        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Loading fresh questions from the cloud...</div>`;
+        
+        fetch('https://opentdb.com/api.php?amount=1&type=multiple&category=9')
+            .then(res => res.json())
+            .then(data => {
+                if (!data.results || data.results.length === 0) { fallbackTrivia(); return; }
+                
+                const item = data.results[0];
+                const questionText = decodeHTMLEntities(item.question);
+                const correctAnswer = decodeHTMLEntities(item.correct_answer);
+                
+                let choices = item.incorrect_answers.map(ans => decodeHTMLEntities(ans));
+                const randomIdx = Math.floor(Math.random() * (choices.length + 1));
+                choices.splice(randomIdx, 0, correctAnswer);
+
+                window.evaluateTriviaChoice = (selectedAns) => {
+                    if (selectedAns === correctAnswer) { alert("🎉 Correct! Great job."); } 
+                    else { alert(`❌ Incorrect. The right answer was: ${correctAnswer}`); }
+                    broadcastGameScoreToRoom('Crew Trivia', '🧠');
+                };
+
+                let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:280px;">
+                    <div style="background:rgba(0,0,0,0.4); padding:12px; border-radius:8px; font-size:14px; line-height:1.4; color:#fff; font-weight:bold; text-align:center; border: 1px solid rgba(255,255,255,0.1);">${questionText}</div>
+                    <div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+                
+                choices.forEach((choice) => {
+                    html += `<button style="width:100%; padding:10px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:bold; font-size:13px; text-align:left; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="evaluateTriviaChoice(\`${choice.replace(/'/g, "\\'")}\`)">${choice}</button>`;
+                });
+                
+                html += `</div></div>`;
+                gameCanvasContainer.innerHTML = html;
+            })
+            .catch(() => { fallbackTrivia(); });
+    }
+
+    function decodeHTMLEntities(text) {
+        const textArea = document.createElement('textarea');
+        textArea.innerHTML = text;
+        return textArea.value;
+    }
+
+    function fallbackTrivia() {
+        const fallbackPool = [
+            { q: "Which modern strategy board game features wood, brick, sheep, grain, and ore?", a: ["Catan", "7 Wonders", "Risk", "Monopoly"], c: "Catan" },
+            { q: "What is the capital city of Australia?", a: ["Sydney", "Melbourne", "Canberra", "Brisbane"], c: "Canberra" },
+            { q: "How many elements are listed on the classic periodic table?", a: ["92", "108", "118", "125"], c: "118" }
+        ];
+        const currentQ = fallbackPool[Math.floor(Math.random() * fallbackPool.length)];
+        
+        window.evaluateTriviaChoice = (selectedAns) => {
+            if (selectedAns === currentQ.c) alert("🎉 Correct!");
+            else alert(`❌ Incorrect. Answer was ${currentQ.c}`);
+            broadcastGameScoreToRoom('Crew Trivia', '🧠');
+        };
+
+        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:280px;">
+            <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:8px; font-size:14px; color:#fff; font-weight:bold; text-align:center;">${currentQ.q}</div>
+            <div style="display:flex; flex-direction:column; gap:8px; width:100%;">`;
+        currentQ.a.forEach(choice => {
+            html += `<button style="width:100%; padding:10px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:bold;" onclick="evaluateTriviaChoice('${choice}')">${choice}</button>`;
+        });
+        html += `</div></div>`;
+        gameCanvasContainer.innerHTML = html;
+    }
+
+    /* --- 6. TEXAS HOLDEM POKER ENGINE --- */
+    function initPokerGame() {
+        gameCanvasContainer.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
+                <div style="background:#2d6a30; border:4px solid #b8860b; border-radius:50%; width:220px; height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 0 15px rgba(0,0,0,0.6); position:relative;">
+                    <span style="color:rgba(255,255,255,0.4); font-size:11px; font-weight:800; letter-spacing:1px;">TABLE CHIPS: $4,200</span>
+                    <div style="display:flex; gap:4px; margin-top:6px;">
+                        <div style="width:24px; height:34px; background:white; color:black; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">A♠</div>
+                        <div style="width:24px; height:34px; background:white; color:black; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">K♣</div>
+                        <div style="width:24px; height:34px; background:white; color:#dc3545; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">Q♥</div>
+                    </div>
+                </div>
+                <div style="display:flex; gap:6px; justify-content:center; width:100%;">
+                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#dc3545; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Fold</button>
+                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#b8860b; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Check</button>
+                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#2d6a30; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Call $200</button>
+                </div>
+            </div>`;
     }
 
     const fitAllRiders = (animate = true) => {
