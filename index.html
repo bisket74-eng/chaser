@@ -17,9 +17,8 @@
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
         #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
         
-        /* Elegant, transparent background, larger but not bold focus hint */
-        #privacyHint { font-size:16px; color:#e2f0d9; font-weight:normal; margin-top:10px; text-shadow:1px 1px 3px rgba(0,0,0,0.6); text-align:center; pointer-events:none; }
-        #privacyHintRedText { color:#dc3545; font-weight:bold; text-shadow:1px 1px 2px rgba(0,0,0,0.4); }
+        /* Redesigned to replicate the premium cursive header style, outlines, and dropshadow masks */
+        #privacyHint { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:42px; color:#1e4620; font-weight:900; text-shadow:2px 2px 0 #e2f0d9,-1px -1px 0 #e2f0d9,1px -1px 0 #e2f0d9,-1px 1px 0 #e2f0d9,4px 4px 8px rgba(0,0,0,0.4); letter-spacing:0.8px; margin-top:12px; text-align:center; pointer-events:none; }
 
         .rider-icon-container {
             position: relative;
@@ -199,8 +198,7 @@
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
     <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
-    <!-- Clean, non-bold focus hint with custom red text color split -->
-    <div id="privacyHint"><span id="privacyHintRedText">start sharing</span> to see buddies and enter chat</div>
+    <div id="privacyHint">share location to see buddies and enter chat</div>
 </div>
 
 <div id="map"></div>
@@ -767,7 +765,7 @@
         if (document.getElementById(msgId)) return;
         const w = document.createElement('div');
         w.className = `msg-bubble bubble-${authorId||'unknown'}`; w.id = msgId;
-        w.style.backgroundColor = color||'#ffffff';
+        w.style.backgroundColor = color||#ffffff;
         w.innerHTML = `<div class="msg-user">${user}</div><div class="msg-text">${msg}</div>${isMe?`<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>`:''}`;
         chatMessages.appendChild(w); chatMessages.scrollTop = chatMessages.scrollHeight;
     }
