@@ -354,7 +354,6 @@
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
         
-        // Target criteria locked: Render nudge recycle button ONLY if the rider is explicitly stale/ghost (red)
         const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
@@ -451,19 +450,27 @@
             })
             .on('broadcast', { event:'map-nudge-alert' }, ({ payload }) => {
                 if (payload.targetId === myId) {
-                    if ('vibrate' in navigator) { navigator.vibrate([300, 150, 300]); }
+                    if ('vibrate' in navigator) { navigator.vibrate([400, 200, 400]); }
                     
-                    // Native pop-up alert added to force breakthrough no matter where they are on their phone
-                    setTimeout(() => {
-                        alert(`${payload.sender} is requesting an updated location loop! Please return to Chaser.`);
-                    }, 50);
-
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification("Location Update Requested", {
-                            body: `${payload.sender} wants you to update your location layout right now!`,
+                    // Fixed: Leverages the native Service Worker registration to pop a real background alert window directly on the device lock screen/tray
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.ready.then(registration => {
+                            registration.showNotification("Chaser Route Call", {
+                                body: `${payload.sender} is requesting your updated location on Chaser, please return to screen.`,
+                                icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png",
+                                tag: "chaser-nudge-alert",
+                                requireInteraction: true, // Holds the alert panel visible on the lock tray until clicked
+                                vibrate: [400, 200, 400]
+                            });
+                        });
+                    } else if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification("Chaser Route Call", {
+                            body: `${payload.sender} is requesting your updated location on Chaser, please return to screen.`,
                             icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png"
                         });
                     }
+                    
+                    // Forces the map tracker back awake instantly upon receipt of the signal
                     if (isSharing) { broadcastCurrentState(); }
                 }
             })
