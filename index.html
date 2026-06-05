@@ -87,7 +87,6 @@
             animation: redPulse 2s infinite;
         }
 
-        /* Dedicated container layer layout to support name string text alongside nudge touch targets cleanly */
         .label-top-row {
             display: flex;
             align-items: center;
@@ -135,29 +134,19 @@
             box-sizing: border-box;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-        }
-
-        .rider-label .dest-arrow-icon {
-            font-size: 14px;
-            color: #2d6a30;
-            font-weight: 900;
-            line-height: 1;
-            padding-left: 2px;
-            flex-shrink: 0;
+            justify-content: center;
+            overflow: hidden;
         }
 
         .rider-label .dest-text-content {
-            flex-grow: 1;
-            box-sizing: border-box;
-            font-size: 12px;
+            width: 100%;
+            font-size: 11px;
             color: #2d6a30;
-            font-weight: 600;
+            font-weight: 700;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
             text-align: center;
-            padding-right: 14px; 
         }
 
         @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(220,53,69,0.6);}50%{box-shadow:0 0 10px rgba(220,53,69,1);} }
@@ -338,7 +327,6 @@
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
 
-    // Request permissions for background nudge mechanics early on user interaction
     if ('Notification' in window && Notification.permission === 'default') {
         document.body.addEventListener('click', () => { Notification.requestPermission(); }, { once: true });
     }
@@ -362,10 +350,11 @@
         const blockHeight = dest ? "56px" : "34px";
         
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
-        const destLine = dest ? `<div class="dest-container"><span class="dest-arrow-icon">➔</span><div class="dest-text-content">${dest}</div></div>` : '';
+        
+        // Replaced error string with requested "Heading to:" wording syntax profiles cleanly
+        const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
         
-        // Render targeted nudge refresh layout buttons safely on external buddy profile lines
         const nudgeButtonMarkup = (!isMe && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
@@ -388,7 +377,6 @@
         if (event) { event.stopPropagation(); event.preventDefault(); }
         let sourceSenderName = usernameInput.value.trim() || "A buddy";
         
-        // Send a dedicated target payload packet through the active transmission channel
         channel.send({
             type: 'broadcast',
             event: 'map-nudge-alert',
@@ -462,7 +450,6 @@
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
             .on('broadcast', { event:'map-nudge-alert' }, ({ payload }) => {
-                // Intercept nudge alerts, verify target ID match, and execute sensory responses
                 if (payload.targetId === myId) {
                     if ('vibrate' in navigator) { navigator.vibrate([200, 100, 200]); }
                     
