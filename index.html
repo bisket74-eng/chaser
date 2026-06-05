@@ -46,11 +46,9 @@
             background: rgba(255,255,255,0.95);
             border: 2px solid #1e4620;
             border-radius: 8px;
-            padding: 6px 12px;
-            font-size: 15px;
-            font-weight: bold;
+            padding: 4px 8px;
+            font-size: 14px;
             color: #111;
-            white-space: nowrap;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: auto;
             cursor: pointer;
@@ -58,7 +56,7 @@
             line-height: 1.4;
             z-index: 201;
             display: block;
-            min-width: 60px;
+            box-sizing: border-box;
         }
         
         .rider-label.ghost-label {
@@ -81,11 +79,6 @@
             border: 1px solid rgba(0,0,0,0.2);
         }
         
-        .status-dot-active {
-            background: #28a745;
-            box-shadow: 0 0 6px #28a745;
-        }
-        
         .status-dot-stale {
             background: #dc3545;
             box-shadow: 0 0 6px #dc3545;
@@ -93,12 +86,15 @@
         }
 
         .rider-label .dest-line {
-            font-size: 13px;
+            font-size: 12px;
             color: #2d6a30;
             font-weight: 600;
             margin-top: 2px;
             border-top: 1px dashed rgba(0,0,0,0.15);
             padding-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(220,53,69,0.6);}50%{box-shadow:0 0 10px rgba(220,53,69,1);} }
@@ -140,8 +136,6 @@
         .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
         .msg-text { font-size:18px; word-break:break-word; }
         .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
-        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; }
-        #chatInputArea input { flex:1; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:15px; color:#111; font-weight:500; }
 
         #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
         #roomModalOverlay.open { display:flex; }
@@ -230,10 +224,13 @@
         <button id="closeChatBtn" type="button">✕</button>
     </div>
     <div id="chatMessages"></div>
-    <div id="chatInputArea">
-        <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
-        <button class="mic-btn" id="chatMic" type="button">
+    <div id="chatInputArea" style="padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:6px; align-items:center;">
+        <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" style="flex:1; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:15px;" />
+        <button class="mic-btn" id="chatMic" type="button" style="width:40px; height:40px;">
             <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+        </button>
+        <button class="mic-btn" id="chatSendBtn" type="button" style="width:40px; height:40px; background:#2d6a30;">
+            <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
         </button>
     </div>
 </div>
@@ -276,15 +273,22 @@
     const buildLabelIcon = (name, dest, color, ghost) => {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
-        const dotStyle = ghost ? 'status-dot-stale' : 'status-dot-active';
-        const destLine = dest ? `<div class="dest-line">→ ${dest}</div>` : '';
+        
+        const blockWidth = "160px";
+        const blockHeight = dest ? "50px" : "24px";
+        
+        const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
+        const destLine = dest ? `<div class="dest-line">Heading to: ${dest}</div>` : '';
         const bgColor = color || '#ffffff';
         
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
                 <div class="rider-physical-pin"></div>
-                <div class="rider-label ${ghost ? 'ghost-label' : ''}" style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'};">
-                    <span>${displayName}</span><span class="status-tracker-dot ${dotStyle}"></span>
+                <div class="rider-label ${ghost ? 'ghost-label' : ''}" 
+                     style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 8px; font-size:14px; box-sizing:border-box;">
+                    <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        ${displayName}${dotMarkup}
+                    </div>
                     ${destLine}
                 </div>
             </div>`;
@@ -427,11 +431,8 @@
 
     const updateLiveRiderCounter = () => {
         const buddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
-        const activeCount = buddyNames.filter(k => !riders[k].isGhost).length + (isSharing ? 1 : 0);
-        const ghostCount  = buddyNames.filter(k =>  riders[k].isGhost).length;
-        let text = `Buddies Online: ${activeCount}`;
-        if (ghostCount > 0) text += ` (${ghostCount} off-screen 📵)`;
-        el('riderCounterWidget').innerText = text;
+        const totalCount = buddyNames.length + (isSharing ? 1 : 0);
+        el('riderCounterWidget').innerText = `Buddies Online: ${totalCount}`;
     };
 
     const removeRider = name => {
@@ -534,10 +535,6 @@
         } else stopSharingLocation();
     });
 
-    const generateRoomCode = () => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-    };
     const resetModalUI = () => {
         modalOrText.style.opacity = '1';
         roomCodeInput.placeholder = 'Enter a Code to JOIN';
@@ -573,7 +570,7 @@
     });
     roomModalOverlay.addEventListener('click', e => { if (e.target===roomModalOverlay) { roomModalOverlay.classList.remove('open'); if (!activeRoomCode) resetModalUI(); } });
     generatedCodeEl.addEventListener('click', () => {
-        if (!activeRoomCode) { generatedCodeEl.value=generateRoomCode(); modalOrText.style.opacity='0.3'; roomCodeInput.value=''; roomCodeInput.placeholder='Give this to friends!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Start Room'; }
+        if (!activeRoomCode) { generatedCodeEl.value=generateRoomCode(); modalOrText.style.opacity='0.3'; roomCodeInput.value=''; roomCodeInput.placeholder='Give this to a buddy!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Start Room'; }
     });
     joinRoomBtn.addEventListener('click', () => {
         if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; }
@@ -610,6 +607,8 @@
         chatMsgInput.value = '';
     };
 
+    document.getElementById('chatSendBtn').addEventListener('click', sendGroupMessage);
+
     function appendMessage(msgId, user, msg, isMe, color, authorId) {
         if (document.getElementById(msgId)) return;
         const w = document.createElement('div');
@@ -621,22 +620,22 @@
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
-        const setupVoiceInput = (btn, input, autoSubmit=false) => {
+        const setupVoiceInput = (btn, input) => {
             const rec = new SpeechRecognition();
             rec.continuous=false; rec.interimResults=false; rec.lang='en-US';
             btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
             rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
             rec.onresult = e => {
                 input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
-                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); }
-                autoSubmit ? sendGroupMessage() : broadcastCurrentState();
+                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
+                if (input.id=='destination') { broadcastCurrentState(); }
             };
             rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
             rec.onend   = () => { btn.classList.remove('listening'); resetPlaceholder(input); closeKeyboard(input); };
         };
         setupVoiceInput(usernameMic, usernameInput);
         setupVoiceInput(destinationMic, destinationInput);
-        setupVoiceInput(chatMic, chatMsgInput, true);
+        setupVoiceInput(chatMic, chatMsgInput);
     } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
     const closeKeyboard = (inputEl, event=null) => {
