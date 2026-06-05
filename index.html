@@ -16,7 +16,10 @@
         #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
         #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
-        #privacyHint { font-size:14px; color:#ffffff; font-weight:bold; background:#dc3545; padding:8px 16px; border-radius:10px; margin-top:8px; box-shadow:0 4px 15px rgba(0,0,0,0.4); text-align:center; pointer-events:none; border: 2px solid #e2f0d9; }
+        
+        /* Elegant, transparent background, larger but not bold focus hint */
+        #privacyHint { font-size:16px; color:#e2f0d9; font-weight:normal; margin-top:10px; text-shadow:1px 1px 3px rgba(0,0,0,0.6); text-align:center; pointer-events:none; }
+        #privacyHintRedText { color:#dc3545; font-weight:bold; text-shadow:1px 1px 2px rgba(0,0,0,0.4); }
 
         .rider-icon-container {
             position: relative;
@@ -143,7 +146,7 @@
         #startBtn.sharing-active { background:#dc3545; }
 
         #chatToggleBtn, #roomLockBtn { position:absolute; right:15px; z-index:11; width:60px; height:60px; background:#1e4620; border:3px solid #e2f0d9; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.41); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s, opacity 0.3s ease; }
-        #chatToggleBtn { bottom:54px; opacity: 0.35; background: #555555; pointer-events: none; } /* Grayed out and unclickable by default */
+        #chatToggleBtn { bottom:54px; opacity: 0.35; background: #555555; pointer-events: none; }
         #roomLockBtn { bottom:130px; }
         #chatToggleBtn:active, #roomLockBtn:active { transform:scale(0.92); }
         #chatToggleBtn svg, #roomLockBtn svg { width:28px; height:28px; fill:#fff; }
@@ -196,7 +199,8 @@
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
     <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
-    <div id="privacyHint">⚠️ Map & Chat locked. Tap 'Start Sharing' to reveal buddies!</div>
+    <!-- Clean, non-bold focus hint with custom red text color split -->
+    <div id="privacyHint"><span id="privacyHintRedText">start sharing</span> to see buddies and enter chat</div>
 </div>
 
 <div id="map"></div>
@@ -225,7 +229,7 @@
 </div>
 
 <button id="roomLockBtn" type="button">
-    <svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>
 </button>
 
 <button id="chatToggleBtn" type="button">
@@ -291,14 +295,12 @@
 
     const GHOST_THRESHOLD_MS = 30_000;
 
-    // Fixed clean global SVG padlock icons strings configurations
-    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
+    const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
 
-    // Dynamic mathematical infinity pastel generator loop rule
     const generateRandomPastelColor = () => {
         const hue = Math.floor(Math.random() * 360);
         return `hsl(${hue}, 100%, 85%)`; 
@@ -556,7 +558,6 @@
     function displayAllCachedRidersOnMap() {
         el('privacyHint').style.display = 'none';
         
-        // Restore active layout parameters to chat button frame instantly
         chatToggleBtn.style.opacity = '1';
         chatToggleBtn.style.background = '#1e4620';
         chatToggleBtn.style.pointerEvents = 'auto';
@@ -636,7 +637,6 @@
         
         el('privacyHint').style.display = 'block';
         
-        // Re-enforce clean static lock styles to chat buttons safely
         chatToggleBtn.style.opacity = '0.35';
         chatToggleBtn.style.background = '#555555';
         chatToggleBtn.style.pointerEvents = 'none';
