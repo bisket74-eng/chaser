@@ -14,7 +14,9 @@
 
         #appHeaderContainer { position:absolute; top:65px; left:50%; transform:translateX(-50%); z-index:10; display:flex; flex-direction:column; align-items:center; white-space:nowrap; }
         #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
-        #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:bold; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; }
+        #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
+        #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
+        #privacyHint { font-size:12px; color:#e2f0d9; font-weight:bold; background:rgba(45,106,48,0.85); padding:4px 10px; border-radius:8px; margin-top:4px; box-shadow:0 2px 6px rgba(0,0,0,0.15); font-style:italic; pointer-events:none; }
 
         .rider-icon-container {
             position: relative;
@@ -193,7 +195,8 @@
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
-    <div id="riderCounterWidget">Buddies Online: 0</div>
+    <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
+    <div id="privacyHint">Share location to reveal buddies</div>
 </div>
 
 <div id="map"></div>
@@ -279,12 +282,11 @@
     let activeRoomCode = null;
     let initialFrameDone = false;   
 
-    // Global variables for the 2-hour inactivity timeout system
     let lastActiveTime = Date.now();
     let timeoutCheckInterval = null;
-    const AUTO_TIMEOUT_MS = 7200000; // 2 hours in milliseconds
+    const AUTO_TIMEOUT_MS = 7200000; 
 
-    const riders = {};
+    const incomingRidersCache = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
     const GHOST_THRESHOLD_MS = 30_000;
@@ -328,7 +330,7 @@
     };
 
     const fitAllRiders = (animate = true) => {
-        const positions = Object.values(riders).map(r => r.marker.getLatLng());
+        const positions = Object.values(incomingRidersCache).filter(r => r.marker).map(r => r.marker.getLatLng());
         if (positions.length === 0) return;
         if (positions.length === 1) {
             map.setView(positions[0], 14, { animate });
@@ -343,14 +345,19 @@
     };
 
     setInterval(() => {
-        Object.keys(riders).forEach(name => {
-            if (name.includes('(You)')) return;
-            const r = riders[name];
+        const now = Date.now();
+        Object.keys(incomingRidersCache).forEach(name => {
+            const r = incomingRidersCache[name];
             if (!r) return;
-            const shouldBeGhost = (Date.now() - r.lastSeen) >= GHOST_THRESHOLD_MS;
-            if (shouldBeGhost !== r.isGhost) {
-                r.isGhost = shouldBeGhost;
-                r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost));
+            
+            if (!name.includes('(You)')) {
+                const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
+                if (shouldBeGhost !== r.isGhost) {
+                    r.isGhost = shouldBeGhost;
+                    if (isSharing && r.marker) {
+                        r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost));
+                    }
+                }
             }
         });
         updateLiveRiderCounter();
@@ -372,7 +379,7 @@
                 if (status === 'offline') {
                     removeRider(user);
                 } else {
-                    updateRiderMarker(user, dest, lat, lng, color);
+                    processIncomingCoordinateUpdate(user, dest, lat, lng, color);
                 }
                 updateLiveRiderCounter();
             })
@@ -395,7 +402,7 @@
                     authorId: Array.from(b.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-',''),
                     stamp: 'is-foreign'
                 }));
-                channel.send({ type:'broadcast', event:'request-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
+                channel.send({ type:'broadcast', event:'provide-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
             })
             .on('broadcast', { event:'provide-chat-sync' }, ({ payload }) => {
                 if (payload.targetToken !== sessionMsgToken) return;
@@ -422,9 +429,13 @@
     document.getElementById('radiusToggle').addEventListener('change', e => {
         isRadiusFilterActive = e.target.checked;
         if (isRadiusFilterActive && lastLat && lastLng) {
-            Object.keys(riders).filter(k => !k.includes('(You)')).forEach(name => {
-                const distMi = map.distance([lastLat,lastLng], riders[name].marker.getLatLng()) / 1609.34;
-                if (distMi > 50) removeRider(name);
+            Object.keys(incomingRidersCache).forEach(name => {
+                if (name.includes('(You)')) return;
+                const r = incomingRidersCache[name];
+                if (r.lat && r.lng) {
+                    const distMi = map.distance([lastLat, lastLng], [r.lat, r.lng]) / 1609.34;
+                    if (distMi > 50) removeRider(name);
+                }
             });
             updateLiveRiderCounter();
         }
@@ -462,50 +473,86 @@
     });
 
     const updateLiveRiderCounter = () => {
-        const buddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
-        const totalCount = buddyNames.length + (isSharing ? 1 : 0);
-        el('riderCounterWidget').innerText = `Buddies Online: ${totalCount}`;
+        const totalCount = Object.keys(incomingRidersCache).length;
+        el('liveCountNumber').innerText = totalCount;
     };
 
     const removeRider = name => {
-        if (riders[name]) { map.removeLayer(riders[name].marker); delete riders[name]; }
+        if (incomingRidersCache[name]) {
+            if (incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+            }
+            delete incomingRidersCache[name];
+        }
     };
 
-    function updateRiderMarker(user, dest, lat, lng, color) {
-        const markerColor = color || '#ffffff';
+    function processIncomingCoordinateUpdate(user, dest, lat, lng, color) {
         const now = Date.now();
-
-        if (riders[user]) {
-            const r = riders[user];
-            r.lastSeen = now;
-            r.dest = dest;
-            r.color = markerColor;
-            r.isGhost = false;
-            r.marker.setLatLng([lat, lng]);
-            r.marker.setIcon(buildLabelIcon(user, dest, markerColor, false));
+        
+        if (incomingRidersCache[user]) {
+            const cacheRef = incomingRidersCache[user];
+            cacheRef.lastSeen = now;
+            cacheRef.dest = dest;
+            cacheRef.color = color || '#ffffff';
+            cacheRef.lat = lat;
+            cacheRef.lng = lng;
         } else {
-            const marker = L.marker([lat, lng], {
-                icon: buildLabelIcon(user, dest, markerColor, false)
+            incomingRidersCache[user] = {
+                marker: null,
+                lastSeen: now,
+                isGhost: false,
+                dest: dest,
+                color: color || '#ffffff',
+                lat: lat,
+                lng: lng
+            };
+        }
+
+        if (!isSharing) {
+            return;
+        }
+
+        renderSingleRiderVisualLayers(user);
+    }
+
+    function renderSingleRiderVisualLayers(user) {
+        const rData = incomingRidersCache[user];
+        if (!rData || !rData.lat || !rData.lng) return;
+
+        if (rData.marker) {
+            rData.marker.setLatLng([rData.lat, rData.lng]);
+            rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost));
+        } else {
+            const newMarker = L.marker([rData.lat, rData.lng], {
+                icon: buildLabelIcon(user, rData.dest, rData.color, rData.isGhost)
             }).addTo(map);
 
-            marker.on('click', e => {
+            newMarker.on('click', e => {
                 L.DomEvent.stopPropagation(e);
-                if (!marker._zoomedIn) {
-                    map.setView([lat, lng], 18, { animate:true, duration:0.7 });
-                    marker._zoomedIn = true;
+                if (!newMarker._zoomedIn) {
+                    map.setView([rData.lat, rData.lng], 18, { animate:true, duration:0.7 });
+                    newMarker._zoomedIn = true;
                 } else {
                     fitAllRiders(true);
-                    marker._zoomedIn = false;
+                    newMarker._zoomedIn = false;
                 }
             });
 
-            marker._zoomedIn = false;
-            riders[user] = { marker, lastSeen:now, isGhost:false, dest, color:markerColor };
+            newMarker._zoomedIn = false;
+            rData.marker = newMarker;
 
             if (!user.includes('(You)')) {
                 setTimeout(() => fitAllRiders(true), 300);
             }
         }
+    }
+
+    function displayAllCachedRidersOnMap() {
+        el('privacyHint').style.display = 'none';
+        Object.keys(incomingRidersCache).forEach(user => {
+            renderSingleRiderVisualLayers(user);
+        });
+        setTimeout(() => fitAllRiders(true), 400);
     }
 
     const broadcastCurrentState = () => {
@@ -519,7 +566,7 @@
             oldBroadcastedName = currentUser;
         }
 
-        updateRiderMarker(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
+        processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
         channel.send({ type:'broadcast', event:'location-update', payload:{
             user:currentUser, dest:destinationInput.value.trim(),
             lat:lastLat, lng:lastLng, status:'online', color:myChatColor
@@ -527,7 +574,6 @@
         updateLiveRiderCounter();
     };
 
-    // Inactivity check core logic functions
     const resetActivityTimer = () => {
         lastActiveTime = Date.now();
     };
@@ -541,10 +587,9 @@
                 stopSharingLocation();
                 alert("Chaser disconnected automatically due to 2 hours of inactivity.");
             }
-        }, 30000); // Verify state intervals every 30 seconds
+        }, 30000);
     };
 
-    // Keep active session alive when app layout returns to focus
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             resetActivityTimer();
@@ -559,16 +604,25 @@
         startBtn.classList.remove('sharing-active');
         if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
         channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        Object.keys(riders).filter(k => k.includes('(You)')).forEach(removeRider);
+        
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+                incomingRidersCache[name].marker = null;
+            }
+        });
+        removeRider(`${oldBroadcastedName} (You)`);
+        
         lastLat = 0; lastLng = 0;
         updateLiveRiderCounter();
         releaseWakeLock();
 
-        // Safely wipe out background monitor loop rules
         if (timeoutCheckInterval) {
             clearInterval(timeoutCheckInterval);
             timeoutCheckInterval = null;
         }
+        
+        el('privacyHint').style.display = 'block';
     };
 
     startBtn.addEventListener('click', () => {
@@ -582,18 +636,18 @@
         startBtn.innerText = 'Stop Sharing Location';
         startBtn.classList.add('sharing-active');
 
-        // Trigger active tracking parameters loop
         startTimeoutMonitor();
 
         if ('geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(pos => {
                 lastLat = pos.coords.latitude;
                 lastLng = pos.coords.longitude;
+                
                 broadcastCurrentState();
 
                 if (!initialFrameDone) {
                     initialFrameDone = true;
-                    setTimeout(() => fitAllRiders(true), 400);
+                    displayAllCachedRidersOnMap();
                 }
             }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
             requestWakeLock();
@@ -615,7 +669,7 @@
     };
     const applyRoomCode = code => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        Object.keys(riders).filter(k => !k.includes('(You)')).forEach(removeRider);
+        Object.keys(incomingRidersCache).forEach(removeRider);
         chatMessages.innerHTML = '';
         activeRoomCode = code;
         subscribeChannel(); updateLiveRiderCounter();
@@ -625,7 +679,7 @@
     };
     const leavePrivateRoom = () => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        Object.keys(riders).filter(k => !k.includes('(You)')).forEach(removeRider);
+        Object.keys(incomingRidersCache).forEach(removeRider);
         chatMessages.innerHTML = '';
         activeRoomCode = null;
         subscribeChannel(); updateLiveRiderCounter();
