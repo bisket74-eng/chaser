@@ -108,22 +108,23 @@
             color: #ffffff;
             border: none;
             border-radius: 4px;
-            width: 20px;
-            height: 20px;
-            font-size: 12px;
+            width: 22px;
+            height: 22px;
+            font-size: 14px;
             font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.35);
             padding: 0;
             line-height: 1;
             flex-shrink: 0;
-            pointer-events: auto;
-            transition: background 0.1s;
+            pointer-events: auto !important;
+            z-index: 300;
+            transition: background 0.1s, transform 0.1s;
         }
-        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.9); }
+        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.85); }
 
         .rider-label .dest-container {
             width: 100%;
@@ -350,12 +351,11 @@
         const blockHeight = dest ? "56px" : "34px";
         
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
-        
-        // Replaced error string with requested "Heading to:" wording syntax profiles cleanly
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
         
-        const nudgeButtonMarkup = (!isMe && riderInternalId) ? 
+        // Target criteria locked: Render nudge recycle button ONLY if the rider is explicitly stale/ghost (red)
+        const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
         const html = `
@@ -451,15 +451,18 @@
             })
             .on('broadcast', { event:'map-nudge-alert' }, ({ payload }) => {
                 if (payload.targetId === myId) {
-                    if ('vibrate' in navigator) { navigator.vibrate([200, 100, 200]); }
+                    if ('vibrate' in navigator) { navigator.vibrate([300, 150, 300]); }
                     
+                    // Native pop-up alert added to force breakthrough no matter where they are on their phone
+                    setTimeout(() => {
+                        alert(`${payload.sender} is requesting an updated location loop! Please return to Chaser.`);
+                    }, 50);
+
                     if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification("Chaser Location Update", {
-                            body: `${payload.sender} requested you to check in and refresh your map location!`,
+                        new Notification("Location Update Requested", {
+                            body: `${payload.sender} wants you to update your location layout right now!`,
                             icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png"
                         });
-                    } else {
-                        alert(`${payload.sender} wants you to refresh your location signal!`);
                     }
                     if (isSharing) { broadcastCurrentState(); }
                 }
