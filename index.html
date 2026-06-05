@@ -154,8 +154,8 @@
         #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; }
         #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; }
         .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
-        .msg-user { font-size:16px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
-        .msg-text { font-size:22px; word-break:break-word; }
+        .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
+        .msg-text { font-size:18px; word-break:break-word; }
         .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
 
         #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; }
@@ -279,6 +279,11 @@
     let activeRoomCode = null;
     let initialFrameDone = false;   
 
+    // Global variables for the 2-hour inactivity timeout system
+    let lastActiveTime = Date.now();
+    let timeoutCheckInterval = null;
+    const AUTO_TIMEOUT_MS = 7200000; // 2 hours in milliseconds
+
     const riders = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
@@ -390,7 +395,7 @@
                     authorId: Array.from(b.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-',''),
                     stamp: 'is-foreign'
                 }));
-                channel.send({ type:'broadcast', event:'provide-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
+                channel.send({ type:'broadcast', event:'request-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
             })
             .on('broadcast', { event:'provide-chat-sync' }, ({ payload }) => {
                 if (payload.targetToken !== sessionMsgToken) return;
@@ -522,6 +527,30 @@
         updateLiveRiderCounter();
     };
 
+    // Inactivity check core logic functions
+    const resetActivityTimer = () => {
+        lastActiveTime = Date.now();
+    };
+
+    const startTimeoutMonitor = () => {
+        resetActivityTimer();
+        if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
+        
+        timeoutCheckInterval = setInterval(() => {
+            if (isSharing && (Date.now() - lastActiveTime) >= AUTO_TIMEOUT_MS) {
+                stopSharingLocation();
+                alert("Chaser disconnected automatically due to 2 hours of inactivity.");
+            }
+        }, 30000); // Verify state intervals every 30 seconds
+    };
+
+    // Keep active session alive when app layout returns to focus
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            resetActivityTimer();
+        }
+    });
+
     const stopSharingLocation = () => {
         isSharing = false;
         initialFrameDone = false;
@@ -534,6 +563,12 @@
         lastLat = 0; lastLng = 0;
         updateLiveRiderCounter();
         releaseWakeLock();
+
+        // Safely wipe out background monitor loop rules
+        if (timeoutCheckInterval) {
+            clearInterval(timeoutCheckInterval);
+            timeoutCheckInterval = null;
+        }
     };
 
     startBtn.addEventListener('click', () => {
@@ -546,6 +581,9 @@
         isSharing = true;
         startBtn.innerText = 'Stop Sharing Location';
         startBtn.classList.add('sharing-active');
+
+        // Trigger active tracking parameters loop
+        startTimeoutMonitor();
 
         if ('geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(pos => {
@@ -635,10 +673,11 @@
     chatOverlay.addEventListener('touchend', e => {
         if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); }
     },{passive:true});
-    chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); });
+    chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); resetActivityTimer(); });
     closeChatBtn.addEventListener('click', () => { isChatOpen=false; chatOverlay.classList.remove('open'); });
 
     const sendGroupMessage = () => {
+        resetActivityTimer();
         if (!chatMsgInput.value.trim()) return;
         const currentName = usernameInput.value.trim();
         if (!currentName || currentName.toLowerCase()==='anonymous') { chatOverlay.classList.remove('open'); isChatOpen=false; requireName(); return; }
@@ -664,14 +703,12 @@
         const setupVoiceInput = (btn, input, autoSubmit=false) => {
             const rec = new SpeechRecognition();
             rec.continuous=false; rec.interimResults=false; rec.lang='en-US';
-            btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
+            btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); resetActivityTimer(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
             rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
             rec.onresult = e => {
                 input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
                 if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
                 if (input.id=='destination') { broadcastCurrentState(); }
-                
-                // RESTORED: Auto-send triggered instantly for chat window dictation loop
                 if (autoSubmit) { sendGroupMessage(); }
             };
             rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
@@ -679,7 +716,7 @@
         };
         setupVoiceInput(usernameMic, usernameInput);
         setupVoiceInput(destinationMic, destinationInput);
-        setupVoiceInput(chatMic, chatMsgInput, true); // Added true flag here to trigger instant submission
+        setupVoiceInput(chatMic, chatMsgInput, true); 
     } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
     const closeKeyboard = (inputEl, event=null) => {
@@ -689,18 +726,19 @@
         setTimeout(() => { window.scrollTo(0,0); document.body.scrollTop=0; map.invalidateSize(); }, 80);
     };
     const enforceEnter = (e, input) => { if (e.key==='Enter'||e.keyCode===13) { closeKeyboard(input,e); if(input.id==='chatMsgInput') sendGroupMessage(); } };
-    usernameInput.addEventListener('keydown',    e => enforceEnter(e, usernameInput));
-    destinationInput.addEventListener('keydown', e => enforceEnter(e, destinationInput));
-    chatMsgInput.addEventListener('keydown',     e => enforceEnter(e, chatMsgInput));
+    usernameInput.addEventListener('keydown',    e => { resetActivityTimer(); enforceEnter(e, usernameInput); });
+    destinationInput.addEventListener('keydown', e => { resetActivityTimer(); enforceEnter(e, destinationInput); });
+    chatMsgInput.addEventListener('keydown',     e => { resetActivityTimer(); enforceEnter(e, chatMsgInput); });
     roomCodeInput.addEventListener('keydown',    e => { if(e.key==='Enter') joinRoomBtn.click(); });
 
     usernameInput.addEventListener('input', () => {
+        resetActivityTimer();
         usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
         const n = usernameInput.value.trim();
         if (n) { localStorage.setItem('rider_saved_name',n); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
         broadcastCurrentState();
     });
-    destinationInput.addEventListener('input', broadcastCurrentState);
+    destinationInput.addEventListener('input', () => { resetActivityTimer(); broadcastCurrentState(); });
 
     const resetPlaceholder = i => { i.placeholder = i.id==='username'?'Enter your name':i.id==='destination'?'Destination (optional)':'Type a message...'; };
 
