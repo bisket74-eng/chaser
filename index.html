@@ -103,6 +103,29 @@
             flex: 1;
         }
 
+        .nudge-refresh-btn {
+            background: #2d6a30;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            font-size: 14px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.35);
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+            pointer-events: auto !important;
+            z-index: 300;
+            transition: background 0.1s, transform 0.1s;
+        }
+        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.85); }
+
         .rider-label .dest-container {
             width: 100%;
             height: 18px;
@@ -298,8 +321,8 @@
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
     const GHOST_THRESHOLD_MS = 30_000;
-const PUSH_COOLDOWN_MS = 300_000;
-const lastPushSent = {};
+    const PUSH_COOLDOWN_MS = 300_000;
+    const lastPushSent = {};
 
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
@@ -330,6 +353,10 @@ const lastPushSent = {};
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
 
+        // Restored: Only show recycle icon if rider is stale/red (ghost) and it's not you
+        const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
+            `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
+
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
                 <div class="rider-physical-pin"></div>
@@ -337,11 +364,40 @@ const lastPushSent = {};
                      style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 6px; font-size:14px; box-sizing:border-box;">
                     <div class="label-top-row">
                         <div class="label-name-text">${displayName}${dotMarkup}</div>
+                        ${nudgeButtonMarkup}
                     </div>
                     ${destLine}
                 </div>
             </div>`;
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
+    };
+
+    // Restored: Click action that manually hits the Supabase Edge Function to force a native background push notification
+    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
+        if (event) { event.stopPropagation(); event.preventDefault(); }
+        let sourceSenderName = usernameInput.value.trim() || "A buddy";
+        
+        const now = Date.now();
+        if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
+            lastPushSent[targetRiderName] = now;
+            
+            fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    rider_id: targetRiderId,
+                    sender_name: sourceSenderName 
+                })
+            })
+            .then(() => {
+                alert(`Sent an updated location loop request to ${targetRiderName}!`);
+            })
+            .catch(err => {
+                console.error('Nudge push fetch request failed:', err);
+            });
+        } else {
+            alert(`Nudge cooldown active. Please wait a bit before pinging ${targetRiderName} again.`);
+        }
     };
 
     const fitAllRiders = (animate = true) => {
@@ -370,17 +426,21 @@ const lastPushSent = {};
                 if (shouldBeGhost !== r.isGhost) {
                     r.isGhost = shouldBeGhost;
                     if (shouldBeGhost && isSharing) {
-    const now2 = Date.now();
-    if (!lastPushSent[name] || (now2 - lastPushSent[name]) > PUSH_COOLDOWN_MS) {
-        lastPushSent[name] = now2;
-        fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rider_id: r.riderId })
-        });
-    }
-}
-                     if (isSharing && r.marker) {
+                        const now2 = Date.now();
+                        if (!lastPushSent[name] || (now2 - lastPushSent[name]) > PUSH_COOLDOWN_MS) {
+                            lastPushSent[name] = now2;
+                            let sourceSenderName = usernameInput.value.trim() || "A buddy";
+                            fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                    rider_id: r.riderId,
+                                    sender_name: sourceSenderName
+                                })
+                            });
+                        }
+                    }
+                    if (isSharing && r.marker) {
                         r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId));
                     }
                 }
@@ -440,31 +500,32 @@ const lastPushSent = {};
                 }
             });
     };
+    
     const urlBase64ToUint8Array = (base64String) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-};
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    };
 
-const registerPushSubscription = async () => {
-    if (!('PushManager' in window)) return;
-    try {
-        const registration = await navigator.serviceWorker.ready;
-        const existing = await registration.pushManager.getSubscription();
-        const subscription = existing || await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
-        await supabaseClient.from('push_subscriptions').upsert({
-            rider_id: myId,
-            subscription: JSON.stringify(subscription)
-        }, { onConflict: 'rider_id' });
-    } catch (err) {
-        console.log('Push registration failed:', err);
-    }
-};
-       subscribeChannel();
+    const registerPushSubscription = async () => {
+        if (!('PushManager' in window)) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const existing = await registration.pushManager.getSubscription();
+            const subscription = existing || await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+            await supabaseClient.from('push_subscriptions').upsert({
+                rider_id: myId,
+                subscription: JSON.stringify(subscription)
+            }, { onConflict: 'rider_id' });
+        } catch (err) {
+            console.log('Push registration failed:', err);
+        }
+    };
+    subscribeChannel();
 
     const RadiusControl = L.Control.extend({
         options: { position:'topright' },
