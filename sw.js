@@ -26,31 +26,51 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Show notification when a push arrives
+// Show clean, tailored notification when a background push arrives
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Chaser';
+  let pushData = {};
+  if (event.data) {
+    try {
+      pushData = event.data.json();
+    } catch (e) {
+      // Fallback if payload isn't clean JSON text
+      pushData = { sender_name: 'A buddy' };
+    }
+  }
+
+  // Extracts the specific name passed from the Edge Function
+  const sender = pushData.sender_name || 'A buddy';
+  const title = 'Chaser';
+  
   const options = {
-    body: data.body || 'Tap to update your location!',
+    body: `${sender} requested an updated location on Chaser.`,
     icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
     tag: 'chaser-location-reminder',
-    renotify: true
+    renotify: true,
+    requireInteraction: true, // Glues it to the tray until tapped
+    vibrate: [400, 200, 400],
+    data: {
+      url: self.registration.scope
+    }
   };
+
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// When user taps the notification, bring the app to focus
+// When user taps the notification, bring Chaser to focus cleanly
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : './';
+  
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes('chaser') || client.url.includes('index')) {
-          return client.focus();
+        if (client.url.includes('chaser') || client.url.includes('index') || client.url === targetUrl) {
+          if ('focus' in client) return client.focus();
         }
       }
-      return clients.openWindow('./');
+      if (clients.openWindow) return clients.openWindow(targetUrl);
     })
   );
 });
