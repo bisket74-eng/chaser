@@ -87,6 +87,45 @@
             animation: redPulse 2s infinite;
         }
 
+        /* Dedicated container layer layout to support name string text alongside nudge touch targets cleanly */
+        .label-top-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 4px;
+        }
+
+        .label-name-text {
+            font-weight: bold;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+
+        .nudge-refresh-btn {
+            background: #2d6a30;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            padding: 0;
+            line-height: 1;
+            flex-shrink: 0;
+            pointer-events: auto;
+            transition: background 0.1s;
+        }
+        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.9); }
+
         .rider-label .dest-container {
             width: 100%;
             height: 18px;
@@ -288,7 +327,6 @@
     let timeoutCheckInterval = null;
     const AUTO_TIMEOUT_MS = 7200000; 
 
-    // Active local tracking storage layer array configurations
     let incomingRidersCache = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
@@ -299,6 +337,11 @@
 
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
+
+    // Request permissions for background nudge mechanics early on user interaction
+    if ('Notification' in window && Notification.permission === 'default') {
+        document.body.addEventListener('click', () => { Notification.requestPermission(); }, { once: true });
+    }
 
     const generateRandomPastelColor = () => {
         const hue = Math.floor(Math.random() * 360);
@@ -311,7 +354,7 @@
         localStorage.setItem('rider_chat_color', myChatColor);
     }
 
-    const buildLabelIcon = (name, dest, color, ghost) => {
+    const buildLabelIcon = (name, dest, color, ghost, riderInternalId) => {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
         
@@ -322,18 +365,37 @@
         const destLine = dest ? `<div class="dest-container"><span class="dest-arrow-icon">➔</span><div class="dest-text-content">${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
         
+        // Render targeted nudge refresh layout buttons safely on external buddy profile lines
+        const nudgeButtonMarkup = (!isMe && riderInternalId) ? 
+            `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
+
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
                 <div class="rider-physical-pin"></div>
                 <div class="rider-label ${ghost ? 'ghost-label' : ''}" 
                      style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 6px; font-size:14px; box-sizing:border-box;">
-                    <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">
-                        ${displayName}${dotMarkup}
+                    <div class="label-top-row">
+                        <div class="label-name-text">${displayName}${dotMarkup}</div>
+                        ${nudgeButtonMarkup}
                     </div>
                     ${destLine}
                 </div>
             </div>`;
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
+    };
+
+    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
+        if (event) { event.stopPropagation(); event.preventDefault(); }
+        let sourceSenderName = usernameInput.value.trim() || "A buddy";
+        
+        // Send a dedicated target payload packet through the active transmission channel
+        channel.send({
+            type: 'broadcast',
+            event: 'map-nudge-alert',
+            payload: { targetId: targetRiderId, sender: sourceSenderName }
+        });
+        
+        alert(`Sent a location update request to ${targetRiderName}!`);
     };
 
     const fitAllRiders = (animate = true) => {
@@ -362,7 +424,7 @@
                 if (shouldBeGhost !== r.isGhost) {
                     r.isGhost = shouldBeGhost;
                     if (isSharing && r.marker) {
-                        r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost));
+                        r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId));
                     }
                 }
             }
@@ -378,7 +440,7 @@
         channel = supabaseClient.channel(buildChannelName(), { config:{ broadcast:{ ack:true, self:false } } });
         channel
             .on('broadcast', { event:'location-update' }, ({ payload }) => {
-                const { user, dest, lat, lng, status, color } = payload;
+                const { user, dest, lat, lng, status, color, riderId } = payload;
                 if (isRadiusFilterActive && lastLat && lastLng && !user.includes('(You)')) {
                     const distMi = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
                     if (distMi > 50) { removeRider(user); return; }
@@ -386,7 +448,7 @@
                 if (status === 'offline') {
                     removeRider(user);
                 } else {
-                    processIncomingCoordinateUpdate(user, dest, lat, lng, color);
+                    processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
                 }
                 updateLiveRiderCounter();
             })
@@ -398,6 +460,22 @@
             })
             .on('broadcast', { event:'rename' }, ({ payload }) => {
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
+            })
+            .on('broadcast', { event:'map-nudge-alert' }, ({ payload }) => {
+                // Intercept nudge alerts, verify target ID match, and execute sensory responses
+                if (payload.targetId === myId) {
+                    if ('vibrate' in navigator) { navigator.vibrate([200, 100, 200]); }
+                    
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification("Chaser Location Update", {
+                            body: `${payload.sender} requested you to check in and refresh your map location!`,
+                            icon: "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png"
+                        });
+                    } else {
+                        alert(`${payload.sender} wants you to refresh your location signal!`);
+                    }
+                    if (isSharing) { broadcastCurrentState(); }
+                }
             })
             .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
                 const bubbles = document.querySelectorAll('.msg-bubble');
@@ -493,7 +571,7 @@
         }
     };
 
-    function processIncomingCoordinateUpdate(user, dest, lat, lng, color) {
+    function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
         const now = Date.now();
         
         if (incomingRidersCache[user]) {
@@ -503,6 +581,7 @@
             cacheRef.color = color || '#ffffff';
             cacheRef.lat = lat;
             cacheRef.lng = lng;
+            cacheRef.riderId = riderId || cacheRef.riderId;
         } else {
             incomingRidersCache[user] = {
                 marker: null,
@@ -511,7 +590,8 @@
                 dest: dest,
                 color: color || '#ffffff',
                 lat: lat,
-                lng: lng
+                lng: lng,
+                riderId: riderId
             };
         }
 
@@ -528,10 +608,10 @@
 
         if (rData.marker) {
             rData.marker.setLatLng([rData.lat, rData.lng]);
-            rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost));
+            rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId));
         } else {
             const newMarker = L.marker([rData.lat, rData.lng], {
-                icon: buildLabelIcon(user, rData.dest, rData.color, rData.isGhost)
+                icon: buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
             }).addTo(map);
 
             newMarker.on('click', e => {
@@ -578,10 +658,10 @@
             oldBroadcastedName = currentUser;
         }
 
-        processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
+        processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor, myId);
         channel.send({ type:'broadcast', event:'location-update', payload:{
             user:currentUser, dest:destinationInput.value.trim(),
-            lat:lastLat, lng:lastLng, status:'online', color:myChatColor
+            lat:lastLat, lng:lastLng, status:'online', color:myChatColor, riderId:myId
         }});
         updateLiveRiderCounter();
     };
@@ -690,13 +770,11 @@
     };
 
     const clearMemoryAndResetMap = () => {
-        // Drop old Leaflet pins safely from map layers before dropping cache objects
         Object.keys(incomingRidersCache).forEach(name => {
             if (incomingRidersCache[name] && incomingRidersCache[name].marker) {
                 map.removeLayer(incomingRidersCache[name].marker);
             }
         });
-        // Erase active rider traces to break public room duplication cycles
         incomingRidersCache = {};
         chatMessages.innerHTML = '';
     };
