@@ -298,6 +298,8 @@
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
     const GHOST_THRESHOLD_MS = 30_000;
+const PUSH_COOLDOWN_MS = 300_000;
+const lastPushSent = {};
 
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
@@ -367,7 +369,18 @@
                 const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
                 if (shouldBeGhost !== r.isGhost) {
                     r.isGhost = shouldBeGhost;
-                    if (isSharing && r.marker) {
+                    if (shouldBeGhost && isSharing) {
+    const now2 = Date.now();
+    if (!lastPushSent[name] || (now2 - lastPushSent[name]) > PUSH_COOLDOWN_MS) {
+        lastPushSent[name] = now2;
+        fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rider_id: r.riderId })
+        });
+    }
+}
+                     if (isSharing && r.marker) {
                         r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId));
                     }
                 }
@@ -451,7 +464,7 @@ const registerPushSubscription = async () => {
         console.log('Push registration failed:', err);
     }
 };
-           subscribeChannel();
+       subscribeChannel();
 
     const RadiusControl = L.Control.extend({
         options: { position:'topright' },
@@ -704,6 +717,7 @@ const registerPushSubscription = async () => {
                 }
             }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
             requestWakeLock();
+            registerPushSubscription();
         } else stopSharingLocation();
     });
 
