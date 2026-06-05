@@ -16,14 +16,12 @@
         #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:bold; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; }
 
-        /* Container adjustment to align name label stack over standard Leaflet pins */
         .rider-icon-container {
             position: relative;
             width: 0px !important;
             height: 0px !important;
         }
 
-        /* Standard Leaflet Marker Pin representation reconstructed */
         .rider-physical-pin {
             position: absolute;
             bottom: 0;
@@ -46,16 +44,17 @@
             background: rgba(255,255,255,0.95);
             border: 2px solid #1e4620;
             border-radius: 8px;
-            padding: 4px 8px;
             font-size: 14px;
             color: #111;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: auto;
             cursor: pointer;
             text-align: center;
-            line-height: 1.4;
             z-index: 201;
-            display: block;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             box-sizing: border-box;
         }
         
@@ -92,6 +91,7 @@
             margin-top: 2px;
             border-top: 1px dashed rgba(0,0,0,0.15);
             padding-top: 2px;
+            width: 140px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -136,6 +136,12 @@
         .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
         .msg-text { font-size:18px; word-break:break-word; }
         .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
+
+        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; }
+        .chat-input-wrapper { position:relative; flex:1; display:flex; align-items:center; }
+        .chat-input-wrapper input { width:100%; padding:12px 42px 12px 12px; border-radius:8px; border:1px solid #ccc; font-size:15px; box-sizing:border-box; color:#111; font-weight:500; }
+        .inline-send-btn { position:absolute; right:6px; background:none; border:none; padding:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .inline-send-btn svg { width:22px; height:22px; fill:#2d6a30; }
 
         #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
         #roomModalOverlay.open { display:flex; }
@@ -224,13 +230,15 @@
         <button id="closeChatBtn" type="button">✕</button>
     </div>
     <div id="chatMessages"></div>
-    <div id="chatInputArea" style="padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:6px; align-items:center;">
-        <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" style="flex:1; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:15px;" />
-        <button class="mic-btn" id="chatMic" type="button" style="width:40px; height:40px;">
+    <div id="chatInputArea">
+        <div class="chat-input-wrapper">
+            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
+            <button id="chatSendBtn" class="inline-send-btn" type="button">
+                <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
+            </button>
+        </div>
+        <button class="mic-btn" id="chatMic" type="button">
             <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-        </button>
-        <button class="mic-btn" id="chatSendBtn" type="button" style="width:40px; height:40px; background:#2d6a30;">
-            <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
         </button>
     </div>
 </div>
@@ -275,7 +283,7 @@
         const isMe = name.includes('(You)');
         
         const blockWidth = "160px";
-        const blockHeight = dest ? "50px" : "24px";
+        const blockHeight = dest ? "56px" : "34px";
         
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
         const destLine = dest ? `<div class="dest-line">Heading to: ${dest}</div>` : '';
@@ -286,7 +294,7 @@
                 <div class="rider-physical-pin"></div>
                 <div class="rider-label ${ghost ? 'ghost-label' : ''}" 
                      style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 8px; font-size:14px; box-sizing:border-box;">
-                    <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                    <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">
                         ${displayName}${dotMarkup}
                     </div>
                     ${destLine}
@@ -569,6 +577,8 @@
         roomModalOverlay.classList.add('open');
     });
     roomModalOverlay.addEventListener('click', e => { if (e.target===roomModalOverlay) { roomModalOverlay.classList.remove('open'); if (!activeRoomCode) resetModalUI(); } });
+    
+    // RESTORED: Code generation functionality re-linked directly to click event
     generatedCodeEl.addEventListener('click', () => {
         if (!activeRoomCode) { generatedCodeEl.value=generateRoomCode(); modalOrText.style.opacity='0.3'; roomCodeInput.value=''; roomCodeInput.placeholder='Give this to a buddy!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Start Room'; }
     });
