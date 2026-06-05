@@ -661,7 +661,7 @@
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
-        const setupVoiceInput = (btn, input) => {
+        const setupVoiceInput = (btn, input, autoSubmit=false) => {
             const rec = new SpeechRecognition();
             rec.continuous=false; rec.interimResults=false; rec.lang='en-US';
             btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
@@ -670,13 +670,16 @@
                 input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
                 if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
                 if (input.id=='destination') { broadcastCurrentState(); }
+                
+                // RESTORED: Auto-send triggered instantly for chat window dictation loop
+                if (autoSubmit) { sendGroupMessage(); }
             };
             rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
             rec.onend   = () => { btn.classList.remove('listening'); resetPlaceholder(input); closeKeyboard(input); };
         };
         setupVoiceInput(usernameMic, usernameInput);
         setupVoiceInput(destinationMic, destinationInput);
-        setupVoiceInput(chatMic, chatMsgInput);
+        setupVoiceInput(chatMic, chatMsgInput, true); // Added true flag here to trigger instant submission
     } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
     const closeKeyboard = (inputEl, event=null) => {
