@@ -1,153 +1,130 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Chaser</title>
+    <meta name="theme-color" content="#1e4620" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        html, body { padding:0; margin:0; width:100%; height:100%; height:100dvh; background:#1e4620; overflow:hidden; font-family:Arial,sans-serif; position:fixed; }
+        #map { position:fixed; top:0; bottom:0; left:0; right:0; width:100%; height:100%; z-index:1; }
 
-<title>Chaser</title>
+        #appHeaderContainer { position:absolute; top:65px; left:50%; transform:translateX(-50%); z-index:10; display:flex; flex-direction:column; align-items:center; white-space:nowrap; }
+        #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
+        #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:bold; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; }
 
-<meta name="theme-color" content="#1e4620" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="manifest" href="./manifest.json"/>
+        /* ── Permanent name label above pin ── */
+        .rider-label {
+            background: rgba(255,255,255,0.92);
+            border: 2px solid #1e4620;
+            border-radius: 8px;
+            padding: 3px 8px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #111;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            pointer-events: auto;
+            cursor: pointer;
+            text-align: center;
+            line-height: 1.3;
+        }
+        .rider-label.ghost-label {
+            opacity: 0.6;
+            border-style: dashed;
+        }
+        .rider-label .ghost-dot {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 5px rgba(239,68,68,0.9);
+            margin-left: 5px;
+            vertical-align: middle;
+            animation: redPulse 2s infinite;
+        }
+        .rider-label .dest-line {
+            font-size: 11px;
+            color: #555;
+            font-weight: normal;
+        }
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+        @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(239,68,68,0.6);}50%{box-shadow:0 0 10px rgba(239,68,68,1);} }
 
-<style>
-html, body {
-    padding:0; margin:0;
-    width:100%; height:100%;
-    height:100dvh;
-    background:#1e4620;
-    overflow:hidden;
-    font-family:Arial;
-    position:fixed;
-}
+        /* Ghost pin faded */
+        .ghost-marker-img { opacity: 0.35; filter: grayscale(50%); }
 
-#map {
-    position:fixed;
-    inset:0;
-    z-index:1;
-}
+        #controls { position:absolute; bottom:20px; left:15px; z-index:10; background:#e2f0d9; padding:16px; border-radius:18px; box-shadow:0 8px 25px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:12px; width:74%; max-width:340px; box-sizing:border-box; transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1); }
+        #controls:has(input:focus) { transform:translateY(-95px); }
+        #inputsWrapper { display:flex; flex-direction:column; gap:12px; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1),opacity 0.3s ease; max-height:200px; opacity:1; }
+        #inputsWrapper.hidden { max-height:0; opacity:0; }
 
-/* HEADER */
-#appHeaderContainer{
-    position:absolute;
-    top:65px;
-    left:50%;
-    transform:translateX(-50%);
-    z-index:10;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    white-space:nowrap;
-}
+        .control-row { display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
+        .control-row input { flex:1; max-width:200px; padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#fff; font-size:16px; box-sizing:border-box; font-weight:500; transition:all 0.2s; }
+        .control-row input::placeholder { color:#a3cfbb; font-style:italic; }
+        .control-row input.input-error { border:3px solid #dc3545!important; background:#ffe6e6!important; color:#dc3545!important; box-shadow:0 0 15px rgba(220,53,69,0.8)!important; animation:aggressive-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
 
-#appHeader{
-    font-family:"Brush Script MT","Comic Sans MS",cursive;
-    font-size:75px;
-    color:#1e4620;
-    font-weight:900;
-    text-shadow:3px 3px 0 #e2f0d9;
-    pointer-events:none;
-}
+        .mic-btn { width:44px; height:44px; background:#2d6a30; border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.25); flex-shrink:0; transition:background 0.2s,transform 0.1s; -webkit-tap-highlight-color:transparent; }
+        .mic-btn:active { transform:scale(0.92); }
+        .mic-btn svg { width:20px; height:20px; fill:#fff; pointer-events:none; }
+        .mic-btn.listening { background:#dc3545!important; animation:pulse 1.5s infinite; }
+        #toggleInputsBtn svg { transition:transform 0.4s; width:24px; height:24px; }
+        #toggleInputsBtn.flipped svg { transform:rotate(180deg); }
 
-#riderCounterWidget{
-    font-size:15px;
-    color:#1e4620;
-    font-weight:bold;
-    background:#e2f0d9;
-    padding:6px 14px;
-    border-radius:12px;
-}
+        #startBtn { flex:1; padding:12px; border-radius:8px; border:none; font-size:16px; background:#2d6a30; color:white; cursor:pointer; font-weight:bold; transition:background 0.2s; box-shadow:0 3px 8px rgba(0,0,0,0.2); box-sizing:border-box; }
+        #startBtn.sharing-active { background:#dc3545; }
 
-/* CONTROLS */
-#controls{
-    position:absolute;
-    bottom:20px;
-    left:15px;
-    z-index:10;
-    background:#e2f0d9;
-    padding:16px;
-    border-radius:18px;
-    width:74%;
-    max-width:340px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-}
+        #chatToggleBtn, #roomLockBtn { position:absolute; right:15px; z-index:11; width:60px; height:60px; background:#1e4620; border:3px solid #e2f0d9; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.41); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s; }
+        #chatToggleBtn { bottom:54px; }
+        #roomLockBtn { bottom:130px; }
+        #chatToggleBtn:active, #roomLockBtn:active { transform:scale(0.92); }
+        #chatToggleBtn svg, #roomLockBtn svg { width:28px; height:28px; fill:#fff; }
+        #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
+        #chatBadge { position:absolute; top:-3px; right:-3px; background:#dc3545; color:white; border-radius:50%; padding:4px 8px; font-size:12px; font-weight:bold; display:none; border:2px solid white; }
 
-.control-row{
-    display:flex;
-    gap:8px;
-    align-items:center;
-}
+        #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
+        #chatOverlay.open { right:0; }
+        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; }
+        #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; }
+        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; }
+        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
+        .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
+        .msg-text { font-size:18px; word-break:break-word; }
+        .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
+        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; }
+        #chatInputArea input { flex:1; padding:12px; border-radius:8px; border:1px solid #ccc; font-size:15px; color:#111; font-weight:500; }
 
-.control-row input{
-    flex:1;
-    padding:12px;
-    border-radius:8px;
-    border:2px solid #2d6a30;
-    background:#1e4620;
-    color:#fff;
-}
+        #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
+        #roomModalOverlay.open { display:flex; }
+        #roomModal { background:#e2f0d9; border-radius:18px; padding:20px; width:85%; max-width:300px; display:flex; flex-direction:column; gap:10px; box-shadow:0 12px 40px rgba(0,0,0,0.4); }
+        #roomModal h3 { margin:0 0 5px; color:#1e4620; text-align:center; font-size:18px; }
+        .modal-input { padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#ffd700; text-align:center; font-size:24px; font-weight:900; width:100%; box-sizing:border-box; letter-spacing:3px; text-transform:uppercase; transition:all 0.2s; }
+        .modal-input::placeholder { color:#a3cfbb; font-style:italic; letter-spacing:normal; font-size:16px; font-weight:normal; }
+        .modal-input:disabled { opacity:0.5; background:#2a2a2a; border-color:#555; }
+        #modalOrText { text-align:center; font-size:14px; color:#1e4620; font-weight:bold; margin:-2px 0; transition:opacity 0.2s; }
+        .btn-row { display:flex; gap:10px; margin-top:5px; }
+        .btn-row button { flex:1; padding:12px; border-radius:8px; border:none; font-weight:bold; font-size:15px; cursor:pointer; color:white; }
+        #leaveRoomBtn { background:#6c757d; }
+        #joinRoomBtn { background:#2d6a30; }
 
-/* BUTTONS */
-.mic-btn{
-    width:44px;height:44px;
-    border-radius:50%;
-    background:#2d6a30;
-    border:none;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-}
+        @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(220,53,69,0.6);}70%{box-shadow:0 0 0 10px rgba(220,53,69,0);}100%{box-shadow:0 0 0 0 rgba(220,53,69,0);} }
+        @keyframes aggressive-shake { 0%,100%{transform:translateX(0);}15%,45%,75%{transform:translateX(-8px);}30%,60%,90%{transform:translateX(8px);} }
 
-#startBtn{
-    flex:1;
-    padding:12px;
-    background:#2d6a30;
-    color:#fff;
-    border:none;
-    border-radius:8px;
-    font-weight:bold;
-}
+        .leaflet-control-zoom { display:flex!important; flex-direction:row!important; border:none!important; box-shadow:0 1px 5px rgba(0,0,0,0.4)!important; border-radius:4px!important; overflow:hidden; }
+        .leaflet-control-zoom-in,.leaflet-control-zoom-out { border-radius:0!important; border-bottom:none!important; border-right:1px solid #ccc!important; width:44px!important; height:44px!important; line-height:44px!important; }
+        .leaflet-control-zoom-out { border-right:none!important; }
+        .radius-toggle-container { background:white; height:44px; padding:0 16px; box-sizing:border-box; border-radius:4px; box-shadow:0 1px 5px rgba(0,0,0,0.4); display:flex; align-items:center; gap:12px; color:#333; cursor:pointer; user-select:none; }
+        .radius-label-wrapper { display:flex; align-items:center; font-size:16px; font-weight:bold; white-space:nowrap; }
+        .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
+        .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
 
-/* CHAT */
-#chatOverlay{
-    position:absolute;
-    top:0; right:-100%;
-    width:100%;
-    max-width:340px;
-    height:100%;
-    background:#fff;
-    z-index:20;
-    transition:0.3s;
-}
-
-#chatOverlay.open{ right:0; }
-
-#chatHeader{
-    background:#1e4620;
-    color:#fff;
-    padding:16px;
-    display:flex;
-    justify-content:space-between;
-}
-
-/* MAP POPUPS */
-.leaflet-popup-content-wrapper{
-    background:transparent!important;
-    box-shadow:none!important;
-}
-
-/* ghost marker */
-.ghost-marker{
-    opacity:0.4;
-    filter:grayscale(40%);
-}
-</style>
+        /* Hide default Leaflet popup chrome — we use divIcon labels instead */
+        .leaflet-popup-content-wrapper,.leaflet-popup-tip { display:none!important; }
+    </style>
 </head>
-
 <body>
 
 <div id="appHeaderContainer">
@@ -158,306 +135,531 @@ html, body {
 <div id="map"></div>
 
 <div id="controls">
-    <div class="control-row">
-        <input id="username" placeholder="Enter your name"/>
-        <button class="mic-btn" id="usernameMic"></button>
+    <div id="inputsWrapper">
+        <div class="control-row">
+            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" enterkeyhint="done" />
+            <button class="mic-btn" id="usernameMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+        <div class="control-row">
+            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" enterkeyhint="done" />
+            <button class="mic-btn" id="destinationMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
     </div>
-
-    <div class="control-row">
-        <input id="destination" placeholder="Destination (optional)"/>
-        <button class="mic-btn" id="destinationMic"></button>
-    </div>
-
     <div class="control-row">
         <button id="startBtn">Start Sharing Location</button>
+        <button class="mic-btn" id="toggleInputsBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
+    </div>
+</div>
+
+<button id="roomLockBtn" type="button">
+    <svg viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></g></svg>
+</button>
+
+<button id="chatToggleBtn" type="button">
+    <div id="chatBadge">0</div>
+    <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+</button>
+
+<div id="roomModalOverlay">
+    <div id="roomModal">
+        <h3>Enter Locked Room?</h3>
+        <input type="text" id="generatedCode" class="modal-input" placeholder="Tap to CREATE New Code" readonly />
+        <div id="modalOrText">- OR -</div>
+        <input type="text" id="roomCodeInput" class="modal-input" placeholder="Enter a Code to JOIN" maxlength="6" autocomplete="off" />
+        <div class="btn-row">
+            <button id="leaveRoomBtn">Leave</button>
+            <button id="joinRoomBtn">Join</button>
+        </div>
+    </div>
+</div>
+
+<div id="chatOverlay">
+    <div id="chatHeader">
+        <span>Group Chat Room</span>
+        <button id="closeChatBtn" type="button">✕</button>
+    </div>
+    <div id="chatMessages"></div>
+    <div id="chatInputArea">
+        <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
+        <button class="mic-btn" id="chatMic" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+        </button>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ─────────────────────────────
-   SUPABASE + MAP INIT
-───────────────────────────── */
-const supabaseClient = supabase.createClient(
-  "https://xnwwngqennvwajlhvclj.supabase.co",
-  "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
-);
+    // ── Supabase + Map ────────────────────────────────────────────────────────
+    const supabaseClient = supabase.createClient(
+        "https://xnwwngqennvwajlhvclj.supabase.co",
+        "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
+    );
+    const map = L.map('map', { zoomControl: true }).setView([0, 0], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19, attribution:'&copy; CartoDB' }).addTo(map);
 
-const map = L.map('map').setView([0,0],2);
+    // ── State ─────────────────────────────────────────────────────────────────
+    let watchId = null, lastLat = 0, lastLng = 0;
+    let isSharing = false, isChatOpen = false, unreadCount = 0;
+    let wakeLock = null, oldBroadcastedName = "Anonymous";
+    let isRadiusFilterActive = true;
+    let activeRoomCode = null;
+    let initialFrameDone = false;   // only frame once on first GPS fix
 
-L.tileLayer(
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  { maxZoom: 19, attribution: '&copy; CartoDB' }
-).addTo(map);
+    // riders[name] = { marker, lastSeen, isGhost, dest, color }
+    const riders = {};
+    const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-/* ─────────────────────────────
-   STATE
-───────────────────────────── */
-const riders = {};
-let channel = null;
+    const GHOST_THRESHOLD_MS = 30_000;
 
-let isSharing = false;
-let activeRoomCode = null;
+    const iconUnlocked = '<svg viewBox="0 0 24 24"><g transform="scale(-1,1) translate(-24,0)"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h2c0-1.66 1.34-3 3-3s3 1.34 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/></g></svg>';
+    const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 
-let lastLat = 0;
-let lastLng = 0;
+    let myId = localStorage.getItem('rider_id');
+    if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
 
-let watchId = null;
-
-let myId = localStorage.getItem("rider_id") ||
-  (localStorage.setItem("rider_id","id-"+Math.random().toString(36).slice(2)), localStorage.getItem("rider_id"));
-
-let myColor = localStorage.getItem("rider_chat_color") ||
-  (localStorage.setItem("rider_chat_color","#" + Math.floor(Math.random()*16777215).toString(16)), localStorage.getItem("rider_chat_color"));
-
-const sessionToken = "t-" + Math.random().toString(36).slice(2);
-
-const GHOST_MS = 30000;
-
-/* ─────────────────────────────
-   ICONS
-───────────────────────────── */
-const icon = L.icon({
-  iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconSize:[25,41],
-  iconAnchor:[12,41]
-});
-
-const ghostIcon = L.icon({
-  iconUrl:'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconSize:[25,41],
-  iconAnchor:[12,41],
-  className:'ghost-marker'
-});
-
-/* ─────────────────────────────
-   HELPERS
-───────────────────────────── */
-const el = id => document.getElementById(id);
-
-const usernameInput = el("username");
-const destinationInput = el("destination");
-
-const startBtn = el("startBtn");
-
-const chatOverlay = el("chatOverlay");
-const chatMessages = el("chatMessages");
-const chatMsgInput = el("chatMsgInput");
-
-const riderCounter = el("riderCounterWidget");
-
-/* ─────────────────────────────
-   POPUPS
-───────────────────────────── */
-function popup(name, dest, ghost, ts) {
-  const age = Math.max(0, Math.floor((Date.now()-ts)/1000));
-
-  return `
-    <div style="background:#e2f0d9;padding:10px;border-radius:10px;
-    border:2px solid #1e4620;text-align:center;">
-
-      <b>${name}</b><br/>
-      ${dest ? `→ ${dest}<br/>` : ""}
-
-      <small style="opacity:0.7">
-        ${ghost ? "📵 offline " : "🟢 live "}
-        (${age}s ago)
-      </small>
-    </div>
-  `;
-}
-
-/* ─────────────────────────────
-   RIDERS
-───────────────────────────── */
-function removeRider(name){
-  if(riders[name]){
-    map.removeLayer(riders[name].marker);
-    delete riders[name];
-  }
-}
-
-function updateRider(user, dest, lat, lng, color){
-  const now = Date.now();
-
-  if(riders[user]){
-    const r = riders[user];
-
-    r.lastSeen = now;
-    r.dest = dest;
-
-    r.marker.setLatLng([lat,lng]);
-    r.marker.setPopupContent(popup(user,dest,false,now));
-
-    if(r.isGhost){
-      r.isGhost = false;
-      r.marker.setIcon(icon);
+    const distinctColors = ['#ffb3ba','#ffdfba','#ffffba','#baffc9','#bae1ff','#e8baff','#ffbaff','#dcd3ff','#bafff0','#ffd3b6','#d4f0f0','#ffc4e1'];
+    let myChatColor = localStorage.getItem('rider_chat_color');
+    if (!myChatColor || myChatColor.startsWith('hsl') || myChatColor.includes('99')) {
+        myChatColor = distinctColors[Math.floor(Math.random() * distinctColors.length)];
+        localStorage.setItem('rider_chat_color', myChatColor);
     }
-  } else {
-    const marker = L.marker([lat,lng],{icon})
-      .addTo(map)
-      .bindPopup(popup(user,dest,false,now));
 
-    riders[user] = {
-      marker,
-      lastSeen: now,
-      dest,
-      isGhost:false
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    const getAgeLabel = (ts) => {
+        if (!ts) return 'unknown';
+        const s = Math.floor((Date.now() - ts) / 1000);
+        if (s < 10)   return 'just now';
+        if (s < 60)   return `${s}s ago`;
+        if (s < 3600) return `${Math.floor(s/60)}m ago`;
+        return `${Math.floor(s/3600)}h ago`;
     };
-  }
-}
 
-/* ─────────────────────────────
-   GHOST CHECK
-───────────────────────────── */
-setInterval(() => {
-  Object.keys(riders).forEach(name => {
-    const r = riders[name];
-    if(!r) return;
+    // Build the divIcon label shown above the pin at all zoom levels
+    const buildLabelIcon = (name, dest, color, ghost) => {
+        const displayName = name.replace(' (You)', '');
+        const isMe = name.includes('(You)');
+        const ghostDot = ghost ? '<span class="ghost-dot"></span>' : '';
+        const destLine = dest ? `<div class="dest-line">→ ${dest}</div>` : '';
+        const bgColor = color || '#ffffff';
+        const html = `
+            <div class="rider-label ${ghost ? 'ghost-label' : ''}"
+                 style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'};">
+                ${displayName}${ghostDot}
+                ${destLine}
+            </div>`;
+        // Anchor so the bottom-center of the label sits above the pin top
+        return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[-4, 62], popupAnchor:[0,0] });
+    };
 
-    const age = Date.now() - r.lastSeen;
+    // ── Fit map to show all active riders (no animation fighting GPS updates) ─
+    const fitAllRiders = (animate = true) => {
+        const positions = Object.values(riders).map(r => r.marker.getLatLng());
+        if (positions.length === 0) return;
+        if (positions.length === 1) {
+            map.setView(positions[0], 15, { animate });
+        } else {
+            map.fitBounds(L.latLngBounds(positions), {
+                paddingTopLeft: [20, 160],
+                paddingBottomRight: [20, 160],
+                animate,
+                maxZoom: 16
+            });
+        }
+    };
 
-    if(age > GHOST_MS && !r.isGhost){
-      r.isGhost = true;
-      r.marker.setIcon(ghostIcon);
-      r.marker.setPopupContent(popup(name,r.dest,true,r.lastSeen));
+    // ── Ghost watchdog ────────────────────────────────────────────────────────
+    setInterval(() => {
+        Object.keys(riders).forEach(name => {
+            if (name.includes('(You)')) return;
+            const r = riders[name];
+            if (!r) return;
+            const shouldBeGhost = (Date.now() - r.lastSeen) >= GHOST_THRESHOLD_MS;
+            if (shouldBeGhost !== r.isGhost) {
+                r.isGhost = shouldBeGhost;
+                r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost));
+            }
+            // Tick the "last seen" time in the label if ghost
+            if (r.isGhost) {
+                r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, true));
+            }
+        });
+        updateLiveRiderCounter();
+    }, 10_000);
+
+    // ── Channel ───────────────────────────────────────────────────────────────
+    let channel;
+    const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
+
+    const subscribeChannel = () => {
+        if (channel) channel.unsubscribe();
+        channel = supabaseClient.channel(buildChannelName(), { config:{ broadcast:{ ack:true, self:false } } });
+        channel
+            .on('broadcast', { event:'location-update' }, ({ payload }) => {
+                const { user, dest, lat, lng, status, color } = payload;
+                if (isRadiusFilterActive && lastLat && lastLng && !user.includes('(You)')) {
+                    const distMi = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
+                    if (distMi > 50) { removeRider(user); return; }
+                }
+                if (status === 'offline') {
+                    removeRider(user);
+                } else {
+                    updateRiderMarker(user, dest, lat, lng, color);
+                }
+                updateLiveRiderCounter();
+            })
+            .on('broadcast', { event:'group-live-chat' }, ({ payload }) => {
+                if (payload.token !== sessionMsgToken) {
+                    appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
+                    if (!isChatOpen) { unreadCount++; chatBadge.innerText = unreadCount; chatBadge.style.display = 'block'; }
+                }
+            })
+            .on('broadcast', { event:'rename' }, ({ payload }) => {
+                document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
+            })
+            .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
+                const bubbles = document.querySelectorAll('.msg-bubble');
+                if (!bubbles.length) return;
+                const pkg = Array.from(bubbles).map(b => ({
+                    msgId: b.id, user: b.querySelector('.msg-user').innerText,
+                    message: b.querySelector('.msg-text').innerText,
+                    color: b.style.backgroundColor,
+                    authorId: Array.from(b.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-',''),
+                    stamp: 'is-foreign'
+                }));
+                channel.send({ type:'broadcast', event:'provide-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
+            })
+            .on('broadcast', { event:'provide-chat-sync' }, ({ payload }) => {
+                if (payload.targetToken !== sessionMsgToken) return;
+                payload.historyPackage.forEach(m => appendMessage(m.msgId, m.user, m.message, false, m.color, m.authorId));
+            })
+            .subscribe(status => {
+                if (status === 'SUBSCRIBED') {
+                    setTimeout(() => channel.send({ type:'broadcast', event:'request-chat-sync', payload:{ requestedByToken:sessionMsgToken } }), 1500);
+                }
+            });
+    };
+    subscribeChannel();
+
+    // ── Radius filter ─────────────────────────────────────────────────────────
+    const RadiusControl = L.Control.extend({
+        options: { position:'topright' },
+        onAdd() {
+            const c = L.DomUtil.create('div','leaflet-bar leaflet-control radius-toggle-container');
+            c.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
+            L.DomEvent.disableClickPropagation(c);
+            return c;
+        }
+    });
+    map.addControl(new RadiusControl());
+    document.getElementById('radiusToggle').addEventListener('change', e => {
+        isRadiusFilterActive = e.target.checked;
+        if (isRadiusFilterActive && lastLat && lastLng) {
+            Object.keys(riders).filter(k => !k.includes('(You)')).forEach(name => {
+                const distMi = map.distance([lastLat,lastLng], riders[name].marker.getLatLng()) / 1609.34;
+                if (distMi > 50) removeRider(name);
+            });
+            updateLiveRiderCounter();
+        }
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const el = id => document.getElementById(id);
+    const startBtn         = el('startBtn');
+    const usernameInput    = el('username');
+    const destinationInput = el('destination');
+    const usernameMic      = el('usernameMic');
+    const destinationMic   = el('destinationMic');
+    const chatToggleBtn    = el('chatToggleBtn');
+    const chatOverlay      = el('chatOverlay');
+    const closeChatBtn     = el('closeChatBtn');
+    const chatMessages     = el('chatMessages');
+    const chatMsgInput     = el('chatMsgInput');
+    const chatMic          = el('chatMic');
+    const chatBadge        = el('chatBadge');
+    const roomLockBtn      = el('roomLockBtn');
+    const roomModalOverlay = el('roomModalOverlay');
+    const generatedCodeEl  = el('generatedCode');
+    const roomCodeInput    = el('roomCodeInput');
+    const joinRoomBtn      = el('joinRoomBtn');
+    const leaveRoomBtn     = el('leaveRoomBtn');
+    const modalOrText      = el('modalOrText');
+    const toggleInputsBtn  = el('toggleInputsBtn');
+    const inputsWrapper    = el('inputsWrapper');
+
+    usernameInput.value = localStorage.getItem('rider_saved_name') || '';
+    chatMsgInput.style.backgroundColor = myChatColor;
+
+    toggleInputsBtn.addEventListener('click', () => {
+        inputsWrapper.classList.toggle('hidden');
+        toggleInputsBtn.classList.toggle('flipped');
+    });
+
+    // ── Counter ───────────────────────────────────────────────────────────────
+    const updateLiveRiderCounter = () => {
+        const buddyNames = Object.keys(riders).filter(k => !k.includes('(You)'));
+        const activeCount = buddyNames.filter(k => !riders[k].isGhost).length + (isSharing ? 1 : 0);
+        const ghostCount  = buddyNames.filter(k =>  riders[k].isGhost).length;
+        let text = `Buddies Online: ${activeCount}`;
+        if (ghostCount > 0) text += ` (${ghostCount} locked 📵)`;
+        el('riderCounterWidget').innerText = text;
+    };
+
+    // ── Rider markers ─────────────────────────────────────────────────────────
+    const removeRider = name => {
+        if (riders[name]) { map.removeLayer(riders[name].marker); delete riders[name]; }
+    };
+
+    function updateRiderMarker(user, dest, lat, lng, color) {
+        const markerColor = color || '#ffffff';
+        const now = Date.now();
+
+        if (riders[user]) {
+            const r = riders[user];
+            const wasGhost = r.isGhost;
+            r.lastSeen = now;
+            r.dest = dest;
+            r.color = markerColor;
+            r.isGhost = false;
+            r.marker.setLatLng([lat, lng]);
+            // Refresh label (un-ghost or update dest)
+            if (wasGhost || dest !== r.dest) {
+                r.marker.setIcon(buildLabelIcon(user, dest, markerColor, false));
+            }
+            // ── NO auto-pan here — user controls the map view ──
+        } else {
+            // Brand new rider — create marker with label icon
+            const marker = L.marker([lat, lng], {
+                icon: buildLabelIcon(user, dest, markerColor, false)
+            }).addTo(map);
+
+            // Tap label → zoom in; tap again → fit all
+            marker.on('click', e => {
+                L.DomEvent.stopPropagation(e);
+                if (!marker._zoomedIn) {
+                    map.setView([lat, lng], 17, { animate:true, duration:0.7 });
+                    marker._zoomedIn = true;
+                } else {
+                    fitAllRiders(true);
+                    marker._zoomedIn = false;
+                }
+            });
+
+            marker._zoomedIn = false;
+            riders[user] = { marker, lastSeen:now, isGhost:false, dest, color:markerColor };
+
+            // When a new buddy joins, gently re-frame to show everyone
+            // but only if the user hasn't manually zoomed/panned
+            if (!user.includes('(You)')) {
+                setTimeout(() => fitAllRiders(true), 300);
+            }
+        }
     }
-  });
 
-  updateCounter();
-}, 10000);
+    // ── Broadcast ─────────────────────────────────────────────────────────────
+    const broadcastCurrentState = () => {
+        if (!isSharing || !lastLat || !lastLng) return;
+        let currentUser = usernameInput.value.trim();
+        if (!currentUser || currentUser.toLowerCase() === 'anonymous') currentUser = oldBroadcastedName;
 
-/* ─────────────────────────────
-   COUNTER
-───────────────────────────── */
-function updateCounter(){
-  const keys = Object.keys(riders);
+        if (oldBroadcastedName !== currentUser) {
+            removeRider(`${oldBroadcastedName} (You)`);
+            channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
+            oldBroadcastedName = currentUser;
+        }
 
-  riderCounter.innerText =
-    `Buddies Online: ${keys.length}`;
-}
+        updateRiderMarker(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor);
+        channel.send({ type:'broadcast', event:'location-update', payload:{
+            user:currentUser, dest:destinationInput.value.trim(),
+            lat:lastLat, lng:lastLng, status:'online', color:myChatColor
+        }});
+        updateLiveRiderCounter();
+    };
 
-/* ─────────────────────────────
-   CHANNEL
-───────────────────────────── */
-function roomName(){
-  return activeRoomCode ? `room-${activeRoomCode}` : "room-global";
-}
+    const stopSharingLocation = () => {
+        isSharing = false;
+        initialFrameDone = false;
+        destinationInput.value = '';
+        startBtn.innerText = 'Start Sharing Location';
+        startBtn.classList.remove('sharing-active');
+        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+        channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
+        Object.keys(riders).filter(k => k.includes('(You)')).forEach(removeRider);
+        lastLat = 0; lastLng = 0;
+        updateLiveRiderCounter();
+        releaseWakeLock();
+    };
 
-function connect(){
-  if(channel) channel.unsubscribe();
+    startBtn.addEventListener('click', () => {
+        if (isSharing) { stopSharingLocation(); return; }
+        const name = usernameInput.value.trim();
+        if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
+        usernameInput.value = name;
+        localStorage.setItem('rider_saved_name', name);
+        oldBroadcastedName = name;
+        isSharing = true;
+        startBtn.innerText = 'Stop Sharing Location';
+        startBtn.classList.add('sharing-active');
 
-  channel = supabaseClient.channel(roomName(),{
-    config:{broadcast:{self:false}}
-  });
+        if ('geolocation' in navigator) {
+            watchId = navigator.geolocation.watchPosition(pos => {
+                lastLat = pos.coords.latitude;
+                lastLng = pos.coords.longitude;
+                broadcastCurrentState();
 
-  channel.on("broadcast",{event:"location"},({payload})=>{
-    const {user,lat,lng,dest,status} = payload;
+                // One-time initial frame on first GPS fix
+                if (!initialFrameDone) {
+                    initialFrameDone = true;
+                    setTimeout(() => fitAllRiders(true), 400);
+                }
+            }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
+            requestWakeLock();
+        } else stopSharingLocation();
+    });
 
-    if(status==="offline"){
-      removeRider(user);
-      return;
+    // ── Room modal ────────────────────────────────────────────────────────────
+    const generateRoomCode = () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    };
+    const resetModalUI = () => {
+        modalOrText.style.opacity = '1';
+        roomCodeInput.placeholder = 'Enter a Code to JOIN';
+        roomCodeInput.disabled = false;
+        joinRoomBtn.innerText = 'Join';
+        if (!activeRoomCode) generatedCodeEl.value = '';
+        roomCodeInput.value = '';
+    };
+    const applyRoomCode = code => {
+        if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
+        Object.keys(riders).filter(k => !k.includes('(You)')).forEach(removeRider);
+        chatMessages.innerHTML = '';
+        activeRoomCode = code;
+        subscribeChannel(); updateLiveRiderCounter();
+        if (isSharing) setTimeout(broadcastCurrentState, 700);
+        roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
+        roomModalOverlay.classList.remove('open'); resetModalUI();
+    };
+    const leavePrivateRoom = () => {
+        if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
+        Object.keys(riders).filter(k => !k.includes('(You)')).forEach(removeRider);
+        chatMessages.innerHTML = '';
+        activeRoomCode = null;
+        subscribeChannel(); updateLiveRiderCounter();
+        if (isSharing) setTimeout(broadcastCurrentState, 700);
+        roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
+        resetModalUI();
+    };
+
+    roomLockBtn.addEventListener('click', () => {
+        if (activeRoomCode) { generatedCodeEl.value = activeRoomCode; modalOrText.style.opacity='0.3'; roomCodeInput.placeholder='Give this to friends!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Stay in Room'; }
+        roomModalOverlay.classList.add('open');
+    });
+    roomModalOverlay.addEventListener('click', e => { if (e.target===roomModalOverlay) { roomModalOverlay.classList.remove('open'); if (!activeRoomCode) resetModalUI(); } });
+    generatedCodeEl.addEventListener('click', () => {
+        if (!activeRoomCode) { generatedCodeEl.value=generateRoomCode(); modalOrText.style.opacity='0.3'; roomCodeInput.value=''; roomCodeInput.placeholder='Give this to friends!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Start Room'; }
+    });
+    joinRoomBtn.addEventListener('click', () => {
+        if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; }
+        const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
+        if (code.length >= 4) applyRoomCode(code);
+        else { roomCodeInput.style.borderColor='#dc3545'; setTimeout(()=>roomCodeInput.style.borderColor='#2d6a30',1500); }
+    });
+    leaveRoomBtn.addEventListener('click', () => { if (activeRoomCode) leavePrivateRoom(); roomModalOverlay.classList.remove('open'); resetModalUI(); });
+
+    // ── requireName ───────────────────────────────────────────────────────────
+    const requireName = () => {
+        if (inputsWrapper.classList.contains('hidden')) { inputsWrapper.classList.remove('hidden'); toggleInputsBtn.classList.remove('flipped'); }
+        setTimeout(() => {
+            usernameInput.classList.remove('input-error'); void usernameInput.offsetWidth;
+            usernameInput.classList.add('input-error'); usernameInput.placeholder = 'Name required!'; usernameInput.focus();
+            setTimeout(() => { usernameInput.classList.remove('input-error'); usernameInput.placeholder = 'Enter your name'; }, 2000);
+        }, 50);
+    };
+
+    // ── Chat ──────────────────────────────────────────────────────────────────
+    let touchStartX = 0, touchStartY = 0;
+    chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; },{passive:true});
+    chatOverlay.addEventListener('touchend', e => {
+        if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); }
+    },{passive:true});
+    chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); });
+    closeChatBtn.addEventListener('click', () => { isChatOpen=false; chatOverlay.classList.remove('open'); });
+
+    const sendGroupMessage = () => {
+        if (!chatMsgInput.value.trim()) return;
+        const currentName = usernameInput.value.trim();
+        if (!currentName || currentName.toLowerCase()==='anonymous') { chatOverlay.classList.remove('open'); isChatOpen=false; requireName(); return; }
+        const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+        appendMessage(msgId, currentName, chatMsgInput.value.trim(), true, myChatColor, myId);
+        channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:chatMsgInput.value.trim(), token:sessionMsgToken, color:myChatColor, id:myId } });
+        chatMsgInput.value = '';
+    };
+
+    function appendMessage(msgId, user, msg, isMe, color, authorId) {
+        if (document.getElementById(msgId)) return;
+        const w = document.createElement('div');
+        w.className = `msg-bubble bubble-${authorId||'unknown'}`; w.id = msgId;
+        w.style.backgroundColor = color||'#ffffff';
+        w.innerHTML = `<div class="msg-user">${user}</div><div class="msg-text">${msg}</div>${isMe?`<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>`:''}`;
+        chatMessages.appendChild(w); chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
-    updateRider(user,dest,lat,lng);
-    updateCounter();
-  });
+    // ── Voice input ───────────────────────────────────────────────────────────
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const setupVoiceInput = (btn, input, autoSubmit=false) => {
+            const rec = new SpeechRecognition();
+            rec.continuous=false; rec.interimResults=false; rec.lang='en-US';
+            btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
+            rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
+            rec.onresult = e => {
+                input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
+                if (input.id==='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); }
+                autoSubmit ? sendGroupMessage() : broadcastCurrentState();
+            };
+            rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
+            rec.onend   = () => { btn.classList.remove('listening'); resetPlaceholder(input); closeKeyboard(input); };
+        };
+        setupVoiceInput(usernameMic, usernameInput);
+        setupVoiceInput(destinationMic, destinationInput);
+        setupVoiceInput(chatMic, chatMsgInput, true);
+    } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
-  channel.subscribe();
-}
-connect();
+    // ── Keyboard helpers ──────────────────────────────────────────────────────
+    const closeKeyboard = (inputEl, event=null) => {
+        if (event) { event.preventDefault(); event.stopPropagation(); }
+        [usernameInput, destinationInput, chatMsgInput].forEach(i => i.blur());
+        if (document.activeElement) document.activeElement.blur();
+        setTimeout(() => { window.scrollTo(0,0); document.body.scrollTop=0; map.invalidateSize(); }, 80);
+    };
+    const enforceEnter = (e, input) => { if (e.key==='Enter'||e.keyCode===13) { closeKeyboard(input,e); if(input.id==='chatMsgInput') sendGroupMessage(); } };
+    usernameInput.addEventListener('keydown',    e => enforceEnter(e, usernameInput));
+    destinationInput.addEventListener('keydown', e => enforceEnter(e, destinationInput));
+    chatMsgInput.addEventListener('keydown',     e => enforceEnter(e, chatMsgInput));
+    roomCodeInput.addEventListener('keydown',    e => { if(e.key==='Enter') joinRoomBtn.click(); });
 
-/* ─────────────────────────────
-   BROADCAST
-───────────────────────────── */
-function sendLocation(){
-  if(!isSharing) return;
+    usernameInput.addEventListener('input', () => {
+        usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
+        const n = usernameInput.value.trim();
+        if (n) { localStorage.setItem('rider_saved_name',n); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
+        broadcastCurrentState();
+    });
+    destinationInput.addEventListener('input', broadcastCurrentState);
 
-  const user = usernameInput.value || "anonymous";
+    const resetPlaceholder = i => { i.placeholder = i.id==='username'?'Enter your name':i.id==='destination'?'Destination (optional)':'Type a message...'; };
 
-  updateRider(user+" (You)",destinationInput.value,lastLat,lastLng,myColor);
+    // ── Wake lock ─────────────────────────────────────────────────────────────
+    async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
+    function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
 
-  channel.send({
-    type:"broadcast",
-    event:"location",
-    payload:{
-      user,
-      lat:lastLat,
-      lng:lastLng,
-      dest:destinationInput.value,
-      status:"online"
-    }
-  });
-}
-
-/* ─────────────────────────────
-   START / STOP
-───────────────────────────── */
-startBtn.onclick = () => {
-  if(isSharing){
-    isSharing = false;
-    navigator.geolocation.clearWatch(watchId);
-    return;
-  }
-
-  isSharing = true;
-
-  watchId = navigator.geolocation.watchPosition(pos=>{
-    lastLat = pos.coords.latitude;
-    lastLng = pos.coords.longitude;
-
-    sendLocation();
-  });
-};
-
-/* ─────────────────────────────
-   CHAT (minimal preserved)
-───────────────────────────── */
-function sendChat(){
-  const msg = chatMsgInput.value.trim();
-  if(!msg) return;
-
-  channel.send({
-    type:"broadcast",
-    event:"chat",
-    payload:{
-      msg,
-      user:usernameInput.value
-    }
-  });
-
-  chatMsgInput.value="";
-}
-
-/* ─────────────────────────────
-   WAKE LOCK
-───────────────────────────── */
-let wakeLock=null;
-
-async function requestWakeLock(){
-  if("wakeLock" in navigator){
-    try{
-      wakeLock = await navigator.wakeLock.request("screen");
-    }catch(e){}
-  }
-}
-
-/* ─────────────────────────────
-   INPUT HANDLERS
-───────────────────────────── */
-usernameInput.oninput = () => {
-  localStorage.setItem("name",usernameInput.value);
-};
-
-/* ─────────────────────────────
-   SERVICE WORKER
-───────────────────────────── */
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js");
-  });
-}
+    if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 </script>
 </body>
 </html>
