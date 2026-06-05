@@ -19,136 +19,21 @@
         
         #privacyHint { font-size:24px; color:#1e4620; font-weight:normal; font-style:italic; margin-top:12px; text-align:center; pointer-events:none; text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5); white-space:normal; width:280px; line-height:1.2; }
 
-        .rider-icon-container {
-            position: relative;
-            width: 0px !important;
-            height: 0px !important;
-        }
+        .rider-icon-container { position: relative; width: 0px !important; height: 0px !important; }
+        .rider-physical-pin { position: absolute; bottom: 0; left: -12px; width: 25px; height: 41px; background-image: url('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png'); background-size: contain; background-repeat: no-repeat; pointer-events: auto; cursor: pointer; z-index: 200; }
+        .rider-label { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); border: 2px solid #1e4620; border-radius: 8px; font-size: 14px; color: #111; box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: auto; cursor: pointer; text-align: center; z-index: 201; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; }
+        .rider-label.ghost-label { border-style: dashed; background: rgba(240,240,240,0.85); }
+        .rider-icon-container.ghost-marker-active .rider-physical-pin { opacity: 0.4; filter: grayscale(60%); }
+        .status-tracker-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-left: 6px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.2); }
+        .status-dot-stale { background: #dc3545; box-shadow: 0 0 6px #dc3545; animation: redPulse 2s infinite; }
+        .label-top-row { display: flex; align-items: center; justify-content: center; width: 100%; gap: 4px; }
+        .label-name-text { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
-        .rider-physical-pin {
-            position: absolute;
-            bottom: 0;
-            left: -12px;
-            width: 25px;
-            height: 41px;
-            background-image: url('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png');
-            background-size: contain;
-            background-repeat: no-repeat;
-            pointer-events: auto;
-            cursor: pointer;
-            z-index: 200;
-        }
-
-        .rider-label {
-            position: absolute;
-            bottom: 45px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255,255,255,0.95);
-            border: 2px solid #1e4620;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #111;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            pointer-events: auto;
-            cursor: pointer;
-            text-align: center;
-            z-index: 201;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            box-sizing: border-box;
-        }
-        
-        .rider-label.ghost-label {
-            border-style: dashed;
-            background: rgba(240,240,240,0.85);
-        }
-
-        .rider-icon-container.ghost-marker-active .rider-physical-pin {
-            opacity: 0.4;
-            filter: grayscale(60%);
-        }
-
-        .status-tracker-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 6px;
-            vertical-align: middle;
-            border: 1px solid rgba(0,0,0,0.2);
-        }
-        
-        .status-dot-stale {
-            background: #dc3545;
-            box-shadow: 0 0 6px #dc3545;
-            animation: redPulse 2s infinite;
-        }
-
-        .label-top-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            gap: 4px;
-        }
-
-        .label-name-text {
-            font-weight: bold;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            flex: 1;
-        }
-
-        .nudge-refresh-btn {
-            background: #2d6a30;
-            color: #ffffff;
-            border: none;
-            border-radius: 4px;
-            width: 22px;
-            height: 22px;
-            font-size: 14px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.35);
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-            pointer-events: auto !important;
-            z-index: 300;
-            transition: background 0.1s, transform 0.1s;
-        }
+        .nudge-refresh-btn { background: #2d6a30; color: #ffffff; border: none; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.35); padding: 0; line-height: 1; flex-shrink: 0; pointer-events: auto !important; z-index: 300; transition: background 0.1s, transform 0.1s; }
         .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.85); }
 
-        .rider-label .dest-container {
-            width: 100%;
-            height: 18px;
-            margin-top: 4px;
-            border-top: 1px dashed rgba(0,0,0,0.15);
-            padding-top: 2px;
-            box-sizing: border-box;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        .rider-label .dest-text-content {
-            width: 100%;
-            font-size: 11px;
-            color: #2d6a30;
-            font-weight: 700;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            text-align: center;
-        }
+        .rider-label .dest-container { width: 100%; height: 18px; margin-top: 4px; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 2px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .rider-label .dest-text-content { width: 100%; font-size: 11px; color: #2d6a30; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
 
         @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(220,53,69,0.6);}50%{box-shadow:0 0 10px rgba(220,53,69,1);} }
 
@@ -182,9 +67,14 @@
 
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
-        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; }
-        #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; }
-        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; }
+        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; padding:4px; }
+        
+        /* New dedicated visual control interface styles for Chat Box Games system */
+        #chatGamesTriggerBtn { background:#b8860b; color:white; border:2px solid #ffd700; border-radius:8px; font-size:13px; font-weight:bold; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:transform 0.1s; }
+        #chatGamesTriggerBtn:active { transform:scale(0.92); }
+
+        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
         .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
         .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
         .msg-text { font-size:18px; word-break:break-word; }
@@ -196,6 +86,23 @@
         
         .inline-send-btn { position:absolute; right:4px; background:#2d6a30; border:none; border-radius:6px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
         .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
+
+        /* Game Hub Drawer Layout Overlays */
+        #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:5; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
+        #gameHubOverlay.open { display:flex; }
+        .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
+        .game-grid-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .game-card-btn { background:#e2f0d9; border:3px solid #2d6a30; border-radius:14px; padding:16px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.2); transition:transform 0.1s; }
+        .game-card-btn:active { transform:scale(0.95); }
+        .game-card-icon { font-size:32px; }
+        .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
+        
+        /* Dedicated Live Active Sandbox Screen Box Container */
+        #activeGameStage { position:absolute; top:54px; bottom:0; left:0; right:0; background:#0e2e10; z-index:6; display:none; flex-direction:column; box-sizing:border-box; }
+        #activeGameStage.open { display:flex; }
+        #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ffd700; }
+        #exitGameBtn { background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; padding:4px 10px; cursor:pointer; }
+        #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; color:white; font-weight:bold; text-align:center; padding:12px; }
 
         #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
         #roomModalOverlay.open { display:flex; }
@@ -276,11 +183,54 @@
     </div>
 </div>
 
+<!-- Chat Overlay Container with Game Center Integration -->
 <div id="chatOverlay">
     <div id="chatHeader">
-        <span>Group Chat Room</span>
+        <button id="chatGamesTriggerBtn" type="button">🎮 Games</button>
+        <span style="flex:1; text-align:center;">Group Room</span>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
+    
+    <!-- Games Hub Dashboard Menu Layer -->
+    <div id="gameHubOverlay">
+        <div class="game-hub-headline">Chaser Game Center</div>
+        <div class="game-grid-layout">
+            <div class="game-card-btn" onclick="launchGameEngine('Solitaire', '🃏')">
+                <span class="game-card-icon">🃏</span>
+                <span class="game-card-title">Solitaire</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Crew Trivia', '🧠')">
+                <span class="game-card-icon">🧠</span>
+                <span class="game-card-title">Crew Trivia</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Checkers', '🔴')">
+                <span class="game-card-icon">🔴</span>
+                <span class="game-card-title">Checkers</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Chaser Match', '💎')">
+                <span class="game-card-icon">💎</span>
+                <span class="game-card-title">Chaser Match</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Hangman', '🪓')">
+                <span class="game-card-icon">🪓</span>
+                <span class="game-card-title">Hangman</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Texas Holdem', '♠️')">
+                <span class="game-card-icon">♠️</span>
+                <span class="game-card-title">Texas Hold'em</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Canvas Game Engine View Layer -->
+    <div id="activeGameStage">
+        <div id="gameStageHeader">
+            <span id="activeGameLabelTitle">Game Stage</span>
+            <button id="exitGameBtn" onclick="shutdownActiveGame()">Exit Game</button>
+        </div>
+        <div id="gameCanvasContainer"></div>
+    </div>
+
     <div id="chatMessages"></div>
     <div id="chatInputArea">
         <button class="mic-btn" id="chatMic" type="button">
@@ -327,7 +277,6 @@
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s-.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
     const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
 
-    // REFRESH KEY HANDSHAKE: Swap the text value below with your actual VAPID Public key string
     const VAPID_PUBLIC_KEY = 'YOUR_ACTUAL_LONG_VAPID_PUBLIC_KEY_HERE';
     let myId = localStorage.getItem('rider_id');
     if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
@@ -372,7 +321,6 @@
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
     };
 
-    // Cleaned up text string format rules to stay entirely scannable and clear of robotic background window errors
     const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
         if (event) { event.stopPropagation(); event.preventDefault(); }
         let sourceSenderName = usernameInput.value.trim() || "A buddy";
@@ -389,14 +337,59 @@
                     sender_name: sourceSenderName 
                 })
             })
-            .then(() => {
-                console.log(`Location ping transmission success.`);
-            })
-            .catch(err => {
-                console.error('Ping transmission anomaly:', err);
-            });
+            .then(() => { console.log(`Location ping transmission success.`); })
+            .catch(err => { console.error('Ping transmission anomaly:', err); });
         }
     };
+
+    /* Games Dashboard Overlay Interface Trigger Controllers */
+    const gameHubOverlay = document.getElementById('gameHubOverlay');
+    const activeGameStage = document.getElementById('activeGameStage');
+    const gameCanvasContainer = document.getElementById('gameCanvasContainer');
+    const activeGameLabelTitle = document.getElementById('activeGameLabelTitle');
+
+    document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
+        resetActivityTimer();
+        if (gameHubOverlay.classList.contains('open')) {
+            gameHubOverlay.classList.remove('open');
+            shutdownActiveGame();
+        } else {
+            gameHubOverlay.classList.add('open');
+        }
+    });
+
+    function launchGameEngine(gameName, gameIcon) {
+        resetActivityTimer();
+        activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
+        activeGameStage.add('open');
+        
+        // Dynamic placeholder loading setup layout structure injection
+        gameCanvasContainer.innerHTML = `
+            <div style="background:#e2f0d9; color:#1e4620; padding:20px; border-radius:12px; box-shadow:0 6px 15px rgba(0,0,0,0.5); width:90%; max-width:280px;">
+                <h3 style="margin:0 0 10px 0;">${gameName}</h3>
+                <p style="font-size:14px; margin:0 0 16px 0; line-height:1.4; font-weight:normal;">Visual interface canvas initialized for ${gameName}. Ready to drop local code or join active room table channel match.</p>
+                <button onclick="broadcastGameScoreToRoom('${gameName}', '${gameIcon}')" style="width:100%; padding:10px; border:none; background:#2d6a30; color:white; border-radius:6px; font-weight:bold; cursor:pointer;">Share Score to Chat</button>
+            </div>`;
+    }
+
+    function shutdownActiveGame() {
+        activeGameStage.remove('open');
+        gameCanvasContainer.innerHTML = '';
+    }
+
+    function broadcastGameScoreToRoom(gameName, gameIcon) {
+        const currentName = usernameInput.value.trim() || "A buddy";
+        const randomMockScore = Math.floor(Math.random() * 800) + 200;
+        const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
+        
+        let scoreMessageText = `${gameIcon} Played a game of ${gameName}! Score: ${randomMockScore} points.`;
+        if(gameName === 'Hangman') scoreMessageText = `${gameIcon} Cleared the Hangman puzzle word phrase beautifully!`;
+        
+        appendMessage(msgId, currentName, scoreMessageText, true, myChatColor, myId);
+        channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:scoreMessageText, token:sessionMsgToken, color:myChatColor, id:myId } });
+        shutdownActiveGame();
+        gameHubOverlay.classList.remove('open');
+    }
 
     const fitAllRiders = (animate = true) => {
         const positions = Object.values(incomingRidersCache).filter(r => r.marker).map(r => r.marker.getLatLng());
@@ -515,9 +508,7 @@
                 rider_id: myId,
                 subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
-        } catch (err) {
-            console.log('Push subscription setup skipped or incomplete.');
-        }
+        } catch (err) { console.log('Push subscription setup skipped or incomplete.'); }
     };
     subscribeChannel();
 
@@ -615,10 +606,7 @@
             };
         }
 
-        if (!isSharing) {
-            return;
-        }
-
+        if (!isSharing) { return; }
         renderSingleRiderVisualLayers(user);
     }
 
@@ -686,9 +674,7 @@
         updateLiveRiderCounter();
     };
 
-    const resetActivityTimer = () => {
-        lastActiveTime = Date.now();
-    };
+    const resetActivityTimer = () => { lastActiveTime = Date.now(); };
 
     const startTimeoutMonitor = () => {
         resetActivityTimer();
@@ -702,11 +688,7 @@
         }, 30000);
     };
 
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            resetActivityTimer();
-        }
-    });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { resetActivityTimer(); } });
 
     const stopSharingLocation = () => {
         isSharing = false;
@@ -740,7 +722,7 @@
         chatToggleBtn.style.opacity = '0.35';
         chatToggleBtn.style.background = '#555555';
         chatToggleBtn.style.pointerEvents = 'none';
-        if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); }
+        if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); shutdownActiveGame(); gameHubOverlay.classList.remove('open'); }
     };
 
     startBtn.addEventListener('click', () => {
@@ -756,7 +738,6 @@
         startBtn.classList.add('sharing-active');
 
         startTimeoutMonitor();
-        
         displayAllCachedRidersOnMap();
 
         if ('geolocation' in navigator) {
@@ -859,10 +840,10 @@
     let touchStartX = 0, touchStartY = 0;
     chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; },{passive:true});
     chatOverlay.addEventListener('touchend', e => {
-        if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); }
+        if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); shutdownActiveGame(); gameHubOverlay.classList.remove('open'); }
     },{passive:true});
     chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); resetActivityTimer(); });
-    closeChatBtn.addEventListener('click', () => { isChatOpen=false; chatOverlay.classList.remove('open'); });
+    closeChatBtn.addEventListener('click', () => { isChatOpen=false; chatOverlay.classList.remove('open'); shutdownActiveGame(); gameHubOverlay.classList.remove('open'); });
 
     const sendGroupMessage = () => {
         resetActivityTimer();
