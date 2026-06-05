@@ -17,8 +17,8 @@
         #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
         #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
         
-        /* Set to 30px (exactly double counter), styled to match input placeholders elegantly */
-        #privacyHint { font-size:30px; color:#e2f0d9; font-weight:normal; font-style:italic; margin-top:12px; text-align:center; pointer-events:none; text-shadow:2px 2px 4px rgba(0,0,0,0.7); }
+        /* Two-line layout scaled to 24px, styled in dark forest green with a crisp mint-white shadow mask */
+        #privacyHint { font-size:24px; color:#1e4620; font-weight:normal; font-style:italic; margin-top:12px; text-align:center; pointer-events:none; text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5); white-space:normal; width:280px; line-height:1.2; }
 
         .rider-icon-container {
             position: relative;
@@ -198,7 +198,7 @@
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
     <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
-    <div id="privacyHint">share location to see buddies and enter chat</div>
+    <div id="privacyHint">share location to see buddies<br>and enter chat</div>
 </div>
 
 <div id="map"></div>
@@ -275,8 +275,7 @@
         "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
     );
     
-    // Map setup isolated immediately so background visual layers spawn instantly upon browser wake lock cycles
-    const map = L.map('map', { zoomControl: true }).setView([45.6387, -122.6615], 12); // Defaults view over local core coordinate grids cleanly
+    const map = L.map('map', { zoomControl: true }).setView([45.6387, -122.6615], 12); 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19, attribution:'&copy; CartoDB' }).addTo(map);
 
     let watchId = null, lastLat = 0, lastLng = 0;
@@ -651,7 +650,7 @@
         localStorage.setItem('rider_saved_name', name);
         oldBroadcastedName = name;
         isSharing = true;
-        startBtn.innerText = 'Stop Sharing Location';
+        startBtn.innerText = 'Start Sharing Location';
         startBtn.classList.add('sharing-active');
 
         startTimeoutMonitor();
