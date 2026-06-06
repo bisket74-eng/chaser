@@ -704,6 +704,53 @@ function runLocalTriviaTimerPhase(phase) {
     }, 1000);
 }
 
+function runLocalTriviaTimerPhase(phase) {
+    if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
+    if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
+
+    window.triviaCurrentPhase = phase;
+    let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
+
+    updateTriviaUI(secondsLeft);
+
+    window.triviaLocalInterval = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft <= 0) {
+            clearInterval(window.triviaLocalInterval);
+            
+            if (phase === 'question') {
+                // Only the player who is tracking as host handles the network phase dispatch
+                if (window.myPlayerNumber === 0 && typeof broadcastTriviaState === 'function') {
+                    broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+                }
+                runLocalTriviaTimerPhase('vote');
+            } else if (phase === 'vote') {
+                if (window.myPlayerNumber === 0 && typeof broadcastTriviaState === 'function') {
+                    broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+                }
+                runLocalTriviaTimerPhase('reveal');
+            } else if (phase === 'reveal') {
+                window.triviaQuestionCount++;
+                if (window.triviaQuestionCount >= 20) {
+                    // Handled inside presentation loops
+                } else {
+                    // FLASH FIX: Only player 0 calls the engine API. Other players wait on network push.
+                    if (window.myPlayerNumber === 0) {
+                        if (typeof window.launchLiveTriviaEngine === 'function') {
+                            window.launchLiveTriviaEngine();
+                        }
+                    } else {
+                        // Keep non-hosts on a clean waiting state so they never flash the lobby selector screen
+                        gameCanvasContainer.innerHTML = `<div style="color:white;font-size:4.5vw;font-weight:bold;text-align:center;padding:40px;font-family:sans-serif;">Awaiting next synchronized question...</div>`;
+                    }
+                }
+            }
+        } else {
+            updateTriviaUI(secondsLeft);
+        }
+    }, 1000);
+}
+
 function updateTriviaUI(timerSeconds) {
     const q = window.sharedRoomTriviaQuestion;
     if (!q) return;
@@ -714,19 +761,7 @@ function updateTriviaUI(timerSeconds) {
 
     let pNum = typeof window.myPlayerNumber !== 'undefined' ? window.myPlayerNumber : 0;
 
-    let html = `
-    <!-- Injection of smooth global transition styles to completely eliminate chunkiness -->
-    <style>
-        @keyframes triviaSmoothFade {
-            0% { opacity: 0.15; font-weight: 500; }
-            100% { opacity: 0.95; font-weight: 500; }
-        }
-        .trivia-fading-choice {
-            animation: triviaSmoothFade 5s linear forwards;
-        }
-    </style>
-    
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
             <span>ROUND: ${window.triviaQuestionCount + 1}/20</span>
             <span style="color:${statusColor}">${statusText}</span>
@@ -739,21 +774,27 @@ function updateTriviaUI(timerSeconds) {
         let btnBg = '#e2f0d9';
         let btnColor = '#1e4620';
         let isDisabled = (phase !== 'vote');
-        let customClass = "";
         let customStyle = "";
 
         if (phase === 'question') {
             isDisabled = true;
-            customClass = "trivia-fading-choice"; // Hooks directly to our buttery-smooth CSS timer
+            // SOLID FADE FIX: Calculates absolute opacity based on exact seconds remaining.
+            // 5s remaining = nearly invisible. 1s remaining = highly visible.
+            let explicitOpacity = (6 - timerSeconds) * 0.20;
+            if (explicitOpacity < 0.10) explicitOpacity = 0.10;
+            if (explicitOpacity > 0.90) explicitOpacity = 0.90;
+            
+            customStyle = `opacity: ${explicitOpacity}; font-weight: 500; transition: opacity 0.3s linear;`;
         } else if (phase === 'vote') {
-            customStyle = `font-weight: 900;`; 
+            // Locks instantly to bold and dark the millisecond reading ends
+            customStyle = `font-weight: 900; opacity: 1;`; 
             if (window.triviaRoomVotes[pNum] === choice) {
                 btnBg = '#00b0ff';
                 btnColor = '#fff';
             }
         } else if (phase === 'reveal') {
             isDisabled = true;
-            customStyle = `font-weight: 900;`;
+            customStyle = `font-weight: 900; opacity: 1;`;
             if (choice === q.c) {
                 btnBg = '#00b050'; 
                 btnColor = '#fff';
@@ -763,7 +804,7 @@ function updateTriviaUI(timerSeconds) {
             }
         }
 
-        html += `<button class="trivia-inline-choice-btn ${customClass}" id="trivia-choice-${index}" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(document.getElementById('trivia-choice-${index}').innerText)" >${choice}</button>`;
+        html += `<button class="trivia-inline-choice-btn" id="trivia-choice-${index}" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(document.getElementById('trivia-choice-${index}').innerText)" >${choice}</button>`;
     });
     
     html += `</div></div>`;
@@ -796,6 +837,7 @@ window.submitLocalTriviaVote = function(choice) {
     }
     updateTriviaUI(5);
 };
+
 
 
 
