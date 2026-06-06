@@ -82,7 +82,6 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* SPLIT-SCREEN GAME HUD */
         #activeGameStage { display:none; flex: 0 0 50%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
         #activeGameStage.open { display:flex; }
         #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
@@ -90,9 +89,11 @@
         #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:12px; box-sizing:border-box; }
 
         #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
-        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
-        .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
-        .msg-text { font-size:18px; word-break:break-word; }
+        
+        /* UPDATED: Ultra-bold, non-boring, scannable Impact typography matrix */
+        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; font-family:Impact, "Arial Black", sans-serif; letter-spacing:0.5px; }
+        .msg-user { font-size:15px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; font-family:Arial, sans-serif; }
+        .msg-text { font-size:22px; word-break:break-word; font-weight:normal; }
         .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
 
         #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; flex-shrink:0; }
@@ -123,7 +124,6 @@
         .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
         .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
 
-        /* MULTIPLAYER UNO GRAPHICS ENGINE */
         .uno-card-body { width:62px; height:92px; border-radius:8px; border:3px solid #fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:32px; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,0.4); cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.35); padding:0; position:relative; transform-style:preserve-3d; }
         .uno-card-red { background:linear-gradient(135deg, #e63946, #b70918); }
         .uno-card-yellow { background:linear-gradient(135deg, #ffb703, #d68c00); color:#fff; }
@@ -350,14 +350,23 @@
 
     let syncCheckersBoard = [];
     let selectedCheckerIdx = null;
-    let checkersTurn = 1; // 1 = Red Team, 2 = White Team
+    let checkersTurn = 1; 
     let myUnoHand = [];
     let unoDiscardPile = null;
     
-    // 20-Question Trivia variables
     let sharedRoomTriviaQuestion = null;
     let triviaQuestionCount = 0;
     let triviaScorePoints = 0;
+
+    document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
+        resetActivityTimer();
+        if (gameHubOverlay.classList.contains('open')) {
+            gameHubOverlay.classList.remove('open');
+            shutdownActiveGame();
+        } else {
+            gameHubOverlay.classList.add('open');
+        }
+    });
 
     function launchGameEngine(gameName, gameIcon) {
         resetActivityTimer();
@@ -387,7 +396,7 @@
         gameCanvasContainer.innerHTML = '';
     }
 
-    /* --- 1. HANGMAN ENGINE (PERFECT VECTOR MATH) --- */
+    /* --- 1. HANGMAN ENGINE --- */
     function initHangmanGame() {
         const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
         let targetWord = words[Math.floor(Math.random() * words.length)];
@@ -440,7 +449,7 @@
         render();
     }
 
-    /* --- 2. OFFICIAL RULE CHECKERS ENGINE (JUMP REMOVALS & TURNS) --- */
+    /* --- 2. CHECKERS ENGINE --- */
     function initCheckersGame() {
         selectedCheckerIdx = null;
         checkersTurn = 1; 
@@ -450,8 +459,8 @@
             for (let c = 0; c < 8; c++) {
                 let isDark = (r + c) % 2 === 1;
                 let val = 0; 
-                if (isDark && r < 3) val = 1; // 1 = Red
-                if (isDark && r > 4) val = 2; // 2 = White
+                if (isDark && r < 3) val = 1; 
+                if (isDark && r > 4) val = 2; 
                 syncCheckersBoard.push(val);
             }
         }
@@ -460,7 +469,6 @@
             let piece = syncCheckersBoard[idx];
 
             if (selectedCheckerIdx === null) {
-                // Verify turning priority rules matches tap selection
                 if (piece === checkersTurn) {
                     selectedCheckerIdx = idx;
                     renderCheckersGrid();
@@ -477,12 +485,10 @@
                 let rowDiff = toR - fromR;
                 let colDiff = Math.abs(toC - fromC);
 
-                // Normal standard diagonal slide forward validation
                 let isValidSlide = false;
                 if (checkersTurn === 1 && rowDiff === 1 && colDiff === 1) isValidSlide = true;
                 if (checkersTurn === 2 && rowDiff === -1 && colDiff === 1) isValidSlide = true;
 
-                // Capture jump forward calculations over opponent pieces
                 let isValidJump = false;
                 let jumpedIdx = null;
                 if (checkersTurn === 1 && rowDiff === 2 && colDiff === 2) {
@@ -499,16 +505,13 @@
                 }
 
                 if (syncCheckersBoard[idx] === 0 && (isValidSlide || isValidJump)) {
-                    // Update matrix
                     syncCheckersBoard[idx] = syncCheckersBoard[fromIdx];
                     syncCheckersBoard[fromIdx] = 0;
 
-                    // REMOVE PIECE: If a jump happened, wipe the enemy piece instantly
                     if (isValidJump && jumpedIdx !== null) {
                         syncCheckersBoard[jumpedIdx] = 0;
                     }
 
-                    // Flip player turns
                     checkersTurn = (checkersTurn === 1) ? 2 : 1;
 
                     if (channel) {
@@ -550,7 +553,7 @@
         gameCanvasContainer.innerHTML = html;
     }
 
-    /* --- 3. 20-QUESTION CREW TRIVIA ENGINE (NO POPUPS) --- */
+    /* --- 3. CREW TRIVIA ENGINE --- */
     function initTriviaGame() {
         if (triviaQuestionCount >= 20) {
             renderTriviaScoreboard();
@@ -591,22 +594,19 @@
         if (!sharedRoomTriviaQuestion) return;
 
         window.evaluateInlineTriviaChoice = (btn, choice) => {
-            // Block multiple clicks on the same question
             const allButtons = document.querySelectorAll('.trivia-choice-btn');
             allButtons.forEach(b => b.disabled = true);
 
             triviaQuestionCount++;
 
-            // NO POPUPS: Instantly flashes background style inline colors instead
             if (choice === sharedRoomTriviaQuestion.c) {
-                btn.style.background = '#2a9d8f'; // Green flash
+                btn.style.background = '#2a9d8f'; 
                 btn.style.color = '#fff';
                 triviaScorePoints++;
             } else {
-                btn.style.background = '#e63946'; // Red flash
+                btn.style.background = '#e63946'; 
                 btn.style.color = '#fff';
                 
-                // Highlight correct answer in green too
                 allButtons.forEach(b => {
                     if (b.getAttribute('data-choice') === sharedRoomTriviaQuestion.c) {
                         b.style.background = '#2a9d8f';
@@ -615,7 +615,6 @@
                 });
             }
 
-            // Wait 1.5 seconds to see the color feedback, then auto-load next card question
             setTimeout(() => {
                 initTriviaGame();
             }, 1500);
@@ -660,7 +659,7 @@
         renderSharedTriviaUI();
     }
 
-    /* --- 4. GRAPHIC BATTLE UNO ENGINE (SOLID EMBEDDED COLOR BLOCKS) --- */
+    /* --- 4. BATTLE UNO ENGINE --- */
     function initChaserUnoGame() {
         const colors = ['Red', 'Yellow', 'Green', 'Blue'];
         const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '★', '⇋'];
@@ -717,19 +716,16 @@
         let pileColorClass = `uno-card-${unoDiscardPile.color.toLowerCase()}`;
         
         let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-            <!-- Center Arena -->
             <div style="display:flex; gap:24px; align-items:center; margin-bottom:2px;">
                 <button onclick="drawUnoCardAction()" style="width:58px; height:88px; background:linear-gradient(135deg, #111, #333); color:#ffd700; border:3px solid #fff; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.4);">DRAW<br>DECK</button>
                 
-                <!-- Center Discard Card Block -->
                 <div class="uno-card-body ${pileColorClass}" style="pointer-events:none;">
                     <div class="uno-oval-center"></div>
                     <span class="uno-number-label">${unoDiscardPile.value}</span>
                 </div>
             </div>
             
-            <div style="color:white; font-size:12px; font-weight:bold;">Your Deck Hand:</div>
-            <!-- Horizontal Player Hand Container -->
+            <div style="color:white; font-size:12px; font-weight:bold;">Your Hand:</div>
             <div style="display:flex; gap:8px; overflow-x:auto; width:100%; max-width:310px; padding:6px 4px; box-sizing:border-box; background:rgba(0,0,0,0.2); border-radius:10px;">`;
         
         myUnoHand.forEach((card, i) => {
@@ -821,7 +817,7 @@
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
             
-            // Sync mechanics sockets links
+            // Fixed shared multiplayer broadcast channel bindings map hook loops
             .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
                 syncCheckersBoard = payload.boardState;
                 checkersTurn = payload.activeTurn;
