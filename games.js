@@ -1205,3 +1205,16 @@ window.handleHangmanClick = function(letter) {
     renderHangmanGame();
 };
 
+/* ============================================================
+   GLOBAL BROADCAST SYSTEM LISTENER (UNFREEZE ROUTER)
+   ============================================================ */
+if (typeof channel !== 'undefined' && channel.on) {
+    channel.on('broadcast', { event: 'sync-room-trivia' }, ({ payload }) => {
+        window.sharedRoomTriviaQuestion = payload.triviaData;
+        window.triviaQuestionCount = payload.count;
+        window.triviaRoomVotes = payload.votes || {};
+        
+        // Synchronize state and trigger independent ticker clocks for all players
+        runLocalTriviaTimerPhase(payload.phase);
+    });
+}
