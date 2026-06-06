@@ -192,50 +192,96 @@
 </div>
 
 <div id="chatOverlay">
-    <div id="chatHeader">
-        <button id="chatGamesTriggerBtn" type="button">🎮 Games</button>
-        <span style="flex:1; text-align:center;">Group Room</span>
-        <button id="closeChatBtn" type="button">✕</button>
-    </div>
-    
-    <div id="gameHubOverlay">
-        <div class="game-hub-headline">Chaser Game Center</div>
-        <div class="game-grid-layout">
-            <div class="game-card-btn" onclick="launchGameEngine('Crew Trivia', '🧠')">
-                <span class="game-card-icon">🧠</span>
-                <span class="game-card-title">Crew Trivia</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Battle Uno', '🃏')">
-                <span class="game-card-icon">🃏</span>
-                <span class="game-card-title">Battle Uno</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Checkers', '🔴')">
-                <span class="game-card-icon">🔴</span>
-                <span class="game-card-title">Checkers</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Sequence', '⚔️')">
-                <span class="game-card-icon">⚔️</span>
-                <span class="game-card-title">Sequence</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Solitaire', '🃏')">
-                <span class="game-card-icon">🃏</span>
-                <span class="game-card-title">Solitaire</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Hangman', '🪓')">
-                <span class="game-card-icon">🪓</span>
-                <span class="game-card-title">Hangman</span>
-            </div>
-        </div>
-    </div>
+<style>
+/* Full-Screen Overlay for Games & YouTube */
+#activeGameStage {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 80px); /* Leaves bottom map/nav untouched */
+    background: #1a1a1a;
+    z-index: 9999;
+    display: none; /* JS will change this to 'flex' when a button is clicked */
+    flex-direction: column;
+}
 
+/* The New 'Group Room' Header Layout */
+#chatHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 20px;
+    background: #000;
+    border-bottom: 2px solid #ffd700;
+}
 
-    <div id="activeGameStage">
-        <div id="gameStageHeader">
-            <span id="activeGameLabelTitle">Game Stage</span>
-            <button id="exitGameBtn" onclick="shutdownActiveGame()">Exit Game</button>
-        </div>
-        <div id="gameCanvasContainer"></div>
+.header-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    font-family: 'Impact', sans-serif;
+    letter-spacing: 1px;
+    flex-grow: 1;
+    text-align: left;
+}
+
+.header-controls {
+    display: flex;
+    gap: 15px;
+    margin-right: 25px;
+}
+
+/* Circular Buttons for Games & YouTube */
+.circle-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: #2d6a30;
+    border: 2px solid #ffd700;
+    color: white;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+#gameCanvasContainer {
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* Minimizes chat when game is open */
+.chat-container-slim {
+    max-height: 80px !important; 
+    overflow-y: auto;
+    background: rgba(0,0,0,0.8);
+}
+</style>
+
+<div id="chatHeader">
+    <div class="header-title">GROUP ROOM</div>
+    <div class="header-controls">
+        <button class="circle-btn" onclick="openGamesMenu()">🎮</button>
+        <button class="circle-btn" onclick="openYouTubeMenu()">▶️</button>
     </div>
+    <button id="closeChatBtn" style="background:transparent; border:none; color:#ff4d4d; font-size:28px; cursor:pointer; font-weight:bold;">✕</button>
+</div>
+
+<div id="activeGameStage">
+    <div style="background:#000; padding:15px; text-align:right; border-bottom:2px solid #333;">
+        <button onclick="closeGameOverlay()" style="background:transparent; border:none; color:#ff4d4d; font-size:20px; cursor:pointer; font-weight:bold; font-family:'Arial', sans-serif;">Close Game / Video ✕</button>
+    </div>
+    <div id="gameCanvasContainer"></div>
+</div>
 
     <div id="chatMessages"></div>
     <div id="chatInputArea">
