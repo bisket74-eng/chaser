@@ -705,6 +705,127 @@ function updateTriviaUI(timerSeconds) {
     const phase = window.triviaCurrentPhase;
     let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
     let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
+/* ============================================================
+   CHASER ARCADE: FIXED TRIVIA (FADE-IN REPAIR & UNFREEZE)
+   ============================================================ */
+
+window.initTriviaGame = function() {
+    window.triviaQuestionCount = 0;
+    window.triviaScorePoints   = 0;
+    window.triviaRoomVotes     = {};
+    window.triviaSessionHistory = []; 
+    
+    gameCanvasContainer.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vw;padding:4vw;width:100%;box-sizing:border-box;height:100%;user-select:none;">
+            <div style="color:#ffd700;font-size:5.5vw;font-weight:bold;font-family:Impact,sans-serif;text-shadow:2px 2px 4px rgba(0,0,0,0.5);text-align:center;letter-spacing:0.5px;">TRIVIA CATEGORY</div>
+            
+            <div style="position:relative;width:100%;max-width:280px;">
+                <select id="triviaCategoryPicker" style="width:100%;padding:14px;font-size:4vw;font-weight:900;border-radius:10px;border:3px solid #ffd700;background:#2d6a30;color:#fff;outline:none;box-shadow:0 4px 10px rgba(0,0,0,0.3);appearance:none;text-align:center;cursor:pointer;">
+                    <option value="9">General Knowledge Pool</option>
+                    <option value="11">Movies & Cinema</option>
+                    <option value="12">Music & Tracks</option>
+                    <option value="14">Television Shows</option>
+                    <option value="17">Science & Nature</option>
+                    <option value="23">History Channels</option>
+                </select>
+                <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#ffd700;font-size:4vw;">▼</div>
+            </div>
+
+            <button onclick="launchLiveTriviaEngine()" style="width:100%;max-width:280px;padding:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:5vw;border:none;border-radius:10px;cursor:pointer;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.3);letter-spacing:0.5px;">START CAMPAIGN</button>
+        </div>`;
+};
+
+window.launchLiveTriviaEngine = function() {
+    const picker = document.getElementById('triviaCategoryPicker');
+    const cat = picker ? picker.value : '9';
+    gameCanvasContainer.innerHTML = `<div style="color:white;font-size:4.5vw;font-weight:bold;text-align:center;padding:40px;font-family:sans-serif;">Fetching synchronized question...</div>`;
+    
+    function fetchUniqueQuestion(attempts = 0) {
+        fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=${cat}&cache=${Math.random()}`)
+            .then(res => res.json())
+            .then(data => {
+                if(!data.results || data.results.length === 0) { initTriviaGame(); return; }
+                const item = data.results[0];
+                const decode = s => { let t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+                
+                const questionText = decode(item.question);
+                
+                if (window.triviaSessionHistory.includes(questionText) && attempts < 5) {
+                    fetchUniqueQuestion(attempts + 1);
+                    return;
+                }
+                
+                window.triviaSessionHistory.push(questionText);
+
+                const correctAnswer = decode(item.correct_answer);
+                let choices = item.incorrect_answers.map(ans => decode(ans));
+                choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
+
+                window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices, cat: cat };
+                window.triviaRoomVotes = {};
+
+                broadcastTriviaState('question', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+                runLocalTriviaTimerPhase('question');
+            })
+            .catch(() => { initTriviaGame(); });
+    }
+
+    fetchUniqueQuestion();
+};
+
+function broadcastTriviaState(phase, data, count, votes = {}) {
+    if (typeof channel !== 'undefined') {
+        channel.send({
+            type: 'broadcast',
+            event: 'sync-room-trivia',
+            payload: { phase, triviaData: data, count, votes }
+        });
+    }
+}
+
+function runLocalTriviaTimerPhase(phase) {
+    if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
+    if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
+
+    window.triviaCurrentPhase = phase;
+    let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
+
+    updateTriviaUI(secondsLeft);
+
+    window.triviaLocalInterval = setInterval(() => {
+        secondsLeft--;
+        
+        if (secondsLeft <= 0) {
+            clearInterval(window.triviaLocalInterval);
+            
+            // UNFREEZE REMEDIAL FIX: Local client auto-advances phases independently of player number flags
+            if (phase === 'question') {
+                broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+                runLocalTriviaTimerPhase('vote');
+            } else if (phase === 'vote') {
+                broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+                runLocalTriviaTimerPhase('reveal');
+            } else if (phase === 'reveal') {
+                window.triviaQuestionCount++;
+                if (window.triviaQuestionCount >= 20) {
+                    // Campaign completed triggers organically inside render loop
+                } else {
+                    window.launchLiveTriviaEngine();
+                }
+            }
+        } else {
+            updateTriviaUI(secondsLeft);
+        }
+    }, 1000);
+}
+
+function updateTriviaUI(timerSeconds) {
+    const q = window.sharedRoomTriviaQuestion;
+    if (!q) return;
+
+    const phase = window.triviaCurrentPhase;
+    let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
+    let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
 
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
@@ -715,40 +836,39 @@ function updateTriviaUI(timerSeconds) {
         <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
 
-    if (phase !== 'question') {
-        q.choices.forEach(choice => {
-            let btnBg = '#e2f0d9';
-            let btnColor = '#1e4620';
-            let isDisabled = (phase !== 'vote');
+    q.choices.forEach(choice => {
+        let btnBg = '#e2f0d9';
+        let btnColor = '#1e4620';
+        let isDisabled = (phase !== 'vote');
+        let customStyle = "";
 
-            if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
+        // Dynamic fade metrics mapping over the reading countdown sequence
+        if (phase === 'question') {
+            isDisabled = true;
+            // 5s = 15% visibility, scaling up cleanly into full density down to the wire
+            let calculatedOpacity = 1 - (timerSeconds * 0.17); 
+            if (calculatedOpacity < 0.15) calculatedOpacity = 0.15;
+            customStyle = `opacity: ${calculatedOpacity}; transition: opacity 0.5s ease-in-out; font-weight: 500;`;
+        } else if (phase === 'vote') {
+            customStyle = `font-weight: 900;`; // Turns fully bold at voting marker kickoff
+            if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
                 btnBg = '#00b0ff';
                 btnColor = '#fff';
             }
-
-            if (phase === 'reveal') {
-                isDisabled = true;
-                if (choice === q.c) {
-                    btnBg = '#00b050'; 
-                    btnColor = '#fff';
-                } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-                    btnBg = '#e63946'; 
-                    btnColor = '#fff';
-                }
+        } else if (phase === 'reveal') {
+            isDisabled = true;
+            customStyle = `font-weight: 900;`;
+            if (choice === q.c) {
+                btnBg = '#00b050'; 
+                btnColor = '#fff';
+            } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
+                btnBg = '#e63946'; 
+                btnColor = '#fff';
             }
+        }
 
-            html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
-        });
-    } else {
-        // FIXED USER EXPLANATION CARD: Removes the confusing empty layout blocks
-        html += `
-        <div style="width:100%; background:rgba(255,255,255,0.05); border:2px dashed #ffb703; border-radius:8px; padding:20px; box-sizing:border-box; text-align:center; margin-top:5px;">
-            <div style="color:#ffb703; font-size:4.5vw; font-weight:bold; font-family:sans-serif; margin-bottom:8px;">👁️ READ THE QUESTION</div>
-            <div style="color:#ccc; font-size:3.5vw; font-family:sans-serif; line-height:1.4;">
-                Buttons are hidden during reading time to prevent accidental misclicks. Answer options will appear here automatically when the countdown hits zero. You do not need to type anything!
-            </div>
-        </div>`;
-    }
+        html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
+    });
     
     html += `</div></div>`;
 
@@ -775,6 +895,7 @@ window.submitLocalTriviaVote = function(choice) {
     broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
     updateTriviaUI(5);
 };
+
 
 /* ═══════════════════════════════════════════════════════════
    5.  SOLITAIRE ENGINE (95% GIANT FULL-BODY BACKGROUND SUITS)
