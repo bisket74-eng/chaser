@@ -1,5 +1,5 @@
 /* ============================================================
-   CHASER ARCADE ENGINE  –  games.js
+   CHASER ARCADE ENGINE  –  games.js (PART 1)
    ============================================================ */
 
 /* ── Multiplayer sync handlers ───────────────────────────── */
@@ -54,8 +54,8 @@ window.launchGameEngine = function (gameName, gameIcon) {
         'Battle Uno'  : initChaserUnoGame,
         'Checkers'    : initCheckersGame,
         'Sequence'    : initSequenceGame,
-        'Hangman'     : initHangmanGame,
         'Solitaire'   : initSolitaireGame,
+        'Hangman'     : initHangmanGame,
     };
     if (map[gameName]) map[gameName]();
 };
@@ -80,8 +80,8 @@ function initCheckersGame() {
     window.syncCheckersBoard = Array(64).fill(0).map((_, i) => {
         const r = Math.floor(i / 8), c = i % 8;
         if ((r + c) % 2 === 1) {
-            if (r < 3) return 1; // Red
-            if (r > 4) return 2; // Black
+            if (r < 3) return 1; 
+            if (r > 4) return 2; 
         }
         return 0;
     });
@@ -119,7 +119,6 @@ function renderCheckersGrid() {
         if (piece === 3) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.4)}px;color:white;">👑</div>`;
         if (piece === 4) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.4)}px;color:white;">👑</div>`;
 
-        // FIXED: Outline applied only on selection base, NO path previews or foreshadows shown on map grid
         html += `<div onclick="handleCheckerTap(${i})"
             style="width:${cellPx}px;height:${cellPx}px;background:${bgColor};display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;${sel===i?'outline:4px solid #ffd700;outline-offset:-4px;':''}">
             ${pieceHtml}
@@ -195,7 +194,6 @@ window.handleCheckerTap = function (idx) {
     if (board[idx] === 1 && destRow === 7) board[idx] = 3;
     if (board[idx] === 2 && destRow === 0) board[idx] = 4;
     
-    // Double / Triple Jump Engine Checking Chain
     let hasMoreJumps = false;
     if (isJump) {
         const extraJumps = getCheckerMoves(idx, board, turn, true);
@@ -301,7 +299,6 @@ function renderUnoLayout() {
 
     html += `<div style="display:flex;gap:24px;align-items:flex-end;margin-top:2px;">`;
     
-    // Draw card pile layout block
     html += `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
         <div style="color:#a3cfbb;font-size:11px;font-weight:bold;">DRAW</div>
         <div onclick="unoDrawCard()" class="uno-card-body" style="background:linear-gradient(135deg,#1e4620,#2d6a30);border:3px solid #ffd700;cursor:pointer;width:58px;height:86px;">
@@ -310,7 +307,6 @@ function renderUnoLayout() {
         </div>
     </div>`;
 
-    // Active center discard card block
     html += `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
         <div style="color:#a3cfbb;font-size:11px;font-weight:bold;">PLAY</div>
         <div class="uno-card-body ${unoColorClass(discard.color)}" style="pointer-events:none;width:58px;height:86px;">
@@ -323,12 +319,11 @@ function renderUnoLayout() {
     if(window.unoWildChoosingActive) {
         html += `<div style="display:grid;grid-template-columns:1fr 1fr;width:90px;height:90px;border-radius:10px;overflow:hidden;border:3px solid #fff;margin:4px 0;">
             ${['Red','Yellow','Green','Blue'].map(col=>
-                `<div onclick="unoPickWildColor('${col}')" style="background:${{Red:'#007020',Yellow:'#ffb703',Green:'#00b050',Blue:'#00b0ff'}[col]};cursor:pointer;"></div>`
+                `<div onclick="unoPickWildColor('${col}')" style="background:${{Red:'#c00',Yellow:'#ffb703',Green:'#00b050',Blue:'#00b0ff'}[col]};cursor:pointer;"></div>`
             ).join('')}
         </div>`;
     }
 
-    // Horizontal Hand list with absolute rightward auto-scrolling
     html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 4px;width:100%;box-sizing:border-box;" id="unoHandScrollWrapper">`;
     hand.forEach((card, i) => {
         const playable = card.color===discard.color || card.value===discard.value || card.color==='Wild';
@@ -342,7 +337,6 @@ function renderUnoLayout() {
     
     gameCanvasContainer.innerHTML = html;
 
-    // Trigger rightward horizontal alignment shift mechanics
     setTimeout(() => {
         const el = document.getElementById('unoHandScrollWrapper');
         if (el) el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
@@ -409,7 +403,6 @@ window.unoDrawCard = function() {
     triggerUnoNetworkSync();
     renderUnoLayout();
 };
-
 /* ═══════════════════════════════════════════════════════════
    3.  SEQUENCE (OFFICIAL LAYOUT MATRICES, SINGLE-LINE HAND)
    ═══════════════════════════════════════════════════════════ */
@@ -428,11 +421,10 @@ const SEQUENCE_MATRIX_GRID = [
 
 function initSequenceGame() {
     window.seqBoard    = Array(100).fill(0);
-    window.seqTurn     = 1; // 1 = Blue Player, 2 = Red Player
+    window.seqTurn     = 1; 
     window.seqSequences = [0, 0];
     window.seqSelectedCardIdx = null;
     
-    // Generate card hands layout
     const cardSuits = ['♠','♣','♥','♦'];
     const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
     window.mySequenceHand = [];
@@ -509,7 +501,6 @@ window.handleSequenceGridCellTap = function(idx) {
 
     window.seqBoard[idx] = window.seqTurn;
     
-    // Cycle card replacements
     const cardSuits = ['♠','♣','♥','♦'];
     const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
     let s = cardSuits[Math.floor(Math.random()*cardSuits.length)];
@@ -602,7 +593,7 @@ window.evaluateRoomTriviaClick = function(btn, choice) {
     window.triviaQuestionCount++;
 
     if (choice === window.sharedRoomTriviaQuestion.c) {
-        btn.style.background = '#00ff88'; // Bright Green flash markup
+        btn.style.background = '#00ff88'; 
         btn.style.color = '#000';
         window.triviaScorePoints++;
     } else {
@@ -631,56 +622,9 @@ window.evaluateRoomTriviaClick = function(btn, choice) {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   5.  HANGMAN
-   ═══════════════════════════════════════════════════════════ */
-const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
-
-function initHangmanGame() {
-    const targetWord = HANGMAN_DICTIONARY_POOL[Math.floor(Math.random() * HANGMAN_DICTIONARY_POOL.length)];
-    window.hangmanState = { word: targetWord, guessed: [], wrong: 0, maxWrong: 6 };
-    renderHangmanGame();
-}
-
-function renderHangmanGame() {
-    const state = window.hangmanState;
-    let displayWord = state.word.split('').map(l => state.guessed.includes(l) ? l : '_').join(' ');
-    
-    let isWin = !displayWord.includes('_');
-    let isLose = state.wrong >= state.maxWrong;
-
-    if (isWin || isLose) {
-        gameCanvasContainer.innerHTML = `
-            <div style="background:#e2f0d9;color:#1e4620;padding:16px;border-radius:12px;width:260px;font-weight:bold;text-align:center;">
-                <h3>${isWin ? '🎉 YOU WIN!' : '💀 GAME OVER'}</h3>
-                <p style="font-size:16px;">The word was: ${state.word}</p>
-                <button onclick="initHangmanGame()" style="width:100%;padding:10px;background:#2d6a30;color:white;border:none;border-radius:6px;font-weight:bold;margin-top:8px;">PLAY AGAIN</button>
-            </div>`;
-        return;
-    }
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;">
-        <div style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;font-family:Impact,sans-serif;margin:10px 0;">${displayWord}</div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:280px;">`;
-
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
-        let used = state.guessed.includes(ltr);
-        html += `<button ${used?'disabled':''} style="padding:8px 2px;font-weight:bold;font-size:12px;background:${used?'#555':'#e2f0d9'};color:${used?'#888':'#1e4620'};border:none;border-radius:4px;" onclick="handleHangmanClick('${ltr}')">${ltr}</button>`;
-    });
-
-    html += `</div><div style="color:white;font-size:12px;margin-top:4px;">Mistakes: ${state.wrong} / ${state.maxWrong}</div></div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.handleHangmanClick = function(ltr) {
-    window.hangmanState.guessed.push(ltr);
-    if (!window.hangmanState.word.includes(ltr)) window.hangmanState.wrong++;
-    renderHangmanGame();
-};
-/* ═══════════════════════════════════════════════════════════
-   6.  CLASSIC KLONDIKE SOLITAIRE (MOBILE-OPTIMIZED GRID)
+   5.  CLASSIC KLONDIKE SOLITAIRE (MOBILE-OPTIMIZED GRID)
    ═══════════════════════════════════════════════════════════ */
 window.initSolitaireGame = function() {
-    // Generate standard 52 card deck
     const suits = ['♠','♣','♥','♦'];
     const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
     let deck = [];
@@ -690,20 +634,18 @@ window.initSolitaireGame = function() {
     }));
     deck.sort(() => Math.random() - 0.5);
 
-    // Build the 7 classic columns (Tableau)
     window.solTableau = Array(7).fill(0).map(() => []);
     for (let i = 0; i < 7; i++) {
         for (let j = i; j < 7; j++) {
             window.solTableau[j].push(deck.pop());
         }
-        // Flip the top card of each column face up
         window.solTableau[i][window.solTableau[i].length - 1].open = true;
     }
 
-    window.solDeck = deck;      // Remaining draw cards
-    window.solWaste = [];       // Turn pile hand
-    window.solFoundations = Array(4).fill(0).map(() => []); // Ace slots
-    window.solSelected = null;  // Tracks { type: 'tableau'|'waste', col: X, idx: Y }
+    window.solDeck = deck;      
+    window.solWaste = [];       
+    window.solFoundations = Array(4).fill(0).map(() => []); 
+    window.solSelected = null;  
 
     renderSolitaireBoard();
 };
@@ -711,29 +653,23 @@ window.initSolitaireGame = function() {
 function renderSolitaireBoard() {
     const screenW = Math.min(window.innerWidth - 10, 360);
     const cardW = Math.floor(screenW / 7.5);
-    const cardH = Math.floor(cardW * 1.15); // Slightly square for scannability
+    const cardH = Math.floor(cardW * 1.15); 
     
     let html = `<div style="display:flex;flex-direction:column;gap:12px;width:100%;box-sizing:border-box;padding:2px;user-select:none;">`;
-
-    // TOP ROW: DRAW PILE | WASTE | SPACE | 4 FOUNDATIONS
     html += `<div style="display:flex;justify-content:between;width:100%;gap:4px;">`;
     
-    // Draw Pile Slot
     html += `<div onclick="drawSolitaireCard()" style="width:${cardW}px;height:${cardH}px;border-radius:4px;background:${window.solDeck.length?'linear-gradient(135deg,#1e4620,#2d6a30)':'rgba(255,255,255,0.05)'};border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:16px;cursor:pointer;">
         ${window.solDeck.length ? '🂠' : '↻'}
     </div>`;
 
-    // Waste Hand Slot
     const topWaste = window.solWaste[window.solWaste.length - 1];
     let wasteSel = (window.solSelected && window.solSelected.type === 'waste') ? 'outline:3px solid #ffd700;' : '';
     html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:4px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#c00':'#111'};${wasteSel}display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:14px;cursor:pointer;">
         ${topWaste ? `<span>${topWaste.r}</span><span>${topWaste.s}</span>` : ''}
     </div>`;
 
-    // Spacer block gap
     html += `<div style="flex-grow:1;"></div>`;
 
-    // 4 Foundation Slots
     for (let i = 0; i < 4; i++) {
         const fPile = window.solFoundations[i];
         const topF = fPile[fPile.length - 1];
@@ -741,9 +677,8 @@ function renderSolitaireBoard() {
             ${topF ? `<span>${topF.r}</span><span>${topF.s}</span>` : 'A'}
         </div>`;
     }
-    html += `</div>`; // End Top Row
+    html += `</div>`; 
 
-    // BOTTOM AREA: 7 CASCADING COLUMNS
     html += `<div style="display:flex;gap:4px;width:100%;justify-content:space-between;align-items:flex-start;min-height:240px;">`;
     for (let c = 0; c < 7; c++) {
         const colCards = window.solTableau[c];
@@ -754,10 +689,8 @@ function renderSolitaireBoard() {
             let style = `width:100%;height:${cardH}px;border-radius:4px;position:${idx===0?'relative':'absolute'};margin-top:${idx * 16}px;box-shadow:0 2px 4px rgba(0,0,0,0.3);box-sizing:border-box;`;
             
             if (!card.open) {
-                // Face Down Card Backs Styling
                 html += `<div style="${style}background:linear-gradient(135deg,#163518,#225025);border:1px solid #7a9c7d;"></div>`;
             } else {
-                // Face Up Cards Styling
                 let borderStyle = isSel ? 'border:3px solid #ffd700;' : 'border:1px solid #aaa;';
                 html += `<div onclick="event.stopPropagation(); selectSolitaireCard(${c}, ${idx})" style="${style}background:#fff;color:${card.isRed?'#c00':'#111'};${borderStyle}display:flex;flex-direction:column;padding:2px;font-weight:900;font-size:13px;line-height:1.1;cursor:pointer;">
                     <span>${card.r}</span><span>${card.s}</span>
@@ -809,10 +742,9 @@ window.targetSolitaireColumn = function(toCol) {
 
     const firstMovingCard = movingCards[0];
     
-    // Validate traditional King placement on empty slots or descending alternating colors rule sets
     let isValid = false;
     if (!topTarget) {
-        if (firstMovingCard.val === 13) isValid = true; // King on empty
+        if (firstMovingCard.val === 13) isValid = true; 
     } else if (topTarget.open && topTarget.isRed !== firstMovingCard.isRed && topTarget.val === firstMovingCard.val + 1) {
         isValid = true;
     }
@@ -846,7 +778,7 @@ window.targetSolitaireFoundation = function(fIdx) {
     
     let isValid = false;
     if (!topF) {
-        if (card.val === 1) isValid = true; // Ace baseline
+        if (card.val === 1) isValid = true; 
     } else if (topF.s === card.s && card.val === topF.val + 1) {
         isValid = true;
     }
@@ -873,3 +805,50 @@ function checkSolitaireVictory() {
         }, 300);
     }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   6.  HANGMAN
+   ═══════════════════════════════════════════════════════════ */
+const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
+
+function initHangmanGame() {
+    const targetWord = HANGMAN_DICTIONARY_POOL[Math.floor(Math.random() * HANGMAN_DICTIONARY_POOL.length)];
+    window.hangmanState = { word: targetWord, guessed: [], wrong: 0, maxWrong: 6 };
+    renderHangmanGame();
+}
+
+function renderHangmanGame() {
+    const state = window.hangmanState;
+    let displayWord = state.word.split('').map(l => state.guessed.includes(l) ? l : '_').join(' ');
+    
+    let isWin = !displayWord.includes('_');
+    let isLose = state.wrong >= state.maxWrong;
+
+    if (isWin || isLose) {
+        gameCanvasContainer.innerHTML = `
+            <div style="background:#e2f0d9;color:#1e4620;padding:16px;border-radius:12px;width:260px;font-weight:bold;text-align:center;">
+                <h3>${isWin ? '🎉 YOU WIN!' : '💀 GAME OVER'}</h3>
+                <p style="font-size:16px;">The word was: ${state.word}</p>
+                <button onclick="initHangmanGame()" style="width:100%;padding:10px;background:#2d6a30;color:white;border:none;border-radius:6px;font-weight:bold;margin-top:8px;">PLAY AGAIN</button>
+            </div>`;
+        return;
+    }
+
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;">
+        <div style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;font-family:Impact,sans-serif;margin:10px 0;">${displayWord}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:280px;">`;
+
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
+        let used = state.guessed.includes(ltr);
+        html += `<button ${used?'disabled':''} style="padding:8px 2px;font-weight:bold;font-size:12px;background:${used?'#555':'#e2f0d9'};color:${used?'#888':'#1e4620'};border:none;border-radius:4px;" onclick="handleHangmanClick('${ltr}')">${ltr}</button>`;
+    });
+
+    html += `</div><div style="color:white;font-size:12px;margin-top:4px;">Mistakes: ${state.wrong} / ${state.maxWrong}</div></div>`;
+    gameCanvasContainer.innerHTML = html;
+}
+
+window.handleHangmanClick = function(ltr) {
+    window.hangmanState.guessed.push(ltr);
+    if (!window.hangmanState.word.includes(ltr)) window.hangmanState.wrong++;
+    renderHangmanGame();
+};
