@@ -55,6 +55,7 @@ window.launchGameEngine = function (gameName, gameIcon) {
         'Checkers'    : initCheckersGame,
         'Sequence'    : initSequenceGame,
         'Hangman'     : initHangmanGame,
+        'Solitaire'   : initSolitaireGame,
     };
     if (map[gameName]) map[gameName]();
 };
@@ -675,3 +676,200 @@ window.handleHangmanClick = function(ltr) {
     if (!window.hangmanState.word.includes(ltr)) window.hangmanState.wrong++;
     renderHangmanGame();
 };
+/* ═══════════════════════════════════════════════════════════
+   6.  CLASSIC KLONDIKE SOLITAIRE (MOBILE-OPTIMIZED GRID)
+   ═══════════════════════════════════════════════════════════ */
+window.initSolitaireGame = function() {
+    // Generate standard 52 card deck
+    const suits = ['♠','♣','♥','♦'];
+    const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+    let deck = [];
+    
+    suits.forEach(s => ranks.forEach((r, val) => {
+        deck.push({ r, s, val: val + 1, isRed: (s==='♥'||s==='♦'), open: false });
+    }));
+    deck.sort(() => Math.random() - 0.5);
+
+    // Build the 7 classic columns (Tableau)
+    window.solTableau = Array(7).fill(0).map(() => []);
+    for (let i = 0; i < 7; i++) {
+        for (let j = i; j < 7; j++) {
+            window.solTableau[j].push(deck.pop());
+        }
+        // Flip the top card of each column face up
+        window.solTableau[i][window.solTableau[i].length - 1].open = true;
+    }
+
+    window.solDeck = deck;      // Remaining draw cards
+    window.solWaste = [];       // Turn pile hand
+    window.solFoundations = Array(4).fill(0).map(() => []); // Ace slots
+    window.solSelected = null;  // Tracks { type: 'tableau'|'waste', col: X, idx: Y }
+
+    renderSolitaireBoard();
+};
+
+function renderSolitaireBoard() {
+    const screenW = Math.min(window.innerWidth - 10, 360);
+    const cardW = Math.floor(screenW / 7.5);
+    const cardH = Math.floor(cardW * 1.15); // Slightly square for scannability
+    
+    let html = `<div style="display:flex;flex-direction:column;gap:12px;width:100%;box-sizing:border-box;padding:2px;user-select:none;">`;
+
+    // TOP ROW: DRAW PILE | WASTE | SPACE | 4 FOUNDATIONS
+    html += `<div style="display:flex;justify-content:between;width:100%;gap:4px;">`;
+    
+    // Draw Pile Slot
+    html += `<div onclick="drawSolitaireCard()" style="width:${cardW}px;height:${cardH}px;border-radius:4px;background:${window.solDeck.length?'linear-gradient(135deg,#1e4620,#2d6a30)':'rgba(255,255,255,0.05)'};border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:16px;cursor:pointer;">
+        ${window.solDeck.length ? '🂠' : '↻'}
+    </div>`;
+
+    // Waste Hand Slot
+    const topWaste = window.solWaste[window.solWaste.length - 1];
+    let wasteSel = (window.solSelected && window.solSelected.type === 'waste') ? 'outline:3px solid #ffd700;' : '';
+    html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:4px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#c00':'#111'};${wasteSel}display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:14px;cursor:pointer;">
+        ${topWaste ? `<span>${topWaste.r}</span><span>${topWaste.s}</span>` : ''}
+    </div>`;
+
+    // Spacer block gap
+    html += `<div style="flex-grow:1;"></div>`;
+
+    // 4 Foundation Slots
+    for (let i = 0; i < 4; i++) {
+        const fPile = window.solFoundations[i];
+        const topF = fPile[fPile.length - 1];
+        html += `<div onclick="targetSolitaireFoundation(${i})" style="width:${cardW}px;height:${cardH}px;border-radius:4px;background:${topF?'#fff':'rgba(255,255,255,0.05)'};border:2px dashed rgba(255,215,0,0.4);color:${topF?.isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:14px;cursor:pointer;">
+            ${topF ? `<span>${topF.r}</span><span>${topF.s}</span>` : 'A'}
+        </div>`;
+    }
+    html += `</div>`; // End Top Row
+
+    // BOTTOM AREA: 7 CASCADING COLUMNS
+    html += `<div style="display:flex;gap:4px;width:100%;justify-content:space-between;align-items:flex-start;min-height:240px;">`;
+    for (let c = 0; c < 7; c++) {
+        const colCards = window.solTableau[c];
+        html += `<div onclick="targetSolitaireColumn(${c})" style="display:flex;flex-direction:column;width:${cardW}px;min-height:${cardH}px;border-radius:4px;background:${colCards.length?'transparent':'rgba(255,255,255,0.02)'};position:relative;">`;
+        
+        colCards.forEach((card, idx) => {
+            const isSel = (window.solSelected && window.solSelected.type === 'tableau' && window.solSelected.col === c && window.solSelected.idx === idx);
+            let style = `width:100%;height:${cardH}px;border-radius:4px;position:${idx===0?'relative':'absolute'};margin-top:${idx * 16}px;box-shadow:0 2px 4px rgba(0,0,0,0.3);box-sizing:border-box;`;
+            
+            if (!card.open) {
+                // Face Down Card Backs Styling
+                html += `<div style="${style}background:linear-gradient(135deg,#163518,#225025);border:1px solid #7a9c7d;"></div>`;
+            } else {
+                // Face Up Cards Styling
+                let borderStyle = isSel ? 'border:3px solid #ffd700;' : 'border:1px solid #aaa;';
+                html += `<div onclick="event.stopPropagation(); selectSolitaireCard(${c}, ${idx})" style="${style}background:#fff;color:${card.isRed?'#c00':'#111'};${borderStyle}display:flex;flex-direction:column;padding:2px;font-weight:900;font-size:13px;line-height:1.1;cursor:pointer;">
+                    <span>${card.r}</span><span>${card.s}</span>
+                </div>`;
+            }
+        });
+        html += `</div>`;
+    }
+    html += `</div></div>`;
+    gameCanvasContainer.innerHTML = html;
+}
+
+window.drawSolitaireCard = function() {
+    window.solSelected = null;
+    if (window.solDeck.length === 0) {
+        window.solDeck = window.solWaste.reverse().map(c => ({ ...c, open: false }));
+        window.solWaste = [];
+    } else {
+        let card = window.solDeck.pop();
+        card.open = true;
+        window.solWaste.push(card);
+    }
+    renderSolitaireBoard();
+};
+
+window.selectSolitaireWaste = function() {
+    if (window.solWaste.length === 0) return;
+    window.solSelected = { type: 'waste' };
+    renderSolitaireBoard();
+};
+
+window.selectSolitaireCard = function(col, idx) {
+    if (!window.solTableau[col][idx].open) return;
+    window.solSelected = { type: 'tableau', col, idx };
+    renderSolitaireBoard();
+};
+
+window.targetSolitaireColumn = function(toCol) {
+    if (!window.solSelected) return;
+    const targetPile = window.solTableau[toCol];
+    const topTarget = targetPile[targetPile.length - 1];
+    
+    let movingCards = [];
+    if (window.solSelected.type === 'waste') {
+        movingCards = [window.solWaste[window.solWaste.length - 1]];
+    } else {
+        movingCards = window.solTableau[window.solSelected.col].slice(window.solSelected.idx);
+    }
+
+    const firstMovingCard = movingCards[0];
+    
+    // Validate traditional King placement on empty slots or descending alternating colors rule sets
+    let isValid = false;
+    if (!topTarget) {
+        if (firstMovingCard.val === 13) isValid = true; // King on empty
+    } else if (topTarget.open && topTarget.isRed !== firstMovingCard.isRed && topTarget.val === firstMovingCard.val + 1) {
+        isValid = true;
+    }
+
+    if (isValid) {
+        if (window.solSelected.type === 'waste') {
+            targetPile.push(window.solWaste.pop());
+        } else {
+            const originCol = window.solTableau[window.solSelected.col];
+            window.solTableau[window.solSelected.col] = originCol.slice(0, window.solSelected.idx);
+            movingCards.forEach(c => targetPile.push(c));
+            if (window.solTableau[window.solSelected.col].length > 0) {
+                window.solTableau[window.solSelected.col][window.solTableau[window.solSelected.col].length - 1].open = true;
+            }
+        }
+        checkSolitaireVictory();
+    }
+    window.solSelected = null;
+    renderSolitaireBoard();
+};
+
+window.targetSolitaireFoundation = function(fIdx) {
+    if (!window.solSelected || window.solSelected.type === 'tableau' && window.solSelected.idx !== window.solTableau[window.solSelected.col].length - 1) return;
+    
+    let card = (window.solSelected.type === 'waste') 
+        ? window.solWaste[window.solWaste.length - 1] 
+        : window.solTableau[window.solSelected.col][window.solSelected.idx];
+        
+    const fPile = window.solFoundations[fIdx];
+    const topF = fPile[fPile.length - 1];
+    
+    let isValid = false;
+    if (!topF) {
+        if (card.val === 1) isValid = true; // Ace baseline
+    } else if (topF.s === card.s && card.val === topF.val + 1) {
+        isValid = true;
+    }
+
+    if (isValid) {
+        if (window.solSelected.type === 'waste') {
+            fPile.push(window.solWaste.pop());
+        } else {
+            fPile.push(window.solTableau[window.solSelected.col].pop());
+            if (window.solTableau[window.solSelected.col].length > 0) {
+                window.solTableau[window.solSelected.col][window.solTableau[window.solSelected.col].length - 1].open = true;
+            }
+        }
+        checkSolitaireVictory();
+    }
+    window.solSelected = null;
+    renderSolitaireBoard();
+};
+
+function checkSolitaireVictory() {
+    if (window.solFoundations.reduce((acc, current) => acc + current.length, 0) === 52) {
+        setTimeout(() => {
+            gameCanvasContainer.innerHTML = `<div style="text-align:center;padding:20px;color:#ffd700;font-family:Impact;font-size:32px;">👑 SOLITAIRE VICTORY!</div>`;
+        }, 300);
+    }
+}
