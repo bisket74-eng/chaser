@@ -720,9 +720,10 @@
         }, 50);
     };
 
-    let touchStartX = 0, touchStartY = 0;
-    chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; },{passive:true});
+    let touchStartX = 0, touchStartY = 0, touchStartedInGame = false;
+    chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; touchStartedInGame=!!e.target.closest('#activeGameStage'); },{passive:true});
     chatOverlay.addEventListener('touchend', e => {
+        if (touchStartedInGame) return;
         if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); gameHubOverlay.classList.remove('open'); }
     },{passive:true});
     chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); resetActivityTimer(); });
