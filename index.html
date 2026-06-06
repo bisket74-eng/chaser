@@ -82,7 +82,6 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* PERSISTENT FULL RE-LAYOUT HEIGHT CONTROL SCREEN SAVER SAFE SAVED MATRIX HOOKS */
         #activeGameStage { display:none; flex: 0 0 54%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
         #activeGameStage.open { display:flex; }
         #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
@@ -124,12 +123,11 @@
         .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
         .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
 
-        /* MULTIPLAYER COLOR ENGINE STYLE TILES REVISED CLASSES */
         .uno-card-body { width:66px; height:98px; border-radius:8px; border:3px solid #fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:36px; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,0.4); cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.35); padding:0; position:relative; }
         .uno-card-red { background:linear-gradient(135deg, #e63946, #b70918); }
         .uno-card-yellow { background:linear-gradient(135deg, #ffb703, #d68c00); }
-        .uno-card-green { background:linear-gradient(135deg, #00b050, #007020); } /* SOLID GREEN FIXED */
-        .uno-card-blue { background:linear-gradient(135deg, #00b0ff, #0070c0); }  /* LIGHTER BLUE FIXED */
+        .uno-card-green { background:linear-gradient(135deg, #00b050, #007020); } 
+        .uno-card-blue { background:linear-gradient(135deg, #00b0ff, #0070c0); }  
         .uno-card-wild { background: linear-gradient(45deg, #e63946, #ffb703, #00b050, #00b0ff); animation: wildCycle 3s infinite linear; }
         .uno-oval-center { position:absolute; width:46px; height:72px; background:rgba(255,255,255,0.18); border-radius:50%; transform:rotate(-20deg); z-index:1; }
         .uno-number-label { z-index:2; position:relative; }
@@ -345,33 +343,10 @@
         }
     };
 
-    /* ==========================================
-       CHASER ARCADE SYSTEM CONTROLLER
-       ========================================== */
     const gameHubOverlay = document.getElementById('gameHubOverlay');
     const activeGameStage = document.getElementById('activeGameStage');
     const gameCanvasContainer = document.getElementById('gameCanvasContainer');
     const activeGameLabelTitle = document.getElementById('activeGameLabelTitle');
-    let gameInterval = null;
-
-    // Persisted engine hooks to protect swipe closings
-    let syncCheckersBoard = [];
-    let selectedCheckerIdx = null;
-    let checkersTurn = 1; 
-    let consecutiveJumpsActive = false;
-
-    let unoDeckState = [];
-    let myUnoHand = [];
-    let unoDiscardPile = null;
-    let unoWildChoosingActive = false;
-    
-    let sharedRoomTriviaQuestion = null;
-    let triviaQuestionCount = 0;
-    let triviaScorePoints = 0;
-
-    let sequenceBoardState = [];
-    let mySequenceHand = [];
-    let sequenceTurn = 1; 
 
     document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
         resetActivityTimer();
@@ -381,508 +356,6 @@
             gameHubOverlay.classList.add('open');
         }
     });
-
-    function launchGameEngine(gameName, gameIcon) {
-        resetActivityTimer();
-        activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
-        gameHubOverlay.classList.remove('open');
-        activeGameStage.classList.add('open');
-        
-        if (gameCanvasContainer.innerHTML !== '') return; // Protect already active states
-
-        if (gameName === 'Hangman') {
-            initHangmanGame();
-        } else if (gameName === 'Checkers') {
-            initCheckersGame();
-        } else if (gameName === 'Crew Trivia') {
-            triviaQuestionCount = 0;
-            triviaScorePoints = 0;
-            initTriviaGame();
-        } else if (gameName === 'Battle Uno') {
-            initChaserUnoGame();
-        } else if (gameName === 'Sequence') {
-            initSequenceGame();
-        }
-    }
-
-    function shutdownActiveGame() {
-        activeGameStage.classList.remove('open');
-        // Do not empty container here to keep state persistent
-    }
-
-    /* --- 1. HANGMAN --- */
-    function initHangmanGame() {
-        const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
-        let targetWord = words[Math.floor(Math.random() * words.length)];
-        let guessedLetters = [];
-        let mistakes = 0;
-        const maxMistakes = 6;
-
-        const render = () => {
-            let displayWord = targetWord.split('').map(letter => guessedLetters.includes(letter) ? letter : '_').join(' ');
-            let gameOver = !displayWord.includes('_');
-            let gameLost = mistakes >= maxMistakes;
-
-            if (gameOver || gameLost) {
-                gameCanvasContainer.innerHTML = `
-                    <div style="background:#e2f0d9; color:#1e4620; padding:16px; border-radius:12px; width:260px; font-weight:bold;">
-                        <h3>${gameOver ? '🎉 You Won!' : '💀 Game Over'}</h3>
-                        <p style="font-size:16px; margin:6px 0;">Word was: ${targetWord}</p>
-                        <button onclick="gameCanvasContainer.innerHTML=''; initHangmanGame();" style="width:100%; padding:10px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold; margin-top:8px;">Reset Board</button>
-                    </div>`;
-                return;
-            }
-
-            let svgDraw = `<svg viewBox="0 0 100 100" style="width:110px; height:110px; stroke:#e2f0d9; stroke-width:4; fill:none; stroke-linecap:round;">
-                <path d="M15,90 L85,90 M35,90 L35,15 L70,15 L70,26" />
-                ${mistakes > 0 ? '<circle cx="70" cy="34" r="8" />' : ''}
-                ${mistakes > 1 ? '<line x1="70" y1="42" x2="70" y2="65" />' : ''}
-                ${mistakes > 2 ? '<line x1="70" y1="48" x2="52" y2="58" />' : ''}
-                ${mistakes > 3 ? '<line x1="70" y1="48" x2="88" y2="58" />' : ''}
-                ${mistakes > 4 ? '<line x1="70" y1="65" x2="54" y2="82" />' : ''}
-                ${mistakes > 5 ? '<line x1="70" y1="65" x2="86" y2="82" />' : ''}
-            </svg>`;
-
-            let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-                <div>${svgDraw}</div>
-                <div style="font-size:20px; font-weight:bold; letter-spacing:2px; color:#fff;">${displayWord}</div>
-                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px; margin-top:4px;">`;
-            
-            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
-                let used = guessedLetters.includes(ltr);
-                html += `<button id="hangLtr-${ltr}" ${used?'disabled':''} style="padding:6px 2px; font-weight:bold; font-size:11px; background:${used?'#555':'#e2f0d9'}; color:${used?'#888':'#1e4620'}; border:none; border-radius:4px;" onclick="handleHangmanGuess('${ltr}')">${ltr}</button>`;
-            });
-            html += `</div></div>`;
-            gameCanvasContainer.innerHTML = html;
-        };
-
-        window.handleHangmanGuess = (ltr) => {
-            guessedLetters.push(ltr);
-            if (!targetWord.includes(ltr)) mistakes++;
-            render();
-        };
-        render();
-    }
-
-    /* --- 2. CHECKERS (BIGGER, QUEENS & MULTI-DIAGONAL JUMPS) --- */
-    function initCheckersGame() {
-        selectedCheckerIdx = null;
-        checkersTurn = 1; 
-        consecutiveJumpsActive = false;
-        syncCheckersBoard = [];
-
-        for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-                let isDark = (r + c) % 2 === 1;
-                let val = 0; 
-                if (isDark && r < 3) val = 1;      // 1 = Red Normal
-                if (isDark && r > 4) val = 2;      // 2 = White Normal
-                syncCheckersBoard.push(val);
-            }
-        }
-
-        window.handleCheckerTileTap = (idx) => {
-            let piece = syncCheckersBoard[idx];
-
-            if (selectedCheckerIdx === null) {
-                if ((piece === 1 || piece === 11) && checkersTurn === 1) { selectedCheckerIdx = idx; renderCheckersGrid(); }
-                if ((piece === 2 || piece === 22) && checkersTurn === 2) { selectedCheckerIdx = idx; renderCheckersGrid(); }
-            } else {
-                let fromIdx = selectedCheckerIdx;
-                let pType = syncCheckersBoard[fromIdx];
-                
-                let fromR = Math.floor(fromIdx / 8);
-                let fromC = fromIdx % 8;
-                let toR = Math.floor(idx / 8);
-                let toC = idx % 8;
-
-                let rowDiff = toR - fromR;
-                let colDiff = Math.abs(toC - fromC);
-                let isQueen = (pType === 11 || pType === 22);
-
-                let isValidSlide = false;
-                if (!consecutiveJumpsActive && syncCheckersBoard[idx] === 0) {
-                    if (isQueen && Math.abs(rowDiff) === 1 && colDiff === 1) isValidSlide = true;
-                    if (!isQueen && pType === 1 && rowDiff === 1 && colDiff === 1) isValidSlide = true;
-                    if (!isQueen && pType === 2 && rowDiff === -1 && colDiff === 1) isValidSlide = true;
-                }
-
-                let isValidJump = false;
-                let jumpedIdx = null;
-                if (syncCheckersBoard[idx] === 0 && Math.abs(rowDiff) === 2 && colDiff === 2) {
-                    let midR = fromR + (rowDiff / 2);
-                    let midC = fromC + (toC > fromC ? 1 : -1);
-                    jumpedIdx = midR * 8 + midC;
-                    let targetPiece = syncCheckersBoard[jumpedIdx];
-
-                    if (isQueen && targetPiece !== 0 && Math.floor(targetPiece/10) !== Math.floor(pType/10)) isValidJump = true;
-                    if (!isQueen && pType === 1 && rowDiff === 2 && (targetPiece === 2 || targetPiece === 22)) isValidJump = true;
-                    if (!isQueen && pType === 2 && rowDiff === -2 && (targetPiece === 1 || targetPiece === 11)) isValidJump = true;
-                }
-
-                if (isValidSlide) {
-                    syncCheckersBoard[idx] = pType;
-                    syncCheckersBoard[fromIdx] = 0;
-                    
-                    // Queen conversion checkpoints
-                    if (pType === 1 && toR === 7) syncCheckersBoard[idx] = 11;
-                    if (pType === 2 && toR === 0) syncCheckersBoard[idx] = 22;
-
-                    checkersTurn = (checkersTurn === 1) ? 2 : 1;
-                    selectedCheckerIdx = null;
-                    triggerCheckersNetworkBroadcast();
-                } else if (isValidJump && jumpedIdx !== null) {
-                    syncCheckersBoard[idx] = pType;
-                    syncCheckersBoard[fromIdx] = 0;
-                    syncCheckersBoard[jumpedIdx] = 0; // Wipe capture piece
-
-                    if (pType === 1 && toR === 7) syncCheckersBoard[idx] = 11;
-                    if (pType === 2 && toR === 0) syncCheckersBoard[idx] = 22;
-
-                    // DOUBLE JUMP CALCULATOR MATRIX
-                    let codeHasMoreJumps = lookForAdditionalJumps(idx, syncCheckersBoard[idx]);
-                    if (codeHasMoreJumps) {
-                        consecutiveJumpsActive = true;
-                        selectedCheckerIdx = idx; // Lock selection on piece to force double jump
-                    } else {
-                        consecutiveJumpsActive = false;
-                        selectedCheckerIdx = null;
-                        checkersTurn = (checkersTurn === 1) ? 2 : 1;
-                    }
-                    triggerCheckersNetworkBroadcast();
-                } else {
-                    selectedCheckerIdx = null;
-                    consecutiveJumpsActive = false;
-                }
-                renderCheckersGrid();
-            }
-        };
-
-        renderCheckersGrid();
-    }
-
-    function lookForAdditionalJumps(idx, pType) {
-        let r = Math.floor(idx / 8);
-        let c = idx % 8;
-        let isQueen = (pType === 11 || pType === 22);
-        let directions = [];
-
-        if (isQueen || pType === 1) { directions.push({dr:2, dc:2}, {dr:2, dc:-2}); }
-        if (isQueen || pType === 2) { directions.push({dr:-2, dc:2}, {dr:-2, dc:-2}); }
-
-        for (let d of directions) {
-            let targetR = r + d.dr;
-            let targetC = c + d.dc;
-            if (targetR >= 0 && targetR < 8 && targetC >= 0 && targetC < 8) {
-                let destIdx = targetR * 8 + targetC;
-                let midR = r + (d.dr / 2);
-                let midC = c + (d.dc / 2);
-                let midIdx = midR * 8 + midC;
-                
-                if (syncCheckersBoard[destIdx] === 0 && syncCheckersBoard[midIdx] !== 0) {
-                    if (Math.floor(syncCheckersBoard[midIdx]/10) !== Math.floor(pType/10)) return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    function triggerCheckersNetworkBroadcast() {
-        if (channel) {
-            channel.send({
-                type: 'broadcast',
-                event: 'checkers-sync-move',
-                payload: { boardState: syncCheckersBoard, activeTurn: checkersTurn }
-            });
-        }
-    }
-
-    function renderCheckersGrid() {
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:1.0;">
-            <div style="font-size:14px; color:#ffd700; font-weight:bold; margin-bottom:2px;">Turn: ${checkersTurn===1?'🔴 RED Team':'⚪ WHITE Team'} ${consecutiveJumpsActive?'(Double Jump Available!)':''}</div>
-            <div style="display:grid; grid-template-columns: repeat(8, 36px); grid-template-rows: repeat(8, 36px); border:4px solid #2d6a30; border-radius:8px; overflow:hidden; background:#e2f0d9; box-shadow:0 6px 12px rgba(0,0,0,0.4);">`;
-        
-        for (let i = 0; i < 64; i++) {
-            let r = Math.floor(i / 8);
-            let c = i % 8;
-            let isDark = (r + c) % 2 === 1;
-            let val = syncCheckersBoard[i];
-            
-            let token = '';
-            if (val === 1)  token = '<div style="width:26px; height:26px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
-            if (val === 11) token = '<div style="width:26px; height:26px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:14px; color:white;">👑</div>';
-            if (val === 2)  token = '<div style="width:26px; height:26px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
-            if (val === 22) token = '<div style="width:26px; height:26px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; font-size:14px; color:red;">👑</div>';
-
-            let highlightBorder = (selectedCheckerIdx === i) ? 'border: 3px solid #ffd700; box-sizing:border-box;' : '';
-
-            html += `<div onclick="handleCheckerTileTap(${i})" style="width:36px; height:36px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center; cursor:pointer; ${highlightBorder}">${token}</div>`;
-        }
-        html += `</div></div>`;
-        gameCanvasContainer.innerHTML = html;
-    }
-
-    /* --- 3. CREW TRIVIA (DIVERSE VARIETY, ENHANCED SIZE) --- */
-    function initTriviaGame() {
-        if (triviaQuestionCount >= 20) {
-            renderTriviaScoreboard();
-            return;
-        }
-
-        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:16px;">Syncing hyper-random question ${triviaQuestionCount + 1}/20...</div>`;
-        
-        // Cache-buster random additions fixes repetitive loading issues completely
-        fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=9&cache=${Math.random()}`)
-            .then(res => res.json())
-            .then(data => {
-                if (!data.results || data.results.length === 0) { fallbackTrivia(); return; }
-                
-                const item = data.results[0];
-                const questionText = decodeHTMLEntities(item.question);
-                const correctAnswer = decodeHTMLEntities(item.correct_answer);
-                
-                let choices = item.incorrect_answers.map(ans => decodeHTMLEntities(ans));
-                const randomIdx = Math.floor(Math.random() * (choices.length + 1));
-                choices.splice(randomIdx, 0, correctAnswer);
-
-                sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices };
-
-                if (channel) {
-                    channel.send({
-                        type: 'broadcast',
-                        event: 'sync-room-trivia',
-                        payload: { triviaData: sharedRoomTriviaQuestion, count: triviaQuestionCount }
-                    });
-                }
-                renderSharedTriviaUI();
-            })
-            .catch(() => { fallbackTrivia(); });
-    }
-
-    function renderSharedTriviaUI() {
-        if (!sharedRoomTriviaQuestion) return;
-
-        window.evaluateInlineTriviaChoice = (btn, choice) => {
-            const allButtons = document.querySelectorAll('.trivia-choice-btn');
-            allButtons.forEach(b => b.disabled = true);
-
-            triviaQuestionCount++;
-
-            if (choice === sharedRoomTriviaQuestion.c) {
-                btn.style.background = '#00ff88'; // BRIGHT MINT GREEN
-                btn.style.color = '#000';
-                triviaScorePoints++;
-            } else {
-                btn.style.background = '#e63946'; 
-                btn.style.color = '#fff';
-                
-                allButtons.forEach(b => {
-                    if (b.getAttribute('data-choice') === sharedRoomTriviaQuestion.c) {
-                        b.style.background = '#00ff88';
-                        b.style.color = '#000';
-                    }
-                });
-            }
-            setTimeout(() => { initTriviaGame(); }, 1800);
-        };
-
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:320px; scale:1.05;">
-            <div style="font-size:14px; color:#ffd700; font-weight:bold;">Question Count: ${triviaQuestionCount + 1}/20 | Score: ${triviaScorePoints}</div>
-            <div style="background:rgba(0,0,0,0.5); padding:12px; border-radius:10px; font-size:16px; line-height:1.4; color:#fff; font-weight:bold; text-align:center; width:100%; box-sizing:border-box; border:1px solid rgba(255,255,255,0.15);">${sharedRoomTriviaQuestion.q}</div>
-            <div style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:4px;">`;
-        
-        sharedRoomTriviaQuestion.choices.forEach((choice) => {
-            html += `<button class="trivia-choice-btn" data-choice="${choice.replace(/"/g, '&quot;')}" style="width:100%; padding:12px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:900; font-size:14px; text-align:left;" onclick="evaluateInlineTriviaChoice(this, \`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
-        });
-        html += `</div></div>`;
-        gameCanvasContainer.innerHTML = html;
-    }
-
-    /* --- 4. BATTLE UNO (LIGHT BLUE, SOLID GREEN, SCROLL RIG, WILDS) --- */
-    function initChaserUnoGame() {
-        const colors = ['Red', 'Yellow', 'Green', 'Blue'];
-        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Wild', '⇋'];
-        
-        unoDeckState = [];
-        myUnoHand = [];
-        unoWildChoosingActive = false;
-        
-        colors.forEach(c => {
-            values.forEach(v => {
-                unoDeckState.push({ color: c, value: v });
-            });
-        });
-
-        for (let i = unoDeckState.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [unoDeckState[i], unoDeckState[j]] = [unoDeckState[j], unoDeckState[i]];
-        }
-
-        for(let i=0; i<4; i++) { myUnoHand.push(unoDeckState.pop()); }
-        unoDiscardPile = { color: 'Red', value: '5' };
-
-        window.drawUnoCardAction = () => {
-            if(unoDeckState.length > 0) {
-                myUnoHand.push(unoDeckState.pop());
-                renderUnoLayout();
-                
-                // AUTO SCROLL RIG TO THE RIGHT EDGE INSTANTLY
-                setTimeout(() => {
-                    let handBox = document.getElementById('unoHandScrollGrid');
-                    if (handBox) handBox.scrollTo({ left: handBox.scrollWidth, behavior: 'smooth' });
-                }, 100);
-            }
-        };
-
-        window.playUnoCardAction = (idx) => {
-            let selected = myUnoHand[idx];
-            
-            if (selected.value === 'Wild') {
-                myUnoHand.splice(idx, 1);
-                unoWildChoosingActive = true;
-                renderUnoLayout();
-                return;
-            }
-
-            if (selected.color === unoDiscardPile.color || selected.value === unoDiscardPile.value) {
-                unoDiscardPile = selected;
-                myUnoHand.splice(idx, 1);
-                
-                if(channel) {
-                    channel.send({
-                        type: 'broadcast',
-                        event: 'uno-sync-discard',
-                        payload: { currentDiscard: unoDiscardPile }
-                    });
-                }
-            } else {
-                alert("Match center card color or number!");
-            }
-            renderUnoLayout();
-        };
-
-        window.selectUnoWildColor = (chosenColor) => {
-            unoDiscardPile = { color: chosenColor, value: 'Wild' };
-            unoWildChoosingActive = false;
-            if(channel) {
-                channel.send({
-                    type: 'broadcast',
-                    event: 'uno-sync-discard',
-                    payload: { currentDiscard: unoDiscardPile }
-                });
-            }
-            renderUnoLayout();
-        };
-
-        renderUnoLayout();
-    }
-
-    function renderUnoLayout() {
-        let pileColorClass = unoDiscardPile.value === 'Wild' ? 'uno-card-wild' : `uno-card-${unoDiscardPile.color.toLowerCase()}`;
-        
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-            <div style="font-size:13px; color:#ffd700; font-weight:bold; margin-bottom:2px;">Turn Activity: Action Sync Live to Room Channel</div>
-            
-            <div style="display:flex; gap:20px; align-items:center; margin-bottom:2px;">
-                <button onclick="drawUnoCardAction()" style="width:62px; height:92px; background:linear-gradient(135deg, #111, #333); color:#ffd700; border:3px solid #fff; border-radius:8px; font-weight:900; font-size:12px; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.4);">DRAW<br>DECK</button>
-                
-                <div class="uno-card-body ${pileColorClass}">
-                    <div class="uno-oval-center"></div>
-                    <span class="uno-number-label" style="font-size:20px;">${unoDiscardPile.value === 'Wild' ? 'W' : unoDiscardPile.value}</span>
-                </div>
-            </div>`;
-
-        if (unoWildChoosingActive) {
-            html += `<div style="display:flex; gap:6px; margin:4px 0;">
-                <button onclick="selectUnoWildColor('Red')" style="background:#e63946; color:white; border:none; padding:6px 10px; border-radius:4px; font-weight:bold;">Red</button>
-                <button onclick="selectUnoWildColor('Yellow')" style="background:#ffb703; color:black; border:none; padding:6px 10px; border-radius:4px; font-weight:bold;">Yellow</button>
-                <button onclick="selectUnoWildColor('Green')" style="background:#00b050; color:white; border:none; padding:6px 10px; border-radius:4px; font-weight:bold;">Green</button>
-                <button onclick="selectUnoWildColor('Blue')" style="background:#00b0ff; color:white; border:none; padding:6px 10px; border-radius:4px; font-weight:bold;">Blue</button>
-            </div>`;
-        }
-
-        html += `<div style="color:white; font-size:12px; font-weight:bold; margin-top:2px;">Your Scroll Hand:</div>
-            <div id="unoHandScrollGrid" style="display:flex; gap:8px; overflow-x:auto; width:100%; max-width:310px; padding:6px; box-sizing:border-box; background:rgba(0,0,0,0.3); border-radius:10px;">`;
-        
-        myUnoHand.forEach((card, i) => {
-            let cardColorClass = card.value === 'Wild' ? 'uno-card-wild' : `uno-card-${card.color.toLowerCase()}`;
-            html += `
-                <button onclick="playUnoCardAction(${i})" class="uno-card-body ${cardColorClass}">
-                    <div class="uno-oval-center"></div>
-                    <span class="uno-number-label" style="font-size:18px;">${card.value === 'Wild' ? 'W' : card.value}</span>
-                </button>`;
-        });
-        html += `</div></div>`;
-        gameCanvasContainer.innerHTML = html;
-    }
-
-    /* --- 5. COMPACT SEQUENCE STRATEGY ENGINE --- */
-    function initSequenceGame() {
-        sequenceTurn = 1;
-        sequenceBoardState = Array(36).fill(0); // 6x6 matrix layout block
-        
-        const cardSuitsList = ['♠', '♥', '♦', '♣'];
-        const rankList = ['10', 'J', 'Q', 'K', 'A'];
-        
-        mySequenceHand = [];
-        for(let i=0; i<4; i++) {
-            let s = cardSuitsList[Math.floor(Math.random()*cardSuitsList.length)];
-            let r = rankList[Math.floor(Math.random()*rankList.length)];
-            mySequenceHand.push({r, s, isRed: (s==='♥'||s==='♦')});
-        }
-
-        window.handleSequenceMatrixTap = (idx) => {
-            if (sequenceBoardState[idx] !== 0) return; // Cell locked
-            
-            // Allocate chip placement coordinate
-            sequenceBoardState[idx] = sequenceTurn;
-            
-            // Cycle target hand replacement card
-            let s = cardSuitsList[Math.floor(Math.random()*cardSuitsList.length)];
-            let r = rankList[Math.floor(Math.random()*rankList.length)];
-            mySequenceHand.shift();
-            mySequenceHand.push({r, s, isRed: (s==='♥'||s==='♦')});
-
-            sequenceTurn = (sequenceTurn === 1) ? 2 : 1;
-            renderSequenceBoard();
-        };
-
-        renderSequenceBoard();
-    }
-
-    function renderSequenceBoard() {
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; scale:0.95;">
-            <div style="font-size:12px; color:#ffd700; font-weight:bold;">Sequence Board | Turn: Player ${sequenceTurn} (${sequenceTurn===1?'🔵':'🔴'} Chip)</div>
-            <div style="display:grid; grid-template-columns: repeat(6, 44px); grid-template-rows: repeat(6, 34px); gap:3px; background:rgba(0,0,0,0.5); padding:4px; border-radius:6px;">`;
-        
-        const matrixCardsMock = [
-            '♣A','♣K','♣Q','♣10','♠10','♠Q',
-            '♣2','♦A','♦K','♦Q','♦10','♠K',
-            '♣3','♥A','♥K','♥Q','♥10','♠A',
-            '♣4','♣5','♣6','♣7','♣8','♣9',
-            '♥2','♥3','♥4','♥5','♥6','♥7',
-            '♦2','♦3','♦4','♦5','♦6','♦7'
-        ];
-
-        for (let i = 0; i < 36; i++) {
-            let chip = '';
-            if (sequenceBoardState[i] === 1) chip = '<div style="position:absolute; width:22px; height:22px; background:#00b0ff; border-radius:50%; opacity:0.85; border:1px solid #fff;"></div>';
-            if (sequenceBoardState[i] === 2) chip = '<div style="position:absolute; width:22px; height:22px; background:#e63946; border-radius:50%; opacity:0.85; border:1px solid #fff;"></div>';
-
-            html += `<div onclick="handleSequenceMatrixTap(${i})" style="position:relative; background:#fff; color:#111; font-size:11px; font-weight:bold; display:flex; align-items:center; justify-content:center; border-radius:4px; border:1px solid #ccc; cursor:pointer;">
-                <span>${matrixCardsMock[i]}</span>
-                ${chip}
-            </div>`;
-        }
-
-        html += `</div>
-            <div style="display:flex; gap:4px; margin-top:2px; overflow-x:auto; max-width:280px;">`;
-        mySequenceHand.forEach(c => {
-            html += `<div style="background:#fff; color:${c.isRed?'#e63946':'#111'}; padding:4px 6px; border-radius:4px; font-size:12px; font-weight:900; border:1px solid #aaa;">${c.r}${c.s}</div>`;
-        });
-        html += `</div></div>`;
-        gameCanvasContainer.innerHTML = html;
-    }
 
     const fitAllRiders = (animate = true) => {
         const positions = Object.values(incomingRidersCache).filter(r => r.marker).map(r => r.marker.getLatLng());
@@ -950,20 +423,18 @@
             .on('broadcast', { event:'rename' }, ({ payload }) => {
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
+            
+            // Shared multiplayer game event synchronizations pass directly to games.js
             .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
-                syncCheckersBoard = payload.boardState;
-                checkersTurn = payload.activeTurn;
-                if(activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Checkers')) renderCheckersGrid();
+                if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
             })
             .on('broadcast', { event:'uno-sync-discard' }, ({ payload }) => {
-                unoDiscardPile = payload.currentDiscard;
-                if(activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Uno')) renderUnoLayout();
+                if (window.handleIncomingUnoSync) window.handleIncomingUnoSync(payload);
             })
             .on('broadcast', { event:'sync-room-trivia' }, ({ payload }) => {
-                sharedRoomTriviaQuestion = payload.triviaData;
-                triviaQuestionCount = payload.count;
-                if(activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Trivia')) renderSharedTriviaUI();
+                if (window.handleIncomingTriviaSync) window.handleIncomingTriviaSync(payload);
             })
+
             .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
                 const bubbles = document.querySelectorAll('.msg-bubble');
                 if (!bubbles.length) return;
@@ -1247,7 +718,6 @@
     let touchStartX = 0, touchStartY = 0;
     chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; },{passive:true});
     chatOverlay.addEventListener('touchend', e => {
-        // SWIPE CLOSE PROTECTION: We no longer shutdown the game variables on swipe. The interface layout remains frozen in active memory state.
         if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); gameHubOverlay.classList.remove('open'); }
     },{passive:true});
     chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); resetActivityTimer(); });
@@ -1260,7 +730,9 @@
         if (!currentName || currentName.toLowerCase()==='anonymous') { chatOverlay.classList.remove('open'); isChatOpen=false; requireName(); return; }
         const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
         appendMessage(msgId, currentName, chatMsgInput.value.trim(), true, myChatColor, myId);
-        channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:chatMsgInput.value.trim(), token:sessionMsgToken, color:myChatColor, id:myId } });
+        if (channel) {
+            channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:chatMsgInput.value.trim(), token:sessionMsgToken, color:myChatColor, id:myId } });
+        }
         chatMsgInput.value = '';
     };
 
@@ -1281,7 +753,7 @@
             rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
             rec.onresult = e => {
                 input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
-                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
+                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); if (channel) channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
                 if (input.id=='destination') { broadcastCurrentState(); }
                 if (autoSubmit) { sendGroupMessage(); }
             };
@@ -1305,7 +777,7 @@
 
     usernameInput.addEventListener('input', () => {
         resetActivityTimer(); usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
-        const n = usernameInput.value.trim(); if (n) { localStorage.setItem('rider_saved_name',n); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
+        const n = usernameInput.value.trim(); if (n) { localStorage.setItem('rider_saved_name',n); if (channel) channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
         broadcastCurrentState();
     });
     destinationInput.addEventListener('input', () => { resetActivityTimer(); broadcastCurrentState(); });
@@ -1316,5 +788,8 @@
 
     if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 </script>
+
+<script src="./games.js"></script>
+
 </body>
 </html>
