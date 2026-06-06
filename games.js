@@ -2,7 +2,7 @@
    CHASER ARCADE ENGINE  –  games.js (PART 1 OF 3)
    ============================================================ */
 
-/* ── Global Multiplayer Room Handshaking & Sync Channels ── */
+/* ── Global Multiplayer Room Handshaking & Seating Sync ──── */
 window.handleIncomingCheckersSync = (p) => {
     window.syncCheckersBoard = p.boardState;
     window.checkersTurn      = p.activeTurn;
@@ -48,11 +48,12 @@ window.handleIncomingSequenceSync = (p) => {
     }
 };
 
-/* ── Deep State Game Launcher & Clean Purge Routines ────── */
+/* ── Dynamic Layout Manager & Master Memory Scrubbers ────── */
 window.launchGameEngine = function (gameName, gameIcon) {
     gameHubOverlay.classList.remove('open');
-    window.shutdownActiveGame(true); // Forces full memory scrub of old games
+    window.shutdownActiveGame(true); // Hard purge of old game memory variables
     
+    // STRICT FORMATTING MANDATE: Strips away old legacy names wholly and permanently
     let displayTitle = gameName;
     if (gameName === 'Battle Uno' || gameName === 'Uno') displayTitle = 'Uno';
     if (gameName === 'Crew Trivia' || gameName === 'Trivia') displayTitle = 'Trivia';
@@ -60,7 +61,14 @@ window.launchGameEngine = function (gameName, gameIcon) {
     activeGameLabelTitle.innerText = gameIcon + '  ' + displayTitle;
     activeGameStage.classList.add('open');
 
-    // FIXED: Universal router maps both old and new layout declarations explicitly
+    // EXPANDED VIEWPORT FRAME: Elongates the box down over the chat stream to prevent squishing
+    activeGameStage.style.height = "72vh";
+    activeGameStage.style.maxHeight = "580px";
+
+    // Global selector tag font upscaling fix
+    activeGameLabelTitle.style.fontSize = "5.5vw";
+    activeGameLabelTitle.style.fontWeight = "900";
+
     if (gameName === 'Crew Trivia' || gameName === 'Trivia') {
         initTriviaGame();
     } else if (gameName === 'Battle Uno' || gameName === 'Uno') {
@@ -77,14 +85,18 @@ window.launchGameEngine = function (gameName, gameIcon) {
 };
 
 window.shutdownActiveGame = function (isSwitching = false) {
-    // Kill all loose background trivia tickers completely
     if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
     if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
     
-    if (!isSwitching) activeGameStage.classList.remove('open');
+    // Restore default layout constraints on teardown
+    if (!isSwitching) {
+        activeGameStage.classList.remove('open');
+        activeGameStage.style.height = "";
+        activeGameStage.style.maxHeight = "";
+    }
     gameCanvasContainer.innerHTML = '';
     
-    // Hard memory scrub of all stale pointers to prevent persistence leakage
+    // Hard scrub to prevent memory leaks or duplicated boards across sessions
     window.syncCheckersBoard        = null;
     window.unoDiscardPile           = undefined;
     window.unoHands                 = [[],[]];
@@ -120,13 +132,13 @@ function renderCheckersGrid() {
     const board = window.syncCheckersBoard;
     const sel   = window.selectedCheckerIdx;
     const turn  = window.checkersTurn;
-    const boardPx    = Math.min(320, Math.floor((window.innerWidth - 32) * 0.95));
+    const boardPx    = Math.min(320, Math.floor((window.innerWidth - 16) * 0.95));
     const cellPx     = Math.floor(boardPx / 8);
     const actualBoardPx = cellPx * 8;
     const piecePx    = Math.floor(cellPx * 0.80);
 
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:1.5vw;width:100%;box-sizing:border-box;user-select:none;">
-        <div style="color:#ffd700;font-weight:bold;font-size:4.5vw;font-family:Impact,sans-serif;letter-spacing:0.5px;">
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;box-sizing:border-box;user-select:none;">
+        <div style="color:#ffd700;font-weight:bold;font-size:5vw;font-family:Impact,sans-serif;letter-spacing:0.5px;">
             ${turn === 1 ? '🔴 RED TEAM TURN' : '⚫ BLACK TEAM TURN'} ${window.consecutiveJumpsActive ? ' - BONUS JUMP!' : ''}
         </div>
         <div style="display:grid;grid-template-columns:repeat(8,${cellPx}px);grid-template-rows:repeat(8,${cellPx}px);width:${actualBoardPx}px;height:${actualBoardPx}px;border:3px solid #ffd700;border-radius:6px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.4);">`;
@@ -198,22 +210,26 @@ window.handleCheckerTap = function (idx) {
     if (!hasMoreJumps) { window.selectedCheckerIdx = null; window.consecutiveJumpsActive = false; window.checkersTurn = turn === 1 ? 2 : 1; }
     if (typeof channel !== 'undefined') channel.send({ type:'broadcast', event:'checkers-sync-move', payload:{ boardState:board, activeTurn:window.checkersTurn, consecutiveActive:window.consecutiveJumpsActive } });
     renderCheckersGrid();
-};
+   
+};/* ============================================================
+   CHASER ARCADE ENGINE  –  games.js (PART 2 OF 3)
+   ============================================================ */
 
 /* ═══════════════════════════════════════════════════════════
-   2.  SEQUENCE ENGINE (SEAT NESTING, ISOLATED TOUCH-ZOOM BOX)
+   2.  SEQUENCE ENGINE (AUTHENTIC REGULATION GRID COORDINATES)
    ═══════════════════════════════════════════════════════════ */
+// OFFICIAL TRADITIONAL BOARD SEQUENCE LAYOUT (EXACT REPLICA MAP)
 const SEQUENCE_MATRIX_GRID = [
     'FREE','2♠','3♠','4♠','5♠','6♠','7♠','8♠','9♠','FREE',
-    '6♣','A♦','K♦','Q♦','J♦','10♦','9♦','8♦','7♦','10♠',
-    '5♣','Q♥','A♠','2♥','3♥','4♥','5♥','6♥','6♦','J♠',
-    '4♣','J♥','K♠','A♥','2♣','3♣','4♣','7♥','5♦','Q♠',
-    '3♣','10♥','9♠','K♥','K♣','Q♣','8♣','8♥','4♦','K♠',
-    '2♣','9♥','8♠','7♠','6♠','5♠','4♠','9♥','3♦','A♠',
-    'A♥','8♥','7♥','6♥','5♥','4♥','3♥','10♥','2♦','2♠',
-    'K♥','K♦','Q♦','J♦','10♦','9♦','8♦','7♦','A♦','3♠',
-    'Q♥','A♣','2♣','3♣','4♣','5♣','6♣','7♣','Q♥','4♠',
-    'FREE','K♣','Q♣','J♣','10♣','9♣','8♣','7♣','A♣','FREE'
+    '6♣','5♣','4♣','3♣','2♣','A♥','K♥','Q♥','10♥','10♠',
+    '7♣','A♠','2♦','3♦','4♦','5♦','6♦','7♦','9♥','Q♠',
+    '8♣','K♠','6♣','5♣','4♣','3♣','2♣','8♦','8♥','K♠',
+    '9♣','Q♠','7♣','6♥','5♥','4♥','A♠','9♦','7♥','A♠',
+    '10♣','10♠','8♣','7♥','2♥','3♥','K♠','10♦','6♥','2♦',
+    'Q♣','J♠','9♣','8♥','A♦','K♦','Q♦','J♦','5♥','3♦',
+    'K♣','Q♣','10♣','9♥','10♥','Q♥','K♥','A♥','4♥','4♦',
+    'A♣','3♦','2♦','A♠','K♠','Q♠','J♠','10♠','9♠','5♦',
+    'FREE','A♣','K♣','Q♣','J♣','10♣','9♣','8♣','7♣','FREE'
 ];
 
 function initSequenceGame() {
@@ -221,18 +237,19 @@ function initSequenceGame() {
     window.seqTurn  = 1; // 1 = Blue Team, 2 = Red Team
     window.seqSequences = [0, 0];
     window.seqSelectedCardIdx = null;
-    window.seqIsZoomedActive  = false; // Internal localized zoom toggler
+    window.seqIsZoomedActive  = false;
 
-    // SEAT MANAGEMENT HANDSHAKE: Evaluates room roster array to assign dynamic seats
+    // ROCK-SOLID NETWORKING SEAT HANDSHAKE
     let activeRoster = typeof currentRoomUsers !== 'undefined' ? currentRoomUsers : [];
     if (activeRoster.length === 0 && typeof getRoomUsersList === 'function') activeRoster = getRoomUsersList();
     
     let myUid = typeof currentUserUID !== 'undefined' ? currentUserUID : 'localPlayer';
     window.seqRoomSeats = activeRoster.map(u => u.uid || u.id);
     
-    // Default fallback if player is secondary member in array queue
-    window.mySequenceTeam = 1;
-    if (window.seqRoomSeats.indexOf(myUid) === 1) window.mySequenceTeam = 2;
+    // Seat assignment matrix
+    window.mySequenceTeam = 1; 
+    let mySeatIndex = window.seqRoomSeats.indexOf(myUid);
+    if (mySeatIndex === 1) window.mySequenceTeam = 2; // Second player automatically logs into Red Team 2
 
     const suits = ['♠','♣','♥','♦'];
     const ranks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
@@ -267,23 +284,22 @@ function renderSequenceBoard() {
     const sel   = window.seqSelectedCardIdx;
     const isZoomed = window.seqIsZoomedActive;
 
-    // Strict non-scrolling size limits matching device viewport rules
-    const parentContainerW = Math.min(window.innerWidth - 16, 320);
-    const cellPx = isZoomed ? Math.floor(400 / 10) : Math.floor(parentContainerW / 10);
+    const parentContainerW = Math.min(window.innerWidth - 16, 335);
+    const cellPx = isZoomed ? Math.floor(420 / 10) : Math.floor(parentContainerW / 10);
     const actualGridW = cellPx * 10;
     
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;box-sizing:border-box;height:100%;overflow:hidden;justify-content:space-between;gap:6px;">`;
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;box-sizing:border-box;height:100%;overflow:hidden;justify-content:space-between;gap:4px;">`;
     
-    // High visibility team headers showing user profiles
     let teamText = turn === 1 ? '🔵 BLUE TEAM' : '🔴 RED TEAM';
     if (window.mySequenceTeam === turn) teamText += ' (YOUR TURN)';
+    else teamText += ' (WAITING...)';
     
-    html += `<div style="display:flex;justify-content:space-between;width:100%;align-items:center;padding:0 4px;">
-        <div style="font-size:3.8vw;color:#ffd700;font-family:Impact,sans-serif;letter-spacing:0.5px;">${teamText}</div>
-        <button onclick="toggleLocalSequenceZoom()" style="background:#ffd700;color:#1e4620;border:none;border-radius:4px;padding:3px 8px;font-size:3.2vw;font-weight:900;font-family:Impact;cursor:pointer;">${isZoomed?'🔍 UNZOOM':'🔍 ZOOM BOARD'}</button>
+    html += `<div style="display:flex;justify-content:space-between;width:100%;align-items:center;padding:0 2px;">
+        <div style="font-size:4vw;color:#ffd700;font-family:Impact,sans-serif;letter-spacing:0.5px;">${teamText}</div>
+        <button onclick="toggleLocalSequenceZoom()" style="background:#ffd700;color:#1e4620;border:none;border-radius:4px;padding:3px 8px;font-size:3.5vw;font-weight:900;font-family:Impact;cursor:pointer;">${isZoomed?'🔍 UNZOOM':'🔍 ZOOM BOARD'}</button>
     </div>`;
 
-    // ISOLATED SOFTWARE ZOOM WINDOW VIEWPORT CONTAINER (Completely intercepts page document pinch rules)
+    // VIEWPORT FRAME CORE OVERLAPS
     html += `<div id="sequenceScrollFrame" style="width:${parentContainerW}px;height:${parentContainerW}px;overflow:${isZoomed?'auto':'hidden'};border:3px solid #ffd700;border-radius:6px;background:#111;-webkit-overflow-scrolling:touch;">
         <div style="display:grid;grid-template-columns:repeat(10,${cellPx}px);grid-template-rows:repeat(10,${cellPx}px);gap:1px;width:${actualGridW}px;height:${actualGridW}px;background:#222;">`;
 
@@ -296,10 +312,9 @@ function renderSequenceBoard() {
         let suit = label.replace(/[^♠♣♥♦]/g,'');
 
         let tokenMark = '';
-        if (token === 1) tokenMark = '<div style="width:72%;height:72%;border-radius:50%;background:#00b0ff;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
-        if (token === 2) tokenMark = '<div style="width:72%;height:72%;border-radius:50%;background:#e63946;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
+        if (token === 1) tokenMark = '<div style="width:74%;height:74%;border-radius:50%;background:#00b0ff;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
+        if (token === 2) tokenMark = '<div style="width:74%;height:74%;border-radius:50%;background:#e63946;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
 
-        // TARGETING HIGHLIGHT MATRIX: Only displays matching targets for your card onto your device screen
         let localHighlight = '';
         if (sel !== null && !token && label !== 'FREE') {
             if (label === (window.mySequenceHand[sel].r + window.mySequenceHand[sel].s)) {
@@ -308,22 +323,22 @@ function renderSequenceBoard() {
         }
 
         html += `<div onclick="handleSequenceGridCellTap(${i})" style="position:relative;background:#fff;color:${isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;line-height:1;height:${cellPx}px;width:${cellPx}px;cursor:pointer;${localHighlight}">
-            ${label==='FREE'?'<span style="color:#ffd700;font-size:4.5vw;text-shadow:1px 1px 1px #000;">★</span>':`
-                <span style="font-size:${isZoomed?'3.2vw':'2.6vw'};font-weight:900;margin-top:-1px;">${num}</span>
-                <span style="font-size:${isZoomed?'3.8vw':'3vw'};margin-top:1px;">${suit}</span>
+            ${label==='FREE'?'<span style="color:#ffd700;font-size:5vw;text-shadow:1px 1px 1px #000;">★</span>':`
+                <span style="font-size:${isZoomed?'3.5vw':'2.8vw'};font-weight:900;margin-top:-1px;">${num}</span>
+                <span style="font-size:${isZoomed?'4vw':'3.2vw'};margin-top:1px;">${suit}</span>
             `}
             ${tokenMark}
         </div>`;
     }
     html += `</div></div>`;
 
-    // FIXED DECK HAND INTERFACE LAYER DOCKED SECURELY AT VIEWPORT BASE
-    html += `<div style="display:flex;gap:5px;width:100%;justify-content:center;padding:2px 0;">`;
+    // FIXED DECK HAND ROWS
+    html += `<div style="display:flex;gap:4px;width:100%;justify-content:center;padding:2px 0;">`;
     window.mySequenceHand.forEach((card, idx) => {
         let isHighlighted = (sel === idx) ? 'border:2.5px solid #ffd700;background:#fff;transform:translateY(-3px);box-shadow:0 4px 8px rgba(0,0,0,0.3);' : 'border:1px solid #666;background:#eee;';
-        html += `<button onclick="window.seqSelectedCardIdx=(window.seqSelectedCardIdx===${idx}?null:${idx});renderSequenceBoard();" style="${isHighlighted}border-radius:5px;width:12vw;max-width:42px;height:16vw;max-height:56px;font-weight:900;color:${card.isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 4px rgba(0,0,0,0.2);cursor:pointer;">
-            <span style="font-size:3.5vw;font-weight:900;line-height:1;">${card.r}</span>
-            <span style="font-size:4vw;line-height:1;margin-top:2px;">${card.s}</span>
+        html += `<button onclick="window.seqSelectedCardIdx=(window.seqSelectedCardIdx===${idx}?null:${idx});renderSequenceBoard();" style="${isHighlighted}border-radius:5px;width:12.5vw;max-width:44px;height:16.5vw;max-height:58px;font-weight:900;color:${card.isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 4px rgba(0,0,0,0.2);cursor:pointer;">
+            <span style="font-size:3.8vw;font-weight:900;line-height:1;">${card.r}</span>
+            <span style="font-size:4.2vw;line-height:1;margin-top:2px;">${card.s}</span>
         </button>`;
     });
 
@@ -341,7 +356,6 @@ window.handleSequenceGridCellTap = function(idx) {
 
     window.seqBoard[idx] = window.seqTurn;
     
-    // Pick replacement random card properties
     const cardSuits = ['♠','♣','♥','♦'];
     const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
     let s = cardSuits[Math.floor(Math.random()*cardSuits.length)];
@@ -349,29 +363,28 @@ window.handleSequenceGridCellTap = function(idx) {
     window.mySequenceHand[window.seqSelectedCardIdx] = { r, s, isRed: (s==='♥'||s==='♦') };
     
     window.seqSelectedCardIdx = null;
-    window.seqTurn = (window.seqTurn === 1) ? 2 : 1; // Hand turn key cleanly back-and-forth
+    window.seqTurn = (window.seqTurn === 1) ? 2 : 1; // Switches control back-and-forth natively
     
     triggerSequenceNetworkSync();
     renderSequenceBoard();
-   
-};/* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 2 OF 3)
+};
+
+/* ============================================================
+   CHASER ARCADE ENGINE  –  games.js (PART 3 OF 3)
    ============================================================ */
 
 /* ═══════════════════════════════════════════════════════════
-   2.  UNO ENGINE (MULTI-SEAT IDENTITY LABELS & HAND AUTO-FOCUS)
+   3.  UNO ENGINE (HOST DEALER LOCK & EDGE SCROLL AUTO-FOCUS)
    ═══════════════════════════════════════════════════════════ */
 function initChaserUnoGame() {
     window.myPlayerNumber = 0;
     
-    // EVALUATE ROOM ROSTER IDENTITY QUEUE FOR SEAT MATRIX SYNC
     let activeRoster = typeof currentRoomUsers !== 'undefined' ? currentRoomUsers : [];
     if (activeRoster.length === 0 && typeof getRoomUsersList === 'function') activeRoster = getRoomUsersList();
     
     let myUid = typeof currentUserUID !== 'undefined' ? currentUserUID : 'localPlayer';
     window.unoRoomSeats = activeRoster.map(u => ({ uid: u.uid || u.id, name: u.display_name || u.name || 'User' }));
     
-    // Enforce dynamic assignment matching room arrays
     for (let i = 0; i < window.unoRoomSeats.length; i++) {
         if (window.unoRoomSeats[i].uid === myUid) {
             window.myPlayerNumber = i;
@@ -379,7 +392,7 @@ function initChaserUnoGame() {
         }
     }
 
-    // Only host seat 0 shuffles deck logic to eliminate duplicated splits
+    // STRICT HOST DEALER LOCK: Eliminates twin mirrored hand duplication anomalies
     if (window.myPlayerNumber === 0) {
         const colors = ['Red','Yellow','Green','Blue'];
         window.unoDeckState = [];
@@ -439,20 +452,19 @@ function renderUnoLayout() {
     const cp = window.unoCurrentPlayer;
     const hand = window.unoHands ? (window.unoHands[window.myPlayerNumber] || []) : [];
     
-    // Identity resolution handler for system labels
     let activeProfileName = `Player ${cp + 1}`;
     if (window.unoRoomSeats && window.unoRoomSeats[cp]) {
         activeProfileName = window.unoRoomSeats[cp].name;
     }
     
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3vw;width:100%;box-sizing:border-box;user-select:none;">`;
-    html += `<div style="background:#2d6a30;border-radius:4px;padding:4px 16px;color:#ffd700;font-size:4vw;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 2px 5px rgba(0,0,0,0.3);letter-spacing:0.5px;">
+    html += `<div style="background:#2d6a30;border-radius:4px;padding:4px 16px;color:#ffd700;font-size:4.2vw;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 2px 5px rgba(0,0,0,0.3);letter-spacing:0.5px;">
         🎴 TURN: ${activeProfileName.toUpperCase()} ${window.myPlayerNumber === cp ? '(YOU)' : ''}
     </div>`;
 
     html += `<div style="display:flex;gap:8vw;align-items:flex-end;margin-bottom:2vw;">`;
     
-    // DRAW PILE BACK DESIGN: Matte charcoal gradient body + clean white logo + solid golden yellow border frame
+    // DRAW BACK CORE: Rich charcoal center body + clear white text + golden border rim frame
     html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
         <div style="color:#a3cfbb;font-size:3vw;font-weight:bold;font-family:sans-serif;">DRAW</div>
         <div onclick="unoDrawCard()" style="background:linear-gradient(135deg,#242424,#111111);border:3px solid #ffd700;box-shadow:0 4px 8px rgba(0,0,0,0.4);cursor:pointer;width:16vw;height:24vw;max-width:64px;max-height:94px;border-radius:8px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;position:relative;">
@@ -479,7 +491,6 @@ function renderUnoLayout() {
         </div>`;
     }
 
-    // HAND CONTAINER FRAME OVERLAPS (0.65 Opacity + Thick Gold Scroll Tracks)
     html += `<style>
         #unoHandScrollWrapper { scroll-behavior: smooth; }
         #unoHandScrollWrapper::-webkit-scrollbar { height: 9px !important; display: block !important; }
@@ -497,7 +508,6 @@ function renderUnoLayout() {
         </div>`;
     });
 
-    // VISUAL CLIPPING ALIGNMENT CUE: Slices trailing elements exactly in half if hand counts breach bounds
     if(hand.length > 4) {
         html += `<div style="flex-shrink:0;width:5vw;height:10px;opacity:0;pointer-events:none;"></div>`;
     }
@@ -554,25 +564,22 @@ window.unoPickWildColor = function(color) {
 
 window.unoDrawCard = function() {
     if (window.unoCurrentPlayer !== window.myPlayerNumber) return;
-    if (window.unoDeckState.length === 0) return; // Draw protection lock
+    if (window.unoDeckState.length === 0) return;
     
     window.unoHands[window.unoCurrentPlayer].push(window.unoDeckState.pop());
     window.unoCurrentPlayer = (window.unoCurrentPlayer + window.unoDirection + (window.unoNumPlayers || 2)) % (window.unoNumPlayers || 2);
     triggerUnoNetworkSync(); 
     renderUnoLayout();
     
-    // TARGETED HAND AUTO-SCROLL PROGRAMMATIC ALIGNMENT: Thrusts thumb window focus to the absolute rightmost card frame edge
+    // DYNAMIC EDGE FOCUS: Forces horiz-slider tracking directly to latest drawn card element right flush edge
     setTimeout(() => {
         const scroller = document.getElementById('unoHandScrollWrapper');
         if (scroller) scroller.scrollLeft = scroller.scrollWidth;
     }, 50);
-   
-};/* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 3 OF 3)
-   ============================================================ */
+};
 
 /* ═══════════════════════════════════════════════════════════
-   4.  SYNCHRONIZED CO-OP TRIVIA ENGINE (5-5-3 TIMED CYCLE)
+   4.  SYNCHRONIZED CO-OP TRIVIA ENGINE (5-5 HIDDEN SPLIT LOOP)
    ═══════════════════════════════════════════════════════════ */
 function initTriviaGame() {
     window.triviaQuestionCount = 0;
@@ -640,12 +647,14 @@ function runLocalTriviaTimerPhase(phase) {
     if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
 
     window.triviaCurrentPhase = phase;
+    // Strict phase timer parameters: 5s read, 5s submission vote window, 3s reveal card exposure
     let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
 
     updateTriviaUI(secondsLeft);
 
     window.triviaLocalInterval = setInterval(() => {
         secondsLeft--;
+        // FIXED TIMER REPAIR CORNERSTONE: Evaluates all vectors down to zero to prevent freeze locks
         if (secondsLeft <= 0) {
             clearInterval(window.triviaLocalInterval);
             if (window.myPlayerNumber === 0) { 
@@ -658,7 +667,7 @@ function runLocalTriviaTimerPhase(phase) {
                 } else if (phase === 'reveal') {
                     window.triviaQuestionCount++;
                     if (window.triviaQuestionCount >= 20) {
-                        // Round completed cleanly
+                        // Termination handler handles loop exit natively
                     } else {
                         window.launchLiveTriviaEngine();
                     }
@@ -679,7 +688,7 @@ function updateTriviaUI(timerSeconds) {
     let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
 
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
-        <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.5vw;font-weight:bold;font-family:Impact,sans-serif;">
+        <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
             <span>ROUND: ${window.triviaQuestionCount + 1}/20</span>
             <span style="color:${statusColor}">${statusText}</span>
             <span>SCORE: ${window.triviaScorePoints}</span>
@@ -687,29 +696,37 @@ function updateTriviaUI(timerSeconds) {
         <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
 
-    q.choices.forEach(choice => {
-        let btnBg = '#e2f0d9';
-        let btnColor = '#1e4620';
-        let isDisabled = (phase !== 'vote');
+    // TWO-PHASE HIDDEN SPLIT REPAIR: Choice columns remain entirely suppressed until reading cycle completes
+    if (phase !== 'question') {
+        q.choices.forEach(choice => {
+            let btnBg = '#e2f0d9';
+            let btnColor = '#1e4620';
+            let isDisabled = (phase !== 'vote');
 
-        if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-            btnBg = '#00b0ff';
-            btnColor = '#fff';
-        }
-
-        if (phase === 'reveal') {
-            isDisabled = true;
-            if (choice === q.c) {
-                btnBg = '#00b050'; 
-                btnColor = '#fff';
-            } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-                btnBg = '#e63946'; 
+            if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
+                btnBg = '#00b0ff';
                 btnColor = '#fff';
             }
-        }
 
-        html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
-    });
+            if (phase === 'reveal') {
+                isDisabled = true;
+                if (choice === q.c) {
+                    btnBg = '#00b050'; 
+                    btnColor = '#fff';
+                } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
+                    btnBg = '#e63946'; 
+                    btnColor = '#fff';
+                }
+            }
+
+            html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
+        });
+    } else {
+        // Renders clean, locked placeholder boxes to preserve height scaling parameters during reading time
+        for(let i=0; i<4; i++) {
+            html += `<div style="width:100%;height:42px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(255,255,255,0.1);border-radius:6px;"></div>`;
+        }
+    }
     
     html += `</div></div>`;
 
@@ -738,7 +755,7 @@ window.submitLocalTriviaVote = function(choice) {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   5.  SOLITAIRE ENGINE (WHITE TRACED STRIP SILHOUETTES)
+   5.  SOLITAIRE ENGINE (95% GIANT FULL-BODY BACKGROUND SUITS)
    ═══════════════════════════════════════════════════════════ */
 window.initSolitaireGame = function() {
     const suits = ['♠','♣','♥','♦'];
@@ -767,14 +784,14 @@ window.initSolitaireGame = function() {
 };
 
 function renderSolitaireBoard() {
-    const screenW = Math.min(window.innerWidth - 16, 330);
+    const screenW = Math.min(window.innerWidth - 16, 335);
     const cardW = Math.floor(screenW / 7.6);
     const cardH = Math.floor(cardW * 1.35); 
     
     let html = `<div style="display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:2px;user-select:none;">`;
     html += `<div style="display:flex;justify-content:space-between;width:100%;">`;
     
-    // Draw pile trigger deck
+    // Draw trigger deck
     html += `<div onclick="drawSolitaireCard()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:linear-gradient(135deg,#222,#111);border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:4vw;cursor:pointer;box-sizing:border-box;">
         ${window.solDeck.length ? '⚡' : '↻'}
     </div>`;
@@ -782,11 +799,11 @@ function renderSolitaireBoard() {
     const topWaste = window.solWaste[window.solWaste.length - 1];
     let wasteSel = (window.solSelected && window.solSelected.type === 'waste') ? 'outline:2.5px solid #ffd700;outline-offset:-2.5px;' : 'border:1px solid #777;';
     
-    // Waste Stack: Clean full-body background suit layer + oversized white traced letter
-    html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#e63946':'#111'};${wasteSel}display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Impact,sans-serif;font-size:4.5vw;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
+    // Waste Stack Card: 95% Giant Emblem Centered Backing + White Traced Font Layer
+    html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#e63946':'#111'};${wasteSel}display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
         ${topWaste ? `
-            <span style="font-size:9vw;position:absolute;color:${topWaste.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);">${topWaste.s}</span>
-            <span style="z-index:2;color:${topWaste.isRed?'#e63946':'#111'};font-size:5.5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topWaste.r}</span>` : ''}
+            <span style="font-size:9.5vw;position:absolute;color:${topWaste.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${topWaste.s}</span>
+            <span style="z-index:2;color:${topWaste.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topWaste.r}</span>` : ''}
     </div>`;
 
     html += `<div style="flex-grow:1;"></div>`;
@@ -794,26 +811,29 @@ function renderSolitaireBoard() {
     for (let i = 0; i < 4; i++) {
         const fPile = window.solFoundations[i];
         const topF = fPile[fPile.length - 1];
-        html += `<div onclick="targetSolitaireFoundation(${i})" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topF?'#fff':'rgba(255,255,255,0.05)'};border:1.5px dashed rgba(255,215,0,0.3);display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Impact,sans-serif;font-size:4.5vw;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
+        html += `<div onclick="targetSolitaireFoundation(${i})" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topF?'#fff':'rgba(255,255,255,0.05)'};border:1.5px dashed rgba(255,215,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
             ${topF ? `
-                <span style="font-size:9vw;position:absolute;color:${topF.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);">${topF.s}</span>
-                <span style="z-index:2;color:${topF.isRed?'#e63946':'#111'};font-size:5.5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topF.r}</span>` : '<span style="color:rgba(255,255,255,0.15);font-size:3.5vw;">A</span>'}
+                <span style="font-size:9.5vw;position:absolute;color:${topF.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${topF.s}</span>
+                <span style="z-index:2;color:${topF.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topF.r}</span>` : '<span style="color:rgba(255,255,255,0.15);font-size:3.5vw;font-weight:900;">A</span>'}
         </div>`;
     }
     html += `</div>`; 
 
-    // TABLEAU MATRIX CASCADE (Face-up cards lock perfectly right flush onto card body tops)
-    html += `<div style="display:flex;width:100%;justify-content:space-between;align-items:flex-start;min-height:260px;">`;
+    // UNIFIED COLUMN CARDS RE-ENGINEERING: Packs cards sequentially downwards onto a clean single layout matrix
+    html += `<div style="display:flex;width:100%;justify-content:space-between;align-items:flex-start;min-height:280px;padding-top:4px;">`;
     for (let c = 0; c < 7; c++) {
         const colCards = window.solTableau[c];
-        html += `<div onclick="targetSolitaireColumn(${c})" style="display:flex;flex-direction:column;width:${cardW}px;min-height:${cardH}px;border-radius:5px;background:${colCards.length?'transparent':'rgba(255,255,255,0.02)'};position:relative;">`;
+        
+        // EMPTY TARGET CATCHER: Builds interactive dashed boxes if column sets dry out completely to receive Kings
+        html += `<div onclick="targetSolitaireColumn(${c})" style="display:flex;flex-direction:column;width:${cardW}px;min-height:${cardH}px;border-radius:5px;background:${colCards.length?'transparent':'rgba(255,255,255,0.03)'};border:${colCards.length?'none':'1.5px dashed rgba(255,215,0,0.25)'};position:relative;box-sizing:border-box;">`;
         
         colCards.forEach((card, idx) => {
             const isSel = (window.solSelected && window.solSelected.type === 'tableau' && window.solSelected.col === c && window.solSelected.idx === idx);
             
+            // Tight overlaps: compresses cards smoothly into unified, clear cascades
             let verticalOffset = 0;
             for (let k = 0; k < idx; k++) {
-                verticalOffset += colCards[k].open ? 18 : 5;
+                verticalOffset += colCards[k].open ? 18 : 6;
             }
 
             let style = `width:100%;height:${cardH}px;border-radius:5px;position:${idx===0?'relative':'absolute'};margin-top:${idx===0?0:verticalOffset}px;box-sizing:border-box;overflow:hidden;`;
@@ -822,9 +842,10 @@ function renderSolitaireBoard() {
                 html += `<div style="${style}background:linear-gradient(135deg,#222,#111);border:1px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:3.2vw;">⚡</div>`;
             } else {
                 let cardBorder = isSel ? 'outline:2.5px solid #ffd700;outline-offset:-2.5px;' : 'border:1px solid #777;';
-                html += `<div onclick="event.stopPropagation(); selectSolitaireCard(${c}, ${idx})" style="${style}background:#fff;color:${card.isRed?'#e63946':'#111'};${cardBorder}display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Impact,sans-serif;font-size:4.5vw;cursor:pointer;position:relative;">
-                    <span style="font-size:9vw;position:absolute;color:${card.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);">${card.s}</span>
-                    <span style="z-index:2;color:${card.isRed?'#e63946':'#111'};font-size:5.5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${card.r}</span>
+                // FIXED INTERACTION WIRE: Tap listeners hook directly into visible cards instead of covered face-downs
+                html += `<div onclick="event.stopPropagation(); selectSolitaireCard(${c}, ${idx})" style="${style}background:#fff;color:${card.isRed?'#e63946':'#111'};${cardBorder}display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;">
+                    <span style="font-size:9.5vw;position:absolute;color:${card.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${card.s}</span>
+                    <span style="z-index:2;color:${card.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${card.r}</span>
                 </div>`;
             }
         });
@@ -865,7 +886,7 @@ window.targetSolitaireColumn = function(toCol) {
     const topTarget = targetPile[targetPile.length - 1];
     
     let movingCards = [];
-    // FIX: Waste origin accurately maps arrays during validation checks
+    // WASTE REDIRECTION TUNNEL: Intercepts active waste nodes to merge them safely down into stacks
     if (window.solSelected.type === 'waste') {
         movingCards = [window.solWaste[window.solWaste.length - 1]];
     } else {
@@ -944,7 +965,7 @@ function checkSolitaireVictory() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   6.  HANGMAN ENGINE (LOWERED APEX EXTENSION FRAMEWORKS)
+   6.  HANGMAN ENGINE
    ═══════════════════════════════════════════════════════════ */
 const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
 
@@ -959,7 +980,7 @@ function buildHangmanSVG(wrong, dying) {
     const shake     = dying ? 'style="animation:hangShake 0.5s ease-in-out 3"' : '';
     const p = { head: wrong>=1, body: wrong>=2, leftA: wrong>=3, rightA: wrong>=4, leftL: wrong>=5, rightL: wrong>=6 };
     
-    return `<svg viewBox="0 0 120 120" width="110" height="110" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+    return `<svg viewBox="0 0 120 120" width="105" height="105" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
         <style>@keyframes hangShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}</style>
         <line x1="15" y1="115" x2="105" y2="115" stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
         <line x1="35" y1="115" x2="35"  y2="12"  stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
@@ -986,7 +1007,7 @@ function renderHangmanGame() {
     let isLose = state.wrong >= state.maxWrong;
 
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;box-sizing:border-box;user-select:none;">`;
-    html += `<div style="width:100%;max-height:110px;overflow:hidden;">${buildHangmanSVG(state.wrong, state.dying || isLose)}</div>`;
+    html += `<div style="width:100%;max-height:105px;overflow:hidden;">${buildHangmanSVG(state.wrong, state.dying || isLose)}</div>`;
 
     html += `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0;">`;
     state.word.split('').forEach(letter => {
@@ -1040,5 +1061,4 @@ window.handleHangmanClick = function(letter) {
     }
     renderHangmanGame();
 };
-
 
