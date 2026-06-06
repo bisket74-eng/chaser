@@ -676,18 +676,24 @@ function runLocalTriviaTimerPhase(phase) {
         secondsLeft--;
         if (secondsLeft <= 0) {
             clearInterval(window.triviaLocalInterval);
-            if (window.myPlayerNumber === 0) { 
-                if (phase === 'question') {
+            
+            // UNFREEZE FIX: Every device now advances local phases instantly at 0s instead of freezing on Player 0
+            if (phase === 'question') {
+                if (typeof broadcastTriviaState === 'function') {
                     broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
-                    runLocalTriviaTimerPhase('vote');
-                } else if (phase === 'vote') {
+                }
+                runLocalTriviaTimerPhase('vote');
+            } else if (phase === 'vote') {
+                if (typeof broadcastTriviaState === 'function') {
                     broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
-                    runLocalTriviaTimerPhase('reveal');
-                } else if (phase === 'reveal') {
-                    window.triviaQuestionCount++;
-                    if (window.triviaQuestionCount >= 20) {
-                        // Game ends automatically via evaluation below inside render updates
-                    } else {
+                }
+                runLocalTriviaTimerPhase('reveal');
+            } else if (phase === 'reveal') {
+                window.triviaQuestionCount++;
+                if (window.triviaQuestionCount >= 20) {
+                    // Campaign completed handles final display organically inside updateTriviaUI
+                } else {
+                    if (typeof window.launchLiveTriviaEngine === 'function') {
                         window.launchLiveTriviaEngine();
                     }
                 }
@@ -706,10 +712,21 @@ function updateTriviaUI(timerSeconds) {
     let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
     let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
 
-    // ROBUST SEATING SAFETY CHECK: Fallback to 0 if player tracking is empty to stop freeze locks
     let pNum = typeof window.myPlayerNumber !== 'undefined' ? window.myPlayerNumber : 0;
 
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
+    let html = `
+    <!-- Injection of smooth global transition styles to completely eliminate chunkiness -->
+    <style>
+        @keyframes triviaSmoothFade {
+            0% { opacity: 0.15; font-weight: 500; }
+            100% { opacity: 0.95; font-weight: 500; }
+        }
+        .trivia-fading-choice {
+            animation: triviaSmoothFade 5s linear forwards;
+        }
+    </style>
+    
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
             <span>ROUND: ${window.triviaQuestionCount + 1}/20</span>
             <span style="color:${statusColor}">${statusText}</span>
@@ -722,16 +739,14 @@ function updateTriviaUI(timerSeconds) {
         let btnBg = '#e2f0d9';
         let btnColor = '#1e4620';
         let isDisabled = (phase !== 'vote');
+        let customClass = "";
         let customStyle = "";
 
-        // DYNAMIC SMOOTH BUILD: Slowly raises visibility up over 5 seconds based on the clock ticker
         if (phase === 'question') {
             isDisabled = true;
-            let calculatedOpacity = 1 - (timerSeconds * 0.17); 
-            if (calculatedOpacity < 0.15) calculatedOpacity = 0.15;
-            customStyle = `opacity: ${calculatedOpacity}; transition: opacity 0.5s ease-in-out; font-weight: 500;`;
+            customClass = "trivia-fading-choice"; // Hooks directly to our buttery-smooth CSS timer
         } else if (phase === 'vote') {
-            customStyle = `font-weight: 900;`; // Turns fully bold and dark at voting kickoff
+            customStyle = `font-weight: 900;`; 
             if (window.triviaRoomVotes[pNum] === choice) {
                 btnBg = '#00b0ff';
                 btnColor = '#fff';
@@ -748,8 +763,7 @@ function updateTriviaUI(timerSeconds) {
             }
         }
 
-        // TEXT ESCAPE PARSING SAFETY CORNER: Pulls inner text via ID lookup to stop punctuation string crashes
-        html += `<button class="trivia-inline-choice-btn" id="trivia-choice-${index}" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(document.getElementById('trivia-choice-${index}').innerText)" >${choice}</button>`;
+        html += `<button class="trivia-inline-choice-btn ${customClass}" id="trivia-choice-${index}" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(document.getElementById('trivia-choice-${index}').innerText)" >${choice}</button>`;
     });
     
     html += `</div></div>`;
@@ -777,9 +791,12 @@ window.submitLocalTriviaVote = function(choice) {
     if (choice === window.sharedRoomTriviaQuestion.c) {
         window.triviaScorePoints++;
     }
-    broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+    if (typeof broadcastTriviaState === 'function') {
+        broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+    }
     updateTriviaUI(5);
 };
+
 
 
 /* ═══════════════════════════════════════════════════════════
