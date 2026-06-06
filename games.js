@@ -7,7 +7,7 @@ window.handleIncomingCheckersSync = (p) => {
     window.syncCheckersBoard = p.boardState;
     window.checkersTurn      = p.activeTurn;
     window.consecutiveJumpsActive = p.consecutiveActive || false;
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText === '🔴  Checkers') {
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Checkers')) {
         renderCheckersGrid();
     }
 };
@@ -18,7 +18,7 @@ window.handleIncomingUnoSync = (p) => {
     window.unoHands         = p.hands;
     window.unoDeckState     = p.deck;
     window.unoDirection     = p.direction;
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText === '🎴  Uno') {
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Uno')) {
         renderUnoLayout();
     }
 };
@@ -41,7 +41,7 @@ window.handleIncomingSequenceSync = (p) => {
     window.seqBoard         = p.boardState;
     window.seqTurn          = p.turnState;
     window.seqSequences     = p.sequenceScores;
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText === '⚔️  Sequence') {
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Sequence')) {
         renderSequenceBoard();
     }
 };
@@ -51,23 +51,21 @@ window.launchGameEngine = function (gameName, gameIcon) {
     gameHubOverlay.classList.remove('open');
     window.shutdownActiveGame(true); 
     
-    // Clean, streamlined game naming maps
+    // Clean, streamlined game naming normalization
     let displayTitle = gameName;
-    if (gameName === 'Battle Uno') displayTitle = 'Uno';
-    if (gameName === 'Crew Trivia') displayTitle = 'Trivia';
+    if (gameName === 'Battle Uno' || gameName === 'Uno') displayTitle = 'Uno';
+    if (gameName === 'Crew Trivia' || gameName === 'Trivia') displayTitle = 'Trivia';
     
     activeGameLabelTitle.innerText = gameIcon + '  ' + displayTitle;
     activeGameStage.classList.add('open');
 
-    const map = {
-        'Crew Trivia' : initTriviaGame,
-        'Battle Uno'  : initChaserUnoGame,
-        'Checkers'    : initCheckersGame,
-        'Sequence'    : initSequenceGame,
-        'Solitaire'   : initSolitaireGame,
-        'Hangman'     : initHangmanGame,
-    };
-    if (map[gameName]) map[gameName]();
+    // FIX: Fallback layout map checks both old and new naming declarations
+    if (gameName === 'Crew Trivia' || gameName === 'Trivia') initTriviaGame();
+    else if (gameName === 'Battle Uno' || gameName === 'Uno') initChaserUnoGame();
+    else if (gameName === 'Checkers') initCheckersGame();
+    else if (gameName === 'Sequence') initSequenceGame();
+    else if (gameName === 'Solitaire') initSolitaireGame();
+    else if (gameName === 'Hangman') initHangmanGame();
 };
 
 window.shutdownActiveGame = function (isSwitching = false) {
@@ -187,7 +185,7 @@ window.handleCheckerTap = function (idx) {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   2.  UNO ENGINE (ROOM MATRIX LOCKOUT, SCROLL CLIPPING CUES)
+   2.  UNO ENGINE
    ═══════════════════════════════════════════════════════════ */
 function initChaserUnoGame() {
     window.myPlayerNumber = window.myPlayerNumber !== undefined ? window.myPlayerNumber : 0;
@@ -245,7 +243,6 @@ function renderUnoLayout() {
 
     html += `<div style="display:flex;gap:8vw;align-items:flex-end;margin-bottom:2vw;">`;
     
-    // DRAW PILE: Dark gray/black body, white font, yellow safety border indicator
     html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
         <div style="color:#a3cfbb;font-size:3vw;font-weight:bold;font-family:sans-serif;">DRAW</div>
         <div onclick="unoDrawCard()" style="background:linear-gradient(135deg,#2d2d2d,#141414);border:3px solid #ffd700;box-shadow:0 4px 8px rgba(0,0,0,0.4);cursor:pointer;width:16vw;height:24vw;max-width:64px;max-height:94px;border-radius:8px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
@@ -253,13 +250,12 @@ function renderUnoLayout() {
         </div>
     </div>`;
 
-    // PLAY PILE
-    const isSkipFont = discard.value === 'Skip';
+    const cardTxtSkip = discard.value === 'Skip';
     html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
         <div style="color:#a3cfbb;font-size:3vw;font-weight:bold;font-family:sans-serif;">PLAY</div>
         <div style="background:${unoColorClass(discard.color)};width:16vw;height:24vw;max-width:64px;max-height:94px;border:2px solid #fff;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 8px rgba(0,0,0,0.4);box-sizing:border-box;position:relative;overflow:hidden;">
             <div style="position:absolute;width:130%;height:40%;background:rgba(255,255,255,0.15);border-radius:50%;transform:rotate(-25deg);"></div>
-            <div style="color:#fff;font-size:${isSkipFont?'3.5vw':'8vw'};font-weight:900;font-family:Impact,sans-serif;z-index:2;text-shadow:2px 2px 4px rgba(0,0,0,0.4);text-align:center;padding:2px;max-width:100%;white-space:nowrap;overflow:hidden;">
+            <div style="color:#fff;font-size:${cardTxtSkip?'3.5vw':'8vw'};font-weight:900;font-family:Impact,sans-serif;z-index:2;text-shadow:2px 2px 4px rgba(0,0,0,0.4);text-align:center;padding:2px;max-width:100%;white-space:nowrap;overflow:hidden;">
                 ${discard.value}
             </div>
         </div>
@@ -272,7 +268,6 @@ function renderUnoLayout() {
         </div>`;
     }
 
-    // HAND CARDS LISTING (0.65 Opacity instead of overly faded 0.3)
     html += `<style>
         #unoHandScrollWrapper::-webkit-scrollbar { height: 9px !important; display: block !important; }
         #unoHandScrollWrapper::-webkit-scrollbar-thumb { background-color: #ffd700 !important; border-radius: 4px !important; }
@@ -282,14 +277,13 @@ function renderUnoLayout() {
 
     hand.forEach((card, i) => {
         const playable = card.color===discard.color || card.value===discard.value || card.color==='Wild';
-        const cardTxtSkip = card.value === 'Skip';
-        html += `<div onclick="unoPlayCard(${i})" style="flex-shrink:0;width:14vw;height:21vw;max-width:56px;max-height:84px;background:${unoColorClass(card.color)};opacity:${playable?1:0.65};border:2px solid #fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:${cardTxtSkip?'3vw':'6.5vw'};color:#fff;font-family:Impact,sans-serif;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,0.3);cursor:pointer;position:relative;overflow:hidden;">
+        const innerTxtSkip = card.value === 'Skip';
+        html += `<div onclick="unoPlayCard(${i})" style="flex-shrink:0;width:14vw;height:21vw;max-width:56px;max-height:84px;background:${unoColorClass(card.color)};opacity:${playable?1:0.65};border:2px solid #fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:${innerTxtSkip?'3vw':'6.5vw'};color:#fff;font-family:Impact,sans-serif;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,0.3);cursor:pointer;position:relative;overflow:hidden;">
             <div style="position:absolute;width:130%;height:45%;background:rgba(255,255,255,0.12);border-radius:50%;transform:rotate(-25deg);"></div>
             <span style="z-index:2;text-shadow:1px 1px 3px rgba(0,0,0,0.5);text-align:center;padding:1px;white-space:nowrap;max-width:100%;overflow:hidden;">${card.value}</span>
         </div>`;
     });
 
-    // Enforce layout clipping logic via standard spacer block
     if(hand.length > 4) {
         html += `<div style="flex-shrink:0;width:5vw;height:10px;opacity:0;pointer-events:none;"></div>`;
     }
@@ -348,7 +342,7 @@ window.unoDrawCard = function() {
 };
 
 /* ═══════════════════════════════════════════════════════════
-   3.  SEQUENCE ENGINE (STRICT MATCH ENFORCEMENT & COMPACT)
+   3.  SEQUENCE ENGINE
    ═══════════════════════════════════════════════════════════ */
 const SEQUENCE_MATRIX_GRID = [
     'FREE','2♠','3♠','4♠','5♠','6♠','7♠','8♠','9♠','FREE',
@@ -419,7 +413,6 @@ function renderSequenceBoard() {
         if (token === 1) tokenMark = '<div style="width:75%;height:75%;border-radius:50%;background:#00b0ff;border:1.5px solid #fff;position:absolute;z-index:2;"></div>';
         if (token === 2) tokenMark = '<div style="width:75%;height:75%;border-radius:50%;background:#e63946;border:1.5px solid #fff;position:absolute;z-index:2;"></div>';
 
-        // GORGEOUS SUBTLE AMBER OVERLAY (Only visible on your device)
         let localHighlight = '';
         if (sel !== null && !token && label !== 'FREE') {
             if (label === (window.mySequenceHand[sel].r + window.mySequenceHand[sel].s)) {
@@ -477,7 +470,7 @@ window.handleSequenceGridCellTap = function(idx) {
     triggerSequenceNetworkSync();
     renderSequenceBoard();
    /* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 2 OF 2)
+   CHASER ARCADE ENGINE  –  games.js (PART 2A OF 3)
    ============================================================ */
 
 /* ═══════════════════════════════════════════════════════════
@@ -488,6 +481,7 @@ function initTriviaGame() {
     window.triviaScorePoints   = 0;
     window.triviaRoomVotes     = {};
     
+    // BEAUTIFUL INTERACTIVE OVERLAY PANEL MATCHING YOUR WEBPAGE CLASS LAYOUTS
     gameCanvasContainer.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vw;padding:4vw;width:100%;box-sizing:border-box;height:100%;user-select:none;">
             <div style="color:#ffd700;font-size:5.5vw;font-weight:bold;font-family:Impact,sans-serif;text-shadow:2px 2px 4px rgba(0,0,0,0.5);text-align:center;letter-spacing:0.5px;">TRIVIA CATEGORY</div>
@@ -567,7 +561,7 @@ function runLocalTriviaTimerPhase(phase) {
                 } else if (phase === 'reveal') {
                     window.triviaQuestionCount++;
                     if (window.triviaQuestionCount >= 20) {
-                        // Round finished logic handled locally at end of reveal
+                        // Termination sequence triggered below in layout
                     } else {
                         window.launchLiveTriviaEngine();
                     }
@@ -644,7 +638,10 @@ window.submitLocalTriviaVote = function(choice) {
     }
     broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
     updateTriviaUI(5);
-};
+   
+};/* ============================================================
+   CHASER ARCADE ENGINE  –  games.js (PART 2B OF 3)
+   ============================================================ */
 
 /* ═══════════════════════════════════════════════════════════
    5.  SOLITAIRE ENGINE (COMPACT VERTICAL STACKS, SOLID SUITS)
@@ -683,7 +680,7 @@ function renderSolitaireBoard() {
     let html = `<div style="display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:2px;user-select:none;">`;
     html += `<div style="display:flex;justify-content:space-between;width:100%;">`;
     
-    // Draw pile back
+    // Draw Pile Core Back
     html += `<div onclick="drawSolitaireCard()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:linear-gradient(135deg,#222,#111);border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:4vw;cursor:pointer;box-sizing:border-box;">
         ${window.solDeck.length ? '⚡' : '↻'}
     </div>`;
@@ -691,7 +688,7 @@ function renderSolitaireBoard() {
     const topWaste = window.solWaste[window.solWaste.length - 1];
     let wasteSel = (window.solSelected && window.solSelected.type === 'waste') ? 'outline:2.5px solid #ffd700;outline-offset:-2.5px;' : 'border:1px solid #777;';
     
-    // Waste Stack: Full opacity solid center display
+    // Waste Stack: Full Opacity Rich Solid Card Faces
     html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#e63946':'#111'};${wasteSel}display:flex;align-items:center;justify-content:center;font-weight:900;font-family:Impact,sans-serif;font-size:4.5vw;cursor:pointer;position:relative;box-sizing:border-box;">
         ${topWaste ? `<span style="font-size:7vw;position:absolute;color:${topWaste.isRed?'#e63946':'#111'};opacity:1;z-index:1;">${topWaste.s}</span><span style="z-index:2;color:${topWaste.isRed?'#e63946':'#111'};background:rgba(255,255,255,0.85);padding:1px 3px;border-radius:3px;font-size:3.5vw;">${topWaste.r}</span>` : ''}
     </div>`;
@@ -707,7 +704,7 @@ function renderSolitaireBoard() {
     }
     html += `</div>`; 
 
-    // TABLEAU MATRIX GRIDS
+    // TABLEAU COLUMNS (FIXED CARD SLIDING FAN ATTRIBUTES)
     html += `<div style="display:flex;width:100%;justify-content:space-between;align-items:flex-start;min-height:240px;">`;
     for (let c = 0; c < 7; c++) {
         const colCards = window.solTableau[c];
@@ -716,7 +713,7 @@ function renderSolitaireBoard() {
         colCards.forEach((card, idx) => {
             const isSel = (window.solSelected && window.solSelected.type === 'tableau' && window.solSelected.col === c && window.solSelected.idx === idx);
             
-            // CARD CRUNCHING PACK FACTOR: Face down stack tightly overflows by only 4px. Active open cascade flows 18px down.
+            // CRUNCH FACTOR: Face down cards compress to 5px overlaps. Face up cards open nicely.
             let verticalOffset = 0;
             for (let k = 0; k < idx; k++) {
                 verticalOffset += colCards[k].open ? 18 : 5;
@@ -843,7 +840,7 @@ function checkSolitaireVictory() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   6.  HANGMAN ENGINE (LOWERED FRAME SCAFFOLD, LARGE DASHES)
+   6.  HANGMAN ENGINE (LOWERED SKELETON CORES, SHRUNK VIEWBOX)
    ═══════════════════════════════════════════════════════════ */
 const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
 
@@ -858,7 +855,7 @@ function buildHangmanSVG(wrong, dying) {
     const shake     = dying ? 'style="animation:hangShake 0.5s ease-in-out 3"' : '';
     const p = { head: wrong>=1, body: wrong>=2, leftA: wrong>=3, rightA: wrong>=4, leftL: wrong>=5, rightL: wrong>=6 };
     
-    // ADJUSTED VIEWBOX AND LOWERED UPPER ANCHOR HOOK BASE CORES TO PREVENT CLIPPING
+    // SCAFFOLD BASE CORES ADJUSTED DOWN
     return `<svg viewBox="0 0 120 120" width="110" height="110" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
         <style>@keyframes hangShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}</style>
         <line x1="15" y1="115" x2="105" y2="115" stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
@@ -888,7 +885,6 @@ function renderHangmanGame() {
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;box-sizing:border-box;user-select:none;">`;
     html += `<div style="width:100%;max-height:110px;overflow:hidden;">${buildHangmanSVG(state.wrong, state.dying || isLose)}</div>`;
 
-    // OVERSIZED CENTER LETTERS AND STABLE DASHES
     html += `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0;">`;
     state.word.split('').forEach(letter => {
         const revealed = state.guessed.includes(letter) || isLose;
@@ -906,7 +902,6 @@ function renderHangmanGame() {
         html += `<div style="color:#dc3545;font-size:4.2vw;font-weight:bold;text-align:center;">💀 GAME OVER</div>
             <button onclick="initHangmanGame()" style="background:#ffd700;color:#1e4620;border:none;border-radius:6px;padding:10px 22px;font-size:3.8vw;font-weight:900;cursor:pointer;margin-top:2px;font-family:Impact,sans-serif;">RETRY</button>`;
     } else {
-        // DOCKED INPUT INTERFACE
         html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:320px;padding:2px 0;">`;
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
             const used = state.guessed.includes(letter);
@@ -942,5 +937,6 @@ window.handleHangmanClick = function(letter) {
     }
     renderHangmanGame();
 };
+
 
 };
