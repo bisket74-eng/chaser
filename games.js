@@ -706,6 +706,9 @@ function updateTriviaUI(timerSeconds) {
     let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
     let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
 
+    // ROBUST SEATING SAFETY CHECK: Fallback to 0 if player tracking is empty to stop freeze locks
+    let pNum = typeof window.myPlayerNumber !== 'undefined' ? window.myPlayerNumber : 0;
+
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
             <span>ROUND: ${window.triviaQuestionCount + 1}/20</span>
@@ -715,40 +718,39 @@ function updateTriviaUI(timerSeconds) {
         <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
 
-    if (phase !== 'question') {
-        q.choices.forEach(choice => {
-            let btnBg = '#e2f0d9';
-            let btnColor = '#1e4620';
-            let isDisabled = (phase !== 'vote');
+    q.choices.forEach((choice, index) => {
+        let btnBg = '#e2f0d9';
+        let btnColor = '#1e4620';
+        let isDisabled = (phase !== 'vote');
+        let customStyle = "";
 
-            if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
+        // DYNAMIC SMOOTH BUILD: Slowly raises visibility up over 5 seconds based on the clock ticker
+        if (phase === 'question') {
+            isDisabled = true;
+            let calculatedOpacity = 1 - (timerSeconds * 0.17); 
+            if (calculatedOpacity < 0.15) calculatedOpacity = 0.15;
+            customStyle = `opacity: ${calculatedOpacity}; transition: opacity 0.5s ease-in-out; font-weight: 500;`;
+        } else if (phase === 'vote') {
+            customStyle = `font-weight: 900;`; // Turns fully bold and dark at voting kickoff
+            if (window.triviaRoomVotes[pNum] === choice) {
                 btnBg = '#00b0ff';
                 btnColor = '#fff';
             }
-
-            if (phase === 'reveal') {
-                isDisabled = true;
-                if (choice === q.c) {
-                    btnBg = '#00b050'; 
-                    btnColor = '#fff';
-                } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-                    btnBg = '#e63946'; 
-                    btnColor = '#fff';
-                }
+        } else if (phase === 'reveal') {
+            isDisabled = true;
+            customStyle = `font-weight: 900;`;
+            if (choice === q.c) {
+                btnBg = '#00b050'; 
+                btnColor = '#fff';
+            } else if (window.triviaRoomVotes[pNum] === choice) {
+                btnBg = '#e63946'; 
+                btnColor = '#fff';
             }
+        }
 
-            html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
-        });
-    } else {
-        // FIXED USER EXPLANATION CARD: Removes the confusing empty layout blocks
-        html += `
-        <div style="width:100%; background:rgba(255,255,255,0.05); border:2px dashed #ffb703; border-radius:8px; padding:20px; box-sizing:border-box; text-align:center; margin-top:5px;">
-            <div style="color:#ffb703; font-size:4.5vw; font-weight:bold; font-family:sans-serif; margin-bottom:8px;">👁️ READ THE QUESTION</div>
-            <div style="color:#ccc; font-size:3.5vw; font-family:sans-serif; line-height:1.4;">
-                Buttons are hidden during reading time to prevent accidental misclicks. Answer options will appear here automatically when the countdown hits zero. You do not need to type anything!
-            </div>
-        </div>`;
-    }
+        // TEXT ESCAPE PARSING SAFETY CORNER: Pulls inner text via ID lookup to stop punctuation string crashes
+        html += `<button class="trivia-inline-choice-btn" id="trivia-choice-${index}" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);${customStyle}" onclick="submitLocalTriviaVote(document.getElementById('trivia-choice-${index}').innerText)" >${choice}</button>`;
+    });
     
     html += `</div></div>`;
 
@@ -768,13 +770,17 @@ function updateTriviaUI(timerSeconds) {
 
 window.submitLocalTriviaVote = function(choice) {
     if (window.triviaCurrentPhase !== 'vote') return;
-    window.triviaRoomVotes[window.myPlayerNumber] = choice;
+    
+    let pNum = typeof window.myPlayerNumber !== 'undefined' ? window.myPlayerNumber : 0;
+    window.triviaRoomVotes[pNum] = choice;
+    
     if (choice === window.sharedRoomTriviaQuestion.c) {
         window.triviaScorePoints++;
     }
     broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
     updateTriviaUI(5);
 };
+
 
 /* ═══════════════════════════════════════════════════════════
    5.  SOLITAIRE ENGINE (95% GIANT FULL-BODY BACKGROUND SUITS)
