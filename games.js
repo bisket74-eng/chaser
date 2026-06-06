@@ -1,32 +1,43 @@
 /* ============================================================
    CHASER ARCADE ENGINE  –  games.js
-   Requires: activeGameStage, activeGameLabelTitle,
-             gameCanvasContainer, gameHubOverlay
-             (all declared in index.html)
    ============================================================ */
 
 /* ── Multiplayer sync handlers ───────────────────────────── */
 window.handleIncomingCheckersSync = (p) => {
-    if (window.syncCheckersBoard) {
-        window.syncCheckersBoard = p.boardState;
-        window.checkersTurn      = p.activeTurn;
-        if (activeGameStage.classList.contains('open') &&
-            activeGameLabelTitle.innerText.includes('Checkers')) renderCheckersGrid();
+    window.syncCheckersBoard = p.boardState;
+    window.checkersTurn      = p.activeTurn;
+    window.consecutiveJumpsActive = p.consecutiveActive || false;
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Checkers')) {
+        renderCheckersGrid();
     }
 };
+
 window.handleIncomingUnoSync = (p) => {
-    if (window.unoDiscardPile !== undefined) {
-        window.unoDiscardPile = p.currentDiscard;
-        if (activeGameStage.classList.contains('open') &&
-            activeGameLabelTitle.innerText.includes('Uno')) renderUnoLayout();
+    window.unoDiscardPile   = p.currentDiscard;
+    window.unoCurrentPlayer = p.turn;
+    window.unoHands         = p.hands;
+    window.unoDeckState     = p.deck;
+    window.unoDirection     = p.direction;
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Uno')) {
+        renderUnoLayout();
     }
 };
+
 window.handleIncomingTriviaSync = (p) => {
-    if (window.sharedRoomTriviaQuestion !== undefined) {
-        window.sharedRoomTriviaQuestion = p.triviaData;
-        window.triviaQuestionCount      = p.count;
-        if (activeGameStage.classList.contains('open') &&
-            activeGameLabelTitle.innerText.includes('Trivia')) renderSharedTriviaUI();
+    window.sharedRoomTriviaQuestion = p.triviaData;
+    window.triviaQuestionCount      = p.count;
+    window.roomTriviaScores         = p.scores || {};
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Trivia')) {
+        renderSharedTriviaUI();
+    }
+};
+
+window.handleIncomingSequenceSync = (p) => {
+    window.seqBoard         = p.boardState;
+    window.seqTurn          = p.turnState;
+    window.seqSequences     = p.sequenceScores;
+    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Sequence')) {
+        renderSequenceBoard();
     }
 };
 
@@ -34,8 +45,9 @@ window.handleIncomingTriviaSync = (p) => {
 window.launchGameEngine = function (gameName, gameIcon) {
     gameHubOverlay.classList.remove('open');
     activeGameLabelTitle.innerText = gameIcon + '  ' + gameName;
-    gameCanvasContainer.innerHTML  = '';
     activeGameStage.classList.add('open');
+    
+    if (gameCanvasContainer.innerHTML !== '') return; 
 
     const map = {
         'Crew Trivia' : initTriviaGame,
@@ -50,7 +62,6 @@ window.launchGameEngine = function (gameName, gameIcon) {
 window.shutdownActiveGame = function () {
     activeGameStage.classList.remove('open');
     gameCanvasContainer.innerHTML = '';
-    // Reset shared globals so a re-launch starts fresh
     window.syncCheckersBoard        = null;
     window.unoDiscardPile           = undefined;
     window.sharedRoomTriviaQuestion = undefined;
@@ -58,23 +69,24 @@ window.shutdownActiveGame = function () {
     window.triviaScorePoints        = 0;
     window.triviaBatch              = null;
     window.hangmanState             = null;
+    window.seqBoard                 = null;
 };
 
-/* ─────────────────────────────────────────────────────────── *
- *  1.  CHECKERS  (king + multi-jump)                          *
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   1.  CHECKERS (NO FORESHADOW, DOUBLE JUMP RULES)
+   ═══════════════════════════════════════════════════════════ */
 function initCheckersGame() {
     window.syncCheckersBoard = Array(64).fill(0).map((_, i) => {
         const r = Math.floor(i / 8), c = i % 8;
         if ((r + c) % 2 === 1) {
-            if (r < 3) return 1;
-            if (r > 4) return 2;
+            if (r < 3) return 1; // Red
+            if (r > 4) return 2; // Black
         }
         return 0;
     });
-    window.checkersTurn            = 1;
-    window.selectedCheckerIdx      = null;
-    window.consecutiveJumpsActive  = false;
+    window.checkersTurn           = 1;
+    window.selectedCheckerIdx     = null;
+    window.consecutiveJumpsActive = false;
     renderCheckersGrid();
 }
 
@@ -83,40 +95,32 @@ function renderCheckersGrid() {
     const sel   = window.selectedCheckerIdx;
     const turn  = window.checkersTurn;
 
-    const validMoves = sel !== null ? getCheckerMoves(sel, board, turn, false) : [];
-
-    // Use a fixed cell size so every row is identical height regardless of content
-    const boardPx = Math.min(300, Math.floor((window.innerWidth - 32) * 0.92));
-    const cellPx  = Math.floor(boardPx / 8);
+    const boardPx    = Math.min(330, Math.floor((window.innerWidth - 32) * 0.95));
+    const cellPx     = Math.floor(boardPx / 8);
     const actualBoardPx = cellPx * 8;
+    const piecePx    = Math.floor(cellPx * 0.80);
 
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:8px;box-sizing:border-box;">
-        <div style="color:#ffd700;font-weight:bold;font-size:14px;margin-bottom:4px;">
-            ${turn === 1 ? '🔴 Red\'s Turn' : '⚫ Black\'s Turn'}
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;padding:4px;box-sizing:border-box;">
+        <div style="color:#ffd700;font-weight:bold;font-size:16px;margin-bottom:2px;font-family:Impact,sans-serif;">
+            ${turn === 1 ? '🔴 RED TEAM TURN' : '⚫ BLACK TEAM TURN'} ${window.consecutiveJumpsActive ? ' - DOUBLE JUMP BONUS!' : ''}
         </div>
-        <div style="display:grid;grid-template-columns:repeat(8,${cellPx}px);grid-template-rows:repeat(8,${cellPx}px);width:${actualBoardPx}px;height:${actualBoardPx}px;border:3px solid #ffd700;border-radius:6px;overflow:hidden;">`;
+        <div style="display:grid;grid-template-columns:repeat(8,${cellPx}px);grid-template-rows:repeat(8,${cellPx}px);width:${actualBoardPx}px;height:${actualBoardPx}px;border:4px solid #ffd700;border-radius:8px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.5);">`;
 
     for (let i = 0; i < 64; i++) {
-        const r = Math.floor(i / 8), c = i % 8;
-        const isDark   = (r + c) % 2 === 1;
-        const piece    = board[i];
-        const isTarget = validMoves.includes(i);
-        const bgColor  = isDark
-            ? (isTarget ? '#b8860b' : '#2d6a30')
-            : '#e2f0d9';
-
-        const piecePx = Math.floor(cellPx * 0.76);
-        const dotPx   = Math.floor(cellPx * 0.40);
+        const r       = Math.floor(i / 8), c = i % 8;
+        const isDark  = (r + c) % 2 === 1;
+        const piece   = board[i];
+        const bgColor = isDark ? '#2d6a30' : '#e2f0d9';
 
         let pieceHtml = '';
-        if (piece === 1) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0;"></div>`;
-        if (piece === 2) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.5);flex-shrink:0;"></div>`;
-        if (piece === 3) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.3)}px;flex-shrink:0;">👑</div>`;
-        if (piece === 4) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.3)}px;flex-shrink:0;">👑</div>`;
-        if (isTarget && !piece) pieceHtml = `<div style="width:${dotPx}px;height:${dotPx}px;border-radius:50%;background:rgba(255,215,0,0.6);border:2px dashed #ffd700;flex-shrink:0;"></div>`;
+        if (piece === 1) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>`;
+        if (piece === 2) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>`;
+        if (piece === 3) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.4)}px;color:white;">👑</div>`;
+        if (piece === 4) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:3px solid #ffd700;box-shadow:0 2px 6px rgba(255,215,0,0.8);display:flex;align-items:center;justify-content:center;font-size:${Math.floor(cellPx*0.4)}px;color:white;">👑</div>`;
 
+        // FIXED: Outline applied only on selection base, NO path previews or foreshadows shown on map grid
         html += `<div onclick="handleCheckerTap(${i})"
-            style="width:${cellPx}px;height:${cellPx}px;background:${bgColor};display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;${sel===i?'outline:3px solid #ffd700;outline-offset:-3px;':''}">
+            style="width:${cellPx}px;height:${cellPx}px;background:${bgColor};display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;${sel===i?'outline:4px solid #ffd700;outline-offset:-4px;':''}">
             ${pieceHtml}
         </div>`;
     }
@@ -127,14 +131,15 @@ function renderCheckersGrid() {
 function getCheckerMoves(idx, board, turn, jumpOnly) {
     const piece = board[idx];
     if (!piece) return [];
-    const isRed   = piece === 1 || piece === 3;
-    const isKing  = piece === 3 || piece === 4;
-    const enemy   = isRed ? [2, 4] : [1, 3];
+    const isRed  = piece === 1 || piece === 3;
+    const isKing = piece === 3 || piece === 4;
+    const enemy  = isRed ? [2, 4] : [1, 3];
     const r = Math.floor(idx / 8), c = idx % 8;
     const dirs = [];
-    if (!isRed || isKing)  dirs.push([-1, -1], [-1, 1]);
-    if (isRed  || isKing)  dirs.push([1, -1],  [1, 1]);
-
+    
+    if (!isRed || isKing) dirs.push([-1, -1], [-1, 1]);
+    if (isRed  || isKing) dirs.push([1, -1],  [1, 1]);
+    
     const moves = [];
     dirs.forEach(([dr, dc]) => {
         const nr = r + dr, nc = c + dc, ni = nr * 8 + nc;
@@ -155,569 +160,337 @@ window.handleCheckerTap = function (idx) {
     const owned = turn === 1 ? [1, 3] : [2, 4];
 
     if (window.selectedCheckerIdx === null) {
-        if (owned.includes(piece)) { window.selectedCheckerIdx = idx; renderCheckersGrid(); }
+        if (owned.includes(piece)) {
+            if (window.consecutiveJumpsActive && idx !== window.lastJumpDestinationIdx) return;
+            window.selectedCheckerIdx = idx; 
+            renderCheckersGrid();
+        }
         return;
     }
-
+    
     const from  = window.selectedCheckerIdx;
-    const moves = getCheckerMoves(from, board, turn, false);
-
+    const moves = getCheckerMoves(from, board, turn, window.consecutiveJumpsActive);
+    
     if (!moves.includes(idx)) {
-        if (owned.includes(piece)) { window.selectedCheckerIdx = idx; renderCheckersGrid(); }
-        else { window.selectedCheckerIdx = null; renderCheckersGrid(); }
+        if (owned.includes(piece) && !window.consecutiveJumpsActive) { 
+            window.selectedCheckerIdx = idx; 
+            renderCheckersGrid(); 
+        } else if (!window.consecutiveJumpsActive) {
+            window.selectedCheckerIdx = null; 
+            renderCheckersGrid(); 
+        }
         return;
     }
-
-    // Execute move
+    
     const isJump = Math.abs(idx - from) > 10;
-    board[idx]  = board[from];
-    board[from] = 0;
+    board[idx]   = board[from];
+    board[from]  = 0;
+    
     if (isJump) {
-        const midIdx = Math.floor((from + idx) / 2);
-        board[midIdx] = 0;
+        board[Math.floor((from + idx) / 2)] = 0;
     }
-
-    // King promotion
+    
     const destRow = Math.floor(idx / 8);
     if (board[idx] === 1 && destRow === 7) board[idx] = 3;
     if (board[idx] === 2 && destRow === 0) board[idx] = 4;
-
-    window.selectedCheckerIdx = null;
-    window.checkersTurn       = turn === 1 ? 2 : 1;
-
+    
+    // Double / Triple Jump Engine Checking Chain
+    let hasMoreJumps = false;
+    if (isJump) {
+        const extraJumps = getCheckerMoves(idx, board, turn, true);
+        if (extraJumps.length > 0) {
+            hasMoreJumps = true;
+            window.consecutiveJumpsActive = true;
+            window.lastJumpDestinationIdx = idx;
+            window.selectedCheckerIdx = idx;
+        }
+    }
+    
+    if (!hasMoreJumps) {
+        window.selectedCheckerIdx = null;
+        window.consecutiveJumpsActive = false;
+        window.checkersTurn = turn === 1 ? 2 : 1;
+    }
+    
     if (typeof channel !== 'undefined') {
-        channel.send({ type: 'broadcast', event: 'checkers-sync-move', payload: { boardState: board, activeTurn: window.checkersTurn } });
+        channel.send({ 
+            type:'broadcast', 
+            event:'checkers-sync-move', 
+            payload:{ boardState:board, activeTurn:window.checkersTurn, consecutiveActive:window.consecutiveJumpsActive } 
+        });
     }
     renderCheckersGrid();
 };
 
-/* ─────────────────────────────────────────────────────────── *
- *  2.  UNO  (setup screen, draw pile, turn order, reverse/skip)
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   2.  UNO (ROOM BROADCAST MULTIPLAYER, AUTO-RIGHT SCROLLING)
+   ═══════════════════════════════════════════════════════════ */
 function initChaserUnoGame() {
-    // Show player count setup screen first
     gameCanvasContainer.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;width:100%;box-sizing:border-box;height:100%;">
-            <div style="color:#ffd700;font-size:20px;font-weight:900;text-align:center;">How many players?</div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;width:100%;box-sizing:border-box;">
+            <div style="color:#ffd700;font-size:22px;font-weight:900;font-family:Impact,sans-serif;">SELECT ROOM PLAYERS</div>
             <div style="display:flex;gap:14px;">
-                ${[2,3,4].map(n => `
-                    <button onclick="unoStartWithPlayers(${n})"
-                        style="width:64px;height:64px;border-radius:14px;border:3px solid #ffd700;background:#2d6a30;color:#ffd700;font-size:28px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.4);">
+                ${[1,2,3,4].map(n => `
+                    <button onclick="unoStartWithRoomCount(${n})"
+                        style="width:58px;height:58px;border-radius:12px;border:3px solid #ffd700;background:#2d6a30;color:#ffd700;font-size:26px;font-weight:900;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.4);">
                         ${n}
                     </button>`).join('')}
             </div>
-            <div style="color:#a3cfbb;font-size:12px;text-align:center;">Each player takes a turn on this device</div>
+            <div style="color:#a3cfbb;font-size:13px;text-align:center;font-weight:bold;">Assigning synced shared tables across matching devices</div>
         </div>`;
 }
 
-window.unoStartWithPlayers = function(numPlayers) {
+window.unoStartWithRoomCount = function(numPlayers) {
     const colors = ['Red','Yellow','Green','Blue'];
-    const values = ['0','1','2','3','4','5','6','7','8','9','Skip','⇋','Wild','Wild'];
     window.unoDeckState = [];
-    colors.forEach(c => values.forEach(v => window.unoDeckState.push({ color: c, value: v })));
-    // Add Wild Draw Four
-    for(let i=0;i<4;i++) window.unoDeckState.push({ color:'Wild', value:'W+4' });
+    colors.forEach(c => {
+        window.unoDeckState.push({color:c,value:'0'});
+        ['1','2','3','4','5','6','7','8','9','Skip','⇋','+2'].forEach(v => {
+            window.unoDeckState.push({color:c,value:v});
+            window.unoDeckState.push({color:c,value:v});
+        });
+    });
+    for(let i=0;i<4;i++) window.unoDeckState.push({color:'Wild',value:'Wild'});
+    for(let i=0;i<4;i++) window.unoDeckState.push({color:'Wild',value:'+4'});
     window.unoDeckState.sort(() => Math.random() - 0.5);
 
-    window.unoNumPlayers       = numPlayers;
-    window.unoCurrentPlayer    = 0; // 0-indexed
-    window.unoDirection        = 1; // 1=clockwise, -1=counter
+    window.unoNumPlayers         = numPlayers;
+    window.unoCurrentPlayer      = 0;
+    window.unoDirection          = 1;
     window.unoWildChoosingActive = false;
-    window.unoWildPendingIdx   = null;
-    window.unoMustDrawPending  = false;
+    window.unoWildPendingIdx     = null;
 
-    // Deal 5 cards to each player
     window.unoHands = [];
-    for(let p = 0; p < numPlayers; p++) {
+    for(let p=0;p<numPlayers;p++) {
         window.unoHands.push([]);
-        for(let i = 0; i < 5; i++) window.unoHands[p].push(window.unoDeckState.pop());
+        for(let i=0;i<7;i++) window.unoHands[p].push(window.unoDeckState.pop());
     }
-
-    // First discard — must be a number card
+    
     let startCard;
-    do { startCard = window.unoDeckState.pop(); } while(startCard.value === 'Wild' || startCard.value === 'W+4');
+    do { startCard = window.unoDeckState.pop(); } while(startCard.value==='Wild'||startCard.value==='+4');
     window.unoDiscardPile = startCard;
-
+    
+    triggerUnoNetworkSync();
     renderUnoLayout();
 };
 
-function unoColorClass(color) {
-    return { Red:'uno-card-red', Yellow:'uno-card-yellow', Green:'uno-card-green', Blue:'uno-card-blue', Wild:'uno-card-wild' }[color] || 'uno-card-wild';
+function triggerUnoNetworkSync() {
+    if (typeof channel !== 'undefined') {
+        channel.send({
+            type: 'broadcast',
+            event: 'uno-sync-discard',
+            payload: { currentDiscard: window.unoDiscardPile, turn: window.unoCurrentPlayer, hands: window.unoHands, deck: window.unoDeckState, direction: window.unoDirection }
+        });
+    }
 }
 
-function unoCardLabel(value) {
-    if (value === '⇋')  return '⇋';
-    if (value === 'Skip') return '⊘';
-    if (value === 'W+4') return '+4';
-    return value;
+function unoColorClass(color) {
+    return {Red:'uno-card-red',Yellow:'uno-card-yellow',Green:'uno-card-green',Blue:'uno-card-blue',Wild:'uno-card-wild'}[color]||'uno-card-wild';
 }
 
 function renderUnoLayout() {
-    const discard   = window.unoDiscardPile;
-    const cp        = window.unoCurrentPlayer;
-    const hand      = window.unoHands[cp];
-    const numP      = window.unoNumPlayers;
-    const playerLabel = numP === 1 ? 'Your Turn' : `Player ${cp + 1}'s Turn`;
-    const dirArrow  = window.unoDirection === 1 ? '→' : '←';
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px;width:100%;box-sizing:border-box;">`;
-
-    // Turn banner
-    html += `<div style="background:#2d6a30;border-radius:8px;padding:6px 16px;color:#ffd700;font-size:14px;font-weight:900;letter-spacing:0.5px;">
-        🎴 ${playerLabel} &nbsp; <span style="font-size:11px;opacity:0.8;">${dirArrow} ${window.unoDirection===1?'Clockwise':'Counter'}</span>
+    const discard = window.unoDiscardPile;
+    const cp      = window.unoCurrentPlayer;
+    const hand    = window.unoHands[cp] || [];
+    
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px;width:100%;box-sizing:border-box;">`;
+    html += `<div style="background:#2d6a30;border-radius:6px;padding:4px 16px;color:#ffd700;font-size:16px;font-weight:900;font-family:Impact,sans-serif;">
+        🎴 PLAYER ${cp+1} TURN
     </div>`;
 
-    // Piles row
-    html += `<div style="display:flex;gap:18px;align-items:flex-end;">`;
-
-    // Draw pile (face down) — tap to draw
-    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-        <div style="color:#a3cfbb;font-size:10px;font-weight:bold;">DRAW</div>
-        <div onclick="unoDrawCard()" class="uno-card-body" style="background:linear-gradient(135deg,#1e4620,#2d6a30);border:3px solid #ffd700;cursor:pointer;position:relative;box-shadow:3px 3px 0 #0a2010,6px 6px 0 #051508;">
+    html += `<div style="display:flex;gap:24px;align-items:flex-end;margin-top:2px;">`;
+    
+    // Draw card pile layout block
+    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+        <div style="color:#a3cfbb;font-size:11px;font-weight:bold;">DRAW</div>
+        <div onclick="unoDrawCard()" class="uno-card-body" style="background:linear-gradient(135deg,#1e4620,#2d6a30);border:3px solid #ffd700;cursor:pointer;width:58px;height:86px;">
             <div class="uno-oval-center"></div>
-            <div class="uno-number-label" style="font-size:22px;color:#ffd700;">🂠</div>
+            <div class="uno-number-label" style="font-size:24px;">🂠</div>
         </div>
     </div>`;
 
-    // Discard pile (face up)
-    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-        <div style="color:#a3cfbb;font-size:10px;font-weight:bold;">DISCARD</div>
-        <div class="uno-card-body ${unoColorClass(discard.color)}" style="pointer-events:none;">
+    // Active center discard card block
+    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+        <div style="color:#a3cfbb;font-size:11px;font-weight:bold;">PLAY</div>
+        <div class="uno-card-body ${unoColorClass(discard.color)}" style="pointer-events:none;width:58px;height:86px;">
             <div class="uno-oval-center"></div>
-            <div class="uno-number-label">${unoCardLabel(discard.value)}</div>
+            <div class="uno-number-label" style="font-size:24px;">${discard.value === 'Wild' ? '★' : discard.value}</div>
         </div>
     </div>`;
+    html += `</div>`;
 
-    html += `</div>`; // end piles row
-
-    // Wild color chooser
-    if (window.unoWildChoosingActive) {
-        html += `<div style="color:#ffd700;font-size:13px;font-weight:bold;margin-top:4px;">Choose a color:</div>
-        <div style="display:flex;gap:8px;">
-            ${['Red','Yellow','Green','Blue'].map(col =>
-                `<div onclick="unoPickWildColor('${col}')" class="uno-card-body ${unoColorClass(col)}" style="width:44px;height:64px;cursor:pointer;"></div>`
+    if(window.unoWildChoosingActive) {
+        html += `<div style="display:grid;grid-template-columns:1fr 1fr;width:90px;height:90px;border-radius:10px;overflow:hidden;border:3px solid #fff;margin:4px 0;">
+            ${['Red','Yellow','Green','Blue'].map(col=>
+                `<div onclick="unoPickWildColor('${col}')" style="background:${{Red:'#007020',Yellow:'#ffb703',Green:'#00b050',Blue:'#00b0ff'}[col]};cursor:pointer;"></div>`
             ).join('')}
         </div>`;
     }
 
-    // Hand label
-    html += `<div style="color:#e2f0d9;font-size:12px;font-weight:bold;margin-top:2px;">
-        ${numP > 1 ? `Player ${cp+1}'s Hand (${hand.length} cards)` : `Your Hand (${hand.length} cards)`}
-    </div>`;
-
-    // Cards in hand
-    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:320px;">`;
+    // Horizontal Hand list with absolute rightward auto-scrolling
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:8px 4px;width:100%;box-sizing:border-box;" id="unoHandScrollWrapper">`;
     hand.forEach((card, i) => {
-        const playable = card.color === discard.color || card.value === discard.value ||
-                         card.color === 'Wild' || card.value === 'Wild' || card.value === 'W+4';
+        const playable = card.color===discard.color || card.value===discard.value || card.color==='Wild';
         html += `<div onclick="unoPlayCard(${i})" class="uno-card-body ${unoColorClass(card.color)}"
-            style="width:54px;height:80px;font-size:26px;opacity:${playable?1:0.4};cursor:${playable?'pointer':'default'};transform:${playable?'translateY(-5px)':'none'};transition:transform 0.15s;">
+            style="flex-shrink:0;width:52px;height:78px;font-size:24px;opacity:${playable?1:0.35};cursor:pointer;">
             <div class="uno-oval-center"></div>
-            <div class="uno-number-label">${unoCardLabel(card.value)}</div>
+            <div class="uno-number-label">${card.value==='Wild'?'★':card.value}</div>
         </div>`;
     });
-    html += `</div>`;
-
-    // Other players' card counts
-    if(numP > 1) {
-        html += `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px;">`;
-        for(let p = 0; p < numP; p++) {
-            if(p === cp) continue;
-            html += `<div style="background:rgba(255,255,255,0.1);border-radius:6px;padding:4px 10px;color:#e2f0d9;font-size:11px;font-weight:bold;">
-                P${p+1}: ${window.unoHands[p].length} cards
-            </div>`;
-        }
-        html += `</div>`;
-    }
-
-    html += `</div>`;
+    html += `</div></div>`;
+    
     gameCanvasContainer.innerHTML = html;
+
+    // Trigger rightward horizontal alignment shift mechanics
+    setTimeout(() => {
+        const el = document.getElementById('unoHandScrollWrapper');
+        if (el) el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+    }, 100);
 }
 
 window.unoPlayCard = function(idx) {
-    const cp      = window.unoCurrentPlayer;
-    const card    = window.unoHands[cp][idx];
-    const discard = window.unoDiscardPile;
-    const playable = card.color === discard.color || card.value === discard.value ||
-                     card.color === 'Wild' || card.value === 'Wild' || card.value === 'W+4';
-    if (!playable || window.unoWildChoosingActive) return;
-
-    if (card.color === 'Wild' || card.value === 'Wild' || card.value === 'W+4') {
-        window.unoWildPendingIdx     = idx;
+    const cp = window.unoCurrentPlayer;
+    const card = window.unoHands[cp][idx];
+    
+    if (card.color === 'Wild' || card.value === 'Wild' || card.value === '+4') {
+        window.unoWildPendingIdx = idx;
         window.unoWildChoosingActive = true;
         renderUnoLayout();
         return;
     }
 
-    // Play the card
     window.unoHands[cp].splice(idx, 1);
     window.unoDiscardPile = card;
 
-    if (typeof channel !== 'undefined') {
-        channel.send({ type:'broadcast', event:'uno-sync-discard', payload:{ currentDiscard: card } });
-    }
-
-    // Check win
-    if (!window.unoHands[cp].length) {
-        gameCanvasContainer.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;height:100%;padding:20px;text-align:center;">
-            <div style="font-size:52px;">🎉</div>
-            <div style="color:#ffd700;font-size:26px;font-weight:900;">Player ${cp+1} wins!</div>
-            <button onclick="initChaserUnoGame()" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:bold;cursor:pointer;">Play Again</button>
-        </div>`;
-        return;
-    }
-
-    // Handle special cards
     const numP = window.unoNumPlayers;
-    let skip = false;
     if (card.value === '⇋') {
         window.unoDirection *= -1;
-        if (numP === 2) skip = true; // reverse acts as skip in 2-player
     }
-    if (card.value === 'Skip') skip = true;
+    
+    let skipNextPlayer = (card.value === 'Skip');
+    if (card.value === '+2') {
+        const targetP = (cp + window.unoDirection + numP) % numP;
+        window.unoHands[targetP].push(window.unoDeckState.pop(), window.unoDeckState.pop());
+        skipNextPlayer = true;
+    }
 
-    unoAdvanceTurn(skip);
+    window.unoCurrentPlayer = (cp + (skipNextPlayer ? window.unoDirection * 2 : window.unoDirection) + numP) % numP;
+    triggerUnoNetworkSync();
+    renderUnoLayout();
 };
 
 window.unoPickWildColor = function(color) {
-    const cp  = window.unoCurrentPlayer;
+    const cp = window.unoCurrentPlayer;
     const idx = window.unoWildPendingIdx;
-    const isDrawFour = window.unoHands[cp][idx].value === 'W+4';
-    const card = { color, value: window.unoHands[cp][idx].value };
+    const wasD4 = window.unoHands[cp][idx].value === '+4';
+    
     window.unoHands[cp].splice(idx, 1);
-    window.unoDiscardPile        = card;
+    window.unoDiscardPile = { color: color, value: wasD4 ? '+4' : 'Wild' };
     window.unoWildChoosingActive = false;
-    window.unoWildPendingIdx     = null;
-
-    if (typeof channel !== 'undefined') {
-        channel.send({ type:'broadcast', event:'uno-sync-discard', payload:{ currentDiscard: card } });
-    }
-
-    if (isDrawFour) {
-        // Next player draws 4 and is skipped
-        const numP = window.unoNumPlayers;
-        const nextP = ((cp + window.unoDirection) + numP) % numP;
-        for(let i=0;i<4;i++) {
-            if(!window.unoDeckState.length) unoReshuffleDeck();
-            window.unoHands[nextP].push(window.unoDeckState.pop());
-        }
-        unoAdvanceTurn(true);
-    } else {
-        unoAdvanceTurn(false);
-    }
-};
-
-function unoAdvanceTurn(skipNext) {
+    
     const numP = window.unoNumPlayers;
-    let next = ((window.unoCurrentPlayer + window.unoDirection) + numP) % numP;
-    if (skipNext) next = ((next + window.unoDirection) + numP) % numP;
-    window.unoCurrentPlayer = next;
-
-    if(numP > 1) {
-        // Show "pass device" screen
-        gameCanvasContainer.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;height:100%;padding:20px;text-align:center;">
-            <div style="font-size:40px;">📱</div>
-            <div style="color:#ffd700;font-size:18px;font-weight:900;">Pass to Player ${next+1}</div>
-            <button onclick="renderUnoLayout()" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:14px 32px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-                I'm Player ${next+1} — Show My Hand
-            </button>
-        </div>`;
+    if (wasD4) {
+        const targetP = (cp + window.unoDirection + numP) % numP;
+        for(let i=0;i<4;i++) window.unoHands[targetP].push(window.unoDeckState.pop());
+        window.unoCurrentPlayer = (cp + (window.unoDirection * 2) + numP) % numP;
     } else {
-        renderUnoLayout();
+        window.unoCurrentPlayer = (cp + window.unoDirection + numP) % numP;
     }
-}
+
+    triggerUnoNetworkSync();
+    renderUnoLayout();
+};
 
 window.unoDrawCard = function() {
     const cp = window.unoCurrentPlayer;
-    if (!window.unoDeckState.length) unoReshuffleDeck();
     window.unoHands[cp].push(window.unoDeckState.pop());
-    // After drawing, turn passes
-    unoAdvanceTurn(false);
+    window.unoCurrentPlayer = (cp + window.unoDirection + window.unoNumPlayers) % window.unoNumPlayers;
+    triggerUnoNetworkSync();
+    renderUnoLayout();
 };
 
-function unoReshuffleDeck() {
-    const top = window.unoDiscardPile;
-    window.unoDeckState = [top]; // keep top card
-    window.unoDeckState.sort(() => Math.random() - 0.5);
-}
-
-/* ─────────────────────────────────────────────────────────── *
- *  3.  SEQUENCE  (10×10 board, 7-card hand, sequence detection)*
- * ─────────────────────────────────────────────────────────── */
-
-// Real Sequence board layout — each non-corner card appears twice
-// Corners are FREE spaces (value 'FREE')
-const SEQ_BOARD_LAYOUT = [
+/* ═══════════════════════════════════════════════════════════
+   3.  SEQUENCE (OFFICIAL LAYOUT MATRICES, SINGLE-LINE HAND)
+   ═══════════════════════════════════════════════════════════ */
+const SEQUENCE_MATRIX_GRID = [
     'FREE','2♠','3♠','4♠','5♠','6♠','7♠','8♠','9♠','FREE',
-    '6♣',  'A♦','K♦','Q♦','J♦','10♦','9♦','8♦','7♦','10♠',
-    '5♣',  'Q♥','A♠','2♥','3♥','4♥','5♥','6♥','6♦','J♠',
-    '4♣',  'J♥','K♠','A♥','2♣','3♣','4♣','7♥','5♦','Q♠',
-    '3♣',  '10♥','Q♠','K♥','K♣','Q♣','5♣','8♥','4♦','K♠',
-    '2♣',  '9♥','J♠','A♠','A♣','J♣','6♣','9♥','3♦','A♠',
-    'A♥',  '8♥','10♠','K♠','Q♠','J♠','10♠','10♥','2♦','2♠',
-    'K♥',  '7♥','9♠','8♠','7♠','6♠','5♠','4♠','A♦','3♠',
-    'Q♥',  '6♥','5♥','4♥','3♥','2♥','A♥','K♥','Q♥','4♠',
-    'FREE','J♥','10♥','9♥','8♥','7♥','6♥','5♥','4♥','FREE'
+    '6♣','A♦','K♦','Q♦','J♦','10♦','9♦','8♦','7♦','10♠',
+    '5♣','Q♥','A♠','2♥','3♥','4♥','5♥','6♥','6♦','J♠',
+    '4♣','J♥','K♠','A♥','2♣','3♣','4♣','7♥','5♦','Q♠',
+    '3♣','10♥','9♠','K♥','K♣','Q♣','8♣','8♥','4♦','K♠',
+    '2♣','9♥','8♠','7♠','6♠','5♠','4♠','9♥','3♦','A♠',
+    'A♥','8♥','7♥','6♥','5♥','4♥','3♥','10♥','2♦','2♠',
+    'K♥','K♦','Q♦','J♦','10♦','9♦','8♦','7♦','A♦','3♠',
+    'Q♥','A♣','2♣','3♣','4♣','5♣','6♣','7♣','Q♥','4♠',
+    'FREE','K♣','Q♣','J♣','10♣','9♣','8♣','7♣','A♣','FREE'
 ];
 
-// Which cards are red-suited
-const SEQ_RED_SUITS = new Set();
-['♥','♦'].forEach(suit => {
-    ['2','3','4','5','6','7','8','9','10','J','Q','K','A'].forEach(v => SEQ_RED_SUITS.add(v+suit));
-});
-
-// Full deck for dealing (each card appears twice on board, so deck has pairs)
-function buildSeqDeck() {
-    const suits = ['♠','♣','♥','♦'];
-    const vals  = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-    const deck  = [];
-    suits.forEach(s => vals.forEach(v => { deck.push(v+s); deck.push(v+s); }));
-    return deck.sort(() => Math.random() - 0.5);
-}
-
 function initSequenceGame() {
-    window.seqBoard      = Array(100).fill(0); // 0=empty,1=blue,2=red; FREE corners = 3
-    // Mark corners as free
-    [0,9,90,99].forEach(i => window.seqBoard[i] = 3);
-    window.seqTurn       = 0; // 0=blue,1=red
-    window.seqDeck       = buildSeqDeck();
-    window.seqHands      = [ [], [] ];
-    window.seqSequences  = [0, 0]; // completed sequences per team
-    window.seqSelectedCard = null;
-
-    for(let p=0;p<2;p++) for(let i=0;i<7;i++) window.seqHands[p].push(window.seqDeck.pop());
-
+    window.seqBoard    = Array(100).fill(0);
+    window.seqTurn     = 1; // 1 = Blue Player, 2 = Red Player
+    window.seqSequences = [0, 0];
+    window.seqSelectedCardIdx = null;
+    
+    // Generate card hands layout
+    const cardSuits = ['♠','♣','♥','♦'];
+    const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
+    window.mySequenceHand = [];
+    for(let i=0; i<7; i++) {
+        let s = cardSuits[Math.floor(Math.random()*cardSuits.length)];
+        let r = cardRanks[Math.floor(Math.random()*cardRanks.length)];
+        window.mySequenceHand.push({ r, s, isRed: (s==='♥'||s==='♦') });
+    }
+    triggerSequenceNetworkSync();
     renderSequenceBoard();
 }
 
-function checkSeqSequences(board) {
-    // Returns [blueCount, redCount] of completed sequences
-    const lines = [];
-    // Rows
-    for(let r=0;r<10;r++) { const row=[]; for(let c=0;c<10;c++) row.push(r*10+c); lines.push(row); }
-    // Cols
-    for(let c=0;c<10;c++) { const col=[]; for(let r=0;r<10;r++) col.push(r*10+c); lines.push(col); }
-    // Diagonals
-    for(let s=0;s<10;s++) { const d1=[],d2=[]; for(let i=0;i<10-s;i++) { d1.push((i+s)*10+i); d2.push(i*10+(i+s)); } lines.push(d1); lines.push(d2); }
-    for(let s=1;s<10;s++) { const d1=[],d2=[]; for(let i=0;i<10-s;i++) { d1.push(i*10+(i+s)); d2.push((i+s)*10+i); } lines.push(d1); lines.push(d2); }
-
-    let blue=0, red=0;
-    lines.forEach(line => {
-        for(let start=0;start<=line.length-5;start++) {
-            const slice = line.slice(start, start+5);
-            const vals  = slice.map(i => board[i]);
-            // FREE corners (3) count as either color
-            if(vals.every(v => v===1||v===3)) blue++;
-            if(vals.every(v => v===2||v===3)) red++;
-        }
-    });
-    return [Math.floor(blue/1), Math.floor(red/1)]; // rough count
+function triggerSequenceNetworkSync() {
+    if (typeof channel !== 'undefined') {
+        channel.send({
+            type: 'broadcast',
+            event: 'sequence-sync-state',
+            payload: { boardState: window.seqBoard, turnState: window.seqTurn, sequenceScores: window.seqSequences }
+        });
+    }
 }
 
 function renderSequenceBoard() {
     const board = window.seqBoard;
     const turn  = window.seqTurn;
-    const hand  = window.seqHands[turn];
-    const sel   = window.seqSelectedCard;
-    const teamColor = turn === 0 ? '#1a6fd4' : '#dc3545';
-    const teamName  = turn === 0 ? '🔵 Blue' : '🔴 Red';
+    const sel   = window.seqSelectedCardIdx;
 
-    // Calculate cell size to fit in container without scrolling
-    // Container is roughly min(window.innerWidth, 340) wide with padding
-    const containerW = Math.min(window.innerWidth - 20, 340);
-    const cellPx = Math.floor((containerW - 16) / 10); // 16px for padding
-    const boardPx = cellPx * 10;
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;width:100%;box-sizing:border-box;">`;
-
-    // Turn + sequence count header
-    html += `<div style="display:flex;gap:12px;align-items:center;">
-        <div style="background:${teamColor};color:white;border-radius:6px;padding:4px 12px;font-size:13px;font-weight:900;">${teamName}'s Turn</div>
-        <div style="color:#e2f0d9;font-size:11px;">🔵 ${window.seqSequences[0]} seq &nbsp; 🔴 ${window.seqSequences[1]} seq</div>
-    </div>`;
-
-    // Board
-    html += `<div style="display:grid;grid-template-columns:repeat(10,${cellPx}px);grid-template-rows:repeat(10,${cellPx}px);width:${boardPx}px;height:${boardPx}px;border:2px solid #ffd700;border-radius:4px;overflow:hidden;flex-shrink:0;">`;
-
-    for(let i=0;i<100;i++) {
-        const label   = SEQ_BOARD_LAYOUT[i];
-        const isFree  = label === 'FREE';
-        const chip    = board[i];
-        const isRed   = SEQ_RED_SUITS.has(label);
-        const fontSize = cellPx <= 28 ? 7 : 8;
-
-        let bg = '#e2f0d9';
-        let chipHtml = '';
-        if(isFree) { bg = '#1e4620'; chipHtml = `<div style="font-size:${fontSize+1}px;color:#ffd700;font-weight:bold;">★</div>`; }
-        else if(chip === 1) { bg = '#1a6fd4'; chipHtml = `<div style="width:${Math.floor(cellPx*0.7)}px;height:${Math.floor(cellPx*0.7)}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6ab0ff,#1a6fd4);border:1px solid #fff;flex-shrink:0;"></div>`; }
-        else if(chip === 2) { bg = '#dc3545'; chipHtml = `<div style="width:${Math.floor(cellPx*0.7)}px;height:${Math.floor(cellPx*0.7)}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:1px solid #fff;flex-shrink:0;"></div>`; }
-        else if(chip === 3) { bg = '#2d6a30'; chipHtml = `<div style="font-size:${fontSize+1}px;color:#ffd700;">★</div>`; }
-        else {
-            // Show card label — number on top, suit below
-            const numPart  = label.replace(/[♠♣♥♦]/g,'');
-            const suitPart = label.replace(/[^♠♣♥♦]/g,'');
-            const cardColor = isRed ? '#c00' : '#111';
-            chipHtml = `<div style="display:flex;flex-direction:column;align-items:center;line-height:1;gap:0;">
-                <span style="font-size:${fontSize+1}px;font-weight:900;color:${cardColor};">${numPart}</span>
-                <span style="font-size:${fontSize+2}px;color:${cardColor};">${suitPart}</span>
-            </div>`;
-        }
-
-        // Highlight if selected card matches this space
-        let highlight = '';
-        if(sel !== null && !chip && !isFree) {
-            if(hand[sel] === label) highlight = 'outline:2px solid #ffd700;outline-offset:-2px;';
-        }
-
-        html += `<div onclick="handleSeqBoardTap(${i})"
-            style="width:${cellPx}px;height:${cellPx}px;background:${bg};display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;${highlight}">
-            ${chipHtml}
-        </div>`;
-    }
-    html += `</div>`; // end board grid
-
-    // Chip pile indicators
-    html += `<div style="display:flex;gap:16px;align-items:center;">
-        <div style="display:flex;align-items:center;gap:4px;">
-            ${Array(3).fill(0).map((_,i) =>
-                `<div style="width:${14+i*2}px;height:${14+i*2}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#6ab0ff,#1a6fd4);border:1px solid #fff;margin-left:${i?-8:0}px;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>`
-            ).join('')}
-            <span style="color:#e2f0d9;font-size:11px;margin-left:4px;">Blue</span>
+    const boardW = Math.min(window.innerWidth - 20, 340);
+    const cellPx = Math.floor(boardW / 10);
+    
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;box-sizing:border-box;">
+        <div style="font-size:15px;color:#ffd700;font-weight:bold;font-family:Impact,sans-serif;">
+            TURN: ${turn === 1 ? '🔵 BLUE PLAYER' : '🔴 RED PLAYER'}
         </div>
-        <div style="display:flex;align-items:center;gap:4px;">
-            ${Array(3).fill(0).map((_,i) =>
-                `<div style="width:${14+i*2}px;height:${14+i*2}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:1px solid #fff;margin-left:${i?-8:0}px;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>`
-            ).join('')}
-            <span style="color:#e2f0d9;font-size:11px;margin-left:4px;">Red</span>
-        </div>
-    </div>`;
+        <div style="display:grid;grid-template-columns:repeat(10,${cellPx}px);grid-template-rows:repeat(10,${cellPx}px);gap:1px;background:#111;padding:2px;border:3px solid #ffd700;border-radius:6px;">`;
 
-    // Hand
-    html += `<div style="color:#e2f0d9;font-size:11px;font-weight:bold;">${teamName}'s Hand — tap card, then tap board</div>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;max-width:${boardPx}px;">`;
+    for (let i = 0; i < 100; i++) {
+        const label = SEQUENCE_MATRIX_GRID[i];
+        const token = board[i];
+        const isRed = label.includes('♥') || label.includes('♦');
 
-    hand.forEach((card, i) => {
-        const isRed = SEQ_RED_SUITS.has(card);
-        const numPart  = card.replace(/[♠♣♥♦]/g,'');
-        const suitPart = card.replace(/[^♠♣♥♦]/g,'');
-        html += `<div onclick="selectSeqCard(${i})"
-            style="background:white;border:${sel===i?'3px solid #ffd700':'2px solid #555'};border-radius:6px;padding:4px 7px;cursor:pointer;
-            box-shadow:${sel===i?'0 0 10px rgba(255,215,0,0.8)':'0 2px 4px rgba(0,0,0,0.25)'};
-            display:flex;flex-direction:column;align-items:center;line-height:1.1;min-width:26px;">
-            <span style="font-size:13px;font-weight:900;color:${isRed?'#c00':'#111'};">${numPart}</span>
-            <span style="font-size:15px;color:${isRed?'#c00':'#111'};">${suitPart}</span>
+        let tokenMark = '';
+        if (token === 1) tokenMark = '<div style="width:70%;height:70%;border-radius:50%;background:#00b0ff;border:2px solid #fff;position:absolute;"></div>';
+        if (token === 2) tokenMark = '<div style="width:70%;height:70%;border-radius:50%;background:#e63946;border:2px solid #fff;position:absolute;"></div>';
+
+        html += `<div onclick="handleSequenceGridCellTap(${i})" style="position:relative;background:#fff;color:${isRed?'#c00':'#111'};font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;border:1px solid #44px;aspect-ratio:1;">
+            <span>${label === 'FREE' ? '★' : label}</span>
+            ${tokenMark}
         </div>`;
-    });
-
-    html += `</div></div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.selectSeqCard = function(i) {
-    window.seqSelectedCard = window.seqSelectedCard === i ? null : i;
-    renderSequenceBoard();
-};
-
-window.handleSeqBoardTap = function(i) {
-    const sel   = window.seqSelectedCard;
-    if(sel === null) return;
-    const board = window.seqBoard;
-    const turn  = window.seqTurn;
-    const hand  = window.seqHands[turn];
-    const label = SEQ_BOARD_LAYOUT[i];
-
-    if(label === 'FREE' || board[i]) return;
-    if(hand[sel] !== label) return; // card must match space
-
-    // Place chip
-    board[i] = turn === 0 ? 1 : 2;
-
-    // Remove played card and draw replacement
-    hand.splice(sel, 1);
-    if(window.seqDeck.length) hand.push(window.seqDeck.pop());
-    window.seqSelectedCard = null;
-
-    // Check for sequences
-    const [b, r] = checkSeqSequences(board);
-    window.seqSequences = [b, r];
-    const winsNeeded = 2;
-    if(b >= winsNeeded || r >= winsNeeded) {
-        const winner = b >= winsNeeded ? '🔵 Blue' : '🔴 Red';
-        gameCanvasContainer.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;height:100%;padding:20px;text-align:center;">
-            <div style="font-size:52px;">🏆</div>
-            <div style="color:#ffd700;font-size:24px;font-weight:900;">${winner} wins!</div>
-            <div style="color:#e2f0d9;font-size:14px;">${b >= winsNeeded ? b : r} sequences completed</div>
-            <button onclick="initSequenceGame()" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:bold;cursor:pointer;">Play Again</button>
-        </div>`;
-        return;
     }
 
-    // Advance turn
-    window.seqTurn = turn === 0 ? 1 : 0;
-    renderSequenceBoard();
-};
+    html += `</div>
+        <div style="color:#fff;font-size:12px;font-weight:bold;margin-top:2px;">Your 7-Card Hand Block Line:</div>
+        <div style="display:flex;gap:5px;width:100%;justify-content:center;overflow-x:auto;padding:2px 0;">`;
 
-/* ─────────────────────────────────────────────────────────── *
- *  4.  TRIVIA  (Open Trivia DB with retry logic)              *
- * ─────────────────────────────────────────────────────────── */
-function initTriviaGame() {
-    window.triviaQuestionCount = window.triviaQuestionCount || 0;
-    window.triviaScorePoints   = window.triviaScorePoints   || 0;
-    if (window.triviaQuestionCount >= 10) { renderTriviaScoreboard(); return; }
-
-    gameCanvasContainer.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e2f0d9;font-size:16px;">Loading question…</div>`;
-
-    // Use a session token to avoid repeats; fetch a batch of 10 at once to avoid rate limits
-    if (!window.triviaBatch || window.triviaBatch.length === 0) {
-        fetch(`https://opentdb.com/api.php?amount=10&type=multiple`)
-            .then(r => {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(data => {
-                if (!data.results || !data.results.length) throw new Error('No results');
-                const decode = s => { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
-                window.triviaBatch = data.results.map(item => ({
-                    q       : decode(item.question),
-                    c       : decode(item.correct_answer),
-                    choices : [...item.incorrect_answers.map(decode), decode(item.correct_answer)].sort(() => Math.random() - 0.5)
-                }));
-                window.sharedRoomTriviaQuestion = window.triviaBatch.shift();
-                if (typeof channel !== 'undefined') {
-                    channel.send({ type:'broadcast', event:'sync-room-trivia', payload:{ triviaData: window.sharedRoomTriviaQuestion, count: window.triviaQuestionCount } });
-                }
-                renderSharedTriviaUI();
-            })
-            .catch(() => {
-                gameCanvasContainer.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;height:100%;padding:20px;text-align:center;">
-                    <div style="font-size:36px;">📡</div>
-                    <div style="color:#dc3545;font-size:15px;font-weight:bold;">Couldn't reach the trivia server.</div>
-                    <div style="color:#a3cfbb;font-size:12px;">Check your connection and try again.</div>
-                    <button onclick="window.triviaBatch=null;initTriviaGame();" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:bold;cursor:pointer;">Retry</button>
-                </div>`;
-            });
-    } else {
-        // Use cached batch
-        window.sharedRoomTriviaQuestion = window.triviaBatch.shift();
-        renderSharedTriviaUI();
-    }
-}
-
-function renderSharedTriviaUI() {
-    const q     = window.sharedRoomTriviaQuestion;
-    const count = window.triviaQuestionCount;
-    const score = window.triviaScorePoints;
-    if (!q) return;
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px;width:100%;box-sizing:border-box;">
-        <div style="color:#ffd700;font-size:12px;font-weight:bold;">Question ${count + 1} of 10  •  Score: ${score}</div>
-        <div style="color:#e2f0d9;font-size:15px;font-weight:bold;text-align:center;line-height:1.4;">${q.q}</div>
-        <div style="display:flex;flex-direction:column;gap:8px;width:100%;">`;
-
-    q.choices.forEach(choice => {
-        html += `<button onclick="submitTriviaAnswer('${choice.replace(/'/g,"\\'")}','${q.c.replace(/'/g,"\\'")}',this)"
-            style="background:#2d6a30;color:#e2f0d9;border:2px solid #1e4620;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:bold;cursor:pointer;text-align:left;transition:background 0.2s;">
-            ${choice}
+    window.mySequenceHand.forEach((card, idx) => {
+        let isHighlighted = (sel === idx) ? 'border:3px solid #ffd700;background:#fff;' : 'border:2px solid #aaa;background:#eee;';
+        html += `<button onclick="window.seqSelectedCardIdx=${idx};renderSequenceBoard();" style="${isHighlighted}border-radius:6px;width:42px;height:62px;font-weight:900;font-size:13px;color:${card.isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;">
+            <span>${card.r}</span><span>${card.s}</span>
         </button>`;
     });
 
@@ -725,151 +498,180 @@ function renderSharedTriviaUI() {
     gameCanvasContainer.innerHTML = html;
 }
 
-window.submitTriviaAnswer = function (chosen, correct, btn) {
-    // Disable all buttons
-    btn.parentElement.querySelectorAll('button').forEach(b => b.disabled = true);
-    const isCorrect = chosen === correct;
-    if (isCorrect) {
-        window.triviaScorePoints++;
-        btn.style.background = '#00b050';
-    } else {
-        btn.style.background = '#dc3545';
-        btn.parentElement.querySelectorAll('button').forEach(b => {
-            if (b.innerText.trim() === correct) b.style.background = '#00b050';
-        });
-    }
-    window.triviaQuestionCount++;
-    setTimeout(() => initTriviaGame(), 1400);
+window.handleSequenceGridCellTap = function(idx) {
+    if (window.seqSelectedCardIdx === null || window.seqBoard[idx] !== 0) return;
+    
+    const card = window.mySequenceHand[window.seqSelectedCardIdx];
+    const targetLabel = SEQUENCE_MATRIX_GRID[idx];
+    
+    if (targetLabel !== (card.r + card.s) && targetLabel !== 'FREE') return;
+
+    window.seqBoard[idx] = window.seqTurn;
+    
+    // Cycle card replacements
+    const cardSuits = ['♠','♣','♥','♦'];
+    const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
+    let s = cardSuits[Math.floor(Math.random()*cardSuits.length)];
+    let r = cardRanks[Math.floor(Math.random()*cardRanks.length)];
+    window.mySequenceHand[window.seqSelectedCardIdx] = { r, s, isRed: (s==='♥'||s==='♦') };
+    
+    window.seqSelectedCardIdx = null;
+    window.seqTurn = (window.seqTurn === 1) ? 2 : 1;
+    
+    triggerSequenceNetworkSync();
+    renderSequenceBoard();
 };
 
-function renderTriviaScoreboard() {
-    const score = window.triviaScorePoints;
-    const grade = score >= 9 ? '🏆 Perfect!' : score >= 7 ? '🌟 Great job!' : score >= 5 ? '👍 Not bad!' : '😅 Better luck next time!';
-    gameCanvasContainer.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:20px;text-align:center;">
-        <div style="font-size:48px;">${grade.split(' ')[0]}</div>
-        <div style="color:#ffd700;font-size:24px;font-weight:900;">Score: ${score} / 10</div>
-        <div style="color:#e2f0d9;font-size:16px;">${grade.split(' ').slice(1).join(' ')}</div>
-        <button onclick="window.triviaQuestionCount=0;window.triviaScorePoints=0;initTriviaGame();"
-            style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:12px 28px;font-size:15px;font-weight:bold;cursor:pointer;margin-top:8px;">
-            Play Again
-        </button>
-    </div>`;
-}
-
-/* ─────────────────────────────────────────────────────────── *
- *  5.  HANGMAN  (SVG scaffold, big dashes, death animation)   *
- * ─────────────────────────────────────────────────────────── */
-const HANGMAN_WORDS = [
-    'CHASER','BICYCLE','ADVENTURE','JOURNEY','MOUNTAIN','HIGHWAY','SHORTCUT',
-    'THROTTLE','VELOCITY','NAVIGATOR','COMPASS','HORIZON','WAYPOINT','CRUISING',
-    'EXPEDITION','DETOUR','TAILWIND','LANDMARK','CARAVAN','TRAILHEAD'
-];
-
-function initHangmanGame() {
-    const word = HANGMAN_WORDS[Math.floor(Math.random() * HANGMAN_WORDS.length)];
-    window.hangmanState = { word, guessed: new Set(), wrong: 0, maxWrong: 6, dying: false };
-    renderHangmanGame();
-}
-
-function buildHangmanSVG(wrong, dying) {
-    // Gallows is always drawn in full; body parts appear as wrong increases
-    const shake = dying ? 'style="animation:hangShake 0.5s ease-in-out 3"' : '';
-    const bodyColor = dying ? '#dc3545' : '#e2f0d9';
-
-    const parts = {
-        head  : wrong >= 1,
-        body  : wrong >= 2,
-        leftA : wrong >= 3,
-        rightA: wrong >= 4,
-        leftL : wrong >= 5,
-        rightL: wrong >= 6,
-    };
-
-    return `<svg viewBox="0 0 120 160" width="120" height="160" xmlns="http://www.w3.org/2000/svg">
-        <style>@keyframes hangShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}</style>
-        <!-- Gallows structure -->
-        <line x1="10" y1="155" x2="110" y2="155" stroke="#a3cfbb" stroke-width="4" stroke-linecap="round"/>
-        <line x1="30"  y1="155" x2="30"  y2="10"  stroke="#a3cfbb" stroke-width="4" stroke-linecap="round"/>
-        <line x1="30"  y1="10"  x2="75"  y2="10"  stroke="#a3cfbb" stroke-width="4" stroke-linecap="round"/>
-        <line x1="75"  y1="10"  x2="75"  y2="28"  stroke="#a3cfbb" stroke-width="3" stroke-linecap="round"/>
-        <!-- Body parts -->
-        <g ${shake} transform-origin="75 36">
-            ${parts.head   ? `<circle cx="75" cy="36" r="12" stroke="${bodyColor}" stroke-width="3" fill="none"/>` : ''}
-            ${parts.head && dying ? `<text x="70" y="41" font-size="11" fill="${bodyColor}">✕✕</text>` : parts.head ? `<circle cx="71" cy="33" r="2" fill="${bodyColor}"/><circle cx="79" cy="33" r="2" fill="${bodyColor}"/><path d="M71 40 Q75 43 79 40" stroke="${bodyColor}" stroke-width="1.5" fill="none"/>` : ''}
-            ${parts.body   ? `<line x1="75" y1="48" x2="75" y2="95" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>` : ''}
-            ${parts.leftA  ? `<line x1="75" y1="58" x2="55" y2="78" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>` : ''}
-            ${parts.rightA ? `<line x1="75" y1="58" x2="95" y2="78" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>` : ''}
-            ${parts.leftL  ? `<line x1="75" y1="95" x2="55" y2="120" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>` : ''}
-            ${parts.rightL ? `<line x1="75" y1="95" x2="95" y2="120" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>` : ''}
-        </g>
-    </svg>`;
-}
-
-function renderHangmanGame() {
-    const { word, guessed, wrong, maxWrong, dying } = window.hangmanState;
-    const isWin    = word.split('').every(l => guessed.has(l));
-    const isLose   = wrong >= maxWrong;
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;width:100%;box-sizing:border-box;">`;
-
-    // SVG scaffold
-    html += `<div>${buildHangmanSVG(wrong, dying || isLose)}</div>`;
-
-    // Letter dashes — big and clear
-    html += `<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:4px 0;">`;
-    word.split('').forEach(letter => {
-        const revealed = guessed.has(letter);
-        html += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
-            <div style="font-size:24px;font-weight:900;color:${revealed?'#ffd700':'transparent'};min-width:22px;text-align:center;letter-spacing:0;">${letter}</div>
-            <div style="width:22px;height:3px;background:${revealed?'#ffd700':'#e2f0d9'};border-radius:2px;"></div>
+/* ═══════════════════════════════════════════════════════════
+   4.  CREW TRIVIA (DROP-DOWN SUBJECT MATRIX, LARGE FONT DISPLAY)
+   ═══════════════════════════════════════════════════════════ */
+function initTriviaGame() {
+    window.triviaQuestionCount = 0;
+    window.triviaScorePoints   = 0;
+    
+    gameCanvasContainer.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:12px;width:100%;box-sizing:border-box;">
+            <div style="color:#ffd700;font-size:22px;font-weight:bold;font-family:Impact,sans-serif;">SELECT SUBJECT CATEGORY</div>
+            <select id="triviaCategoryPicker" style="width:100%;max-width:280px;padding:14px;font-size:16px;font-weight:bold;border-radius:8px;border:2px solid #2d6a30;">
+                <option value="9">Mixed Bag General Knowledge</option>
+                <option value="11">Movies & Cinema</option>
+                <option value="12">Music & Tracks</option>
+                <option value="14">Television Shows</option>
+                <option value="15">Video Games</option>
+                <option value="17">Science & Nature</option>
+                <option value="22">Geography Matrix</option>
+                <option value="23">History Channels</option>
+                <option value="26">Celebrity Pop Culture</option>
+                <option value="21">Sports Arena</option>
+            </select>
+            <button onclick="launchLiveTriviaEngine()" style="width:100%;max-width:280px;padding:14px;background:#00ff88;color:#000;font-weight:900;font-size:18px;border:none;border-radius:8px;cursor:pointer;font-family:Impact,sans-serif;">START TRIVIA ROUND</button>
         </div>`;
+}
+
+window.launchLiveTriviaEngine = function() {
+    const category = document.getElementById('triviaCategoryPicker').value;
+    gameCanvasContainer.innerHTML = `<div style="color:white;font-size:18px;font-weight:bold;">Fetching high-variety questions pool...</div>`;
+    
+    fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=${category}&cache=${Math.random()}`)
+        .then(res => res.json())
+        .then(data => {
+            if(!data.results || data.results.length === 0) { initTriviaGame(); return; }
+            const item = data.results[0];
+            
+            const decode = s => { let t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+            const questionText = decode(item.question);
+            const correctAnswer = decode(item.correct_answer);
+            let choices = item.incorrect_answers.map(ans => decode(ans));
+            choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
+
+            window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices };
+            
+            if (typeof channel !== 'undefined') {
+                channel.send({
+                    type: 'broadcast',
+                    event: 'sync-room-trivia',
+                    payload: { triviaData: window.sharedRoomTriviaQuestion, count: window.triviaQuestionCount }
+                });
+            }
+            renderSharedTriviaUI();
+        })
+        .catch(() => { initTriviaGame(); });
+};
+
+function renderSharedTriviaUI() {
+    const q = window.sharedRoomTriviaQuestion;
+    if (!q) return;
+
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;padding:4px;box-sizing:border-box;">
+        <div style="color:#ffd700;font-size:16px;font-weight:bold;font-family:Impact,sans-serif;">QUESTION PROGRESS: ${window.triviaQuestionCount + 1}/20</div>
+        <div style="background:rgba(0,0,0,0.5);padding:16px;border-radius:10px;font-size:20px;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.3;">${q.q}</div>
+        <div style="display:flex;flex-direction:column;gap:8px;width:100%;">`;
+
+    q.choices.forEach(choice => {
+        html += `<button class="trivia-inline-choice-btn" data-choice="${choice.replace(/"/g, '&quot;')}" style="width:100%;padding:14px;background:#e2f0d9;color:#1e4620;border:none;border-radius:8px;font-weight:900;font-size:16px;text-align:left;" onclick="evaluateRoomTriviaClick(this, \`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
     });
-    html += `</div>`;
-
-    if (isWin) {
-        html += `<div style="color:#00b050;font-size:17px;font-weight:bold;text-align:center;">🎉 You got it!</div>
-            <button onclick="initHangmanGame()" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:bold;cursor:pointer;">Play Again</button>`;
-    } else if (isLose) {
-        html += `<div style="color:#dc3545;font-size:16px;font-weight:bold;text-align:center;">💀 The word was: <span style="color:#ffd700;">${word}</span></div>
-            <button onclick="initHangmanGame()" style="background:#2d6a30;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:bold;cursor:pointer;">Try Again</button>`;
-    } else {
-        // Alphabet keyboard
-        html += `<div style="display:flex;flex-wrap:wrap;gap:5px;justify-content:center;max-width:300px;">`;
-        alphabet.forEach(letter => {
-            const used     = guessed.has(letter);
-            const isWrong  = used && !word.includes(letter);
-            const isRight  = used && word.includes(letter);
-            html += `<button onclick="hangmanGuess('${letter}')" ${used ? 'disabled' : ''}
-                style="width:30px;height:30px;border-radius:6px;border:none;font-weight:bold;font-size:13px;
-                cursor:${used?'default':'pointer'};
-                background:${isWrong?'#dc3545':isRight?'#2d6a30':'#e2f0d9'};
-                color:${used?'white':'#1e4620'};
-                opacity:${used?0.65:1};">
-                ${letter}
-            </button>`;
-        });
-        html += `</div>`;
-        html += `<div style="color:#a3cfbb;font-size:11px;">${wrong} / ${maxWrong} wrong</div>`;
-    }
-
-    html += `</div>`;
+    html += `</div></div>`;
     gameCanvasContainer.innerHTML = html;
 }
 
-window.hangmanGuess = function(letter) {
-    const state = window.hangmanState;
-    if (!state || state.guessed.has(letter)) return;
-    state.guessed.add(letter);
-    if (!state.word.includes(letter)) {
-        state.wrong++;
-        if (state.wrong >= state.maxWrong) {
-            // Trigger death animation briefly before final render
-            state.dying = true;
-            renderHangmanGame();
-            setTimeout(() => { state.dying = false; renderHangmanGame(); }, 1600);
-            return;
-        }
+window.evaluateRoomTriviaClick = function(btn, choice) {
+    const allButtons = document.querySelectorAll('.trivia-inline-choice-btn');
+    allButtons.forEach(b => b.disabled = true);
+    
+    window.triviaQuestionCount++;
+
+    if (choice === window.sharedRoomTriviaQuestion.c) {
+        btn.style.background = '#00ff88'; // Bright Green flash markup
+        btn.style.color = '#000';
+        window.triviaScorePoints++;
+    } else {
+        btn.style.background = '#e63946';
+        btn.style.color = '#fff';
+        allButtons.forEach(b => {
+            if (b.getAttribute('data-choice') === window.sharedRoomTriviaQuestion.c) {
+                b.style.background = '#00ff88';
+                b.style.color = '#000';
+            }
+        });
     }
+
+    setTimeout(() => {
+        if (window.triviaQuestionCount >= 20) {
+            gameCanvasContainer.innerHTML = `
+                <div style="text-align:center;padding:20px;">
+                    <h2 style="color:#ffd700;font-family:Impact;font-size:28px;">ROUND COMPLETE!</h2>
+                    <div style="font-size:42px;font-weight:900;color:white;margin:12px 0;">${window.triviaScorePoints} / 20</div>
+                    <button onclick="initTriviaGame()" style="padding:12px 24px;font-size:16px;background:#00ff88;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Play Again</button>
+                </div>`;
+        } else {
+            window.launchLiveTriviaEngine();
+        }
+    }, 1800);
+};
+
+/* ═══════════════════════════════════════════════════════════
+   5.  HANGMAN
+   ═══════════════════════════════════════════════════════════ */
+const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
+
+function initHangmanGame() {
+    const targetWord = HANGMAN_DICTIONARY_POOL[Math.floor(Math.random() * HANGMAN_DICTIONARY_POOL.length)];
+    window.hangmanState = { word: targetWord, guessed: [], wrong: 0, maxWrong: 6 };
+    renderHangmanGame();
+}
+
+function renderHangmanGame() {
+    const state = window.hangmanState;
+    let displayWord = state.word.split('').map(l => state.guessed.includes(l) ? l : '_').join(' ');
+    
+    let isWin = !displayWord.includes('_');
+    let isLose = state.wrong >= state.maxWrong;
+
+    if (isWin || isLose) {
+        gameCanvasContainer.innerHTML = `
+            <div style="background:#e2f0d9;color:#1e4620;padding:16px;border-radius:12px;width:260px;font-weight:bold;text-align:center;">
+                <h3>${isWin ? '🎉 YOU WIN!' : '💀 GAME OVER'}</h3>
+                <p style="font-size:16px;">The word was: ${state.word}</p>
+                <button onclick="initHangmanGame()" style="width:100%;padding:10px;background:#2d6a30;color:white;border:none;border-radius:6px;font-weight:bold;margin-top:8px;">PLAY AGAIN</button>
+            </div>`;
+        return;
+    }
+
+    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;">
+        <div style="font-size:24px;font-weight:bold;letter-spacing:2px;color:#fff;font-family:Impact,sans-serif;margin:10px 0;">${displayWord}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:280px;">`;
+
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
+        let used = state.guessed.includes(ltr);
+        html += `<button ${used?'disabled':''} style="padding:8px 2px;font-weight:bold;font-size:12px;background:${used?'#555':'#e2f0d9'};color:${used?'#888':'#1e4620'};border:none;border-radius:4px;" onclick="handleHangmanClick('${ltr}')">${ltr}</button>`;
+    });
+
+    html += `</div><div style="color:white;font-size:12px;margin-top:4px;">Mistakes: ${state.wrong} / ${state.maxWrong}</div></div>`;
+    gameCanvasContainer.innerHTML = html;
+}
+
+window.handleHangmanClick = function(ltr) {
+    window.hangmanState.guessed.push(ltr);
+    if (!window.hangmanState.word.includes(ltr)) window.hangmanState.wrong++;
     renderHangmanGame();
 };
