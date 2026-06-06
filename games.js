@@ -581,16 +581,10 @@ window.unoDrawCard = function() {
 /* ═══════════════════════════════════════════════════════════
    4.  SYNCHRONIZED CO-OP TRIVIA ENGINE (5-5 HIDDEN SPLIT LOOP)
    ═══════════════════════════════════════════════════════════ */
-/* ============================================================
-   CHASER ARCADE: STREAMLINED REAL-TIME TRIVIA ENGINE
-   ============================================================ */
-
-window.initTriviaGame = function() {
+function initTriviaGame() {
     window.triviaQuestionCount = 0;
     window.triviaScorePoints   = 0;
     window.triviaRoomVotes     = {};
-    // Track question text during this campaign run to completely eliminate duplicates
-    window.triviaSessionHistory = []; 
     
     gameCanvasContainer.innerHTML = `
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vw;padding:4vw;width:100%;box-sizing:border-box;height:100%;user-select:none;">
@@ -610,47 +604,32 @@ window.initTriviaGame = function() {
 
             <button onclick="launchLiveTriviaEngine()" style="width:100%;max-width:280px;padding:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:5vw;border:none;border-radius:10px;cursor:pointer;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.3);letter-spacing:0.5px;">START CAMPAIGN</button>
         </div>`;
-};
+}
 
 window.launchLiveTriviaEngine = function() {
     const picker = document.getElementById('triviaCategoryPicker');
     const cat = picker ? picker.value : '9';
     gameCanvasContainer.innerHTML = `<div style="color:white;font-size:4.5vw;font-weight:bold;text-align:center;padding:40px;font-family:sans-serif;">Fetching synchronized question...</div>`;
     
-    // Safety recursive function ensuring unique item extraction up to 5 loop retries
-    function fetchUniqueQuestion(attempts = 0) {
-        fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=${cat}&cache=${Math.random()}`)
-            .then(res => res.json())
-            .then(data => {
-                if(!data.results || data.results.length === 0) { initTriviaGame(); return; }
-                const item = data.results[0];
-                const decode = s => { let t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
-                
-                const questionText = decode(item.question);
-                
-                // If question was already played this match, fetch another unless we hit an infrastructure wall
-                if (window.triviaSessionHistory.includes(questionText) && attempts < 5) {
-                    fetchUniqueQuestion(attempts + 1);
-                    return;
-                }
-                
-                // Save unique string key to current running collection
-                window.triviaSessionHistory.push(questionText);
+    fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=${cat}&cache=${Math.random()}`)
+        .then(res => res.json())
+        .then(data => {
+            if(!data.results || data.results.length === 0) { initTriviaGame(); return; }
+            const item = data.results[0];
+            const decode = s => { let t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
+            
+            const questionText = decode(item.question);
+            const correctAnswer = decode(item.correct_answer);
+            let choices = item.incorrect_answers.map(ans => decode(ans));
+            choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
 
-                const correctAnswer = decode(item.correct_answer);
-                let choices = item.incorrect_answers.map(ans => decode(ans));
-                choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
+            window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices, cat: cat };
+            window.triviaRoomVotes = {};
 
-                window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices, cat: cat };
-                window.triviaRoomVotes = {};
-
-                broadcastTriviaState('question', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
-                runLocalTriviaTimerPhase('question');
-            })
-            .catch(() => { initTriviaGame(); });
-    }
-
-    fetchUniqueQuestion();
+            broadcastTriviaState('question', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+            runLocalTriviaTimerPhase('question');
+        })
+        .catch(() => { initTriviaGame(); });
 };
 
 function broadcastTriviaState(phase, data, count, votes = {}) {
@@ -668,12 +647,14 @@ function runLocalTriviaTimerPhase(phase) {
     if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
 
     window.triviaCurrentPhase = phase;
+    // Strict phase timer parameters: 5s read, 5s submission vote window, 3s reveal card exposure
     let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
 
     updateTriviaUI(secondsLeft);
 
     window.triviaLocalInterval = setInterval(() => {
         secondsLeft--;
+        // FIXED TIMER REPAIR CORNERSTONE: Evaluates all vectors down to zero to prevent freeze locks
         if (secondsLeft <= 0) {
             clearInterval(window.triviaLocalInterval);
             if (window.myPlayerNumber === 0) { 
@@ -686,7 +667,7 @@ function runLocalTriviaTimerPhase(phase) {
                 } else if (phase === 'reveal') {
                     window.triviaQuestionCount++;
                     if (window.triviaQuestionCount >= 20) {
-                        // Game ends automatically via evaluation below inside render updates
+                        // Termination handler handles loop exit natively
                     } else {
                         window.launchLiveTriviaEngine();
                     }
@@ -715,6 +696,7 @@ function updateTriviaUI(timerSeconds) {
         <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
 
+    // TWO-PHASE HIDDEN SPLIT REPAIR: Choice columns remain entirely suppressed until reading cycle completes
     if (phase !== 'question') {
         q.choices.forEach(choice => {
             let btnBg = '#e2f0d9';
@@ -740,14 +722,10 @@ function updateTriviaUI(timerSeconds) {
             html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
         });
     } else {
-        // FIXED USER EXPLANATION CARD: Removes the confusing empty layout blocks
-        html += `
-        <div style="width:100%; background:rgba(255,255,255,0.05); border:2px dashed #ffb703; border-radius:8px; padding:20px; box-sizing:border-box; text-align:center; margin-top:5px;">
-            <div style="color:#ffb703; font-size:4.5vw; font-weight:bold; font-family:sans-serif; margin-bottom:8px;">👁️ READ THE QUESTION</div>
-            <div style="color:#ccc; font-size:3.5vw; font-family:sans-serif; line-height:1.4;">
-                Buttons are hidden during reading time to prevent accidental misclicks. Answer options will appear here automatically when the countdown hits zero. You do not need to type anything!
-            </div>
-        </div>`;
+        // Renders clean, locked placeholder boxes to preserve height scaling parameters during reading time
+        for(let i=0; i<4; i++) {
+            html += `<div style="width:100%;height:42px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(255,255,255,0.1);border-radius:6px;"></div>`;
+        }
     }
     
     html += `</div></div>`;
