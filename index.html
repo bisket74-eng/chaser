@@ -65,7 +65,6 @@
         #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
         #chatBadge { position:absolute; top:-3px; right:-3px; background:#dc3545; color:white; border-radius:50%; padding:4px 8px; font-size:12px; font-weight:bold; display:none; border:2px solid white; }
 
-        /* REDESIGNED CHAT OVERLAY FLEXBOX */
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
         #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; z-index:10; }
@@ -83,7 +82,7 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* THE NEW SPLIT-SCREEN GAME STAGE */
+        /* SPLIT-SCREEN GAME HUD */
         #activeGameStage { display:none; flex: 0 0 50%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
         #activeGameStage.open { display:flex; }
         #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
@@ -123,6 +122,15 @@
         .radius-label-wrapper { display:flex; align-items:center; font-size:16px; font-weight:bold; white-space:nowrap; }
         .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
         .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
+
+        /* MULTIPLAYER UNO GRAPHICS ENGINE */
+        .uno-card-body { width:62px; height:92px; border-radius:8px; border:3px solid #fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:32px; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,0.4); cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.35); padding:0; position:relative; transform-style:preserve-3d; }
+        .uno-card-red { background:linear-gradient(135deg, #e63946, #b70918); }
+        .uno-card-yellow { background:linear-gradient(135deg, #ffb703, #d68c00); color:#fff; }
+        .uno-card-green { background:linear-gradient(135deg, #2a9d8f, #126f63); }
+        .uno-card-blue { background:linear-gradient(135deg, #1d3557, #0f1c30); }
+        .uno-oval-center { position:absolute; width:44px; height:68px; background:rgba(255,255,255,0.15); border-radius:50%; transform:rotate(-20deg); z-index:1; }
+        .uno-number-label { z-index:2; position:relative; }
 
         .leaflet-popup-content-wrapper,.leaflet-popup-tip { display:none!important; }
     </style>
@@ -291,7 +299,6 @@
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
 
-        // Nudge button passes the event and the ID directly
         const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
@@ -319,31 +326,16 @@
         const now = Date.now();
         if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
             lastPushSent[targetRiderName] = now;
-            
-            // Visual feedback that ping is firing
             btn.innerHTML = '✓';
             btn.style.background = '#b8860b';
             
             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    rider_id: targetRiderId,
-                    sender_name: sourceSenderName 
-                })
+                body: JSON.stringify({ rider_id: targetRiderId, sender_name: sourceSenderName })
             })
-            .then(() => {
-                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000);
-            })
-            .catch(err => { 
-                btn.innerHTML = '✕';
-                btn.style.background = '#dc3545';
-                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000);
-            });
-        } else {
-            // Visual feedback for cooldown blocking
-            btn.style.opacity = '0.5';
-            setTimeout(() => { btn.style.opacity = '1'; }, 1000);
+            .then(() => { setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000); })
+            .catch(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; });
         }
     };
 
@@ -358,26 +350,18 @@
 
     let syncCheckersBoard = [];
     let selectedCheckerIdx = null;
-    let unoDeckState = [];
+    let checkersTurn = 1; // 1 = Red Team, 2 = White Team
     let myUnoHand = [];
     let unoDiscardPile = null;
+    
+    // 20-Question Trivia variables
     let sharedRoomTriviaQuestion = null;
-
-    document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
-        resetActivityTimer();
-        if (gameHubOverlay.classList.contains('open')) {
-            gameHubOverlay.classList.remove('open');
-            shutdownActiveGame();
-        } else {
-            gameHubOverlay.classList.add('open');
-        }
-    });
+    let triviaQuestionCount = 0;
+    let triviaScorePoints = 0;
 
     function launchGameEngine(gameName, gameIcon) {
         resetActivityTimer();
         activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
-        
-        // Hide the full menu and open the top-half game stage
         gameHubOverlay.classList.remove('open');
         activeGameStage.classList.add('open');
         
@@ -389,6 +373,8 @@
         } else if (gameName === 'Checkers') {
             initCheckersGame();
         } else if (gameName === 'Crew Trivia') {
+            triviaQuestionCount = 0;
+            triviaScorePoints = 0;
             initTriviaGame();
         } else if (gameName === 'Battle Uno') {
             initChaserUnoGame();
@@ -401,7 +387,7 @@
         gameCanvasContainer.innerHTML = '';
     }
 
-    /* --- 1. HANGMAN ENGINE (FIXED WITH SVG DRAWING) --- */
+    /* --- 1. HANGMAN ENGINE (PERFECT VECTOR MATH) --- */
     function initHangmanGame() {
         const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
         let targetWord = words[Math.floor(Math.random() * words.length)];
@@ -423,21 +409,20 @@
                 return;
             }
 
-            // Flawless scalable SVG rendering instead of wonky text symbols
-            let svgDraw = `<svg viewBox="0 0 100 100" style="width:120px; height:120px; stroke:#e2f0d9; stroke-width:3; fill:none; stroke-linecap:round;">
-                <path d="M10,90 L90,90 M30,90 L30,10 L70,10 L70,20" />
-                ${mistakes > 0 ? '<circle cx="70" cy="30" r="10" />' : ''}
-                ${mistakes > 1 ? '<line x1="70" y1="40" x2="70" y2="65" />' : ''}
-                ${mistakes > 2 ? '<line x1="70" y1="45" x2="55" y2="55" />' : ''}
-                ${mistakes > 3 ? '<line x1="70" y1="45" x2="85" y2="55" />' : ''}
-                ${mistakes > 4 ? '<line x1="70" y1="65" x2="55" y2="80" />' : ''}
-                ${mistakes > 5 ? '<line x1="70" y1="65" x2="85" y2="80" />' : ''}
+            let svgDraw = `<svg viewBox="0 0 100 100" style="width:110px; height:110px; stroke:#e2f0d9; stroke-width:4; fill:none; stroke-linecap:round;">
+                <path d="M15,90 L85,90 M35,90 L35,15 L70,15 L70,26" />
+                ${mistakes > 0 ? '<circle cx="70" cy="34" r="8" />' : ''}
+                ${mistakes > 1 ? '<line x1="70" y1="42" x2="70" y2="65" />' : ''}
+                ${mistakes > 2 ? '<line x1="70" y1="48" x2="52" y2="58" />' : ''}
+                ${mistakes > 3 ? '<line x1="70" y1="48" x2="88" y2="58" />' : ''}
+                ${mistakes > 4 ? '<line x1="70" y1="65" x2="54" y2="82" />' : ''}
+                ${mistakes > 5 ? '<line x1="70" y1="65" x2="86" y2="82" />' : ''}
             </svg>`;
 
             let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-                <div style="background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; margin:0;">${svgDraw}</div>
+                <div>${svgDraw}</div>
                 <div style="font-size:20px; font-weight:bold; letter-spacing:2px; color:#fff;">${displayWord}</div>
-                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px; margin-top:8px;">`;
+                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px; margin-top:4px;">`;
             
             'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
                 let used = guessedLetters.includes(ltr);
@@ -455,46 +440,82 @@
         render();
     }
 
-    /* --- 2. LIVE MULTIPLAYER CHECKERS ENGINE (FIXED MATH & SYNC) --- */
+    /* --- 2. OFFICIAL RULE CHECKERS ENGINE (JUMP REMOVALS & TURNS) --- */
     function initCheckersGame() {
         selectedCheckerIdx = null;
+        checkersTurn = 1; 
         syncCheckersBoard = [];
 
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 let isDark = (r + c) % 2 === 1;
                 let val = 0; 
-                if (isDark && r < 3) val = 1;
-                if (isDark && r > 4) val = 2;
+                if (isDark && r < 3) val = 1; // 1 = Red
+                if (isDark && r > 4) val = 2; // 2 = White
                 syncCheckersBoard.push(val);
             }
         }
 
         window.handleCheckerTileTap = (idx) => {
+            let piece = syncCheckersBoard[idx];
+
             if (selectedCheckerIdx === null) {
-                // Select a piece if it belongs to someone
-                if (syncCheckersBoard[idx] !== 0) {
+                // Verify turning priority rules matches tap selection
+                if (piece === checkersTurn) {
                     selectedCheckerIdx = idx;
                     renderCheckersGrid();
                 }
             } else {
                 let fromIdx = selectedCheckerIdx;
-                selectedCheckerIdx = null; // Instantly deselect
+                selectedCheckerIdx = null;
 
+                let fromR = Math.floor(fromIdx / 8);
+                let fromC = fromIdx % 8;
                 let toR = Math.floor(idx / 8);
                 let toC = idx % 8;
-                let isToDark = (toR + toC) % 2 === 1;
 
-                // Move if target is empty and dark
-                if (syncCheckersBoard[idx] === 0 && isToDark) {
+                let rowDiff = toR - fromR;
+                let colDiff = Math.abs(toC - fromC);
+
+                // Normal standard diagonal slide forward validation
+                let isValidSlide = false;
+                if (checkersTurn === 1 && rowDiff === 1 && colDiff === 1) isValidSlide = true;
+                if (checkersTurn === 2 && rowDiff === -1 && colDiff === 1) isValidSlide = true;
+
+                // Capture jump forward calculations over opponent pieces
+                let isValidJump = false;
+                let jumpedIdx = null;
+                if (checkersTurn === 1 && rowDiff === 2 && colDiff === 2) {
+                    let midR = fromR + 1;
+                    let midC = fromC + (toC > fromC ? 1 : -1);
+                    jumpedIdx = midR * 8 + midC;
+                    if (syncCheckersBoard[jumpedIdx] === 2) isValidJump = true;
+                }
+                if (checkersTurn === 2 && rowDiff === -2 && colDiff === 2) {
+                    let midR = fromR - 1;
+                    let midC = fromC + (toC > fromC ? 1 : -1);
+                    jumpedIdx = midR * 8 + midC;
+                    if (syncCheckersBoard[jumpedIdx] === 1) isValidJump = true;
+                }
+
+                if (syncCheckersBoard[idx] === 0 && (isValidSlide || isValidJump)) {
+                    // Update matrix
                     syncCheckersBoard[idx] = syncCheckersBoard[fromIdx];
                     syncCheckersBoard[fromIdx] = 0;
+
+                    // REMOVE PIECE: If a jump happened, wipe the enemy piece instantly
+                    if (isValidJump && jumpedIdx !== null) {
+                        syncCheckersBoard[jumpedIdx] = 0;
+                    }
+
+                    // Flip player turns
+                    checkersTurn = (checkersTurn === 1) ? 2 : 1;
 
                     if (channel) {
                         channel.send({
                             type: 'broadcast',
                             event: 'checkers-sync-move',
-                            payload: { boardState: syncCheckersBoard }
+                            payload: { boardState: syncCheckersBoard, activeTurn: checkersTurn }
                         });
                     }
                 }
@@ -507,7 +528,7 @@
 
     function renderCheckersGrid() {
         let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-            <div style="font-size:11px; color:#ffd700; font-weight:bold;">Tap a piece, then tap an empty square.</div>
+            <div style="font-size:12px; color:#ffd700; font-weight:bold; margin-bottom:2px;">Turn: ${checkersTurn===1?'🔴 RED Team':'⚪ WHITE Team'}</div>
             <div style="display:grid; grid-template-columns: repeat(8, 30px); grid-template-rows: repeat(8, 30px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden; background:#e2f0d9;">`;
         
         for (let i = 0; i < 64; i++) {
@@ -529,11 +550,15 @@
         gameCanvasContainer.innerHTML = html;
     }
 
-    /* --- 3. CREW TRIVIA ENGINE (SYNCHRONIZED ROOM MULTIPLAYER) --- */
+    /* --- 3. 20-QUESTION CREW TRIVIA ENGINE (NO POPUPS) --- */
     function initTriviaGame() {
-        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Syncing with room table channel...</div>`;
+        if (triviaQuestionCount >= 20) {
+            renderTriviaScoreboard();
+            return;
+        }
+
+        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Syncing question ${triviaQuestionCount + 1}/20...</div>`;
         
-        // Fetch question on behalf of room
         fetch('https://opentdb.com/api.php?amount=1&type=multiple&category=9')
             .then(res => res.json())
             .then(data => {
@@ -549,12 +574,11 @@
 
                 sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices };
 
-                // Relay the question to everyone in the room instantly
                 if (channel) {
                     channel.send({
                         type: 'broadcast',
                         event: 'sync-room-trivia',
-                        payload: { triviaData: sharedRoomTriviaQuestion }
+                        payload: { triviaData: sharedRoomTriviaQuestion, count: triviaQuestionCount }
                     });
                 }
 
@@ -566,26 +590,58 @@
     function renderSharedTriviaUI() {
         if (!sharedRoomTriviaQuestion) return;
 
-        window.evaluateTriviaChoice = (selectedAns) => {
-            if (selectedAns === sharedRoomTriviaQuestion.c) { 
-                alert("🎉 Correct! Click Next Question to update for the room.");
-            } else { 
-                alert(`❌ Incorrect. The right answer was: ${sharedRoomTriviaQuestion.c}`); 
+        window.evaluateInlineTriviaChoice = (btn, choice) => {
+            // Block multiple clicks on the same question
+            const allButtons = document.querySelectorAll('.trivia-choice-btn');
+            allButtons.forEach(b => b.disabled = true);
+
+            triviaQuestionCount++;
+
+            // NO POPUPS: Instantly flashes background style inline colors instead
+            if (choice === sharedRoomTriviaQuestion.c) {
+                btn.style.background = '#2a9d8f'; // Green flash
+                btn.style.color = '#fff';
+                triviaScorePoints++;
+            } else {
+                btn.style.background = '#e63946'; // Red flash
+                btn.style.color = '#fff';
+                
+                // Highlight correct answer in green too
+                allButtons.forEach(b => {
+                    if (b.getAttribute('data-choice') === sharedRoomTriviaQuestion.c) {
+                        b.style.background = '#2a9d8f';
+                        b.style.color = '#fff';
+                    }
+                });
             }
+
+            // Wait 1.5 seconds to see the color feedback, then auto-load next card question
+            setTimeout(() => {
+                initTriviaGame();
+            }, 1500);
         };
 
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; max-width:280px; scale:0.95;">
-            <div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; font-size:13px; line-height:1.3; color:#fff; font-weight:bold; text-align:center; border: 1px solid rgba(255,255,255,0.1);">${sharedRoomTriviaQuestion.q}</div>
-            <div style="display:flex; flex-direction:column; gap:6px; width:100%;">`;
+        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; max-width:280px; scale:0.95;">
+            <div style="font-size:12px; color:#ffd700; font-weight:bold;">Progress: Q ${triviaQuestionCount + 1}/20 | Points: ${triviaScorePoints}</div>
+            <div style="background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; font-size:13px; line-height:1.3; color:#fff; font-weight:bold; text-align:center; width:100%; box-sizing:border-box;">${sharedRoomTriviaQuestion.q}</div>
+            <div style="display:flex; flex-direction:column; gap:6px; width:100%; margin-top:4px;">`;
         
         sharedRoomTriviaQuestion.choices.forEach((choice) => {
-            html += `<button style="width:100%; padding:8px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:bold; font-size:12px; text-align:left;" onclick="evaluateTriviaChoice(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
+            html += `<button class="trivia-choice-btn" data-choice="${choice.replace(/"/g, '&quot;')}" style="width:100%; padding:10px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:bold; font-size:13px; text-align:left; transition: background 0.2s;" onclick="evaluateInlineTriviaChoice(this, \`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
         });
         
-        html += `</div><div style="display:flex; gap:8px; width:100%; margin-top:2px;">
-            <button onclick="initTriviaGame()" style="flex:1; padding:8px; background:#b8860b; color:white; border:none; border-radius:6px; font-weight:bold; font-size:11px;">Next Question</button>
-        </div></div>`;
+        html += `</div></div>`;
         gameCanvasContainer.innerHTML = html;
+    }
+
+    function renderTriviaScoreboard() {
+        gameCanvasContainer.innerHTML = `
+            <div style="background:#e2f0d9; color:#1e4620; padding:16px; border-radius:12px; width:260px; text-align:center;">
+                <h3 style="margin:0 0 8px 0;">🏁 Quiz Complete!</h3>
+                <div style="font-size:24px; font-weight:900; color:#dc3545; margin:10px 0;">${triviaScorePoints} / 20</div>
+                <p style="font-size:13px; font-weight:bold; color:#1e4620; margin:0 0 12px 0;">Great round buddy!</p>
+                <button onclick="triviaQuestionCount=0; triviaScorePoints=0; initTriviaGame();" style="width:100%; padding:10px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold; font-size:14px; cursor:pointer;">Play Again</button>
+            </div>`;
     }
 
     function decodeHTMLEntities(text) {
@@ -604,10 +660,10 @@
         renderSharedTriviaUI();
     }
 
-    /* --- 4. REAL-TIME BATTLE UNO ENGINE (MULTIPLAYER HAND SYNC) --- */
+    /* --- 4. GRAPHIC BATTLE UNO ENGINE (SOLID EMBEDDED COLOR BLOCKS) --- */
     function initChaserUnoGame() {
-        const colors = ['🔴 Red', '🟡 Yellow', '🟢 Green', '🔵 Blue'];
-        const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse'];
+        const colors = ['Red', 'Yellow', 'Green', 'Blue'];
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '★', '⇋'];
         
         unoDeckState = [];
         myUnoHand = [];
@@ -618,7 +674,6 @@
             });
         });
 
-        // Simple deck shuffle
         for (let i = unoDeckState.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [unoDeckState[i], unoDeckState[j]] = [unoDeckState[j], unoDeckState[i]];
@@ -650,7 +705,7 @@
                     });
                 }
             } else {
-                alert("Card colors or numbers must match the center discard pile!");
+                alert("Card must match center color or number!");
             }
             renderUnoLayout();
         };
@@ -659,23 +714,31 @@
     }
 
     function renderUnoLayout() {
-        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; scale:0.95;">
-            <div style="font-size:11px; color:#ffd700; font-weight:bold;">Live Shared Uno Table. Match Color or Value!</div>
-            <div style="display:flex; gap:20px; align-items:center; margin-bottom:2px;">
-                <div onclick="drawUnoCardAction()" style="width:52px; height:78px; background:#111; color:#fff; border:2px solid #fff; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.4);">DRAW CARD</div>
-                <div style="width:52px; height:78px; background:#fff; border:3px solid #1e4620; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#111; font-size:11px; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.3);">
-                    <div style="font-size:9px; text-align:center;">${unoDiscardPile.color}</div>
-                    <div style="font-size:16px; margin-top:2px;">${unoDiscardPile.value}</div>
+        let pileColorClass = `uno-card-${unoDiscardPile.color.toLowerCase()}`;
+        
+        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
+            <!-- Center Arena -->
+            <div style="display:flex; gap:24px; align-items:center; margin-bottom:2px;">
+                <button onclick="drawUnoCardAction()" style="width:58px; height:88px; background:linear-gradient(135deg, #111, #333); color:#ffd700; border:3px solid #fff; border-radius:8px; font-weight:900; font-size:11px; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.4);">DRAW<br>DECK</button>
+                
+                <!-- Center Discard Card Block -->
+                <div class="uno-card-body ${pileColorClass}" style="pointer-events:none;">
+                    <div class="uno-oval-center"></div>
+                    <span class="uno-number-label">${unoDiscardPile.value}</span>
                 </div>
             </div>
-            <div style="color:white; font-size:12px; font-weight:bold;">Your Hand:</div>
-            <div style="display:flex; gap:6px; overflow-x:auto; width:100%; max-width:300px; padding:4px 2px; box-sizing:border-box;">`;
+            
+            <div style="color:white; font-size:12px; font-weight:bold;">Your Deck Hand:</div>
+            <!-- Horizontal Player Hand Container -->
+            <div style="display:flex; gap:8px; overflow-x:auto; width:100%; max-width:310px; padding:6px 4px; box-sizing:border-box; background:rgba(0,0,0,0.2); border-radius:10px;">`;
         
         myUnoHand.forEach((card, i) => {
-            html += `<button onclick="playUnoCardAction(${i})" style="width:54px; height:78px; background:#e2f0d9; border:2px solid #2d6a30; border-radius:6px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#1e4620; font-weight:bold; font-size:11px; padding:2px;">
-                <span style="font-size:8px;">${card.color.split(' ')[1]}</span>
-                <span style="font-size:16px; margin-top:2px;">${card.value}</span>
-            </button>`;
+            let cardColorClass = `uno-card-${card.color.toLowerCase()}`;
+            html += `
+                <button onclick="playUnoCardAction(${i})" class="uno-card-body ${cardColorClass}">
+                    <div class="uno-oval-center"></div>
+                    <span class="uno-number-label">${card.value}</span>
+                </button>`;
         });
 
         html += `</div></div>`;
@@ -715,10 +778,7 @@
                             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    rider_id: r.riderId,
-                                    sender_name: sourceSenderName
-                                })
+                                body: JSON.stringify({ rider_id: r.riderId, sender_name: sourceSenderName })
                             });
                         }
                     }
@@ -761,9 +821,10 @@
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
             
-            // Shared Multiplayer socket receivers
+            // Sync mechanics sockets links
             .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
                 syncCheckersBoard = payload.boardState;
+                checkersTurn = payload.activeTurn;
                 if(activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Checkers')) renderCheckersGrid();
             })
             .on('broadcast', { event:'uno-sync-discard' }, ({ payload }) => {
@@ -772,6 +833,7 @@
             })
             .on('broadcast', { event:'sync-room-trivia' }, ({ payload }) => {
                 sharedRoomTriviaQuestion = payload.triviaData;
+                triviaQuestionCount = payload.count;
                 if(activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Trivia')) renderSharedTriviaUI();
             })
 
@@ -802,17 +864,12 @@
     };
 
     const registerPushSubscription = async () => {
-        // FIXED: Explicitly asking the Android OS for permission to send notifications!
         if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) return;
-        
         let perm = Notification.permission;
         if (perm === 'default') {
-            try {
-                perm = await Notification.requestPermission();
-            } catch (err) { console.log('Permission request failed.'); }
+            try { perm = await Notification.requestPermission(); } catch (err) {}
         }
-        
-        if (perm !== 'granted') return; // If you say no, it stops here
+        if (perm !== 'granted') return;
 
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -825,7 +882,7 @@
                 rider_id: myId,
                 subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
-        } catch (err) { console.log('Push subscription setup skipped or incomplete.'); }
+        } catch (err) {}
     };
     subscribeChannel();
 
@@ -901,7 +958,6 @@
 
     function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
         const now = Date.now();
-        
         if (incomingRidersCache[user]) {
             const cacheRef = incomingRidersCache[user];
             cacheRef.lastSeen = now;
@@ -912,17 +968,10 @@
             cacheRef.riderId = riderId || cacheRef.riderId;
         } else {
             incomingRidersCache[user] = {
-                marker: null,
-                lastSeen: now,
-                isGhost: false,
-                dest: dest,
-                color: color || '#ffffff',
-                lat: lat,
-                lng: lng,
-                riderId: riderId
+                marker: null, lastSeen: now, isGhost: false, dest: dest,
+                color: color || '#ffffff', lat: lat, lng: lng, riderId: riderId
             };
         }
-
         if (!isSharing) { return; }
         renderSingleRiderVisualLayers(user);
     }
@@ -952,23 +1001,17 @@
 
             newMarker._zoomedIn = false;
             rData.marker = newMarker;
-
-            if (!user.includes('(You)')) {
-                setTimeout(() => fitAllRiders(true), 300);
-            }
+            if (!user.includes('(You)')) { setTimeout(() => fitAllRiders(true), 300); }
         }
     }
 
     function displayAllCachedRidersOnMap() {
         el('privacyHint').style.display = 'none';
-        
         chatToggleBtn.style.opacity = '1';
         chatToggleBtn.style.background = '#1e4620';
         chatToggleBtn.style.pointerEvents = 'auto';
 
-        Object.keys(incomingRidersCache).forEach(user => {
-            renderSingleRiderVisualLayers(user);
-        });
+        Object.keys(incomingRidersCache).forEach(user => { renderSingleRiderVisualLayers(user); });
         setTimeout(() => fitAllRiders(true), 400);
     }
 
@@ -996,7 +1039,6 @@
     const startTimeoutMonitor = () => {
         resetActivityTimer();
         if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
-        
         timeoutCheckInterval = setInterval(() => {
             if (isSharing && (Date.now() - lastActiveTime) >= AUTO_TIMEOUT_MS) {
                 stopSharingLocation();
@@ -1008,37 +1050,22 @@
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { resetActivityTimer(); } });
 
     const stopSharingLocation = () => {
-        isSharing = false;
-        initialFrameDone = false;
-        destinationInput.value = '';
-        
+        isSharing = false; initialFrameDone = false; destinationInput.value = '';
         startBtn.innerText = 'Start Sharing Location';
         startBtn.classList.remove('sharing-active');
         if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
         channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
         
         Object.keys(incomingRidersCache).forEach(name => {
-            if (incomingRidersCache[name].marker) {
-                map.removeLayer(incomingRidersCache[name].marker);
-                incomingRidersCache[name].marker = null;
-            }
+            if (incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); incomingRidersCache[name].marker = null; }
         });
         removeRider(`${oldBroadcastedName} (You)`);
-        
         lastLat = 0; lastLng = 0;
-        updateLiveRiderCounter();
-        releaseWakeLock();
+        updateLiveRiderCounter(); releaseWakeLock();
 
-        if (timeoutCheckInterval) {
-            clearInterval(timeoutCheckInterval);
-            timeoutCheckInterval = null;
-        }
-        
+        if (timeoutCheckInterval) { clearInterval(timeoutCheckInterval); timeoutCheckInterval = null; }
         el('privacyHint').style.display = 'block';
-        
-        chatToggleBtn.style.opacity = '0.35';
-        chatToggleBtn.style.background = '#555555';
-        chatToggleBtn.style.pointerEvents = 'none';
+        chatToggleBtn.style.opacity = '0.35'; chatToggleBtn.style.background = '#555555'; chatToggleBtn.style.pointerEvents = 'none';
         if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); shutdownActiveGame(); gameHubOverlay.classList.remove('open'); }
     };
 
@@ -1050,7 +1077,6 @@
         localStorage.setItem('rider_saved_name', name);
         oldBroadcastedName = name;
         isSharing = true;
-        
         startBtn.innerText = 'Stop Sharing Location';
         startBtn.classList.add('sharing-active');
 
@@ -1059,18 +1085,12 @@
 
         if ('geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(pos => {
-                lastLat = pos.coords.latitude;
-                lastLng = pos.coords.longitude;
-                
+                lastLat = pos.coords.latitude; lastLng = pos.coords.longitude;
                 broadcastCurrentState();
-
-                if (!initialFrameDone) {
-                    initialFrameDone = true;
-                    fitAllRiders(true);
-                }
+                if (!initialFrameDone) { initialFrameDone = true; fitAllRiders(true); }
             }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
             requestWakeLock();
-            registerPushSubscription(); // THIS LINE NOW ASKS YOUR PHONE FOR NOTIFICATION PERMISSION
+            registerPushSubscription();
         } else stopSharingLocation();
     });
 
@@ -1078,32 +1098,12 @@
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
     };
-    
-    const resetModalUI = () => {
-        modalOrText.style.opacity = '1';
-        roomCodeInput.placeholder = 'Enter a Code to JOIN';
-        roomCodeInput.disabled = false;
-        joinRoomBtn.innerText = 'Join';
-        if (!activeRoomCode) generatedCodeEl.value = '';
-        roomCodeInput.value = '';
-    };
-
-    const clearMemoryAndResetMap = () => {
-        Object.keys(incomingRidersCache).forEach(name => {
-            if (incomingRidersCache[name] && incomingRidersCache[name].marker) {
-                map.removeLayer(incomingRidersCache[name].marker);
-            }
-        });
-        incomingRidersCache = {};
-        chatMessages.innerHTML = '';
-    };
+    const resetModalUI = () => { modalOrText.style.opacity = '1'; roomCodeInput.placeholder = 'Enter a Code to JOIN'; roomCodeInput.disabled = false; joinRoomBtn.innerText = 'Join'; if (!activeRoomCode) generatedCodeEl.value = ''; roomCodeInput.value = ''; };
+    const clearMemoryAndResetMap = () => { Object.keys(incomingRidersCache).forEach(name => { if (incomingRidersCache[name] && incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); } }); incomingRidersCache = {}; chatMessages.innerHTML = ''; };
 
     const applyRoomCode = code => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        clearMemoryAndResetMap();
-        activeRoomCode = code;
-        subscribeChannel(); 
-        updateLiveRiderCounter();
+        clearMemoryAndResetMap(); activeRoomCode = code; subscribeChannel(); updateLiveRiderCounter();
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
@@ -1111,10 +1111,7 @@
 
     const leavePrivateRoom = () => {
         if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        clearMemoryAndResetMap();
-        activeRoomCode = null;
-        subscribeChannel(); 
-        updateLiveRiderCounter();
+        clearMemoryAndResetMap(); activeRoomCode = null; subscribeChannel(); updateLiveRiderCounter();
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
@@ -1129,12 +1126,7 @@
     generatedCodeEl.addEventListener('click', () => {
         if (!activeRoomCode) { 
             const roomGeneratedPayload = generateRoomCode();
-            generatedCodeEl.value = roomGeneratedPayload; 
-            modalOrText.style.opacity = '0.3'; 
-            roomCodeInput.value = ''; 
-            roomCodeInput.placeholder = 'Give this to a buddy!'; 
-            roomCodeInput.disabled = true; 
-            joinRoomBtn.innerText = 'Start Room'; 
+            generatedCodeEl.value = roomGeneratedPayload; modalOrText.style.opacity = '0.3'; roomCodeInput.value = ''; roomCodeInput.placeholder = 'Give this to a buddy!'; roomCodeInput.disabled = true; joinRoomBtn.innerText = 'Start Room'; 
         }
     });
     joinRoomBtn.addEventListener('click', () => {
@@ -1200,9 +1192,7 @@
             rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
             rec.onend   = () => { btn.classList.remove('listening'); resetPlaceholder(input); closeKeyboard(input); };
         };
-        setupVoiceInput(usernameMic, usernameInput);
-        setupVoiceInput(destinationMic, destinationInput);
-        setupVoiceInput(chatMic, chatMsgInput, true); 
+        setupVoiceInput(usernameMic, usernameInput); setupVoiceInput(destinationMic, destinationInput); setupVoiceInput(chatMic, chatMsgInput, true); 
     } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
     const closeKeyboard = (inputEl, event=null) => {
@@ -1218,8 +1208,7 @@
     roomCodeInput.addEventListener('keydown',    e => { if(e.key==='Enter') joinRoomBtn.click(); });
 
     usernameInput.addEventListener('input', () => {
-        resetActivityTimer();
-        usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
+        resetActivityTimer(); usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
         const n = usernameInput.value.trim();
         if (n) { localStorage.setItem('rider_saved_name',n); channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
         broadcastCurrentState();
@@ -1227,7 +1216,6 @@
     destinationInput.addEventListener('input', () => { resetActivityTimer(); broadcastCurrentState(); });
 
     const resetPlaceholder = i => { i.placeholder = i.id==='username'?'Enter your name':i.id==='destination'?'Destination (optional)':'Type a message...'; };
-
     async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
     function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
 
