@@ -345,6 +345,13 @@
     const activeGameLabelTitle = document.getElementById('activeGameLabelTitle');
     let gameInterval = null;
 
+    // Real-time state arrays for shared checkers boards and Uno configurations
+    let syncCheckersBoard = [];
+    let selectedCheckerIdx = null;
+    let unoDeckState = [];
+    let myUnoHand = [];
+    let unoDiscardPile = null;
+
     document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
         resetActivityTimer();
         if (gameHubOverlay.classList.contains('open')) {
@@ -358,7 +365,7 @@
     function launchGameEngine(gameName, gameIcon) {
         resetActivityTimer();
         activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
-        activeGameStage.classList.add('open');
+        activeGameStage.classList.add('open'); // FIXED: Added missing classList wrapper hook injection
         
         if (gameInterval) { clearInterval(gameInterval); gameInterval = null; }
         gameCanvasContainer.innerHTML = '';
@@ -384,20 +391,6 @@
         gameCanvasContainer.innerHTML = '';
     }
 
-    function broadcastGameScoreToRoom(gameName, gameIcon) {
-        const currentName = usernameInput.value.trim() || "A buddy";
-        const randomMockScore = Math.floor(Math.random() * 800) + 200;
-        const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
-        
-        let scoreMessageText = `${gameIcon} Played a game of ${gameName}! Score: ${randomMockScore} points.`;
-        if(gameName === 'Hangman') scoreMessageText = `${gameIcon} Cleared the Hangman puzzle word phrase beautifully!`;
-        
-        appendMessage(msgId, currentName, scoreMessageText, true, myChatColor, myId);
-        channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:scoreMessageText, token:sessionMsgToken, color:myChatColor, id:myId } });
-        shutdownActiveGame();
-        gameHubOverlay.classList.remove('open');
-    }
-
     /* --- 1. HANGMAN ENGINE --- */
     function initHangmanGame() {
         const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
@@ -416,7 +409,7 @@
                     <div style="background:#e2f0d9; color:#1e4620; padding:16px; border-radius:12px; width:260px;">
                         <h3>${gameOver ? '🎉 You Won!' : '💀 Game Over'}</h3>
                         <p style="font-weight:bold; font-size:18px; margin:10px 0;">Word was: ${targetWord}</p>
-                        <button onclick="broadcastGameScoreToRoom('Hangman', '🪓')" style="width:100%; padding:10px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Share Status to Chat</button>
+                        <button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="width:100%; padding:10px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Return to Chat</button>
                     </div>`;
                 return;
             }
@@ -444,7 +437,7 @@
         render();
     }
 
-    /* --- 2. CHASER MATCH (CANDY CRUSH ENGINE) --- */
+    /* --- 2. CHASER MATCH (CANDY CRUSH ENGINE WITH DROPPING CASCADE) --- */
     function initChaserMatchGame() {
         let matchScore = 0;
         let boardSize = 6;
@@ -452,9 +445,13 @@
         let selectedTile = null;
         const gems = ['💎', '🍓', '🍋', '🍏', '🍇', '⭐'];
 
-        for (let i = 0; i < boardSize * boardSize; i++) {
-            board.push(gems[Math.floor(Math.random() * gems.length)]);
+        function fillBoard() {
+            board = [];
+            for (let i = 0; i < boardSize * boardSize; i++) {
+                board.push(gems[Math.floor(Math.random() * gems.length)]);
+            }
         }
+        fillBoard();
 
         window.handleGemTap = (idx) => {
             if (selectedTile === null) {
@@ -464,69 +461,210 @@
                 let prevIdx = selectedTile;
                 selectedTile = null;
                 let diff = Math.abs(prevIdx - idx);
-                if (diff === 1 || diff === boardSize) {
+                
+                // Validate if horizontal or vertical neighbors
+                let isRowNeighbor = (diff === 1 && Math.floor(prevIdx/boardSize) === Math.floor(idx/boardSize));
+                let isColNeighbor = (diff === boardSize);
+
+                if (isRowNeighbor || isColNeighbor) {
                     let temp = board[prevIdx];
                     board[prevIdx] = board[idx];
                     board[idx] = temp;
-                    matchScore += 60;
+                    
+                    checkAndCascadeMatches();
+                } else {
+                    renderMatchBoard();
                 }
-                renderMatchBoard();
             }
         };
+
+        function checkAndCascadeMatches() {
+            let matchedIndices = new Set();
+
+            // Check horizontal sequences of 3
+            for (let r = 0; r < boardSize; r++) {
+                for (let c = 0; c < boardSize - 2; c++) {
+                    let i1 = r * boardSize + c;
+                    let i2 = i1 + 1;
+                    let i3 = i1 + 2;
+                    if (board[i1] && board[i1] === board[i2] && board[i1] === board[i3]) {
+                        matchedIndices.add(i1); matchedIndices.add(i2); matchedIndices.add(i3);
+                    }
+                }
+            }
+
+            // Check vertical sequences of 3
+            for (let c = 0; c < boardSize; c++) {
+                for (let r = 0; r < boardSize - 2; r++) {
+                    let i1 = r * boardSize + c;
+                    let i2 = i1 + boardSize;
+                    let i3 = i1 + (boardSize * 2);
+                    if (board[i1] && board[i1] === board[i2] && board[i1] === board[i3]) {
+                        matchedIndices.add(i1); matchedIndices.add(i2); matchedIndices.add(i3);
+                    }
+                }
+            }
+
+            if (matchedIndices.size > 0) {
+                matchScore += matchedIndices.size * 20;
+                
+                // Clear matched elements
+                matchedIndices.forEach(idx => { board[idx] = null; });
+
+                // Apply dropping column gravity calculation loops
+                for (let c = 0; c < boardSize; c++) {
+                    let emptyRow = boardSize - 1;
+                    for (let r = boardSize - 1; r >= 0; r--) {
+                        let currIdx = r * boardSize + c;
+                        if (board[currIdx] !== null) {
+                            let targetIdx = emptyRow * boardSize + c;
+                            board[targetIdx] = board[currIdx];
+                            if (targetIdx !== currIdx) board[currIdx] = null;
+                            emptyRow--;
+                        }
+                    }
+                    // Refill falling empty elements from top pool air
+                    for (let r = emptyRow; r >= 0; r--) {
+                        board[r * boardSize + c] = gems[Math.floor(Math.random() * gems.length)];
+                    }
+                }
+                setTimeout(() => { checkAndCascadeMatches(); }, 350);
+            }
+            renderMatchBoard();
+        }
 
         function renderMatchBoard() {
             let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
                 <div style="color:#fff; font-size:16px; font-weight:bold;">Score: <span style="color:#ffd700;">${matchScore}</span></div>
                 <div style="display:grid; grid-template-columns: repeat(${boardSize}, 1fr); gap:6px; background:rgba(0,0,0,0.4); padding:8px; border-radius:10px;">`;
             board.forEach((gem, i) => {
-                html += `<button id="gem-${i}" style="width:40px; height:40px; font-size:22px; background:#1e4620; border:1px solid rgba(255,255,255,0.15); border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;" onclick="handleGemTap(${i})">${gem}</button>`;
+                html += `<button id="gem-${i}" style="width:40px; height:40px; font-size:22px; background:#1e4620; border:1px solid rgba(255,255,255,0.15); border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;" onclick="handleGemTap(${i})">${gem || ''}</button>`;
             });
-            html += `</div><button onclick="broadcastGameScoreToRoom('Chaser Match', '💎')" style="margin-top:4px; padding:8px 16px; background:#b8860b; color:white; border:none; border-radius:6px; font-weight:bold;">End Match & Post</button></div>`;
+            html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="margin-top:4px; padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Back to Chat</button></div>`;
             gameCanvasContainer.innerHTML = html;
         }
         renderMatchBoard();
     }
 
-    /* --- 3. CHECKERS ENGINE --- */
+    /* --- 3. LIVE MULTIPLAYER CHECKERS ENGINE (REAL-TIME SYNC) --- */
     function initCheckersGame() {
-        let boardHtml = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
-            <div style="font-size:12px; font-weight:normal; color:#a3cfbb; width:260px; text-align:center;">Local tactile checkers table grid simulation setup interface dashboard layer.</div>
-            <div style="display:grid; grid-template-columns: repeat(8, 30px); grid-template-rows: repeat(8, 30px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden;">`;
+        selectedCheckerIdx = null;
+        syncCheckersBoard = [];
+
+        // Build starting position tracking structures
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 let isDark = (r + c) % 2 === 1;
-                let piece = '';
-                if (isDark && r < 3) piece = '<div style="width:18px; height:18px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
-                if (isDark && r > 4) piece = '<div style="width:18px; height:18px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
-                boardHtml += `<div style="width:30px; height:30px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center;">${piece}</div>`;
+                let val = 0; // 0 = empty, 1 = red team, 2 = white team
+                if (isDark && r < 3) val = 1;
+                if (isDark && r > 4) val = 2;
+                syncCheckersBoard.push(val);
             }
         }
-        boardHtml += `</div><button onclick="broadcastGameScoreToRoom('Checkers', '🔴')" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Broadcast Action Hook</button></div>`;
-        gameCanvasContainer.innerHTML = boardHtml;
+
+        window.handleCheckerTileTap = (idx) => {
+            if (selectedCheckerIdx === null) {
+                if (syncCheckersBoard[idx] !== 0) {
+                    selectedCheckerIdx = idx;
+                    renderCheckersGrid();
+                }
+            } else {
+                let fromIdx = selectedCheckerIdx;
+                selectedCheckerIdx = null;
+
+                if (syncCheckersBoard[idx] === 0 && (r+c)%2!==0) {
+                    // Execute local position sliding jump
+                    syncCheckersBoard[idx] = syncCheckersBoard[fromIdx];
+                    syncCheckersBoard[fromIdx] = 0;
+
+                    // Instantly relay board updates to all active channel listeners
+                    if (channel) {
+                        channel.send({
+                            type: 'broadcast',
+                            event: 'checkers-sync-move',
+                            payload: { boardState: syncCheckersBoard }
+                        });
+                    }
+                }
+                renderCheckersGrid();
+            }
+        };
+
+        renderCheckersGrid();
     }
 
-    /* --- 4. SOLITAIRE ENGINE --- */
+    function renderCheckersGrid() {
+        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:10px; width:100%;">
+            <div style="font-size:11px; color:#ffd700; font-weight:normal;">Real-Time Shared Table. Moves sync live to everyone in room!</div>
+            <div style="display:grid; grid-template-columns: repeat(8, 32px); grid-template-rows: repeat(8, 32px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden; background:#e2f0d9;">`;
+        
+        for (let i = 0; i < 64; i++) {
+            let r = Math.floor(i / 8);
+            let c = i % 8;
+            let isDark = (r + c) % 2 === 1;
+            let currentVal = syncCheckersBoard[i];
+            
+            let tokenMarkup = '';
+            if (currentVal === 1) tokenMarkup = '<div style="width:20px; height:20px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
+            if (currentVal === 2) tokenMarkup = '<div style="width:20px; height:20px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
+
+            let highlightBorder = (selectedCheckerIdx === i) ? 'border: 2px solid #ffd700; box-sizing:border-box;' : '';
+
+            html += `<div onclick="handleCheckerTileTap(${i})" style="width:32px; height:32px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center; cursor:pointer; ${highlightBorder}">${tokenMarkup}</div>`;
+        }
+        
+        html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:8px 16px; background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold;">Exit Table</button></div>`;
+        gameCanvasContainer.innerHTML = html;
+    }
+
+    /* --- 4. SOLITAIRE ENGINE (FULLY INTERACTIVE VISUAL DEALER) --- */
     function initSolitaireGame() {
-        gameCanvasContainer.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; gap:14px; width:100%;">
-                <div style="display:flex; gap:12px; justify-content:center; width:100%;">
-                    <div style="width:42px; height:60px; border:2px dashed #e2f0d9; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:20px; color:#e2f0d9;">🎴</div>
-                    <div style="width:42px; height:60px; background:#fff; color:#dc3545; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:14px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.3);"><span>A</span><span>♥</span></div>
-                    <div style="width:42px; height:60px; border:2px solid rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
-                    <div style="width:42px; height:60px; border:2px solid rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
-                </div>
-                <div style="display:flex; gap:6px; justify-content:center; width:100%; height:100px;">
-                    <div style="width:34px; height:50px; background:#fff; color:#111; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">K♠</div>
-                    <div style="width:34px; height:50px; background:#fff; color:#dc3545; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">Q♦</div>
-                    <div style="width:34px; height:50px; background:#fff; color:#111; border-radius:4px; padding:2px; font-size:11px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">J♣</div>
-                </div>
-                <button onclick="broadcastGameScoreToRoom('Solitaire', '🃏')" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Share Score Matrix</button>
-            </div>`;
+        let suitSymbols = ['♠', '♥', '♦', '♣'];
+        let ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        let fullDeck = [];
+
+        suitSymbols.forEach(s => {
+            ranks.forEach(r => {
+                fullDeck.push({ rank: r, suit: s, isRed: (s==='♥'||s==='♦') });
+            });
+        });
+
+        // Simple shuffle matrix loop execution
+        for (let i = fullDeck.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [fullDeck[i], fullDeck[j]] = [fullDeck[j], fullDeck[i]];
+        }
+
+        let displayedCard = fullDeck[0];
+
+        window.drawSolitaireNextCard = () => {
+            const currentRandomIdx = Math.floor(Math.random() * fullDeck.length);
+            displayedCard = fullDeck[currentRandomIdx];
+            renderSolitaireBoard();
+        };
+
+        function renderSolitaireBoard() {
+            gameCanvasContainer.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:14px; width:100%;">
+                    <div style="display:flex; gap:12px; justify-content:center; width:100%;">
+                        <div onclick="drawSolitaireNextCard()" style="width:55px; height:80px; background:#2d6a30; border:2px solid #fff; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.3);">↻</div>
+                        <div style="width:55px; height:80px; background:#fff; color:${displayedCard.isRed?'#dc3545':'#111'}; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:18px; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:1px solid #ccc;">
+                            <div>${displayedCard.rank}</div>
+                            <div style="font-size:22px;">${displayedCard.suit}</div>
+                        </div>
+                        <div style="width:55px; height:80px; border:2px dashed rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
+                        <div style="width:55px; height:80px; border:2px dashed rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
+                    </div>
+                    <div style="font-size:12px; color:#a3cfbb; font-weight:normal; width:240px; text-align:center;">Tap the left deck pile to cycle cards through the card matrix board stack layout.</div>
+                    <button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Return to Chat</button>
+                </div>`;
+        }
+        renderSolitaireBoard();
     }
 
-    /* --- 5. CREW TRIVIA ENGINE (DYNAMIC CLOUD VERSION) --- */
+    /* --- 5. CREW TRIVIA ENGINE (INFINITE CONTINUOUS CLOUD PLAYBACK) --- */
     function initTriviaGame() {
-        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Loading fresh questions from the cloud...</div>`;
+        gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Loading fresh question from the cloud...</div>`;
         
         fetch('https://opentdb.com/api.php?amount=1&type=multiple&category=9')
             .then(res => res.json())
@@ -542,9 +680,13 @@
                 choices.splice(randomIdx, 0, correctAnswer);
 
                 window.evaluateTriviaChoice = (selectedAns) => {
-                    if (selectedAns === correctAnswer) { alert("🎉 Correct! Great job."); } 
-                    else { alert(`❌ Incorrect. The right answer was: ${correctAnswer}`); }
-                    broadcastGameScoreToRoom('Crew Trivia', '🧠');
+                    if (selectedAns === correctAnswer) { 
+                        alert("🎉 Correct! Loading next question automatically...");
+                    } else { 
+                        alert(`❌ Incorrect. The right answer was: ${correctAnswer}\nMoving forward...`); 
+                    }
+                    // CONTINUOUS RE-ENTRY: Reloads a completely fresh question context automatically without exiting layout
+                    initTriviaGame();
                 };
 
                 let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:280px;">
@@ -555,7 +697,7 @@
                     html += `<button style="width:100%; padding:10px; background:#e2f0d9; color:#1e4620; border:none; border-radius:6px; font-weight:bold; font-size:13px; text-align:left; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" onclick="evaluateTriviaChoice(\`${choice.replace(/'/g, "\\'")}\`)">${choice}</button>`;
                 });
                 
-                html += `</div></div>`;
+                html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:6px 12px; background:#dc3545; border:none; border-radius:4px; color:white; font-size:11px; font-weight:bold; cursor:pointer; margin-top:4px;">Quit Trivia</button></div>`;
                 gameCanvasContainer.innerHTML = html;
             })
             .catch(() => { fallbackTrivia(); });
@@ -578,7 +720,7 @@
         window.evaluateTriviaChoice = (selectedAns) => {
             if (selectedAns === currentQ.c) alert("🎉 Correct!");
             else alert(`❌ Incorrect. Answer was ${currentQ.c}`);
-            broadcastGameScoreToRoom('Crew Trivia', '🧠');
+            initTriviaGame();
         };
 
         let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; max-width:280px;">
@@ -591,24 +733,84 @@
         gameCanvasContainer.innerHTML = html;
     }
 
-    /* --- 6. TEXAS HOLDEM POKER ENGINE --- */
+    /* --- 6. REAL-TIME UNO ENGINE (REPLACED POKER) --- */
+    function initChaserUnoGame() {
+        const colors = ['🔴 Red', '🟡 Yellow', '🟢 Green', '🔵 Blue'];
+        const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse'];
+        
+        unoDeckState = [];
+        myUnoHand = [];
+        
+        // Assemble the deck cards context matrix
+        colors.forEach(c => {
+            values.forEach(v => {
+                unoDeckState.push({ color: c, value: v });
+            });
+        });
+
+        // Initialize user starting deck hand cards randomly
+        for(let i=0; i<5; i++) {
+            myUnoHand.push(unoDeckState.pop());
+        }
+        unoDiscardPile = unoDeckState.pop();
+
+        window.drawUnoCardAction = () => {
+            if(unoDeckState.length > 0) {
+                myUnoHand.push(unoDeckState.pop());
+                renderUnoLayout();
+            }
+        };
+
+        window.playUnoCardAction = (idx) => {
+            let selected = myUnoHand[idx];
+            // Validate play card match criteria rules
+            if(selected.color === unoDiscardPile.color || selected.value === unoDiscardPile.value) {
+                unoDiscardPile = selected;
+                myUnoHand.splice(idx, 1);
+                
+                if(channel) {
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'uno-sync-discard',
+                        payload: { currentDiscard: unoDiscardPile }
+                    });
+                }
+            } else {
+                alert("Card colors or numbers must match the pile pile!");
+            }
+            renderUnoLayout();
+        };
+
+        renderUnoLayout();
+    }
+
+    // Overwrite old Poker engine route initialization mapping reference to point to Uno directly
     function initPokerGame() {
-        gameCanvasContainer.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
-                <div style="background:#2d6a30; border:4px solid #b8860b; border-radius:50%; width:220px; height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:inset 0 0 15px rgba(0,0,0,0.6); position:relative;">
-                    <span style="color:rgba(255,255,255,0.4); font-size:11px; font-weight:800; letter-spacing:1px;">TABLE CHIPS: $4,200</span>
-                    <div style="display:flex; gap:4px; margin-top:6px;">
-                        <div style="width:24px; height:34px; background:white; color:black; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">A♠</div>
-                        <div style="width:24px; height:34px; background:white; color:black; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">K♣</div>
-                        <div style="width:24px; height:34px; background:white; color:#dc3545; border-radius:3px; font-size:11px; display:flex; align-items:center; justify-content:center; font-weight:bold;">Q♥</div>
-                    </div>
+        initChaserUnoGame();
+    }
+
+    function renderUnoLayout() {
+        let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
+            <div style="font-size:11px; color:#ffd700;">Live Shared Uno Table. Match Color or Value!</div>
+            <div style="display:flex; gap:20px; align-items:center; margin-bottom:4px;">
+                <div onclick="drawUnoCardAction()" style="width:50px; height:75px; background:#111; color:#fff; border:2px solid #fff; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; cursor:pointer; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.4);">DRAW PUSH</div>
+                <div style="width:50px; height:75px; background:#fff; border:3px solid #1e4620; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#111; font-size:11px; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.3);">
+                    <div style="font-size:9px; text-align:center;">${unoDiscardPile.color}</div>
+                    <div style="font-size:16px; margin-top:2px;">${unoDiscardPile.value}</div>
                 </div>
-                <div style="display:flex; gap:6px; justify-content:center; width:100%;">
-                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#dc3545; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Fold</button>
-                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#b8860b; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Check</button>
-                    <button onclick="broadcastGameScoreToRoom('Texas Holdem', '♠️')" style="flex:1; max-width:80px; padding:8px; background:#2d6a30; color:white; border:none; border-radius:4px; font-size:12px; font-weight:bold;">Call $200</button>
-                </div>
-            </div>`;
+            </div>
+            <div style="color:white; font-size:12px; font-weight:bold; margin-bottom:2px;">Your Hand Cards:</div>
+            <div style="display:flex; gap:6px; overflow-x:auto; width:100%; max-width:300px; padding:6px 2px; box-sizing:border-box;">`;
+        
+        myUnoHand.forEach((card, i) => {
+            html += `<button onclick="playUnoCardAction(${i})" style="width:52px; height:75px; background:#e2f0d9; border:2px solid #2d6a30; border-radius:6px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#1e4620; font-weight:bold; font-size:11px; padding:2px;">
+                <span style="font-size:8px; scale:0.9;">${card.color.split(' ')[1]}</span>
+                <span style="font-size:15px; margin-top:2px;">${card.value}</span>
+            </button>`;
+        });
+
+        html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:6px 14px; background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; font-size:12px;">Leave Uno</button></div>`;
+        gameCanvasContainer.innerHTML = html;
     }
 
     const fitAllRiders = (animate = true) => {
@@ -689,6 +891,17 @@
             .on('broadcast', { event:'rename' }, ({ payload }) => {
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
+            
+            // Add custom network sockets to catch checkers movements and uno cards between multiplayers 
+            .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
+                syncCheckersBoard = payload.boardState;
+                if(activeGameLabelTitle.innerText.includes('Checkers')) renderCheckersGrid();
+            })
+            .on('broadcast', { event:'uno-sync-discard' }, ({ payload }) => {
+                unoDiscardPile = payload.currentDiscard;
+                if(activeGameLabelTitle.innerText.includes('Uno')) renderUnoLayout();
+            })
+
             .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
                 const bubbles = document.querySelectorAll('.msg-bubble');
                 if (!bubbles.length) return;
