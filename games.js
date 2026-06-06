@@ -647,34 +647,37 @@ function runLocalTriviaTimerPhase(phase) {
     if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
 
     window.triviaCurrentPhase = phase;
-    // Strict phase timer parameters: 5s read, 5s submission vote window, 3s reveal card exposure
+
     let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
 
     updateTriviaUI(secondsLeft);
 
     window.triviaLocalInterval = setInterval(() => {
         secondsLeft--;
-        // FIXED TIMER REPAIR CORNERSTONE: Evaluates all vectors down to zero to prevent freeze locks
+
+        updateTriviaUI(secondsLeft);
+
         if (secondsLeft <= 0) {
             clearInterval(window.triviaLocalInterval);
-            if (window.myPlayerNumber === 0) { 
+
+            window.triviaLocalTimeout = setTimeout(() => {
                 if (phase === 'question') {
-                    broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+                    if (window.myPlayerNumber === 0) {
+                        broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
+                    }
                     runLocalTriviaTimerPhase('vote');
                 } else if (phase === 'vote') {
-                    broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+                    if (window.myPlayerNumber === 0) {
+                        broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
+                    }
                     runLocalTriviaTimerPhase('reveal');
                 } else if (phase === 'reveal') {
                     window.triviaQuestionCount++;
-                    if (window.triviaQuestionCount >= 20) {
-                        // Termination handler handles loop exit natively
-                    } else {
+                    if (window.triviaQuestionCount < 20) {
                         window.launchLiveTriviaEngine();
                     }
                 }
-            }
-        } else {
-            updateTriviaUI(secondsLeft);
+            }, 400);
         }
     }, 1000);
 }
@@ -684,8 +687,12 @@ function updateTriviaUI(timerSeconds) {
     if (!q) return;
 
     const phase = window.triviaCurrentPhase;
-    let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
-    let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
+    let statusText  = phase === 'question' ? `READING: ${timerSeconds}s`
+                    : phase === 'vote'     ? `VOTE NOW: ${timerSeconds}s`
+                    : `REVEAL: ${timerSeconds}s`;
+    let statusColor = phase === 'question' ? '#ffb703'
+                    : phase === 'vote'     ? '#00b0ff'
+                    : '#00b050';
 
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
@@ -696,41 +703,38 @@ function updateTriviaUI(timerSeconds) {
         <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
         <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
 
-    // TWO-PHASE HIDDEN SPLIT REPAIR: Choice columns remain entirely suppressed until reading cycle completes
     if (phase !== 'question') {
         q.choices.forEach(choice => {
-            let btnBg = '#e2f0d9';
+            let btnBg    = '#e2f0d9';
             let btnColor = '#1e4620';
             let isDisabled = (phase !== 'vote');
 
             if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-                btnBg = '#00b0ff';
+                btnBg    = '#00b0ff';
                 btnColor = '#fff';
             }
-
             if (phase === 'reveal') {
                 isDisabled = true;
                 if (choice === q.c) {
-                    btnBg = '#00b050'; 
+                    btnBg    = '#00b050';
                     btnColor = '#fff';
                 } else if (window.triviaRoomVotes[window.myPlayerNumber] === choice) {
-                    btnBg = '#e63946'; 
+                    btnBg    = '#e63946';
                     btnColor = '#fff';
                 }
             }
 
-            html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
+            html += `<button class="trivia-inline-choice-btn" ${isDisabled ? 'disabled' : ''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)">${choice}</button>`;
         });
     } else {
-        // Renders clean, locked placeholder boxes to preserve height scaling parameters during reading time
-        for(let i=0; i<4; i++) {
+        for (let i = 0; i < 4; i++) {
             html += `<div style="width:100%;height:42px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(255,255,255,0.1);border-radius:6px;"></div>`;
         }
     }
-    
+
     html += `</div></div>`;
 
-    if (phase === 'reveal' && window.triviaQuestionCount >= 19 && timerSeconds === 1) {
+    if (phase === 'reveal' && window.triviaQuestionCount >= 19 && timerSeconds <= 0) {
         setTimeout(() => {
             gameCanvasContainer.innerHTML = `
                 <div style="text-align:center;padding:20px;user-select:none;">
@@ -738,7 +742,7 @@ function updateTriviaUI(timerSeconds) {
                     <div style="font-size:12vw;font-weight:900;color:white;margin:12px 0;font-family:Impact;">${window.triviaScorePoints} / 20</div>
                     <button onclick="initTriviaGame()" style="padding:12px 24px;font-size:4.5vw;background:#ffd700;color:#1e4620;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-family:Impact,sans-serif;">NEW GAME</button>
                 </div>`;
-        }, 1000);
+        }, 500);
     } else {
         gameCanvasContainer.innerHTML = html;
     }
