@@ -29,8 +29,8 @@
         .label-top-row { display: flex; align-items: center; justify-content: center; width: 100%; gap: 4px; }
         .label-name-text { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 
-        .nudge-refresh-btn { background: #2d6a30; color: #ffffff; border: none; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.35); padding: 0; line-height: 1; flex-shrink: 0; pointer-events: auto !important; z-index: 300; transition: background 0.1s, transform 0.1s; }
-        .nudge-refresh-btn:active { background: #1e4620; transform: scale(0.85); }
+        .nudge-refresh-btn { background: #2d6a30; color: #ffffff; border: none; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.35); padding: 0; line-height: 1; flex-shrink: 0; pointer-events: auto !important; z-index: 300; transition: background 0.2s, transform 0.1s; }
+        .nudge-refresh-btn:active { transform: scale(0.85); }
 
         .rider-label .dest-container { width: 100%; height: 18px; margin-top: 4px; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 2px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .rider-label .dest-text-content { width: 100%; font-size: 11px; color: #2d6a30; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
@@ -65,28 +65,16 @@
         #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
         #chatBadge { position:absolute; top:-3px; right:-3px; background:#dc3545; color:white; border-radius:50%; padding:4px 8px; font-size:12px; font-weight:bold; display:none; border:2px solid white; }
 
+        /* REDESIGNED CHAT OVERLAY FLEXBOX */
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
-        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; z-index:10; }
         #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; padding:4px; }
         
         #chatGamesTriggerBtn { background:#b8860b; color:white; border:2px solid #ffd700; border-radius:8px; font-size:13px; font-weight:bold; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:transform 0.1s; }
         #chatGamesTriggerBtn:active { transform:scale(0.92); }
 
-        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
-        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
-        .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
-        .msg-text { font-size:18px; word-break:break-word; }
-        .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
-
-        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; }
-        .chat-input-wrapper { position:relative; flex:1; display:flex; align-items:center; }
-        .chat-input-wrapper input { width:100%; padding:12px 48px 12px 12px; border-radius:8px; border:1px solid #ccc; font-size:15px; box-sizing:border-box; color:#111; font-weight:500; }
-        
-        .inline-send-btn { position:absolute; right:4px; background:#2d6a30; border:none; border-radius:6px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
-        .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
-
-        #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:5; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
+        #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
         #gameHubOverlay.open { display:flex; }
         .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
         .game-grid-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -95,12 +83,25 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* REDESIGNED: Sleek half-screen viewport overlay for tactile mobile play blocks */
-        #activeGameStage { position:absolute; bottom:0; left:0; right:0; height:50%; background:#0e2e10; z-index:6; display:none; flex-direction:column; box-sizing:border-box; border-top: 4px solid #ffd700; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+        /* THE NEW SPLIT-SCREEN GAME STAGE */
+        #activeGameStage { display:none; flex: 0 0 50%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
         #activeGameStage.open { display:flex; }
-        #gameStageHeader { background:#2d6a30; color:white; padding:10px 14px; font-weight:bold; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
-        #exitGameBtn { background:#dc3545; color:white; border:none; border-radius:6px; font-weight:bold; padding:6px 12px; cursor:pointer; }
-        #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; color:white; font-weight:bold; text-align:center; padding:8px; }
+        #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+        #exitGameBtn { background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; padding:4px 10px; cursor:pointer; }
+        #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:12px; box-sizing:border-box; }
+
+        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
+        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; }
+        .msg-user { font-size:14px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; }
+        .msg-text { font-size:18px; word-break:break-word; }
+        .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
+
+        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; flex-shrink:0; }
+        .chat-input-wrapper { position:relative; flex:1; display:flex; align-items:center; }
+        .chat-input-wrapper input { width:100%; padding:12px 48px 12px 12px; border-radius:8px; border:1px solid #ccc; font-size:15px; box-sizing:border-box; color:#111; font-weight:500; }
+        
+        .inline-send-btn { position:absolute; right:4px; background:#2d6a30; border:none; border-radius:6px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+        .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
 
         #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
         #roomModalOverlay.open { display:flex; }
@@ -191,29 +192,21 @@
     <div id="gameHubOverlay">
         <div class="game-hub-headline">Chaser Game Center</div>
         <div class="game-grid-layout">
-            <div class="game-card-btn" onclick="launchGameEngine('Solitaire', '🃏')">
-                <span class="game-card-icon">🃏</span>
-                <span class="game-card-title">Solitaire</span>
-            </div>
             <div class="game-card-btn" onclick="launchGameEngine('Crew Trivia', '🧠')">
                 <span class="game-card-icon">🧠</span>
                 <span class="game-card-title">Crew Trivia</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Battle Uno', '🃏')">
+                <span class="game-card-icon">🃏</span>
+                <span class="game-card-title">Battle Uno</span>
             </div>
             <div class="game-card-btn" onclick="launchGameEngine('Checkers', '🔴')">
                 <span class="game-card-icon">🔴</span>
                 <span class="game-card-title">Checkers</span>
             </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Chaser Match', '💎')">
-                <span class="game-card-icon">💎</span>
-                <span class="game-card-title">Chaser Match</span>
-            </div>
             <div class="game-card-btn" onclick="launchGameEngine('Hangman', '🪓')">
                 <span class="game-card-icon">🪓</span>
                 <span class="game-card-title">Hangman</span>
-            </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Texas Holdem', '♠️')">
-                <span class="game-card-icon">♠️</span>
-                <span class="game-card-title">Battle Uno</span>
             </div>
         </div>
     </div>
@@ -298,6 +291,7 @@
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
 
+        // Nudge button passes the event and the ID directly
         const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
 
@@ -318,11 +312,17 @@
 
     const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
         if (event) { event.stopPropagation(); event.preventDefault(); }
+        let btn = event.target;
+        let originalContent = btn.innerHTML;
         let sourceSenderName = usernameInput.value.trim() || "A buddy";
         
         const now = Date.now();
         if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
             lastPushSent[targetRiderName] = now;
+            
+            // Visual feedback that ping is firing
+            btn.innerHTML = '✓';
+            btn.style.background = '#b8860b';
             
             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
                 method: 'POST',
@@ -332,8 +332,18 @@
                     sender_name: sourceSenderName 
                 })
             })
-            .then(() => { console.log(`Location ping transmission success.`); })
-            .catch(err => { console.error('Ping transmission anomaly:', err); });
+            .then(() => {
+                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000);
+            })
+            .catch(err => { 
+                btn.innerHTML = '✕';
+                btn.style.background = '#dc3545';
+                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000);
+            });
+        } else {
+            // Visual feedback for cooldown blocking
+            btn.style.opacity = '0.5';
+            setTimeout(() => { btn.style.opacity = '1'; }, 1000);
         }
     };
 
@@ -366,6 +376,9 @@
     function launchGameEngine(gameName, gameIcon) {
         resetActivityTimer();
         activeGameLabelTitle.innerText = `${gameIcon} ${gameName}`;
+        
+        // Hide the full menu and open the top-half game stage
+        gameHubOverlay.classList.remove('open');
         activeGameStage.classList.add('open');
         
         if (gameInterval) { clearInterval(gameInterval); gameInterval = null; }
@@ -373,16 +386,12 @@
 
         if (gameName === 'Hangman') {
             initHangmanGame();
-        } else if (gameName === 'Chaser Match') {
-            initChaserMatchGame();
         } else if (gameName === 'Checkers') {
             initCheckersGame();
-        } else if (gameName === 'Solitaire') {
-            initSolitaireGame();
         } else if (gameName === 'Crew Trivia') {
             initTriviaGame();
-        } else if (gameName === 'Texas Holdem') {
-            initPokerGame();
+        } else if (gameName === 'Battle Uno') {
+            initChaserUnoGame();
         }
     }
 
@@ -392,7 +401,7 @@
         gameCanvasContainer.innerHTML = '';
     }
 
-    /* --- 1. HANGMAN ENGINE --- */
+    /* --- 1. HANGMAN ENGINE (FIXED WITH SVG DRAWING) --- */
     function initHangmanGame() {
         const words = ['CHASER', 'UNICYCLE', 'SUBARU', 'SOCIETY', 'ROUTING', 'POSTAL', 'BATTERY', 'SURVIVAL'];
         let targetWord = words[Math.floor(Math.random() * words.length)];
@@ -410,17 +419,25 @@
                     <div style="background:#e2f0d9; color:#1e4620; padding:12px; border-radius:12px; width:260px;">
                         <h3>${gameOver ? '🎉 You Won!' : '💀 Game Over'}</h3>
                         <p style="font-weight:bold; font-size:16px; margin:6px 0;">Word was: ${targetWord}</p>
-                        <button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="width:100%; padding:8px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold;">Return to Chat</button>
                     </div>`;
                 return;
             }
 
-            let gallowsText = [' ┌───┐', ` │   ${mistakes>0?'O':' '}`, ` │  ${mistakes>2?'/':''}${mistakes>1?'│':''}${mistakes>3?'\\':''}`, ` │  ${mistakes>4?'/':''} ${mistakes>5?'\\':''}`, '─┴─'].join('\n');
+            // Flawless scalable SVG rendering instead of wonky text symbols
+            let svgDraw = `<svg viewBox="0 0 100 100" style="width:120px; height:120px; stroke:#e2f0d9; stroke-width:3; fill:none; stroke-linecap:round;">
+                <path d="M10,90 L90,90 M30,90 L30,10 L70,10 L70,20" />
+                ${mistakes > 0 ? '<circle cx="70" cy="30" r="10" />' : ''}
+                ${mistakes > 1 ? '<line x1="70" y1="40" x2="70" y2="65" />' : ''}
+                ${mistakes > 2 ? '<line x1="70" y1="45" x2="55" y2="55" />' : ''}
+                ${mistakes > 3 ? '<line x1="70" y1="45" x2="85" y2="55" />' : ''}
+                ${mistakes > 4 ? '<line x1="70" y1="65" x2="55" y2="80" />' : ''}
+                ${mistakes > 5 ? '<line x1="70" y1="65" x2="85" y2="80" />' : ''}
+            </svg>`;
 
             let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-                <pre style="font-family:monospace; font-size:13px; line-height:1.1; background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; color:#fff; margin:0;">${gallowsText}</pre>
+                <div style="background:rgba(0,0,0,0.3); padding:4px; border-radius:6px; margin:0;">${svgDraw}</div>
                 <div style="font-size:20px; font-weight:bold; letter-spacing:2px; color:#fff;">${displayWord}</div>
-                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px;">`;
+                <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; width:100%; max-width:280px; margin-top:8px;">`;
             
             'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(ltr => {
                 let used = guessedLetters.includes(ltr);
@@ -438,109 +455,7 @@
         render();
     }
 
-    /* --- 2. CHASER MATCH (CANDY CRUSH ENGINE WITH DROPPING CASCADE) --- */
-    function initChaserMatchGame() {
-        let matchScore = 0;
-        let boardSize = 6;
-        let board = [];
-        let selectedTile = null;
-        const gems = ['💎', '🍓', '🍋', '🍏', '🍇', '⭐'];
-
-        function fillBoard() {
-            board = [];
-            for (let i = 0; i < boardSize * boardSize; i++) {
-                board.push(gems[Math.floor(Math.random() * gems.length)]);
-            }
-        }
-        fillBoard();
-
-        window.handleGemTap = (idx) => {
-            if (selectedTile === null) {
-                selectedTile = idx;
-                document.getElementById(`gem-${idx}`).style.border = '2px solid #ffd700';
-            } else {
-                let prevIdx = selectedTile;
-                selectedTile = null;
-                let diff = Math.abs(prevIdx - idx);
-                
-                let isRowNeighbor = (diff === 1 && Math.floor(prevIdx/boardSize) === Math.floor(idx/boardSize));
-                let isColNeighbor = (diff === boardSize);
-
-                if (isRowNeighbor || isColNeighbor) {
-                    let temp = board[prevIdx];
-                    board[prevIdx] = board[idx];
-                    board[idx] = temp;
-                    
-                    checkAndCascadeMatches();
-                } else {
-                    renderMatchBoard();
-                }
-            }
-        };
-
-        function checkAndCascadeMatches() {
-            let matchedIndices = new Set();
-
-            for (let r = 0; r < boardSize; r++) {
-                for (let c = 0; c < boardSize - 2; c++) {
-                    let i1 = r * boardSize + c;
-                    let i2 = i1 + 1;
-                    let i3 = i1 + 2;
-                    if (board[i1] && board[i1] === board[i2] && board[i1] === board[i3]) {
-                        matchedIndices.add(i1); matchedIndices.add(i2); matchedIndices.add(i3);
-                    }
-                }
-            }
-
-            for (let c = 0; c < boardSize; c++) {
-                for (let r = 0; r < boardSize - 2; r++) {
-                    let i1 = r * boardSize + c;
-                    let i2 = i1 + boardSize;
-                    let i3 = i1 + (boardSize * 2);
-                    if (board[i1] && board[i1] === board[i2] && board[i1] === board[i3]) {
-                        matchedIndices.add(i1); matchedIndices.add(i2); matchedIndices.add(i3);
-                    }
-                }
-            }
-
-            if (matchedIndices.size > 0) {
-                matchScore += matchedIndices.size * 20;
-                matchedIndices.forEach(idx => { board[idx] = null; });
-
-                for (let c = 0; c < boardSize; c++) {
-                    let emptyRow = boardSize - 1;
-                    for (let r = boardSize - 1; r >= 0; r--) {
-                        let currIdx = r * boardSize + c;
-                        if (board[currIdx] !== null) {
-                            let targetIdx = emptyRow * boardSize + c;
-                            board[targetIdx] = board[currIdx];
-                            if (targetIdx !== currIdx) board[currIdx] = null;
-                            emptyRow--;
-                        }
-                    }
-                    for (let r = emptyRow; r >= 0; r--) {
-                        board[r * boardSize + c] = gems[Math.floor(Math.random() * gems.length)];
-                    }
-                }
-                setTimeout(() => { checkAndCascadeMatches(); }, 350);
-            }
-            renderMatchBoard();
-        }
-
-        function renderMatchBoard() {
-            let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-                <div style="color:#fff; font-size:14px; font-weight:bold;">Score: <span style="color:#ffd700;">${matchScore}</span></div>
-                <div style="display:grid; grid-template-columns: repeat(${boardSize}, 1fr); gap:6px; background:rgba(0,0,0,0.4); padding:6px; border-radius:10px;">`;
-            board.forEach((gem, i) => {
-                html += `<button id="gem-${i}" style="width:38px; height:38px; font-size:20px; background:#1e4620; border:1px solid rgba(255,255,255,0.15); border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;" onclick="handleGemTap(${i})">${gem || ''}</button>`;
-            });
-            html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="margin-top:2px; padding:6px 12px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold; font-size:12px;">Back to Chat</button></div>`;
-            gameCanvasContainer.innerHTML = html;
-        }
-        renderMatchBoard();
-    }
-
-    /* --- 3. LIVE MULTIPLAYER CHECKERS ENGINE (FIXED MATH & SYNC) --- */
+    /* --- 2. LIVE MULTIPLAYER CHECKERS ENGINE (FIXED MATH & SYNC) --- */
     function initCheckersGame() {
         selectedCheckerIdx = null;
         syncCheckersBoard = [];
@@ -557,21 +472,20 @@
 
         window.handleCheckerTileTap = (idx) => {
             if (selectedCheckerIdx === null) {
+                // Select a piece if it belongs to someone
                 if (syncCheckersBoard[idx] !== 0) {
                     selectedCheckerIdx = idx;
                     renderCheckersGrid();
                 }
             } else {
                 let fromIdx = selectedCheckerIdx;
-                selectedCheckerIdx = null;
+                selectedCheckerIdx = null; // Instantly deselect
 
-                let fromR = Math.floor(fromIdx / 8);
-                let fromC = fromIdx % 8;
                 let toR = Math.floor(idx / 8);
                 let toC = idx % 8;
                 let isToDark = (toR + toC) % 2 === 1;
 
-                // FIXED: Check diagonal row and column targets properly
+                // Move if target is empty and dark
                 if (syncCheckersBoard[idx] === 0 && isToDark) {
                     syncCheckersBoard[idx] = syncCheckersBoard[fromIdx];
                     syncCheckersBoard[fromIdx] = 0;
@@ -593,8 +507,8 @@
 
     function renderCheckersGrid() {
         let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; scale:0.95;">
-            <div style="font-size:11px; color:#ffd700; font-weight:bold;">Real-Time Table. Moves sync live to everyone in room!</div>
-            <div style="display:grid; grid-template-columns: repeat(8, 34px); grid-template-rows: repeat(8, 34px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden; background:#e2f0d9;">`;
+            <div style="font-size:11px; color:#ffd700; font-weight:bold;">Tap a piece, then tap an empty square.</div>
+            <div style="display:grid; grid-template-columns: repeat(8, 30px); grid-template-rows: repeat(8, 30px); border:3px solid #2d6a30; border-radius:6px; overflow:hidden; background:#e2f0d9;">`;
         
         for (let i = 0; i < 64; i++) {
             let r = Math.floor(i / 8);
@@ -603,63 +517,19 @@
             let currentVal = syncCheckersBoard[i];
             
             let tokenMarkup = '';
-            if (currentVal === 1) tokenMarkup = '<div style="width:22px; height:22px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
-            if (currentVal === 2) tokenMarkup = '<div style="width:22px; height:22px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
+            if (currentVal === 1) tokenMarkup = '<div style="width:20px; height:20px; background:#dc3545; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
+            if (currentVal === 2) tokenMarkup = '<div style="width:20px; height:20px; background:#ffffff; border-radius:50%; box-shadow:0 2px 4px rgba(0,0,0,0.5);"></div>';
 
             let highlightBorder = (selectedCheckerIdx === i) ? 'border: 2px solid #ffd700; box-sizing:border-box;' : '';
 
-            html += `<div onclick="handleCheckerTileTap(${i})" style="width:34px; height:34px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center; cursor:pointer; ${highlightBorder}">${tokenMarkup}</div>`;
+            html += `<div onclick="handleCheckerTileTap(${i})" style="width:30px; height:30px; background:${isDark?'#1e4620':'#e2f0d9'}; display:flex; align-items:center; justify-content:center; cursor:pointer; ${highlightBorder}">${tokenMarkup}</div>`;
         }
         
-        html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:6px 14px; background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; font-size:12px;">Exit Table</button></div>`;
+        html += `</div></div>`;
         gameCanvasContainer.innerHTML = html;
     }
 
-    /* --- 4. SOLITAIRE ENGINE (FULLY INTERACTIVE VISUAL DEALER) --- */
-    function initSolitaireGame() {
-        let suitSymbols = ['♠', '♥', '♦', '♣'];
-        let ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-        let fullDeck = [];
-
-        suitSymbols.forEach(s => {
-            ranks.forEach(r => {
-                fullDeck.push({ rank: r, suit: s, isRed: (s==='♥'||s==='♦') });
-            });
-        });
-
-        for (let i = fullDeck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [fullDeck[i], fullDeck[j]] = [fullDeck[j], fullDeck[i]];
-        }
-
-        let displayedCard = fullDeck[0];
-
-        window.drawSolitaireNextCard = () => {
-            const currentRandomIdx = Math.floor(Math.random() * fullDeck.length);
-            displayedCard = fullDeck[currentRandomIdx];
-            renderSolitaireBoard();
-        };
-
-        function renderSolitaireBoard() {
-            gameCanvasContainer.innerHTML = `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; scale:0.95;">
-                    <div style="display:flex; gap:12px; justify-content:center; width:100%;">
-                        <div onclick="drawSolitaireNextCard()" style="width:58px; height:84px; background:#2d6a30; border:2px solid #fff; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:24px; color:#fff; cursor:pointer; box-shadow:0 4px 6px rgba(0,0,0,0.3);">↻</div>
-                        <div style="width:58px; height:84px; background:#fff; color:${displayedCard.isRed?'#dc3545':'#111'}; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:18px; font-weight:bold; box-shadow:0 3px 6px rgba(0,0,0,0.3); border:1px solid #ccc;">
-                            <div>${displayedCard.rank}</div>
-                            <div style="font-size:24px;">${displayedCard.suit}</div>
-                        </div>
-                        <div style="width:58px; height:84px; border:2px dashed rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
-                        <div style="width:58px; height:84px; border:2px dashed rgba(226,240,217,0.4); border-radius:6px; background:rgba(0,0,0,0.2);"></div>
-                    </div>
-                    <div style="font-size:12px; color:#a3cfbb; font-weight:bold; width:240px; text-align:center;">Tap the left deck pile to cycle cards through the card matrix board stack layout.</div>
-                    <button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:8px 16px; background:#2d6a30; color:white; border:none; border-radius:6px; font-weight:bold; font-size:13px;">Return to Chat</button>
-                </div>`;
-        }
-        renderSolitaireBoard();
-    }
-
-    /* --- 5. CREW TRIVIA ENGINE (SYNCHRONIZED ROOM MULTIPLAYER) --- */
+    /* --- 3. CREW TRIVIA ENGINE (SYNCHRONIZED ROOM MULTIPLAYER) --- */
     function initTriviaGame() {
         gameCanvasContainer.innerHTML = `<div style="color:#fff; font-size:14px;">Syncing with room table channel...</div>`;
         
@@ -714,7 +584,6 @@
         
         html += `</div><div style="display:flex; gap:8px; width:100%; margin-top:2px;">
             <button onclick="initTriviaGame()" style="flex:1; padding:8px; background:#b8860b; color:white; border:none; border-radius:6px; font-weight:bold; font-size:11px;">Next Question</button>
-            <button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:8px 12px; background:#dc3545; border:none; border-radius:4px; color:white; font-size:11px; font-weight:bold;">Quit</button>
         </div></div>`;
         gameCanvasContainer.innerHTML = html;
     }
@@ -735,7 +604,7 @@
         renderSharedTriviaUI();
     }
 
-    /* --- 6. REAL-TIME UNO ENGINE (MULTIPLAYER HAND SYNC) --- */
+    /* --- 4. REAL-TIME BATTLE UNO ENGINE (MULTIPLAYER HAND SYNC) --- */
     function initChaserUnoGame() {
         const colors = ['🔴 Red', '🟡 Yellow', '🟢 Green', '🔵 Blue'];
         const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse'];
@@ -749,7 +618,8 @@
             });
         });
 
-        for (let i = fullDeck.length - 1; i > 0; i--) {
+        // Simple deck shuffle
+        for (let i = unoDeckState.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [unoDeckState[i], unoDeckState[j]] = [unoDeckState[j], unoDeckState[i]];
         }
@@ -788,10 +658,6 @@
         renderUnoLayout();
     }
 
-    function initPokerGame() {
-        initChaserUnoGame();
-    }
-
     function renderUnoLayout() {
         let html = `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; width:100%; scale:0.95;">
             <div style="font-size:11px; color:#ffd700; font-weight:bold;">Live Shared Uno Table. Match Color or Value!</div>
@@ -812,7 +678,7 @@
             </button>`;
         });
 
-        html += `</div><button onclick="shutdownActiveGame(); gameHubOverlay.classList.remove('open');" style="padding:6px 14px; background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; font-size:12px;">Leave Uno</button></div>`;
+        html += `</div></div>`;
         gameCanvasContainer.innerHTML = html;
     }
 
@@ -936,7 +802,18 @@
     };
 
     const registerPushSubscription = async () => {
-        if (!('PushManager' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) return;
+        // FIXED: Explicitly asking the Android OS for permission to send notifications!
+        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) return;
+        
+        let perm = Notification.permission;
+        if (perm === 'default') {
+            try {
+                perm = await Notification.requestPermission();
+            } catch (err) { console.log('Permission request failed.'); }
+        }
+        
+        if (perm !== 'granted') return; // If you say no, it stops here
+
         try {
             const registration = await navigator.serviceWorker.ready;
             const existing = await registration.pushManager.getSubscription();
@@ -1193,7 +1070,7 @@
                 }
             }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
             requestWakeLock();
-            registerPushSubscription();
+            registerPushSubscription(); // THIS LINE NOW ASKS YOUR PHONE FOR NOTIFICATION PERMISSION
         } else stopSharingLocation();
     });
 
