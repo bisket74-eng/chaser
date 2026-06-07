@@ -80,11 +80,8 @@
         #chatGamesTriggerBtn { background:#ffffff !important; color:#0056b3 !important; border:2px solid #0056b3 !important; font-size:20px; }
         #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:2px solid #dc3545 !important; font-family:'Arial Black', 'Impact', sans-serif; font-weight:900; font-size:12px; letter-spacing:-0.5px; }
         
-        #headerGameExitTrigger { display:none; align-items:center; margin-left:auto; font-family:Arial, sans-serif; font-size:12px; font-weight:bold; color:#dc3545; text-transform:lowercase; letter-spacing:0.5px; cursor:pointer; border:1px solid #dc3545; padding:4px 10px; border-radius:20px; background:rgba(220,53,69,0.1); transition:background 0.2s; }
-        #headerGameExitTrigger:active { background:rgba(220,53,69,0.25); }
-        
         #closeChatBtn { background:none !important; color:#dc3545 !important; border:none !important; font-size:24px; font-weight:900; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:none !important; }
-        #chatHeader.game-active-mode #closeChatBtn { margin-left:8px; } 
+        #chatHeader.game-active-mode #closeChatBtn { margin-left:auto; } 
 
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
         #gameHubOverlay.open { display:flex; }
@@ -107,14 +104,12 @@
         #youtubeStageWrapper.active { display:flex; }
         .yt-iframe-frame { width:100%; flex:1; border:none; background:#111; }
         
-        /* SEARCH & DROPDOWN STRUCTURE INTERFACE LAYOUT RULES */
         .yt-control-dashboard { display:flex; gap:6px; padding:8px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
         .yt-control-dashboard input { flex:1; padding:8px 12px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; font-size:14px; box-sizing:border-box; }
         .yt-control-dashboard input::placeholder { color:#777; font-style:italic; }
         .yt-action-trigger-btn { background:#dc3545; color:#ffffff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; text-transform:uppercase; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition:background 0.2s; }
         .yt-action-trigger-btn:active { background:#bd2130; }
 
-        /* FLOATING SEARCH RESULTS OVERLAY CONTAINER PANEL */
         #ytSearchResultsBox { display:none; position:absolute; bottom:100%; left:10px; right:10px; background:#1a1a1a; border:1px solid #333; border-radius:8px 8px 0 0; box-shadow:0 -4px 15px rgba(0,0,0,0.5); max-height:180px; overflow-y:auto; z-index:35; box-sizing:border-box; }
         #ytSearchResultsBox.open { display:block; }
         .yt-search-item { padding:10px 12px; color:#ffffff; font-size:13px; text-align:left; font-family:Arial, sans-serif; cursor:pointer; border-bottom:1px solid #2a2a2a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
@@ -234,7 +229,6 @@
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
             <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
         </div>
-        <div id="headerGameExitTrigger" onclick="shutdownActiveGame()">exit game</div>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
     
@@ -274,9 +268,7 @@
             <div id="youtubeStageWrapper">
                 <iframe id="ytPlayerFrame" class="yt-iframe-frame" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                 <div class="yt-control-dashboard">
-                    
                     <div id="ytSearchResultsBox"></div>
-
                     <input type="text" id="ytUrlInput" placeholder="Type search words or paste link..." autocomplete="off" enterkeyhint="done" />
                     <button id="ytShareSyncBtn" class="yt-action-trigger-btn" type="button">Search</button>
                 </div>
@@ -438,17 +430,18 @@
         }
     });
 
+    // LAUNCH YOUTUBE THEATER MODE
     document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
         
+        // Take over top row text elements cleanly
         headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = `📺 Media Stream`;
+        roomDisplayCode.innerText = `📺 YOUTUBE`;
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
         
-        headerGameExitTrigger.style.display = 'flex';
         chatHeader.classList.add('game-active-mode');
         
         activeGameStage.classList.add('open');
@@ -469,7 +462,6 @@
         ytPlayerFrame.src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
     }
 
-    // CLOSE FLOATING SEARCH PANEL IF USER TAPS OUTSIDE OF IT
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.yt-control-dashboard')) {
             ytSearchResultsBox.classList.remove('open');
@@ -489,7 +481,6 @@
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
         
-        headerGameExitTrigger.style.display = 'flex';
         chatHeader.classList.add('game-active-mode');
         
         activeGameStage.classList.add('open');
@@ -498,6 +489,7 @@
         }
     };
 
+    // UNIFIED SHUTDOWN DISPATCH ENGINE (HANDLES BOTH GAMES AND YOUTUBE REBOOTS CLEANLY)
     window.shutdownActiveGame = () => {
         resetActivityTimer();
         activeGameStage.classList.remove('open');
@@ -505,10 +497,10 @@
         ytPlayerFrame.src = ''; 
         gameCanvasContainer.innerHTML = '';
         
+        // Safeguard video wrapper layer elements
         gameCanvasContainer.appendChild(youtubeStageWrapper);
         ytSearchResultsBox.classList.remove('open');
         
-        headerGameExitTrigger.style.display = 'none';
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
         
@@ -987,7 +979,7 @@
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').then(() => {
-            registerPushSubscription();
+            if (typeof registerPushSubscription === 'function') registerPushSubscription();
         });
     }
 </script>
