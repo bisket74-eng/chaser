@@ -3471,3 +3471,42 @@
         }
     };
 })();
+/* CHASER UNO SYNC FIX – only host deals, others wait for sync */
+(function () {
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return window.chaserGame && window.chaserGame.hostId === myId();
+    }
+
+    const oldUnoInit = window.initChaserUnoGame;
+    const oldUnoReceive = window.receiveUnoSync;
+
+    window.initChaserUnoGame = function () {
+        window.chaserGame.activeGame = "Uno";
+
+        if (isHost()) {
+            window.unoState = null;
+            oldUnoInit();
+            return;
+        }
+
+        gameCanvas.innerHTML = `
+            <div style="color:#ffd700;font-size:22px;font-weight:900;font-family:Impact,sans-serif;text-align:center;padding:30px;">
+                Waiting for host to deal...
+            </div>
+        `;
+    };
+
+    window.receiveUnoSync = function (p) {
+        if (!p || !p.state) return;
+        window.unoState = p.state;
+        window.chaserGame.activeGame = "Uno";
+
+        if (oldUnoReceive) oldUnoReceive(p);
+    };
+})();
