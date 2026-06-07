@@ -39,11 +39,13 @@
 
         #controls { position:absolute; bottom:20px; left:15px; z-index:10; background:#e2f0d9; padding:16px; border-radius:18px; box-shadow:0 8px 25px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:12px; width:74%; max-width:340px; box-sizing:border-box; transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1); }
         #controls:has(input:focus) { transform:translateY(-95px); }
-        #inputsWrapper { display:flex; flex-direction:column; gap:12px; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1),opacity 0.3s ease; max-height:200px; opacity:1; }
+        
+        /* ADAPTIVE INPUT DRAWER FIXES */
+        #inputsWrapper { display:flex; flex-direction:column; gap:12px; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1),opacity 0.3s ease; max-height:200px; opacity:1; width:100%; }
         #inputsWrapper.hidden { max-height:0; opacity:0; }
 
-        .control-row { display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; }
-        .control-row input { flex:1; max-width:200px; padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#fff; font-size:16px; box-sizing:border-box; font-weight:500; transition:all 0.2s; }
+        .control-row { display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; box-sizing:border-box; }
+        .control-row input { flex:1; width:calc(100% - 52px); min-width:0; padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#fff; font-size:16px; box-sizing:border-box; font-weight:500; transition:all 0.2s; }
         .control-row input::placeholder { color:#a3cfbb; font-style:italic; }
         .control-row input.input-error { border:3px solid #dc3545!important; background:#ffe6e6!important; color:#dc3545!important; box-shadow:0 0 15px rgba(220,53,69,0.8)!important; animation:aggressive-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
 
@@ -54,7 +56,7 @@
         #toggleInputsBtn svg { transition:transform 0.4s; width:24px; height:24px; }
         #toggleInputsBtn.flipped svg { transform:rotate(180deg); }
 
-        #startBtn { flex:1; padding:12px; border-radius:8px; border:none; font-size:16px; background:#2d6a30; color:white; cursor:pointer; font-weight:bold; transition:background 0.2s; box-shadow:0 3px 8px rgba(0,0,0,0.2); box-sizing:border-box; }
+        #startBtn { flex:1; min-width:0; padding:12px; border-radius:8px; border:none; font-size:16px; background:#2d6a30; color:white; cursor:pointer; font-weight:bold; transition:background 0.2s; box-shadow:0 3px 8px rgba(0,0,0,0.2); box-sizing:border-box; }
         #startBtn.sharing-active { background:#dc3545; }
 
         #chatToggleBtn, #roomLockBtn { position:absolute; right:15px; z-index:11; width:60px; height:60px; background:#1e4620; border:3px solid #e2f0d9; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.41); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s, opacity 0.3s ease; }
@@ -68,17 +70,17 @@
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
         
-        /* NEW CHAT HEADER LAYOUT STYLES */
-        #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; z-index:10; user-select:none; }
-        .header-left-col { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
-        .header-left-col .sub-label { color:#a3cfbb; font-size:12px; font-weight:bold; letter-spacing:0.5px; text-transform:uppercase; font-family:sans-serif; }
-        .header-left-col .main-label { color:#ffd700; font-size:22px; font-weight:900; font-family:'Impact', sans-serif; text-shadow:2px 2px 4px rgba(0,0,0,0.5); letter-spacing:1px; line-height:1; }
+        /* ADAPTIVE UNIFORM CHAT HEADER STYLES */
+        #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
+        .chat-room-title { color:#ffd700; font-size:20px; font-weight:900; font-family:'Impact', sans-serif; text-shadow:2px 2px 4px rgba(0,0,0,0.5); letter-spacing:1px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:0; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
-        .pill-btn { display:flex; align-items:center; justify-content:center; gap:4px; padding:6px 12px; border-radius:50px; font-family:'Impact', sans-serif; font-size:14px; font-weight:900; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; border:2px solid; }
-        .pill-btn:active { transform:scale(0.92); }
+        
+        .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Impact', sans-serif; font-size:14px; font-weight:900; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; border:2px solid; flex-shrink:0; padding:0; }
+        .round-btn:active { transform:scale(0.92); }
         #chatGamesTriggerBtn { background:#2d6a30; color:#fff; border-color:#40916c; }
-        #youtubePlaceholderBtn { background:#242424; color:#e63946; border-color:#dc3545; }
-        #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px 0 4px 4px; }
+        #youtubePlaceholderBtn { background:#dc3545; color:#ffffff; border-color:#ff4d4d; }
+        
+        #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 
         #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
         #gameHubOverlay.open { display:flex; }
@@ -200,15 +202,12 @@
 
 <div id="chatOverlay">
     <div id="chatHeader">
-        <div class="header-left-col">
-            <span class="sub-label">Active Session</span>
-            <span class="main-label" id="roomDisplayCode">ROOM</span>
-        </div>
+        <span class="chat-room-title" id="roomDisplayCode">CHAT ROOM</span>
         <div class="header-btn-row">
-            <button id="chatGamesTriggerBtn" class="pill-btn" type="button">🎮 GAMES</button>
-            <button id="youtubePlaceholderBtn" class="pill-btn" type="button" onclick="alert('YouTube player integration coming soon!')">📺 YT</button>
-            <button id="closeChatBtn" type="button">✕</button>
+            <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
+            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
         </div>
+        <button id="closeChatBtn" type="button">✕</button>
     </div>
     
     <div id="gameHubOverlay">
@@ -338,7 +337,7 @@
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
     };
 
-       const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
+    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
         if (event) { event.stopPropagation(); event.preventDefault(); }
         let btn = event.target;
         let originalContent = btn.innerHTML;
@@ -374,7 +373,6 @@
         }
     };
 
-
     const gameHubOverlay = document.getElementById('gameHubOverlay');
     const activeGameStage = document.getElementById('activeGameStage');
     const gameCanvasContainer = document.getElementById('gameCanvasContainer');
@@ -387,6 +385,11 @@
         } else {
             gameHubOverlay.classList.add('open');
         }
+    });
+
+    // YouTube player integration click script
+    document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
+        alert('YouTube player integration coming soon!');
     });
 
     const fitAllRiders = (animate = true) => {
@@ -456,7 +459,6 @@
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
             
-            // Shared multiplayer game event synchronizations pass directly to games.js
             .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
                 if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
             })
@@ -492,7 +494,7 @@
         return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
     };
 
-        const registerPushSubscription = async () => {
+    const registerPushSubscription = async () => {
         if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
             alert("Failed: Notifications not supported or VAPID key is missing.");
             return;
@@ -511,7 +513,6 @@
                 userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
             });
             
-            // We capture any Supabase errors here
             const { error } = await supabaseClient.from('push_subscriptions').upsert({
                 rider_id: myId, subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
@@ -725,9 +726,8 @@
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
         
-        // Updates the new header layout so the actual room code is displayed
         const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl) roomDisplayEl.innerText = 'ROOM: ' + code;
+        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM: ' + code;
     };
 
     const leavePrivateRoom = () => {
@@ -737,9 +737,8 @@
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
         
-        // Resets the new header layout when you leave
         const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl) roomDisplayEl.innerText = 'ROOM';
+        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM';
     };
 
     roomLockBtn.addEventListener('click', () => {
@@ -843,13 +842,11 @@
     async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
     function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
 
-    
     if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(() => {
-        // This line makes the magic happen
-        registerPushSubscription();
-    });
-}
+        navigator.serviceWorker.register('/sw.js').then(() => {
+            registerPushSubscription();
+        });
+    }
 </script>
 <script src="./games.js"></script>
 
