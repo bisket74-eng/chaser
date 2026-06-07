@@ -338,7 +338,7 @@
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
     };
 
-        const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
+       const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
         if (event) { event.stopPropagation(); event.preventDefault(); }
         let btn = event.target;
         let originalContent = btn.innerHTML;
@@ -352,7 +352,10 @@
             
             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer xnwwngqennvwajlhvclj'
+                },
                 body: JSON.stringify({ rider_id: targetRiderId, sender_name: sourceSenderName })
             })
             .then(async (response) => { 
