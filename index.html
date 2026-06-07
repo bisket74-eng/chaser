@@ -8,168 +8,1076 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+
     <style>
-        html, body { padding:0; margin:0; width:100%; height:100%; height:100dvh; background:#1e4620; overflow:hidden; font-family:Arial,sans-serif; position:fixed; }
-        #map { position:fixed; top:0; bottom:0; left:0; right:0; width:100%; height:100%; z-index:1; }
+        html, body {
+            padding:0;
+            margin:0;
+            width:100%;
+            height:100%;
+            height:100dvh;
+            background:#1e4620;
+            overflow:hidden;
+            font-family:Arial,sans-serif;
+            position:fixed;
+        }
 
-        #appHeaderContainer { position:absolute; top:65px; left:50%; transform:translateX(-50%); z-index:10; display:flex; flex-direction:column; align-items:center; white-space:nowrap; }
-        #appHeader { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:75px; color:#1e4620; font-weight:900; text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4); letter-spacing:1.5px; pointer-events:none; }
-        #riderCounterWidget { font-size:15px; color:#1e4620; font-weight:800; background:#e2f0d9; padding:6px 14px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.25); margin-top:4px; pointer-events:none; letter-spacing: 0.2px; }
-        #liveCountNumber { color: #dc3545; font-weight: 900; font-size: 17px; }
-        
-        #privacyHint { font-size:24px; color:#1e4620; font-weight:normal; font-style:italic; margin-top:12px; text-align:center; pointer-events:none; text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5); white-space:normal; width:280px; line-height:1.2; }
+        #map {
+            position:fixed;
+            top:0;
+            bottom:0;
+            left:0;
+            right:0;
+            width:100%;
+            height:100%;
+            z-index:1;
+        }
 
-        .rider-icon-container { position: relative; width: 0px !important; height: 0px !important; }
-        .rider-physical-pin { position: absolute; bottom: 0; left: -12px; width: 25px; height: 41px; background-image: url('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png'); background-size: contain; background-repeat: no-repeat; pointer-events: auto; cursor: pointer; z-index: 200; }
-        .rider-label { position: absolute; bottom: 45px; left: 50%; transform: translateX(-50%); background: rgba(255,255,255,0.95); border: 2px solid #1e4620; border-radius: 8px; font-size: 14px; color: #111; box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: auto; cursor: pointer; text-align: center; z-index: 201; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box; }
-        .rider-label.ghost-label { border-style: dashed; background: rgba(240,240,240,0.85); }
-        .rider-icon-container.ghost-marker-active .rider-physical-pin { opacity: 0.4; filter: grayscale(60%); }
-        .status-tracker-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-left: 6px; vertical-align: middle; border: 1px solid rgba(0,0,0,0.2); }
-        .status-dot-stale { background: #dc3545; box-shadow: 0 0 6px #dc3545; animation: redPulse 2s infinite; }
-        .label-top-row { display: flex; align-items: center; justify-content: center; width: 100%; gap: 4px; }
-        .label-name-text { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+        #appHeaderContainer {
+            position:absolute;
+            top:65px;
+            left:50%;
+            transform:translateX(-50%);
+            z-index:10;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            white-space:nowrap;
+        }
 
-        .nudge-refresh-btn { background: #2d6a30; color: #ffffff; border: none; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.35); padding: 0; line-height: 1; flex-shrink: 0; pointer-events: auto !important; z-index: 300; transition: background 0.2s, transform 0.1s; }
-        .nudge-refresh-btn:active { transform: scale(0.85); }
+        #appHeader {
+            font-family:"Brush Script MT","Comic Sans MS",cursive;
+            font-size:75px;
+            color:#1e4620;
+            font-weight:900;
+            text-shadow:3px 3px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,6px 6px 12px rgba(0,0,0,0.4);
+            letter-spacing:1.5px;
+            pointer-events:none;
+        }
 
-        .rider-label .dest-container { width: 100%; height: 18px; margin-top: 4px; border-top: 1px dashed rgba(0,0,0,0.15); padding-top: 2px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .rider-label .dest-text-content { width: 100%; font-size: 11px; color: #2d6a30; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center; }
+        #riderCounterWidget {
+            font-size:15px;
+            color:#1e4620;
+            font-weight:800;
+            background:#e2f0d9;
+            padding:6px 14px;
+            border-radius:12px;
+            box-shadow:0 4px 12px rgba(0,0,0,0.25);
+            margin-top:4px;
+            pointer-events:none;
+            letter-spacing:0.2px;
+        }
 
-        @keyframes redPulse { 0%,100%{box-shadow:0 0 4px rgba(220,53,69,0.6);}50%{box-shadow:0 0 10px rgba(220,53,69,1);} }
+        #liveCountNumber {
+            color:#dc3545;
+            font-weight:900;
+            font-size:17px;
+        }
 
-        #controls { position:absolute; bottom:20px; left:15px; z-index:10; background:#e2f0d9; padding:16px; border-radius:18px; box-shadow:0 8px 25px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:12px; width:74%; max-width:340px; box-sizing:border-box; transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1); }
-        #controls:has(input:focus) { transform:translateY(-95px); }
-        
-        #inputsWrapper { display:flex; flex-direction:column; gap:12px; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1),opacity 0.3s ease; max-height:200px; opacity:1; width:100%; }
-        #inputsWrapper.hidden { max-height:0; opacity:0; }
+        #privacyHint {
+            font-size:24px;
+            color:#1e4620;
+            font-weight:normal;
+            font-style:italic;
+            margin-top:12px;
+            text-align:center;
+            pointer-events:none;
+            text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5);
+            white-space:normal;
+            width:280px;
+            line-height:1.2;
+        }
 
-        .control-row { display:flex; align-items:center; justify-content:space-between; width:100%; gap:8px; box-sizing:border-box; }
-        .control-row input { flex:1; width:calc(100% - 52px); min-width:0; padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#fff; font-size:16px; box-sizing:border-box; font-weight:500; transition:all 0.2s; }
-        .control-row input::placeholder { color:#a3cfbb; font-style:italic; }
-        .control-row input.input-error { border:3px solid #dc3545!important; background:#ffe6e6!important; color:#dc3545!important; box-shadow:0 0 15px rgba(220,53,69,0.8)!important; animation:aggressive-shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        .rider-icon-container {
+            position:relative;
+            width:0px !important;
+            height:0px !important;
+        }
 
-        .mic-btn { width:44px; height:44px; background:#2d6a30; border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(0,0,0,0.25); flex-shrink:0; transition:background 0.2s,transform 0.1s; -webkit-tap-highlight-color:transparent; }
-        .mic-btn:active { transform:scale(0.92); }
-        .mic-btn svg { width:20px; height:20px; fill:#fff; pointer-events:none; }
-        .mic-btn.listening { background:#dc3545!important; animation:pulse 1.5s infinite; }
-        #toggleInputsBtn svg { transition:transform 0.4s; width:24px; height:24px; }
-        #toggleInputsBtn.flipped svg { transform:rotate(180deg); }
+        .rider-physical-pin {
+            position:absolute;
+            bottom:0;
+            left:-12px;
+            width:25px;
+            height:41px;
+            background-image:url('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png');
+            background-size:contain;
+            background-repeat:no-repeat;
+            pointer-events:auto;
+            cursor:pointer;
+            z-index:200;
+        }
 
-        #startBtn { flex:1; min-width:0; padding:12px; border-radius:8px; border:none; font-size:16px; background:#2d6a30; color:white; cursor:pointer; font-weight:bold; transition:background 0.2s; box-shadow:0 3px 8px rgba(0,0,0,0.2); box-sizing:border-box; }
-        #startBtn.sharing-active { background:#dc3545; }
+        .rider-label {
+            position:absolute;
+            bottom:45px;
+            left:50%;
+            transform:translateX(-50%);
+            background:rgba(255,255,255,0.95);
+            border:2px solid #1e4620;
+            border-radius:8px;
+            font-size:14px;
+            color:#111;
+            box-shadow:0 4px 12px rgba(0,0,0,0.3);
+            pointer-events:auto;
+            cursor:pointer;
+            text-align:center;
+            z-index:201;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            align-items:center;
+            box-sizing:border-box;
+        }
 
-        #chatToggleBtn, #roomLockBtn { position:absolute; right:15px; z-index:11; width:60px; height:60px; background:#1e4620; border:3px solid #e2f0d9; border-radius:50%; box-shadow:0 6px 20px rgba(0,0,0,0.41); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.1s, opacity 0.3s ease; }
-        #chatToggleBtn { bottom:54px; opacity: 0.35; background: #555555; pointer-events: none; }
-        #roomLockBtn { bottom:130px; }
-        #chatToggleBtn:active, #roomLockBtn:active { transform:scale(0.92); }
-        #chatToggleBtn svg, #roomLockBtn svg { width:28px; height:28px; fill:#fff; }
-        #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
-        #chatBadge { position:absolute; top:-3px; right:-3px; background:#dc3545; color:white; border-radius:50%; padding:4px 8px; font-size:12px; font-weight:bold; display:none; border:2px solid white; }
+        .rider-label.ghost-label {
+            border-style:dashed;
+            background:rgba(240,240,240,0.85);
+        }
 
-        #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
-        #chatOverlay.open { right:0; }
-        
-        #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
-        
-        .chat-room-title { color:#ffd700; font-size:22px; font-weight:900; font-family:'Trebuchet MS', 'Arial Black', sans-serif; letter-spacing:2px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
-        .header-btn-row { display:flex; align-items:center; gap:8px; }
-        
-        .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; flex-shrink:0; padding:0; box-sizing:border-box; }
-        .round-btn:active { transform:scale(0.92); }
-        
-        #chatGamesTriggerBtn { background:#ffffff !important; color:#0056b3 !important; border:2px solid #0056b3 !important; font-size:20px; }
-        
-        /* NEW RED PILL YOUTUBE BUTTON STYLING */
-        #youtubePlaceholderBtn { background:#dc3545 !important; color:#ffffff !important; border:2px solid #bd2130 !important; border-radius:16px !important; width:auto !important; padding:0 14px !important; font-family:Arial, sans-serif !important; font-weight:900 !important; font-size:14px !important; letter-spacing:0.5px !important; height:32px !important; text-transform:none !important; }
-        
-        #closeChatBtn { background:none !important; color:#dc3545 !important; border:none !important; font-size:24px; font-weight:900; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:none !important; }
-        #chatHeader.game-active-mode #closeChatBtn { margin-left:auto; } 
+        .rider-icon-container.ghost-marker-active .rider-physical-pin {
+            opacity:0.4;
+            filter:grayscale(60%);
+        }
 
-        #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
-        #gameHubOverlay.open { display:flex; }
-        .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
-        .game-grid-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        .game-card-btn { background:#e2f0d9; border:3px solid #2d6a30; border-radius:14px; padding:16px 8px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.2); transition:transform 0.1s; }
-        .game-card-btn:active { transform:scale(0.95); }
-        .game-card-icon { font-size:32px; }
-        .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
-        
-        #activeGameStage { display:none; flex: 0 0 62%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow:hidden; position:relative; }
-        #activeGameStage.open { display:flex; }
-        #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:8px; box-sizing:border-box; overflow:auto; }
+        .status-tracker-dot {
+            display:inline-block;
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            margin-left:6px;
+            vertical-align:middle;
+            border:1px solid rgba(0,0,0,0.2);
+        }
 
-        .canvas-exit-anchor-box { position:absolute; bottom:8px; left:10px; display:flex; align-items:center; gap:5px; z-index:9999; cursor:pointer; pointer-events:auto; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
-        .canvas-exit-x-glyph { color:#dc3545; font-size:15px; font-weight:900; font-family:Arial,sans-serif; }
-        .canvas-exit-label-str { color:#dc3545; font-size:13px; font-weight:bold; font-family:Arial,sans-serif; text-transform:lowercase; letter-spacing:0.2px; }
+        .status-dot-stale {
+            background:#dc3545;
+            box-shadow:0 0 6px #dc3545;
+            animation:redPulse 2s infinite;
+        }
 
-        #youtubeStageWrapper { display:none; width:100%; height:100%; flex-direction:column; box-sizing:border-box; position:relative; background:#000000; }
-        #youtubeStageWrapper.active { display:flex; }
-        .yt-iframe-frame { width:100%; flex:1; border:none; background:#111; }
-        
-        /* INCREASED BOTTOM PADDING TO PREVENT OVERLAP WITH THE EXIT ANCHOR */
-        .yt-control-dashboard { display:flex; gap:6px; padding:8px 10px 42px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
-        .yt-control-dashboard input { flex:1; padding:8px 12px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; font-size:14px; box-sizing:border-box; }
-        .yt-control-dashboard input::placeholder { color:#777; font-style:italic; }
-        .yt-action-trigger-btn { background:#dc3545; color:#ffffff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; text-transform:uppercase; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition:background 0.2s; }
-        .yt-action-trigger-btn:active { background:#bd2130; }
+        .label-top-row {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            width:100%;
+            gap:5px;
+        }
 
-        #ytSearchResultsBox { display:none; position:absolute; bottom:100%; left:10px; right:10px; background:#1a1a1a; border:1px solid #333; border-radius:8px 8px 0 0; box-shadow:0 -4px 15px rgba(0,0,0,0.5); max-height:180px; overflow-y:auto; z-index:35; box-sizing:border-box; }
-        #ytSearchResultsBox.open { display:block; }
-        .yt-search-item { padding:10px 12px; color:#ffffff; font-size:13px; text-align:left; font-family:Arial,sans-serif; cursor:pointer; border-bottom:1px solid #2a2a2a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
-        .yt-search-item:active { background:#2a2a2a; }
-        .yt-search-item-channel { display:block; color:#777; font-size:11px; margin-top:2px; font-weight:normal; }
+        .label-name-text {
+            font-weight:bold;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+            flex:1;
+        }
 
-        #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
-        
-        .msg-bubble { position:relative; padding:12px 28px 12px 12px; border-radius:12px; max-width:85%; align-self:flex-start; box-shadow:0 2px 5px rgba(0,0,0,0.15); color:#111; font-family:Impact, "Arial Black", sans-serif; letter-spacing:0.5px; }
-        .msg-user { font-size:15px; font-weight:bold; color:rgba(0,0,0,0.6); margin-bottom:4px; text-transform:capitalize; font-family:Arial, sans-serif; }
-        .msg-text { font-size:22px; word-break:break-word; font-weight:normal; }
-        .msg-delete-btn { position:absolute; top:6px; right:8px; background:none; border:none; color:rgba(0,0,0,0.4); font-size:14px; font-weight:bold; cursor:pointer; padding:0; line-height:1; }
-        .msg-text a { color: #0056b3; text-decoration: underline; font-weight: bold; }
+        .nudge-refresh-btn {
+            background:#2d6a30;
+            color:#ffffff;
+            border:2px solid #ffffff;
+            border-radius:8px;
+            min-width:38px;
+            height:30px;
+            font-size:17px;
+            font-weight:900;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            box-shadow:0 3px 8px rgba(0,0,0,0.42);
+            padding:0 6px;
+            line-height:1;
+            flex-shrink:0;
+            pointer-events:auto !important;
+            z-index:300;
+            transition:background 0.2s, transform 0.1s, color 0.2s;
+        }
 
-        #chatInputArea { padding:12px; background:#fff; border-top:1px solid #ddd; display:flex; gap:8px; align-items:center; z-index:2; flex-shrink:0; }
-        .chat-input-wrapper { position:relative; flex:1; display:flex; align-items:center; }
-        .chat-input-wrapper input { width:100%; padding:12px 48px 12px 12px; border-radius:8px; border:1px solid #ccc; font-size:15px; box-sizing:border-box; color:#111; font-weight:500; }
-        
-        .inline-send-btn { position:absolute; right:4px; background:#2d6a30; border:none; border-radius:6px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
-        .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
+        .nudge-refresh-btn:active {
+            transform:scale(0.88);
+        }
 
-        #roomModalOverlay { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.55); z-index:30; display:none; align-items:center; justify-content:center; }
-        #roomModalOverlay.open { display:flex; }
-        #roomModal { background:#e2f0d9; border-radius:18px; padding:20px; width:85%; max-width:300px; display:flex; flex-direction:column; gap:10px; box-shadow:0 12px 40px rgba(0,0,0,0.4); }
-        #roomModal h3 { margin:0 0 5px; color:#1e4620; text-align:center; font-size:18px; }
-        .modal-input { padding:12px; border-radius:8px; border:2px solid #2d6a30; background:#1e4620; color:#ffd700; text-align:center; font-size:24px; font-weight:900; width:100%; box-sizing:border-box; letter-spacing:3px; text-transform:uppercase; transition:all 0.2s; cursor:pointer; }
-        .modal-input::placeholder { color:#a3cfbb; font-style:italic; letter-spacing:normal; font-size:16px; font-weight:normal; }
-        .modal-input:disabled { opacity:0.5; background:#2a2a2a; border-color:#555; }
-        #modalOrText { text-align:center; font-size:14px; color:#1e4620; font-weight:bold; margin:-2px 0; transition:opacity 0.2s; }
-        .btn-row { display:flex; gap:10px; margin-top:5px; }
-        .btn-row button { flex:1; padding:12px; border-radius:8px; border:none; font-weight:bold; font-size:15px; cursor:pointer; color:white; }
-        #leaveRoomBtn { background:#6c757d; }
-        #joinRoomBtn { background:#2d6a30; }
+        .nudge-refresh-btn.nudge-sending {
+            background:#b8860b;
+            color:#fff;
+        }
 
-        .leaflet-control-zoom { display:flex!important; flex-direction:row!important; border:none!important; box-shadow:0 1px 5px rgba(0,0,0,0.4)!important; border-radius:4px!important; overflow:hidden; }
-        .leaflet-control-zoom-in,.leaflet-control-zoom-out { border-radius:0!important; border-bottom:none!important; border-right:1px solid #ccc!important; width:44px!important; height:44px!important; line-height:44px!important; }
-        .leaflet-control-zoom-out { border-right:none !important; }
-        .radius-toggle-container { background:white; height:44px; padding:0 16px; box-sizing:border-box; border-radius:4px; box-shadow:0 1px 5px rgba(0,0,0,0.4); display:flex; align-items:center; gap:12px; color:#333; cursor:pointer; user-select:none; }
-        .radius-label-wrapper { display:flex; align-items:center; font-size:16px; font-weight:bold; white-space:nowrap; }
-        .radius-r { font-family:"Brush Script MT","Comic Sans MS",cursive; font-size:45px; font-weight:bold; margin-right:9px; padding-bottom:9px; color:#2d6a30; }
-        .radius-toggle-container input { cursor:pointer; width:22px; height:22px; margin:0; accent-color:#2d6a30; }
+        .nudge-refresh-btn.nudge-sent {
+            background:#00b050;
+            color:#fff;
+        }
 
-        .uno-card-body { width:66px; height:98px; border-radius:8px; border:3px solid #fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:36px; color:#fff; text-shadow:2px 2px 0 rgba(0,0,0,0.4); cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.35); padding:0; position:relative; }
-        .uno-card-red { background:linear-gradient(135deg, #e63946, #b70918); }
-        .uno-card-yellow { background:linear-gradient(135deg, #ffb703, #d68c00); }
-        .uno-card-green { background:linear-gradient(135deg, #00b050, #007020); } 
-        .uno-card-blue { background:linear-gradient(135deg, #00b0ff, #0070c0); }  
-        .uno-card-wild { background: linear-gradient(45deg, #e63946, #ffb703, #00b050, #00b0ff); animation: wildCycle 3s infinite linear; }
-        .uno-oval-center { position:absolute; width:46px; height:72px; background:rgba(255,255,255,0.18); border-radius:50%; transform:rotate(-20deg); z-index:1; }
-        .uno-number-label { z-index:2; position:relative; }
+        .nudge-refresh-btn.nudge-error {
+            background:#dc3545;
+            color:#fff;
+        }
 
-        @keyframes wildCycle { 0% { border-color: #fff; } 50% { border-color: #ffd700; } 100% { border-color: #fff; } }
-        .leaflet-popup-content-wrapper,.leaflet-popup-tip { display:none!important; }
+        .rider-label .dest-container {
+            width:100%;
+            height:18px;
+            margin-top:4px;
+            border-top:1px dashed rgba(0,0,0,0.15);
+            padding-top:2px;
+            box-sizing:border-box;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            overflow:hidden;
+        }
+
+        .rider-label .dest-text-content {
+            width:100%;
+            font-size:11px;
+            color:#2d6a30;
+            font-weight:700;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+            text-align:center;
+        }
+
+        @keyframes redPulse {
+            0%,100% { box-shadow:0 0 4px rgba(220,53,69,0.6); }
+            50% { box-shadow:0 0 10px rgba(220,53,69,1); }
+        }
+
+        #controls {
+            position:absolute;
+            bottom:20px;
+            left:15px;
+            z-index:10;
+            background:#e2f0d9;
+            padding:16px;
+            border-radius:18px;
+            box-shadow:0 8px 25px rgba(0,0,0,0.35);
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+            width:74%;
+            max-width:340px;
+            box-sizing:border-box;
+            transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1);
+        }
+
+        #controls:has(input:focus) {
+            transform:translateY(-95px);
+        }
+
+        #inputsWrapper {
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+            overflow:hidden;
+            transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1), opacity 0.3s ease;
+            max-height:200px;
+            opacity:1;
+            width:100%;
+        }
+
+        #inputsWrapper.hidden {
+            max-height:0;
+            opacity:0;
+        }
+
+        .control-row {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            width:100%;
+            gap:8px;
+            box-sizing:border-box;
+        }
+
+        .control-row input {
+            flex:1;
+            width:calc(100% - 52px);
+            min-width:0;
+            padding:12px;
+            border-radius:8px;
+            border:2px solid #2d6a30;
+            background:#1e4620;
+            color:#fff;
+            font-size:16px;
+            box-sizing:border-box;
+            font-weight:500;
+            transition:all 0.2s;
+        }
+
+        .control-row input::placeholder {
+            color:#a3cfbb;
+            font-style:italic;
+        }
+
+        .control-row input.input-error {
+            border:3px solid #dc3545!important;
+            background:#ffe6e6!important;
+            color:#dc3545!important;
+            box-shadow:0 0 15px rgba(220,53,69,0.8)!important;
+            animation:aggressive-shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        .mic-btn {
+            width:44px;
+            height:44px;
+            background:#2d6a30;
+            border:none;
+            border-radius:50%;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            box-shadow:0 3px 8px rgba(0,0,0,0.25);
+            flex-shrink:0;
+            transition:background 0.2s,transform 0.1s;
+            -webkit-tap-highlight-color:transparent;
+        }
+
+        .mic-btn:active {
+            transform:scale(0.92);
+        }
+
+        .mic-btn svg {
+            width:20px;
+            height:20px;
+            fill:#fff;
+            pointer-events:none;
+        }
+
+        .mic-btn.listening {
+            background:#dc3545!important;
+            animation:pulse 1.5s infinite;
+        }
+
+        #toggleInputsBtn svg {
+            transition:transform 0.4s;
+            width:24px;
+            height:24px;
+        }
+
+        #toggleInputsBtn.flipped svg {
+            transform:rotate(180deg);
+        }
+
+        #startBtn {
+            flex:1;
+            min-width:0;
+            padding:12px;
+            border-radius:8px;
+            border:none;
+            font-size:16px;
+            background:#2d6a30;
+            color:white;
+            cursor:pointer;
+            font-weight:bold;
+            transition:background 0.2s;
+            box-shadow:0 3px 8px rgba(0,0,0,0.2);
+            box-sizing:border-box;
+        }
+
+        #startBtn.sharing-active {
+            background:#dc3545;
+        }
+
+        #chatToggleBtn, #roomLockBtn {
+            position:absolute;
+            right:15px;
+            z-index:11;
+            width:60px;
+            height:60px;
+            background:#1e4620;
+            border:3px solid #e2f0d9;
+            border-radius:50%;
+            box-shadow:0 6px 20px rgba(0,0,0,0.41);
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            transition:transform 0.1s, opacity 0.3s ease;
+        }
+
+        #chatToggleBtn {
+            bottom:54px;
+            opacity:0.35;
+            background:#555555;
+            pointer-events:none;
+        }
+
+        #roomLockBtn {
+            bottom:130px;
+        }
+
+        #chatToggleBtn:active, #roomLockBtn:active {
+            transform:scale(0.92);
+        }
+
+        #chatToggleBtn svg, #roomLockBtn svg {
+            width:28px;
+            height:28px;
+            fill:#fff;
+        }
+
+        #roomLockBtn.room-active {
+            background:#b8860b;
+            border-color:#ffd700;
+        }
+
+        #chatBadge {
+            position:absolute;
+            top:-3px;
+            right:-3px;
+            background:#dc3545;
+            color:white;
+            border-radius:50%;
+            padding:4px 8px;
+            font-size:12px;
+            font-weight:bold;
+            display:none;
+            border:2px solid white;
+        }
+
+        #chatOverlay {
+            position:absolute;
+            top:0;
+            right:-100%;
+            width:100%;
+            max-width:340px;
+            height:100%;
+            background:#fff;
+            z-index:20;
+            box-shadow:-4px 0 20px rgba(0,0,0,0.25);
+            display:flex;
+            flex-direction:column;
+            transition:right 0.3s ease-in-out;
+        }
+
+        #chatOverlay.open {
+            right:0;
+        }
+
+        #chatHeader {
+            background:#111;
+            border-bottom:2px solid #ffd700;
+            padding:10px 12px;
+            display:flex;
+            justify-content:flex-start;
+            align-items:center;
+            gap:8px;
+            flex-shrink:0;
+            z-index:10;
+            user-select:none;
+            box-sizing:border-box;
+        }
+
+        .chat-room-title {
+            color:#ffd700;
+            font-size:18px;
+            font-weight:900;
+            font-family:'Trebuchet MS','Arial Black',sans-serif;
+            letter-spacing:1px;
+            line-height:1.05;
+            text-transform:uppercase;
+            white-space:nowrap;
+            flex:1;
+            min-width:0;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+        .chat-room-title.youtube-pill-title {
+            flex:0 0 auto;
+            background:#dc3545;
+            color:#ffffff;
+            border:2px solid #bd2130;
+            border-radius:999px;
+            padding:6px 14px;
+            font-size:18px;
+            letter-spacing:0;
+            text-transform:none;
+            box-shadow:0 3px 8px rgba(0,0,0,0.35);
+        }
+
+        .header-btn-row {
+            display:flex;
+            align-items:center;
+            gap:8px;
+            flex-shrink:0;
+        }
+
+        .round-btn {
+            width:36px;
+            height:36px;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-family:Arial,sans-serif;
+            font-size:14px;
+            font-weight:bold;
+            cursor:pointer;
+            box-shadow:0 4px 8px rgba(0,0,0,0.3);
+            transition:transform 0.1s;
+            flex-shrink:0;
+            padding:0;
+            box-sizing:border-box;
+        }
+
+        .round-btn:active {
+            transform:scale(0.92);
+        }
+
+        #chatGamesTriggerBtn {
+            background:#ffffff !important;
+            color:#0056b3 !important;
+            border:2px solid #0056b3 !important;
+            font-size:20px;
+        }
+
+        #youtubePlaceholderBtn {
+            background:#ffffff !important;
+            color:#dc3545 !important;
+            border:2px solid #dc3545 !important;
+            border-radius:50% !important;
+            width:36px !important;
+            height:36px !important;
+            padding:0 !important;
+            font-family:Arial,sans-serif !important;
+            font-weight:900 !important;
+            font-size:13px !important;
+            letter-spacing:0 !important;
+            text-transform:uppercase !important;
+        }
+
+        #closeChatBtn {
+            background:none !important;
+            color:#dc3545 !important;
+            border:none !important;
+            font-size:24px;
+            font-weight:900;
+            cursor:pointer;
+            padding:4px;
+            margin-left:auto;
+            flex-shrink:0;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            box-sizing:border-box;
+            box-shadow:none !important;
+        }
+
+        #chatHeader.game-active-mode #closeChatBtn {
+            margin-left:auto;
+        }
+
+        #gameHubOverlay {
+            position:absolute;
+            top:54px;
+            left:0;
+            right:0;
+            background:#1e4620;
+            z-index:25;
+            display:none;
+            flex-direction:column;
+            padding:16px;
+            box-sizing:border-box;
+            height:max-content;
+            max-height:80%;
+            overflow-y:auto;
+            border-bottom:3px solid #2d6a30;
+            box-shadow:0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        #gameHubOverlay.open {
+            display:flex;
+        }
+
+        .game-hub-headline {
+            color:#e2f0d9;
+            text-align:center;
+            margin:0 0 16px 0;
+            font-size:20px;
+            font-weight:800;
+            border-bottom:1px dashed rgba(226,240,217,0.3);
+            padding-bottom:8px;
+        }
+
+        .game-grid-layout {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:12px;
+        }
+
+        .game-card-btn {
+            background:#e2f0d9;
+            border:3px solid #2d6a30;
+            border-radius:14px;
+            padding:16px 8px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap:8px;
+            cursor:pointer;
+            box-shadow:0 4px 10px rgba(0,0,0,0.2);
+            transition:transform 0.1s;
+        }
+
+        .game-card-btn:active {
+            transform:scale(0.95);
+        }
+
+        .game-card-icon {
+            font-size:32px;
+        }
+
+        .game-card-title {
+            color:#1e4620;
+            font-weight:bold;
+            font-size:14px;
+            text-align:center;
+        }
+
+        #activeGameStage {
+            display:none;
+            flex:0 0 62%;
+            flex-direction:column;
+            background:#0e2e10;
+            z-index:6;
+            box-sizing:border-box;
+            border-bottom:4px solid #b8860b;
+            box-shadow:0 4px 15px rgba(0,0,0,0.5);
+            overflow:hidden;
+            position:relative;
+        }
+
+        #activeGameStage.open {
+            display:flex;
+        }
+
+        #gameCanvasContainer {
+            flex:1;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+            color:white;
+            font-weight:bold;
+            text-align:center;
+            padding:8px;
+            box-sizing:border-box;
+            overflow:auto;
+        }
+
+        .canvas-exit-anchor-box {
+            position:absolute;
+            bottom:8px;
+            left:10px;
+            display:flex;
+            align-items:center;
+            gap:5px;
+            z-index:9999;
+            cursor:pointer;
+            pointer-events:auto;
+            text-shadow:0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        .canvas-exit-x-glyph {
+            color:#dc3545;
+            font-size:15px;
+            font-weight:900;
+            font-family:Arial,sans-serif;
+        }
+
+        .canvas-exit-label-str {
+            color:#dc3545;
+            font-size:13px;
+            font-weight:bold;
+            font-family:Arial,sans-serif;
+            text-transform:lowercase;
+            letter-spacing:0.2px;
+        }
+
+        #youtubeStageWrapper {
+            display:none;
+            width:100%;
+            height:100%;
+            flex-direction:column;
+            box-sizing:border-box;
+            position:relative;
+            background:#000000;
+        }
+
+        #youtubeStageWrapper.active {
+            display:flex;
+        }
+
+        .yt-iframe-frame {
+            width:100%;
+            flex:1;
+            border:none;
+            background:#111;
+        }
+
+        .yt-control-dashboard {
+            display:flex;
+            gap:6px;
+            padding:8px 10px 42px 10px;
+            background:#111111;
+            border-top:1px solid #222;
+            align-items:center;
+            box-sizing:border-box;
+            z-index:20;
+            position:relative;
+        }
+
+        .yt-control-dashboard input {
+            flex:1;
+            padding:8px 12px;
+            border-radius:6px;
+            border:1px solid #444;
+            background:#222;
+            color:#fff;
+            font-size:14px;
+            box-sizing:border-box;
+        }
+
+        .yt-control-dashboard input::placeholder {
+            color:#777;
+            font-style:italic;
+        }
+
+        .yt-action-trigger-btn {
+            background:#dc3545;
+            color:#ffffff;
+            border:none;
+            border-radius:6px;
+            padding:8px 14px;
+            font-size:13px;
+            font-weight:bold;
+            cursor:pointer;
+            text-transform:uppercase;
+            box-shadow:0 2px 5px rgba(0,0,0,0.3);
+            transition:background 0.2s;
+        }
+
+        .yt-action-trigger-btn:active {
+            background:#bd2130;
+        }
+
+        #ytSearchResultsBox {
+            display:none;
+            position:absolute;
+            bottom:100%;
+            left:10px;
+            right:10px;
+            background:#1a1a1a;
+            border:1px solid #333;
+            border-radius:8px 8px 0 0;
+            box-shadow:0 -4px 15px rgba(0,0,0,0.5);
+            max-height:180px;
+            overflow-y:auto;
+            z-index:35;
+            box-sizing:border-box;
+        }
+
+        #ytSearchResultsBox.open {
+            display:block;
+        }
+
+        .yt-search-item {
+            padding:10px 12px;
+            color:#ffffff;
+            font-size:13px;
+            text-align:left;
+            font-family:Arial,sans-serif;
+            cursor:pointer;
+            border-bottom:1px solid #2a2a2a;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            line-height:1.3;
+        }
+
+        #chatMessages {
+            flex:1;
+            padding:16px;
+            overflow-y:auto;
+            display:flex;
+            flex-direction:column;
+            gap:12px;
+            background:#e2f0d9;
+            z-index:1;
+        }
+
+        .msg-bubble {
+            position:relative;
+            padding:12px 28px 12px 12px;
+            border-radius:12px;
+            max-width:85%;
+            align-self:flex-start;
+            box-shadow:0 2px 5px rgba(0,0,0,0.15);
+            color:#111;
+            font-family:Impact,"Arial Black",sans-serif;
+            letter-spacing:0.5px;
+        }
+
+        .msg-user {
+            font-size:15px;
+            font-weight:bold;
+            color:rgba(0,0,0,0.6);
+            margin-bottom:4px;
+            text-transform:capitalize;
+            font-family:Arial,sans-serif;
+        }
+
+        .msg-text {
+            font-size:22px;
+            word-break:break-word;
+            font-weight:normal;
+        }
+
+        .msg-delete-btn {
+            position:absolute;
+            top:6px;
+            right:8px;
+            background:none;
+            border:none;
+            color:rgba(0,0,0,0.4);
+            font-size:14px;
+            font-weight:bold;
+            cursor:pointer;
+            padding:0;
+            line-height:1;
+        }
+
+        .msg-text a {
+            color:#0056b3;
+            text-decoration:underline;
+            font-weight:bold;
+        }
+
+        #chatInputArea {
+            padding:12px;
+            background:#fff;
+            border-top:1px solid #ddd;
+            display:flex;
+            gap:8px;
+            align-items:center;
+            z-index:2;
+            flex-shrink:0;
+        }
+
+        .chat-input-wrapper {
+            position:relative;
+            flex:1;
+            display:flex;
+            align-items:center;
+        }
+
+        .chat-input-wrapper input {
+            width:100%;
+            padding:12px 48px 12px 12px;
+            border-radius:8px;
+            border:1px solid #ccc;
+            font-size:15px;
+            box-sizing:border-box;
+            color:#111;
+            font-weight:500;
+        }
+
+        .inline-send-btn {
+            position:absolute;
+            right:4px;
+            background:#2d6a30;
+            border:none;
+            border-radius:6px;
+            width:36px;
+            height:36px;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            box-shadow:0 1px 4px rgba(0,0,0,0.2);
+        }
+
+        .inline-send-btn svg {
+            width:22px;
+            height:22px;
+            fill:#ffffff;
+            stroke:#ffffff;
+            stroke-width:0.5;
+        }
+
+        #roomModalOverlay {
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:100%;
+            background:rgba(0,0,0,0.55);
+            z-index:30;
+            display:none;
+            align-items:center;
+            justify-content:center;
+        }
+
+        #roomModalOverlay.open {
+            display:flex;
+        }
+
+        #roomModal {
+            background:#e2f0d9;
+            border-radius:18px;
+            padding:20px;
+            width:85%;
+            max-width:300px;
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            box-shadow:0 12px 40px rgba(0,0,0,0.4);
+        }
+
+        #roomModal h3 {
+            margin:0 0 5px;
+            color:#1e4620;
+            text-align:center;
+            font-size:18px;
+        }
+
+        .modal-input {
+            padding:12px;
+            border-radius:8px;
+            border:2px solid #2d6a30;
+            background:#1e4620;
+            color:#ffd700;
+            text-align:center;
+            font-size:24px;
+            font-weight:900;
+            width:100%;
+            box-sizing:border-box;
+            letter-spacing:3px;
+            text-transform:uppercase;
+            transition:all 0.2s;
+            cursor:pointer;
+        }
+
+        .modal-input::placeholder {
+            color:#a3cfbb;
+            font-style:italic;
+            letter-spacing:normal;
+            font-size:16px;
+            font-weight:normal;
+        }
+
+        .modal-input:disabled {
+            opacity:0.5;
+            background:#2a2a2a;
+            border-color:#555;
+        }
+
+        #modalOrText {
+            text-align:center;
+            font-size:14px;
+            color:#1e4620;
+            font-weight:bold;
+            margin:-2px 0;
+            transition:opacity 0.2s;
+        }
+
+        .btn-row {
+            display:flex;
+            gap:10px;
+            margin-top:5px;
+        }
+
+        .btn-row button {
+            flex:1;
+            padding:12px;
+            border-radius:8px;
+            border:none;
+            font-weight:bold;
+            font-size:15px;
+            cursor:pointer;
+            color:white;
+        }
+
+        #leaveRoomBtn {
+            background:#6c757d;
+        }
+
+        #joinRoomBtn {
+            background:#2d6a30;
+        }
+
+        .leaflet-control-zoom {
+            display:flex!important;
+            flex-direction:row!important;
+            border:none!important;
+            box-shadow:0 1px 5px rgba(0,0,0,0.4)!important;
+            border-radius:4px!important;
+            overflow:hidden;
+        }
+
+        .leaflet-control-zoom-in,.leaflet-control-zoom-out {
+            border-radius:0!important;
+            border-bottom:none!important;
+            border-right:1px solid #ccc!important;
+            width:44px!important;
+            height:44px!important;
+            line-height:44px!important;
+        }
+
+        .leaflet-control-zoom-out {
+            border-right:none !important;
+        }
+
+        .radius-toggle-container {
+            background:white;
+            height:44px;
+            padding:0 16px;
+            box-sizing:border-box;
+            border-radius:4px;
+            box-shadow:0 1px 5px rgba(0,0,0,0.4);
+            display:flex;
+            align-items:center;
+            gap:12px;
+            color:#333;
+            cursor:pointer;
+            user-select:none;
+        }
+
+        .radius-label-wrapper {
+            display:flex;
+            align-items:center;
+            font-size:16px;
+            font-weight:bold;
+            white-space:nowrap;
+        }
+
+        .radius-r {
+            font-family:"Brush Script MT","Comic Sans MS",cursive;
+            font-size:45px;
+            font-weight:bold;
+            margin-right:9px;
+            padding-bottom:9px;
+            color:#2d6a30;
+        }
+
+        .radius-toggle-container input {
+            cursor:pointer;
+            width:22px;
+            height:22px;
+            margin:0;
+            accent-color:#2d6a30;
+        }
+
+        .leaflet-popup-content-wrapper,.leaflet-popup-tip {
+            display:none!important;
+        }
     </style>
 </head>
 <body>
-    
+
 <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
@@ -188,6 +1096,7 @@
                 <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
             </button>
         </div>
+
         <div class="control-row">
             <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" enterkeyhint="done" />
             <button class="mic-btn" id="destinationMic" type="button">
@@ -195,6 +1104,7 @@
             </button>
         </div>
     </div>
+
     <div class="control-row">
         <button id="startBtn">Start Sharing Location</button>
         <button class="mic-btn" id="toggleInputsBtn" type="button">
@@ -230,11 +1140,11 @@
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
-            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YouTube</button>
+            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
-    
+
     <div id="gameHubOverlay">
         <div class="game-hub-headline">Chaser Game Center</div>
         <div class="game-grid-layout">
@@ -267,7 +1177,6 @@
 
     <div id="activeGameStage">
         <div id="gameCanvasContainer">
-            
             <div id="youtubeStageWrapper">
                 <iframe id="ytPlayerFrame" class="yt-iframe-frame" src="" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                 <div class="yt-control-dashboard">
@@ -276,9 +1185,8 @@
                     <button id="ytShareSyncBtn" class="yt-action-trigger-btn" type="button">Search</button>
                 </div>
             </div>
-
         </div>
-        
+
         <div class="canvas-exit-anchor-box" onclick="chaserMasterExitSequence()">
             <span class="canvas-exit-x-glyph">✕</span>
             <span class="canvas-exit-label-str">exit game</span>
@@ -286,10 +1194,12 @@
     </div>
 
     <div id="chatMessages"></div>
+
     <div id="chatInputArea">
         <button class="mic-btn" id="chatMic" type="button">
             <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
         </button>
+
         <div class="chat-input-wrapper">
             <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
             <button id="chatSendBtn" class="inline-send-btn" type="button">
@@ -300,43 +1210,52 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
     const supabaseClient = supabase.createClient(
         "https://xnwwngqennvwajlhvclj.supabase.co",
         "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
     );
-    
-    const map = L.map('map', { zoomControl: true }).setView([45.6387, -122.6615], 12); 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom:19, attribution:'&copy; CartoDB' }).addTo(map);
+
+    const map = L.map('map', { zoomControl:true }).setView([45.6387, -122.6615], 12);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        maxZoom:19,
+        attribution:'&copy; CartoDB'
+    }).addTo(map);
 
     let watchId = null, lastLat = 0, lastLng = 0;
     let isSharing = false, isChatOpen = false, unreadCount = 0;
     let wakeLock = null, oldBroadcastedName = "Anonymous";
     let isRadiusFilterActive = true;
     let activeRoomCode = null;
-    let initialFrameDone = false;   
+    let initialFrameDone = false;
 
     let lastActiveTime = Date.now();
     let timeoutCheckInterval = null;
-    const AUTO_TIMEOUT_MS = 7200000; 
+    const AUTO_TIMEOUT_MS = 7200000;
 
     let incomingRidersCache = {};
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
-    const GHOST_THRESHOLD_MS = 30_000;
-    const PUSH_COOLDOWN_MS = 300_000;
+    const GHOST_THRESHOLD_MS = 30000;
+    const PUSH_COOLDOWN_MS = 300000;
     const lastPushSent = {};
 
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s-.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
-    const iconLocked   = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
+    const iconLocked = '<svg viewBox="0 0 24 24"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H9V6c0-1.66 1.34-3 3-3zm6 17H6V10h12v10z"/></svg>';
 
     const VAPID_PUBLIC_KEY = 'BJ6VVHL4qJA-LKrNcBPFeYLPEwTkcIuiOs8Vscmce3hRDmP8sUVzDWE1XB56mzyXh6M5Y_8jUD-RcyJGDHdPSns';
+
     let myId = localStorage.getItem('rider_id');
-    if (!myId) { myId = 'id-' + Math.random().toString(36).substr(2,9); localStorage.setItem('rider_id', myId); }
+    if (!myId) {
+        myId = 'id-' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('rider_id', myId);
+    }
+    window.myId = myId;
 
     const generateRandomPastelColor = () => {
         const hue = Math.floor(Math.random() * 360);
-        return `hsl(${hue}, 100%, 85%)`; 
+        return `hsl(${hue}, 100%, 85%)`;
     };
 
     let myChatColor = localStorage.getItem('rider_chat_color');
@@ -345,23 +1264,71 @@
         localStorage.setItem('rider_chat_color', myChatColor);
     }
 
-    const buildLabelIcon = (name, dest, color, ghost, riderInternalId) => {
+    const el = id => document.getElementById(id);
+
+    const startBtn = el('startBtn');
+    const usernameInput = el('username');
+    const destinationInput = el('destination');
+    const usernameMic = el('usernameMic');
+    const destinationMic = el('destinationMic');
+    const chatToggleBtn = el('chatToggleBtn');
+    const chatOverlay = el('chatOverlay');
+    const closeChatBtn = el('closeChatBtn');
+    const chatMessages = el('chatMessages');
+    const chatMsgInput = el('chatMsgInput');
+    const chatMic = el('chatMic');
+    const chatBadge = el('chatBadge');
+    const roomLockBtn = el('roomLockBtn');
+    const roomModalOverlay = el('roomModalOverlay');
+    const generatedCodeEl = el('generatedCode');
+    const roomCodeInput = el('roomCodeInput');
+    const joinRoomBtn = el('joinRoomBtn');
+    const leaveRoomBtn = el('leaveRoomBtn');
+    const modalOrText = el('modalOrText');
+    const toggleInputsBtn = el('toggleInputsBtn');
+    const inputsWrapper = el('inputsWrapper');
+
+    const gameHubOverlay = el('gameHubOverlay');
+    const activeGameStage = el('activeGameStage');
+    const gameCanvasContainer = el('gameCanvasContainer');
+    const roomDisplayCode = el('roomDisplayCode');
+    const headerActionButtonsContainer = el('headerActionButtonsContainer');
+    const chatHeader = el('chatHeader');
+
+    const youtubeStageWrapper = el('youtubeStageWrapper');
+    const ytPlayerFrame = el('ytPlayerFrame');
+    const ytUrlInput = el('ytUrlInput');
+    const ytShareSyncBtn = el('ytShareSyncBtn');
+    const ytSearchResultsBox = el('ytSearchResultsBox');
+
+    usernameInput.value = localStorage.getItem('rider_saved_name') || '';
+    chatMsgInput.style.backgroundColor = myChatColor;
+
+    function resetActivityTimer() {
+        lastActiveTime = Date.now();
+    }
+
+    function updateLiveRiderCounter() {
+        el('liveCountNumber').innerText = Object.keys(incomingRidersCache).length;
+    }
+
+    function buildLabelIcon(name, dest, color, ghost, riderInternalId) {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
-        
-        const blockWidth = "134px";
-        const blockHeight = dest ? "56px" : "34px";
+
+        const blockWidth = "154px";
+        const blockHeight = dest ? "64px" : "42px";
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
 
-        const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
-            `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
+        const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ?
+            `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName.replace(/'/g, "\\'")}', event)">↻</button>` : '';
 
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
                 <div class="rider-physical-pin"></div>
-                <div class="rider-label ${ghost ? 'ghost-label' : ''}" 
+                <div class="rider-label ${ghost ? 'ghost-label' : ''}"
                      style="background:${bgColor}; border-color:${isMe ? '#2d6a30' : '#1e4620'}; width:${blockWidth}; height:${blockHeight}; white-space:normal; overflow:hidden; text-overflow:ellipsis; padding:4px 6px; font-size:14px; box-sizing:border-box;">
                     <div class="label-top-row">
                         <div class="label-name-text">${displayName}${dotMarkup}</div>
@@ -370,84 +1337,704 @@
                     ${destLine}
                 </div>
             </div>`;
+
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
-    };
+    }
 
-    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
-        if (event) { event.stopPropagation(); event.preventDefault(); }
-        let btn = event.target;
-        let originalContent = btn.innerHTML;
-        let sourceSenderName = usernameInput.value.trim() || "A buddy";
-        
-        const now = Date.now();
-        if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
-            lastPushSent[targetRiderName] = now;
-            btn.innerHTML = 'Sending...';
-            btn.style.background = '#b8860b';
-            
-            fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer xnwwngqennvwajlhvclj'
-                },
-                body: JSON.stringify({ rider_id: targetRiderId, sender_name: sourceSenderName })
-            })
-            .then(async (response) => { 
-                if (!response.ok) {
-                    const errText = await response.text();
-                    alert("Supabase Blocked It: " + response.status + " - " + errText);
-                }
-                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000); 
-            })
-            .catch((err) => { 
-                alert("Phone Blocked It: " + err.message);
-                btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; 
-            });
-        } else {
-            alert("Cooldown active! You must wait before nudging again.");
+    window.sendTargetedBuddyNudge = function(targetRiderId, targetRiderName, event) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
         }
+
+        const btn = event ? event.target : null;
+        const originalContent = btn ? btn.innerHTML : '↻';
+        const sourceSenderName = usernameInput.value.trim() || "A buddy";
+        const now = Date.now();
+
+        if (lastPushSent[targetRiderName] && (now - lastPushSent[targetRiderName]) <= PUSH_COOLDOWN_MS) {
+            if (btn) {
+                btn.classList.add('nudge-error');
+                btn.innerHTML = '⏳';
+                setTimeout(() => {
+                    btn.classList.remove('nudge-error');
+                    btn.innerHTML = originalContent;
+                }, 1600);
+            } else {
+                alert("Cooldown active! You must wait before nudging again.");
+            }
+            return;
+        }
+
+        lastPushSent[targetRiderName] = now;
+
+        if (btn) {
+            btn.classList.remove('nudge-sent', 'nudge-error');
+            btn.classList.add('nudge-sending');
+            btn.innerHTML = '…';
+        }
+
+        fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
+            method:'POST',
+            headers:{
+                'Content-Type':'application/json',
+                'Authorization':'Bearer xnwwngqennvwajlhvclj'
+            },
+            body:JSON.stringify({
+                rider_id:targetRiderId,
+                sender_name:sourceSenderName
+            })
+        })
+        .then(async response => {
+            if (!response.ok) throw new Error(await response.text());
+
+            if (btn) {
+                btn.classList.remove('nudge-sending');
+                btn.classList.add('nudge-sent');
+                btn.innerHTML = '✓';
+                setTimeout(() => {
+                    btn.classList.remove('nudge-sent');
+                    btn.innerHTML = originalContent;
+                }, 2200);
+            }
+        })
+        .catch(err => {
+            if (btn) {
+                btn.classList.remove('nudge-sending');
+                btn.classList.add('nudge-error');
+                btn.innerHTML = '!';
+                setTimeout(() => {
+                    btn.classList.remove('nudge-error');
+                    btn.innerHTML = originalContent;
+                }, 2200);
+            } else {
+                alert("Nudge failed: " + err.message);
+            }
+        });
     };
 
-    const gameHubOverlay = document.getElementById('gameHubOverlay');
-    const activeGameStage = document.getElementById('activeGameStage');
-    const gameCanvasContainer = document.getElementById('gameCanvasContainer');
-    const roomDisplayCode = document.getElementById('roomDisplayCode');
-    const headerActionButtonsContainer = document.getElementById('headerActionButtonsContainer');
-    const chatHeader = document.getElementById('chatHeader');
+    function removeRider(name) {
+        if (incomingRidersCache[name]) {
+            if (incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+            }
+            delete incomingRidersCache[name];
+        }
+    }
 
-    const youtubeStageWrapper = document.getElementById('youtubeStageWrapper');
-    const ytPlayerFrame = document.getElementById('ytPlayerFrame');
-    const ytUrlInput = document.getElementById('ytUrlInput');
-    const ytShareSyncBtn = document.getElementById('ytShareSyncBtn');
-    const ytSearchResultsBox = document.getElementById('ytSearchResultsBox');
+    function fitAllRiders(animate = true) {
+        const positions = Object.values(incomingRidersCache)
+            .filter(r => r.marker)
+            .map(r => r.marker.getLatLng());
+
+        if (positions.length === 0) return;
+
+        if (positions.length === 1) {
+            map.setView(positions[0], 14, { animate });
+        } else {
+            map.fitBounds(L.latLngBounds(positions), {
+                paddingTopLeft:[40, 180],
+                paddingBottomRight:[40, 180],
+                animate,
+                maxZoom:16
+            });
+        }
+    }
+
+    function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
+        const now = Date.now();
+
+        if (incomingRidersCache[user]) {
+            const cacheRef = incomingRidersCache[user];
+            cacheRef.lastSeen = now;
+            cacheRef.dest = dest;
+            cacheRef.color = color || '#ffffff';
+            cacheRef.lat = lat;
+            cacheRef.lng = lng;
+            cacheRef.riderId = riderId || cacheRef.riderId;
+        } else {
+            incomingRidersCache[user] = {
+                marker:null,
+                lastSeen:now,
+                isGhost:false,
+                dest,
+                color:color || '#ffffff',
+                lat,
+                lng,
+                riderId
+            };
+        }
+
+        if (!isSharing) return;
+        renderSingleRiderVisualLayers(user);
+    }
+
+    function renderSingleRiderVisualLayers(user) {
+        const rData = incomingRidersCache[user];
+        if (!rData || !rData.lat || !rData.lng) return;
+
+        if (rData.marker) {
+            rData.marker.setLatLng([rData.lat, rData.lng]);
+            rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId));
+        } else {
+            const newMarker = L.marker([rData.lat, rData.lng], {
+                icon:buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
+            }).addTo(map);
+
+            newMarker.on('click', e => {
+                L.DomEvent.stopPropagation(e);
+
+                if (!newMarker._zoomedIn) {
+                    map.setView([rData.lat, rData.lng], 18, { animate:true, duration:0.7 });
+                    newMarker._zoomedIn = true;
+                } else {
+                    fitAllRiders(true);
+                    newMarker._zoomedIn = false;
+                }
+            });
+
+            newMarker._zoomedIn = false;
+            rData.marker = newMarker;
+
+            if (!user.includes('(You)')) {
+                setTimeout(() => fitAllRiders(true), 300);
+            }
+        }
+    }
+
+    setInterval(() => {
+        const now = Date.now();
+
+        Object.keys(incomingRidersCache).forEach(name => {
+            const r = incomingRidersCache[name];
+            if (!r || name.includes('(You)')) return;
+
+            const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
+
+            if (shouldBeGhost !== r.isGhost) {
+                r.isGhost = shouldBeGhost;
+
+                if (isSharing && r.marker) {
+                    r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId));
+                }
+            }
+        });
+
+        updateLiveRiderCounter();
+    }, 5000);
+
+    function displayAllCachedRidersOnMap() {
+        el('privacyHint').style.display = 'none';
+        chatToggleBtn.style.opacity = '1';
+        chatToggleBtn.style.background = '#1e4620';
+        chatToggleBtn.style.pointerEvents = 'auto';
+
+        Object.keys(incomingRidersCache).forEach(user => {
+            renderSingleRiderVisualLayers(user);
+        });
+
+        setTimeout(() => fitAllRiders(true), 400);
+    }
+
+    let channel;
+
+    function buildChannelName() {
+        return activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
+    }
+
+    function subscribeChannel() {
+        if (channel) channel.unsubscribe();
+
+        channel = supabaseClient.channel(buildChannelName(), {
+            config:{ broadcast:{ ack:true, self:false } }
+        });
+
+        window.channel = channel;
+
+        channel
+            .on('broadcast', { event:'location-update' }, ({ payload }) => {
+                const { user, dest, lat, lng, status, color, riderId } = payload;
+
+                if (isRadiusFilterActive && lastLat && lastLng && !user.includes('(You)')) {
+                    const distMi = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
+                    if (distMi > 50) {
+                        removeRider(user);
+                        return;
+                    }
+                }
+
+                if (status === 'offline') {
+                    removeRider(user);
+                } else {
+                    processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
+                }
+
+                updateLiveRiderCounter();
+            })
+
+            .on('broadcast', { event:'group-live-chat' }, ({ payload }) => {
+                if (payload.token !== sessionMsgToken) {
+                    appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
+
+                    if (!isChatOpen) {
+                        unreadCount++;
+                        chatBadge.innerText = unreadCount;
+                        chatBadge.style.display = 'block';
+                    }
+                }
+            })
+
+            .on('broadcast', { event:'rename' }, ({ payload }) => {
+                document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => {
+                    const msgUser = el.querySelector('.msg-user');
+                    if (msgUser) msgUser.innerText = payload.newName;
+                });
+            })
+
+            .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
+                if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
+            })
+
+            .on('broadcast', { event:'uno-sync-discard' }, ({ payload }) => {
+                if (window.handleIncomingUnoSync) window.handleIncomingUnoSync(payload);
+            })
+
+            .on('broadcast', { event:'sync-room-trivia' }, ({ payload }) => {
+                if (window.handleIncomingTriviaSync) window.handleIncomingTriviaSync(payload);
+            })
+
+            .on('broadcast', { event:'sequence-sync-state' }, ({ payload }) => {
+                if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
+            })
+
+            .on('broadcast', { event:'chaser-game-lobby-open' }, ({ payload }) => {
+                if (window.handleIncomingChaserGameLobby) window.handleIncomingChaserGameLobby(payload);
+            })
+
+            .on('broadcast', { event:'chaser-game-lobby-update' }, ({ payload }) => {
+                if (window.handleIncomingChaserGameLobbyUpdate) window.handleIncomingChaserGameLobbyUpdate(payload);
+            })
+
+            .on('broadcast', { event:'chaser-game-lobby-start' }, ({ payload }) => {
+                if (window.handleIncomingChaserGameLobbyStart) window.handleIncomingChaserGameLobbyStart(payload);
+            })
+
+            .on('broadcast', { event:'youtube-sync-video' }, ({ payload }) => {
+                if (payload.videoId) loadDirectYoutubeVideoId(payload.videoId);
+            })
+
+            .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
+                const bubbles = document.querySelectorAll('.msg-bubble');
+                if (!bubbles.length) return;
+
+                const pkg = Array.from(bubbles).map(b => ({
+                    msgId:b.id,
+                    user:b.querySelector('.msg-user')?.innerText || '',
+                    message:b.querySelector('.msg-text')?.innerText || '',
+                    color:b.style.backgroundColor,
+                    authorId:Array.from(b.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-', ''),
+                    stamp:'is-foreign'
+                }));
+
+                channel.send({
+                    type:'broadcast',
+                    event:'provide-chat-sync',
+                    payload:{
+                        targetToken:payload.requestedByToken,
+                        historyPackage:pkg
+                    }
+                });
+            })
+
+            .on('broadcast', { event:'provide-chat-sync' }, ({ payload }) => {
+                if (payload.targetToken !== sessionMsgToken) return;
+                payload.historyPackage.forEach(m => appendMessage(m.msgId, m.user, m.message, false, m.color, m.authorId));
+            })
+
+            .subscribe();
+    }
+
+    subscribeChannel();
+
+    const RadiusControl = L.Control.extend({
+        options:{ position:'topright' },
+        onAdd() {
+            const c = L.DomUtil.create('div', 'leaflet-bar leaflet-control radius-toggle-container');
+            c.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
+            L.DomEvent.disableClickPropagation(c);
+            return c;
+        }
+    });
+
+    map.addControl(new RadiusControl());
+
+    document.getElementById('radiusToggle').addEventListener('change', e => {
+        isRadiusFilterActive = e.target.checked;
+
+        if (isRadiusFilterActive && lastLat && lastLng) {
+            Object.keys(incomingRidersCache).forEach(name => {
+                if (name.includes('(You)')) return;
+
+                const r = incomingRidersCache[name];
+
+                if (r.lat && r.lng) {
+                    const distMi = map.distance([lastLat, lastLng], [r.lat, r.lng]) / 1609.34;
+                    if (distMi > 50) removeRider(name);
+                }
+            });
+
+            updateLiveRiderCounter();
+        }
+    });
+
+    function broadcastCurrentState() {
+        if (!isSharing || !lastLat || !lastLng) return;
+
+        let currentUser = usernameInput.value.trim();
+        if (!currentUser || currentUser.toLowerCase() === 'anonymous') currentUser = oldBroadcastedName;
+
+        if (oldBroadcastedName !== currentUser) {
+            removeRider(`${oldBroadcastedName} (You)`);
+
+            channel.send({
+                type:'broadcast',
+                event:'location-update',
+                payload:{
+                    user:oldBroadcastedName,
+                    dest:'',
+                    lat:0,
+                    lng:0,
+                    status:'offline'
+                }
+            });
+
+            oldBroadcastedName = currentUser;
+        }
+
+        processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor, myId);
+
+        channel.send({
+            type:'broadcast',
+            event:'location-update',
+            payload:{
+                user:currentUser,
+                dest:destinationInput.value.trim(),
+                lat:lastLat,
+                lng:lastLng,
+                status:'online',
+                color:myChatColor,
+                riderId:myId
+            }
+        });
+
+        updateLiveRiderCounter();
+    }
+
+    function startTimeoutMonitor() {
+        resetActivityTimer();
+
+        if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
+
+        timeoutCheckInterval = setInterval(() => {
+            if (isSharing && (Date.now() - lastActiveTime) >= AUTO_TIMEOUT_MS) {
+                stopSharingLocation();
+                alert("Chaser disconnected automatically due to 2 hours of inactivity.");
+            }
+        }, 30000);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') resetActivityTimer();
+    });
+
+    function stopSharingLocation() {
+        isSharing = false;
+        initialFrameDone = false;
+        destinationInput.value = '';
+
+        startBtn.innerText = 'Start Sharing Location';
+        startBtn.classList.remove('sharing-active');
+
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        if (channel) {
+            channel.send({
+                type:'broadcast',
+                event:'location-update',
+                payload:{
+                    user:oldBroadcastedName,
+                    dest:'',
+                    lat:0,
+                    lng:0,
+                    status:'offline'
+                }
+            });
+        }
+
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+                incomingRidersCache[name].marker = null;
+            }
+        });
+
+        removeRider(`${oldBroadcastedName} (You)`);
+
+        lastLat = 0;
+        lastLng = 0;
+
+        updateLiveRiderCounter();
+        releaseWakeLock();
+
+        if (timeoutCheckInterval) {
+            clearInterval(timeoutCheckInterval);
+            timeoutCheckInterval = null;
+        }
+
+        el('privacyHint').style.display = 'block';
+
+        chatToggleBtn.style.opacity = '0.35';
+        chatToggleBtn.style.background = '#555555';
+        chatToggleBtn.style.pointerEvents = 'none';
+
+        if (isChatOpen) {
+            isChatOpen = false;
+            chatOverlay.classList.remove('open');
+            if (window.chaserMasterExitSequence) window.chaserMasterExitSequence();
+            gameHubOverlay.classList.remove('open');
+        }
+    }
+
+    startBtn.addEventListener('click', () => {
+        if (isSharing) {
+            stopSharingLocation();
+            return;
+        }
+
+        const name = usernameInput.value.trim();
+
+        if (!name || name.toLowerCase() === 'anonymous') {
+            requireName();
+            return;
+        }
+
+        usernameInput.value = name;
+        localStorage.setItem('rider_saved_name', name);
+        oldBroadcastedName = name;
+
+        isSharing = true;
+
+        startBtn.innerText = 'Stop Sharing Location';
+        startBtn.classList.add('sharing-active');
+
+        startTimeoutMonitor();
+        displayAllCachedRidersOnMap();
+
+        if ('geolocation' in navigator) {
+            watchId = navigator.geolocation.watchPosition(pos => {
+                lastLat = pos.coords.latitude;
+                lastLng = pos.coords.longitude;
+
+                broadcastCurrentState();
+
+                if (!initialFrameDone) {
+                    initialFrameDone = true;
+                    fitAllRiders(true);
+                }
+            }, () => stopSharingLocation(), {
+                enableHighAccuracy:true,
+                maximumAge:0,
+                timeout:5000
+            });
+
+            requestWakeLock();
+            registerPushSubscription();
+        } else {
+            stopSharingLocation();
+        }
+    });
+
+    function generateRoomCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        return Array.from({ length:6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    }
+
+    function resetModalUI() {
+        modalOrText.style.opacity = '1';
+        roomCodeInput.placeholder = 'Enter a Code to JOIN';
+        roomCodeInput.disabled = false;
+        joinRoomBtn.innerText = 'Join';
+
+        if (!activeRoomCode) generatedCodeEl.value = '';
+        roomCodeInput.value = '';
+    }
+
+    function clearMemoryAndResetMap() {
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (incomingRidersCache[name] && incomingRidersCache[name].marker) {
+                map.removeLayer(incomingRidersCache[name].marker);
+            }
+        });
+
+        incomingRidersCache = {};
+        chatMessages.innerHTML = '';
+    }
+
+    function applyRoomCode(code) {
+        if (isSharing) {
+            channel.send({
+                type:'broadcast',
+                event:'location-update',
+                payload:{
+                    user:oldBroadcastedName,
+                    dest:'',
+                    lat:0,
+                    lng:0,
+                    status:'offline'
+                }
+            });
+        }
+
+        clearMemoryAndResetMap();
+
+        activeRoomCode = code;
+        subscribeChannel();
+        updateLiveRiderCounter();
+
+        if (isSharing) setTimeout(broadcastCurrentState, 700);
+
+        roomLockBtn.classList.add('room-active');
+        roomLockBtn.innerHTML = iconLocked;
+
+        roomModalOverlay.classList.remove('open');
+        resetModalUI();
+
+        if (roomDisplayCode && !activeGameStage.classList.contains('open')) {
+            roomDisplayCode.innerText = 'Chat Room: ' + code;
+        }
+    }
+
+    function leavePrivateRoom() {
+        if (isSharing) {
+            channel.send({
+                type:'broadcast',
+                event:'location-update',
+                payload:{
+                    user:oldBroadcastedName,
+                    dest:'',
+                    lat:0,
+                    lng:0,
+                    status:'offline'
+                }
+            });
+        }
+
+        clearMemoryAndResetMap();
+
+        activeRoomCode = null;
+        subscribeChannel();
+        updateLiveRiderCounter();
+
+        if (isSharing) setTimeout(broadcastCurrentState, 700);
+
+        roomLockBtn.classList.remove('room-active');
+        roomLockBtn.innerHTML = iconUnlocked;
+
+        resetModalUI();
+
+        if (roomDisplayCode && !activeGameStage.classList.contains('open')) {
+            roomDisplayCode.innerText = 'Chat Room';
+        }
+    }
+
+    roomLockBtn.addEventListener('click', () => {
+        if (activeRoomCode) {
+            generatedCodeEl.value = activeRoomCode;
+            modalOrText.style.opacity = '0.3';
+            roomCodeInput.placeholder = 'Give this to friends!';
+            roomCodeInput.disabled = true;
+            joinRoomBtn.innerText = 'Stay in Room';
+        }
+
+        roomModalOverlay.classList.add('open');
+    });
+
+    roomModalOverlay.addEventListener('click', e => {
+        if (e.target === roomModalOverlay) {
+            roomModalOverlay.classList.remove('open');
+            if (!activeRoomCode) resetModalUI();
+        }
+    });
+
+    generatedCodeEl.addEventListener('click', () => {
+        if (!activeRoomCode) {
+            const roomGeneratedPayload = generateRoomCode();
+            generatedCodeEl.value = roomGeneratedPayload;
+            modalOrText.style.opacity = '0.3';
+            roomCodeInput.value = '';
+            roomCodeInput.placeholder = 'Give this to a buddy!';
+            roomCodeInput.disabled = true;
+            joinRoomBtn.innerText = 'Start Room';
+        }
+    });
+
+    joinRoomBtn.addEventListener('click', () => {
+        if (activeRoomCode) {
+            roomModalOverlay.classList.remove('open');
+            return;
+        }
+
+        const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
+
+        if (code.length >= 4) {
+            applyRoomCode(code);
+        } else {
+            roomCodeInput.style.borderColor = '#dc3545';
+            setTimeout(() => roomCodeInput.style.borderColor = '#2d6a30', 1500);
+        }
+    });
+
+    leaveRoomBtn.addEventListener('click', () => {
+        if (activeRoomCode) leavePrivateRoom();
+        roomModalOverlay.classList.remove('open');
+        resetModalUI();
+    });
+
+    function requireName() {
+        if (inputsWrapper.classList.contains('hidden')) {
+            inputsWrapper.classList.remove('hidden');
+            toggleInputsBtn.classList.remove('flipped');
+        }
+
+        setTimeout(() => {
+            usernameInput.classList.remove('input-error');
+            void usernameInput.offsetWidth;
+            usernameInput.classList.add('input-error');
+            usernameInput.placeholder = 'Name required!';
+            usernameInput.focus();
+
+            setTimeout(() => {
+                usernameInput.classList.remove('input-error');
+                usernameInput.placeholder = 'Enter your name';
+            }, 2000);
+        }, 50);
+    }
+
+    toggleInputsBtn.addEventListener('click', () => {
+        inputsWrapper.classList.toggle('hidden');
+        toggleInputsBtn.classList.toggle('flipped');
+    });
 
     document.getElementById('chatGamesTriggerBtn').addEventListener('click', () => {
         resetActivityTimer();
+
         if (gameHubOverlay.classList.contains('open')) {
             gameHubOverlay.classList.remove('open');
         } else {
             gameHubOverlay.classList.add('open');
-        }
-    });
-
-    document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
-        resetActivityTimer();
-        gameHubOverlay.classList.remove('open');
-        
-        headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = `YouTube`;
-        roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
-        roomDisplayCode.style.fontWeight = '900';
-        roomDisplayCode.style.fontSize = '18px';
-        
-        chatHeader.classList.add('game-active-mode');
-        
-        activeGameStage.classList.add('open');
-        youtubeStageWrapper.classList.add('active');
-        
-        if (!ytPlayerFrame.src || ytPlayerFrame.src.includes('about:blank')) {
-            loadDirectYoutubeVideoId('dQw4w9WgXcQ'); 
         }
     });
 
@@ -461,509 +2048,396 @@
         ytPlayerFrame.src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
     }
 
-    document.addEventListener('click', (e) => {
+    window.loadDirectYoutubeVideoId = loadDirectYoutubeVideoId;
+
+    document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
+        resetActivityTimer();
+
+        gameHubOverlay.classList.remove('open');
+
+        if (window.cleanupRunningGameEngine) window.cleanupRunningGameEngine();
+
+        headerActionButtonsContainer.style.display = 'none';
+
+        roomDisplayCode.innerText = 'YouTube';
+        roomDisplayCode.classList.add('youtube-pill-title');
+
+        chatHeader.classList.add('game-active-mode');
+
+        activeGameStage.classList.add('open');
+        youtubeStageWrapper.classList.add('active');
+
+        gameCanvasContainer.innerHTML = '';
+        gameCanvasContainer.appendChild(youtubeStageWrapper);
+
+        if (!ytPlayerFrame.src || ytPlayerFrame.src.includes('about:blank')) {
+            loadDirectYoutubeVideoId('dQw4w9WgXcQ');
+        }
+    });
+
+    ytShareSyncBtn.addEventListener('click', () => {
+        const raw = ytUrlInput.value.trim();
+        if (!raw) return;
+
+        const id = getYoutubeVideoId(raw);
+
+        if (id) {
+            loadDirectYoutubeVideoId(id);
+
+            if (channel) {
+                channel.send({
+                    type:'broadcast',
+                    event:'youtube-sync-video',
+                    payload:{ videoId:id }
+                });
+            }
+        }
+    });
+
+    document.addEventListener('click', e => {
         if (!e.target.closest('.yt-control-dashboard')) {
             ytSearchResultsBox.classList.remove('open');
         }
     });
 
-    window.launchGameEngine = (gameName, gameEmoji) => {
+    window.chaserMasterExitSequence = function() {
         resetActivityTimer();
-        gameHubOverlay.classList.remove('open');
-        youtubeStageWrapper.classList.remove('active'); 
-        
-        headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = `${gameEmoji} ${gameName}`;
-        roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
-        roomDisplayCode.style.fontWeight = '900';
-        roomDisplayCode.style.fontSize = '18px';
-        
-        chatHeader.classList.add('game-active-mode');
-        
-        activeGameStage.classList.add('open');
-        if (window.initializeTargetGameCanvas) {
-            window.initializeTargetGameCanvas(gameName);
-        }
-    };
 
-    // The new un-overwritable master exit sequence
-    window.chaserMasterExitSequence = () => {
-        resetActivityTimer();
+        if (window.cleanupRunningGameEngine) {
+            window.cleanupRunningGameEngine();
+        }
+
         activeGameStage.classList.remove('open');
         youtubeStageWrapper.classList.remove('active');
-        ytPlayerFrame.src = 'about:blank'; 
+        ytPlayerFrame.src = 'about:blank';
+
         gameCanvasContainer.innerHTML = '';
-        
         gameCanvasContainer.appendChild(youtubeStageWrapper);
+
         ytSearchResultsBox.classList.remove('open');
-        
+
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
-        
+
+        roomDisplayCode.classList.remove('youtube-pill-title');
+
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', 'Arial Black', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
-        roomDisplayCode.style.fontSize = '22px';
-        
+        roomDisplayCode.style.fontSize = '18px';
+
         if (activeRoomCode) {
             roomDisplayCode.innerText = 'Chat Room: ' + activeRoomCode;
         } else {
             roomDisplayCode.innerText = 'Chat Room';
         }
-        
-        if (window.cleanupRunningGameEngine) {
-            window.cleanupRunningGameEngine();
-        }
     };
-    
-    // Fallback for games.js which might still call shutdownActiveGame
+
     window.shutdownActiveGame = window.chaserMasterExitSequence;
 
-    const fitAllRiders = (animate = true) => {
-        const positions = Object.values(incomingRidersCache).filter(r => r.marker).map(r => r.marker.getLatLng());
-        if (positions.length === 0) return;
-        if (positions.length === 1) {
-            map.setView(positions[0], 14, { animate });
-        } else {
-            map.fitBounds(L.latLngBounds(positions), {
-                paddingTopLeft: [40, 180], paddingBottomRight: [40, 180], animate, maxZoom: 16
-            });
-        }
-    };
-
-    setInterval(() => {
-        const now = Date.now();
-        Object.keys(incomingRidersCache).forEach(name => {
-            const r = incomingRidersCache[name];
-            if (!r) return;
-            
-            if (!name.includes('(You)')) {
-                const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
-                if (shouldBeGhost !== r.isGhost) {
-                    r.isGhost = shouldBeGhost;
-                    if (shouldBeGhost && isSharing) {
-                        const now2 = Date.now();
-                        if (!lastPushSent[name] || (now2 - lastPushSent[name]) > PUSH_COOLDOWN_MS) {
-                            lastPushSent[name] = now2;
-                            let sourceSenderName = usernameInput.value.trim() || "A buddy";
-                            fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ rider_id: r.riderId, sender_name: sourceSenderName })
-                            });
-                        }
-                    }
-                    if (isSharing && r.marker) { r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId)); }
-                }
-            }
-        });
-        updateLiveRiderCounter();
-    }, 5000);
-
-    let channel;
-    const buildChannelName = () => activeRoomCode ? `ride-room-${activeRoomCode}` : 'ride-room';
-
-    const subscribeChannel = () => {
-        if (channel) channel.unsubscribe();
-        channel = supabaseClient.channel(buildChannelName(), { config:{ broadcast:{ ack:true, self:false } } });
-        channel
-            .on('broadcast', { event:'location-update' }, ({ payload }) => {
-                const { user, dest, lat, lng, status, color, riderId } = payload;
-                if (isRadiusFilterActive && lastLat && lastLng && !user.includes('(You)')) {
-                    const distMi = map.distance([lastLat, lastLng], [lat, lng]) / 1609.34;
-                    if (distMi > 50) { removeRider(user); return; }
-                }
-                if (status === 'offline') { removeRider(user); } 
-                else { processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId); }
-                updateLiveRiderCounter();
-            })
-            .on('broadcast', { event:'group-live-chat' }, ({ payload }) => {
-                if (payload.token !== sessionMsgToken) {
-                    appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
-                    if (!isChatOpen) { unreadCount++; chatBadge.innerText = unreadCount; chatBadge.style.display = 'block'; }
-                }
-            })
-            .on('broadcast', { event:'rename' }, ({ payload }) => {
-                document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
-            })
-            
-            .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
-                if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
-            })
-            .on('broadcast', { event:'uno-sync-discard' }, ({ payload }) => {
-                if (window.handleIncomingUnoSync) window.handleIncomingUnoSync(payload);
-            })
-            .on('broadcast', { event:'sync-room-trivia' }, ({ payload }) => {
-                if (window.handleIncomingTriviaSync) window.handleIncomingTriviaSync(payload);
-            })
-            .on('broadcast', { event:'youtube-sync-video' }, ({ payload }) => {
-                if (payload.videoId) loadDirectYoutubeVideoId(payload.videoId);
-            })
-
-            .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
-                const bubbles = document.querySelectorAll('.msg-bubble');
-                if (!bubbles.length) return;
-                const pkg = Array.from(bubbles).map(b => ({
-                    msgId: b.id, user: b.querySelector('.msg-user').innerText,
-                    message: b.querySelector('.msg-text').innerText, color: b.style.backgroundColor,
-                    authorId: Array.from(b.classList).find(c => c.startsWith('bubble-'))?.replace('bubble-',''),
-                    stamp: 'is-foreign'
-                }));
-                channel.send({ type:'broadcast', event:'provide-chat-sync', payload:{ targetToken:payload.requestedByToken, historyPackage:pkg } });
-            })
-            .on('broadcast', { event:'provide-chat-sync' }, ({ payload }) => {
-                if (payload.targetToken !== sessionMsgToken) return;
-                payload.historyPackage.forEach(m => appendMessage(m.msgId, m.user, m.message, false, m.color, m.authorId));
-            })
-            .subscribe();
-    };
-    
-    const urlBase64ToUint8Array = (base64String) => {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-    };
-
-    const registerPushSubscription = async () => {
-        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
-            return;
-        }
-        let perm = Notification.permission;
-        if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (err) {} }
-        if (perm !== 'granted') { return; }
-
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const existing = await registration.pushManager.getSubscription();
-            const subscription = existing || await registration.pushManager.subscribe({
-                userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-            
-            await supabaseClient.from('push_subscriptions').upsert({
-                rider_id: myId, subscription: JSON.stringify(subscription)
-            }, { onConflict: 'rider_id' });
-        } catch (err) {}
-    };
-
-    subscribeChannel();
-
-    const RadiusControl = L.Control.extend({
-        options: { position:'topright' },
-        onAdd() {
-            const c = L.DomUtil.create('div','leaflet-bar leaflet-control radius-toggle-container');
-            c.innerHTML = '<label for="radiusToggle" class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label><input type="checkbox" id="radiusToggle" checked>';
-            L.DomEvent.disableClickPropagation(c);
-            return c;
-        }
-    });
-    map.addControl(new RadiusControl());
-    document.getElementById('radiusToggle').addEventListener('change', e => {
-        isRadiusFilterActive = e.target.checked;
-        if (isRadiusFilterActive && lastLat && lastLng) {
-            Object.keys(incomingRidersCache).forEach(name => {
-                if (name.includes('(You)')) return;
-                const r = incomingRidersCache[name];
-                if (r.lat && r.lng) {
-                    const distMi = map.distance([lastLat, lastLng], [r.lat, r.lng]) / 1609.34;
-                    if (distMi > 50) removeRider(name);
-                }
-            });
-            updateLiveRiderCounter();
-        }
-    });
-
-    const el = id => document.getElementById(id);
-    const startBtn         = el('startBtn');
-    const usernameInput    = el('username');
-    const destinationInput = el('destination');
-    const usernameMic      = el('usernameMic');
-    const destinationMic   = el('destinationMic');
-    const chatToggleBtn    = el('chatToggleBtn');
-    const chatOverlay      = el('chatOverlay');
-    const closeChatBtn     = el('closeChatBtn');
-    const chatMessages     = el('chatMessages');
-    const chatMsgInput     = el('chatMsgInput');
-    const chatMic          = el('chatMic');
-    const chatBadge        = el('chatBadge');
-    const roomLockBtn      = el('roomLockBtn');
-    const roomModalOverlay = el('roomModalOverlay');
-    const generatedCodeEl  = el('generatedCode');
-    const roomCodeInput    = el('roomCodeInput');
-    const joinRoomBtn      = el('joinRoomBtn');
-    const leaveRoomBtn     = el('leaveRoomBtn');
-    const modalOrText      = el('modalOrText');
-    const toggleInputsBtn  = el('toggleInputsBtn');
-    const controlsContainer = el('controls');
-    const inputsWrapper    = el('inputsWrapper');
-
-    usernameInput.value = localStorage.getItem('rider_saved_name') || '';
-    chatMsgInput.style.backgroundColor = myChatColor;
-
-    toggleInputsBtn.addEventListener('click', () => {
-        inputsWrapper.classList.toggle('hidden');
-        toggleInputsBtn.classList.toggle('flipped');
-    });
-
-    const updateLiveRiderCounter = () => {
-        const totalCount = Object.keys(incomingRidersCache).length;
-        el('liveCountNumber').innerText = totalCount;
-    };
-
-    const removeRider = name => {
-        if (incomingRidersCache[name]) {
-            if (incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); }
-            delete incomingRidersCache[name];
-        }
-    };
-
-    function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
-        const now = Date.now();
-        if (incomingRidersCache[user]) {
-            const cacheRef = incomingRidersCache[user];
-            cacheRef.lastSeen = now; cacheRef.dest = dest; cacheRef.color = color || '#ffffff'; cacheRef.lat = lat; cacheRef.lng = lng; cacheRef.riderId = riderId || cacheRef.riderId;
-        } else {
-            incomingRidersCache[user] = {
-                marker: null, lastSeen: now, isGhost: false, dest: dest, color: color || '#ffffff', lat: lat, lng: lng, riderId: riderId
-            };
-        }
-        if (!isSharing) { return; }
-        renderSingleRiderVisualLayers(user);
-    }
-
-    function renderSingleRiderVisualLayers(user) {
-        const rData = incomingRidersCache[user];
-        if (!rData || !rData.lat || !rData.lng) return;
-
-        if (rData.marker) {
-            rData.marker.setLatLng([rData.lat, rData.lng]);
-            rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId));
-        } else {
-            const newMarker = L.marker([rData.lat, rData.lng], {
-                icon: buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
-            }).addTo(map);
-
-            newMarker.on('click', e => {
-                L.DomEvent.stopPropagation(e);
-                if (!newMarker._zoomedIn) {
-                    map.setView([rData.lat, rData.lng], 18, { animate:true, duration:0.7 });
-                    newMarker._zoomedIn = true;
-                } else {
-                    fitAllRiders(true); newMarker._zoomedIn = false;
-                }
-            });
-
-            newMarker._zoomedIn = false; rData.marker = newMarker;
-            if (!user.includes('(You)')) { setTimeout(() => fitAllRiders(true), 300); }
-        }
-    }
-
-    function displayAllCachedRidersOnMap() {
-        el('privacyHint').style.display = 'none';
-        chatToggleBtn.style.opacity = '1'; chatToggleBtn.style.background = '#1e4620'; chatToggleBtn.style.pointerEvents = 'auto';
-        Object.keys(incomingRidersCache).forEach(user => { renderSingleRiderVisualLayers(user); });
-        setTimeout(() => fitAllRiders(true), 400);
-    }
-
-    const broadcastCurrentState = () => {
-        if (!isSharing || !lastLat || !lastLng) return;
-        let currentUser = usernameInput.value.trim();
-        if (!currentUser || currentUser.toLowerCase() === 'anonymous') currentUser = oldBroadcastedName;
-
-        if (oldBroadcastedName !== currentUser) {
-            removeRider(`${oldBroadcastedName} (You)`);
-            channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-            oldBroadcastedName = currentUser;
-        }
-
-        processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor, myId);
-        channel.send({ type:'broadcast', event:'location-update', payload:{
-            user:currentUser, dest:destinationInput.value.trim(), lat:lastLat, lng:lastLng, status:'online', color:myChatColor, riderId:myId
-        }});
-        updateLiveRiderCounter();
-    };
-
-    const resetActivityTimer = () => { lastActiveTime = Date.now(); };
-
-    const startTimeoutMonitor = () => {
-        resetActivityTimer();
-        if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
-        timeoutCheckInterval = setInterval(() => {
-            if (isSharing && (Date.now() - lastActiveTime) >= AUTO_TIMEOUT_MS) {
-                stopSharingLocation(); alert("Chaser disconnected automatically due to 2 hours of inactivity.");
-            }
-        }, 30000);
-    };
-
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { resetActivityTimer(); } });
-
-    const stopSharingLocation = () => {
-        isSharing = false; initialFrameDone = false; destinationInput.value = '';
-        startBtn.innerText = 'Start Sharing Location'; startBtn.classList.remove('sharing-active');
-        if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-        channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        
-        Object.keys(incomingRidersCache).forEach(name => {
-            if (incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); incomingRidersCache[name].marker = null; }
-        });
-        removeRider(`${oldBroadcastedName} (You)`);
-        lastLat = 0; lastLng = 0; updateLiveRiderCounter(); releaseWakeLock();
-
-        if (timeoutCheckInterval) { clearInterval(timeoutCheckInterval); timeoutCheckInterval = null; }
-        el('privacyHint').style.display = 'block';
-        chatToggleBtn.style.opacity = '0.35'; chatToggleBtn.style.background = '#555555'; chatToggleBtn.style.pointerEvents = 'none';
-        if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); chaserMasterExitSequence(); gameHubOverlay.classList.remove('open'); }
-    };
-
-    startBtn.addEventListener('click', () => {
-        if (isSharing) { stopSharingLocation(); return; }
-        const name = usernameInput.value.trim();
-        if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
-        usernameInput.value = name; localStorage.setItem('rider_saved_name', name); oldBroadcastedName = name; isSharing = true;
-        startBtn.innerText = 'Start Sharing Location'; startBtn.classList.add('sharing-active');
-
-        startTimeoutMonitor(); displayAllCachedRidersOnMap();
-
-        if ('geolocation' in navigator) {
-            watchId = navigator.geolocation.watchPosition(pos => {
-                lastLat = pos.coords.latitude; lastLng = pos.coords.longitude; broadcastCurrentState();
-                if (!initialFrameDone) { initialFrameDone = true; fitAllRiders(true); }
-            }, () => stopSharingLocation(), { enableHighAccuracy:true, maximumAge:0, timeout:5000 });
-            requestWakeLock(); registerPushSubscription();
-        } else stopSharingLocation();
-    });
-
-    const generateRoomCode = () => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        return Array.from({length:6}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-    };
-    const resetModalUI = () => { modalOrText.style.opacity = '1'; roomCodeInput.placeholder = 'Enter a Code to JOIN'; roomCodeInput.disabled = false; joinRoomBtn.innerText = 'Join'; if (!activeRoomCode) generatedCodeEl.value = ''; roomCodeInput.value = ''; };
-    const clearMemoryAndResetMap = () => { Object.keys(incomingRidersCache).forEach(name => { if (incomingRidersCache[name] && incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); } }); incomingRidersCache = {}; chatMessages.innerHTML = ''; };
-
-    const applyRoomCode = code => {
-        if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        clearMemoryAndResetMap(); activeRoomCode = code; subscribeChannel(); updateLiveRiderCounter();
-        if (isSharing) setTimeout(broadcastCurrentState, 700);
-        roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
-        roomModalOverlay.classList.remove('open'); resetModalUI();
-        
-        const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
-            roomDisplayEl.innerText = 'Chat Room: ' + code;
-        }
-    };
-
-    const leavePrivateRoom = () => {
-        if (isSharing) channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
-        clearMemoryAndResetMap(); activeRoomCode = null; subscribeChannel(); updateLiveRiderCounter();
-        if (isSharing) setTimeout(broadcastCurrentState, 700);
-        roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
-        resetModalUI();
-        
-        const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
-            roomDisplayEl.innerText = 'Chat Room';
-        }
-    };
-
-    roomLockBtn.addEventListener('click', () => {
-        if (activeRoomCode) { generatedCodeEl.value = activeRoomCode; modalOrText.style.opacity='0.3'; roomCodeInput.placeholder='Give this to friends!'; roomCodeInput.disabled=true; joinRoomBtn.innerText='Stay in Room'; }
-        roomModalOverlay.classList.add('open');
-    });
-    roomModalOverlay.addEventListener('click', e => { if (e.target===roomModalOverlay) { roomModalOverlay.classList.remove('open'); if (!activeRoomCode) resetModalUI(); } });
-    
-    generatedCodeEl.addEventListener('click', () => {
-        if (!activeRoomCode) { 
-            const roomGeneratedPayload = generateRoomCode();
-            generatedCodeEl.value = roomGeneratedPayload; modalOrText.style.opacity = '0.3'; roomCodeInput.value = ''; roomCodeInput.placeholder = 'Give this to a buddy!'; roomCodeInput.disabled = true; joinRoomBtn.innerText = 'Start Room'; 
-        }
-    });
-    joinRoomBtn.addEventListener('click', () => {
-        if (activeRoomCode) { roomModalOverlay.classList.remove('open'); return; }
-        const code = roomCodeInput.value.trim().toUpperCase() || generatedCodeEl.value;
-        if (code.length >= 4) applyRoomCode(code);
-        else { roomCodeInput.style.borderColor='#dc3545'; setTimeout(()=>roomCodeInput.style.borderColor='#2d6a30',1500); }
-    });
-    leaveRoomBtn.addEventListener('click', () => { if (activeRoomCode) leavePrivateRoom(); roomModalOverlay.classList.remove('open'); resetModalUI(); });
-
-    const requireName = () => {
-        if (inputsWrapper.classList.contains('hidden')) { inputsWrapper.classList.remove('hidden'); toggleInputsBtn.classList.remove('flipped'); }
-        setTimeout(() => {
-            usernameInput.classList.remove('input-error'); void usernameInput.offsetWidth;
-            usernameInput.classList.add('input-error'); usernameInput.placeholder = 'Name required!'; usernameInput.focus();
-            setTimeout(() => { usernameInput.classList.remove('input-error'); usernameInput.placeholder = 'Enter your name'; }, 2000);
-        }, 50);
-    };
-
     let touchStartX = 0, touchStartY = 0, touchStartedInGame = false;
-    chatOverlay.addEventListener('touchstart', e => { touchStartX=e.changedTouches[0].screenX; touchStartY=e.changedTouches[0].screenY; touchStartedInGame=!!e.target.closest('#activeGameStage'); },{passive:true});
+
+    chatOverlay.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+        touchStartedInGame = !!e.target.closest('#activeGameStage');
+    }, { passive:true });
+
     chatOverlay.addEventListener('touchend', e => {
         if (touchStartedInGame) return;
-        if (e.changedTouches[0].screenX-touchStartX > 60 && Math.abs(e.changedTouches[0].screenY-touchStartY)<40) { isChatOpen=false; chatOverlay.classList.remove('open'); gameHubOverlay.classList.remove('open'); }
-    },{passive:true});
-    chatToggleBtn.addEventListener('click', () => { isChatOpen=true; unreadCount=0; chatBadge.innerText=0; chatBadge.style.display='none'; chatOverlay.classList.add('open'); resetActivityTimer(); });
-    closeChatBtn.addEventListener('click', () => { isChatOpen=false; chatOverlay.classList.remove('open'); gameHubOverlay.classList.remove('open'); });
 
-    const sendGroupMessage = () => {
-        resetActivityTimer();
-        if (!chatMsgInput.value.trim()) return;
-        const currentName = usernameInput.value.trim();
-        if (!currentName || currentName.toLowerCase()==='anonymous') { chatOverlay.classList.remove('open'); isChatOpen=false; requireName(); return; }
-        const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random()*1000);
-        appendMessage(msgId, currentName, chatMsgInput.value.trim(), true, myChatColor, myId);
-        if (channel) {
-            channel.send({ type:'broadcast', event:'group-live-chat', payload:{ msgId, user:currentName, message:chatMsgInput.value.trim(), token:sessionMsgToken, color:myChatColor, id:myId } });
+        if (e.changedTouches[0].screenX - touchStartX > 60 && Math.abs(e.changedTouches[0].screenY - touchStartY) < 40) {
+            isChatOpen = false;
+            chatOverlay.classList.remove('open');
+            gameHubOverlay.classList.remove('open');
         }
+    }, { passive:true });
+
+    chatToggleBtn.addEventListener('click', () => {
+        isChatOpen = true;
+        unreadCount = 0;
+        chatBadge.innerText = 0;
+        chatBadge.style.display = 'none';
+        chatOverlay.classList.add('open');
+        resetActivityTimer();
+    });
+
+    closeChatBtn.addEventListener('click', () => {
+        isChatOpen = false;
+        chatOverlay.classList.remove('open');
+        gameHubOverlay.classList.remove('open');
+    });
+
+    function sendGroupMessage() {
+        resetActivityTimer();
+
+        if (!chatMsgInput.value.trim()) return;
+
+        const currentName = usernameInput.value.trim();
+
+        if (!currentName || currentName.toLowerCase() === 'anonymous') {
+            chatOverlay.classList.remove('open');
+            isChatOpen = false;
+            requireName();
+            return;
+        }
+
+        const msgId = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+        const messageText = chatMsgInput.value.trim();
+
+        appendMessage(msgId, currentName, messageText, true, myChatColor, myId);
+
+        if (channel) {
+            channel.send({
+                type:'broadcast',
+                event:'group-live-chat',
+                payload:{
+                    msgId,
+                    user:currentName,
+                    message:messageText,
+                    token:sessionMsgToken,
+                    color:myChatColor,
+                    id:myId
+                }
+            });
+        }
+
         chatMsgInput.value = '';
-    };
+    }
 
     document.getElementById('chatSendBtn').addEventListener('click', sendGroupMessage);
 
     function appendMessage(msgId, user, msg, isMe, color, authorId) {
         if (document.getElementById(msgId)) return;
-        const w = document.createElement('div'); w.className = `msg-bubble bubble-${authorId||'unknown'}`; w.id = msgId; w.style.backgroundColor = color || '#ffffff';
-        w.innerHTML = `<div class="msg-user">${user}</div><div class="msg-text">${msg}</div>${isMe?`<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>`:''}`;
-        chatMessages.appendChild(w); chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        const w = document.createElement('div');
+        w.className = `msg-bubble bubble-${authorId || 'unknown'}`;
+        w.id = msgId;
+        w.style.backgroundColor = color || '#ffffff';
+
+        const safeMsg = String(msg)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        w.innerHTML = `
+            <div class="msg-user">${user}</div>
+            <div class="msg-text">${safeMsg}</div>
+            ${isMe ? `<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>` : ''}
+        `;
+
+        chatMessages.appendChild(w);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        const setupVoiceInput = (btn, input, autoSubmit=false) => {
-            const rec = new SpeechRecognition(); rec.continuous=false; rec.interimResults=false; rec.lang='en-US';
-            btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); input.blur(); resetActivityTimer(); if(btn.classList.contains('listening')) rec.stop(); else try{rec.start();}catch(err){} });
-            rec.onstart  = () => { btn.classList.add('listening'); input.value=''; input.placeholder='Listening...'; };
-            rec.onresult = e => {
-                input.value = e.results[0][0].transcript.replace(/[.\s]+$/g,'');
-                if (input.id=='username') { localStorage.setItem('rider_saved_name',input.value); if (channel) channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:input.value}}); broadcastCurrentState(); }
-                if (input.id=='destination') { broadcastCurrentState(); }
-                if (autoSubmit) { sendGroupMessage(); }
-            };
-            rec.onerror = () => { btn.classList.remove('listening'); resetPlaceholder(input); };
-            rec.onend   = () => { btn.classList.remove('listening'); resetPlaceholder(input); closeKeyboard(input); };
-        };
-        setupVoiceInput(usernameMic, usernameInput); setupVoiceInput(destinationMic, destinationInput); setupVoiceInput(chatMic, chatMsgInput, true); 
-    } else { usernameMic.style.display='none'; destinationMic.style.display='none'; chatMic.style.display='none'; }
 
-    const closeKeyboard = (inputEl, event=null) => {
-        if (event) { event.preventDefault(); event.stopPropagation(); }
+    if (SpeechRecognition) {
+        const setupVoiceInput = (btn, input, autoSubmit = false) => {
+            const rec = new SpeechRecognition();
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.lang = 'en-US';
+
+            btn.addEventListener('click', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                input.blur();
+                resetActivityTimer();
+
+                if (btn.classList.contains('listening')) rec.stop();
+                else {
+                    try { rec.start(); } catch(err) {}
+                }
+            });
+
+            rec.onstart = () => {
+                btn.classList.add('listening');
+                input.value = '';
+                input.placeholder = 'Listening...';
+            };
+
+            rec.onresult = e => {
+                input.value = e.results[0][0].transcript.replace(/[.\s]+$/g, '');
+
+                if (input.id === 'username') {
+                    localStorage.setItem('rider_saved_name', input.value);
+
+                    if (channel) {
+                        channel.send({
+                            type:'broadcast',
+                            event:'rename',
+                            payload:{
+                                id:myId,
+                                newName:input.value
+                            }
+                        });
+                    }
+
+                    broadcastCurrentState();
+                }
+
+                if (input.id === 'destination') {
+                    broadcastCurrentState();
+                }
+
+                if (autoSubmit) {
+                    sendGroupMessage();
+                }
+            };
+
+            rec.onerror = () => {
+                btn.classList.remove('listening');
+                resetPlaceholder(input);
+            };
+
+            rec.onend = () => {
+                btn.classList.remove('listening');
+                resetPlaceholder(input);
+                closeKeyboard(input);
+            };
+        };
+
+        setupVoiceInput(usernameMic, usernameInput);
+        setupVoiceInput(destinationMic, destinationInput);
+        setupVoiceInput(chatMic, chatMsgInput, true);
+    } else {
+        usernameMic.style.display = 'none';
+        destinationMic.style.display = 'none';
+        chatMic.style.display = 'none';
+    }
+
+    function closeKeyboard(inputEl, event = null) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
         [usernameInput, destinationInput, chatMsgInput].forEach(i => i.blur());
+
         if (document.activeElement) document.activeElement.blur();
-        setTimeout(() => { window.scrollTo(0,0); document.body.scrollTop=0; map.invalidateSize(); }, 80);
-    };
-    const enforceEnter = (e, input) => { if (e.key==='Enter'||e.keyCode===13) { closeKeyboard(input,e); if(input.id==='chatMsgInput') sendGroupMessage(); } };
-    usernameInput.addEventListener('keydown',    e => { resetActivityTimer(); enforceEnter(e, usernameInput); });
-    destinationInput.addEventListener('keydown', e => { resetActivityTimer(); enforceEnter(e, destinationInput); });
-    chatMsgInput.addEventListener('keydown',     e => { resetActivityTimer(); enforceEnter(e, chatMsgInput); });
-    roomCodeInput.addEventListener('keydown',    e => { if(e.key==='Enter') joinRoomBtn.click(); });
+
+        setTimeout(() => {
+            window.scrollTo(0, 0);
+            document.body.scrollTop = 0;
+            map.invalidateSize();
+        }, 80);
+    }
+
+    function enforceEnter(e, input) {
+        if (e.key === 'Enter' || e.keyCode === 13) {
+            closeKeyboard(input, e);
+            if (input.id === 'chatMsgInput') sendGroupMessage();
+        }
+    }
+
+    usernameInput.addEventListener('keydown', e => {
+        resetActivityTimer();
+        enforceEnter(e, usernameInput);
+    });
+
+    destinationInput.addEventListener('keydown', e => {
+        resetActivityTimer();
+        enforceEnter(e, destinationInput);
+    });
+
+    chatMsgInput.addEventListener('keydown', e => {
+        resetActivityTimer();
+        enforceEnter(e, chatMsgInput);
+    });
+
+    roomCodeInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') joinRoomBtn.click();
+    });
 
     usernameInput.addEventListener('input', () => {
-        resetActivityTimer(); usernameInput.value = usernameInput.value.replace(/[.\s]+$/g,'');
-        const n = usernameInput.value.trim(); if (n) { localStorage.setItem('rider_saved_name',n); if (channel) channel.send({type:'broadcast',event:'rename',payload:{id:myId,newName:n}}); }
+        resetActivityTimer();
+        usernameInput.value = usernameInput.value.replace(/[.\s]+$/g, '');
+
+        const n = usernameInput.value.trim();
+
+        if (n) {
+            localStorage.setItem('rider_saved_name', n);
+
+            if (channel) {
+                channel.send({
+                    type:'broadcast',
+                    event:'rename',
+                    payload:{
+                        id:myId,
+                        newName:n
+                    }
+                });
+            }
+        }
+
         broadcastCurrentState();
     });
-    destinationInput.addEventListener('input', () => { resetActivityTimer(); broadcastCurrentState(); });
 
-    const resetPlaceholder = i => { i.placeholder = i.id==='username'?'Enter your name':i.id==='destination'?'Destination (optional)':'Type a message...'; };
-    async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
-    function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
+    destinationInput.addEventListener('input', () => {
+        resetActivityTimer();
+        broadcastCurrentState();
+    });
+
+    function resetPlaceholder(i) {
+        i.placeholder =
+            i.id === 'username' ? 'Enter your name' :
+            i.id === 'destination' ? 'Destination (optional)' :
+            'Type a message...';
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    async function registerPushSubscription() {
+        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
+            return;
+        }
+
+        let perm = Notification.permission;
+
+        if (perm === 'default') {
+            try {
+                perm = await Notification.requestPermission();
+            } catch(err) {}
+        }
+
+        if (perm !== 'granted') return;
+
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const existing = await registration.pushManager.getSubscription();
+
+            const subscription = existing || await registration.pushManager.subscribe({
+                userVisibleOnly:true,
+                applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+
+            await supabaseClient.from('push_subscriptions').upsert({
+                rider_id:myId,
+                subscription:JSON.stringify(subscription)
+            }, {
+                onConflict:'rider_id'
+            });
+        } catch(err) {}
+    }
+
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch(e) {}
+        }
+    }
+
+    function releaseWakeLock() {
+        if (wakeLock) {
+            wakeLock.release().then(() => wakeLock = null);
+        }
+    }
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').then(() => {
@@ -972,7 +2446,7 @@
     }
 </script>
 
-<script src="./games.js?v=4"></script>
+<script src="./games.js?v=10"></script>
 
 </body>
 </html>
