@@ -338,7 +338,7 @@
         return L.divIcon({ html, className:'', iconSize:null, iconAnchor:[0, 0] });
     };
 
-    const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
+        const sendTargetedBuddyNudge = (targetRiderId, targetRiderName, event) => {
         if (event) { event.stopPropagation(); event.preventDefault(); }
         let btn = event.target;
         let originalContent = btn.innerHTML;
@@ -347,7 +347,7 @@
         const now = Date.now();
         if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
             lastPushSent[targetRiderName] = now;
-            btn.innerHTML = '✓';
+            btn.innerHTML = 'Sending...';
             btn.style.background = '#b8860b';
             
             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
@@ -355,10 +355,22 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rider_id: targetRiderId, sender_name: sourceSenderName })
             })
-            .then(() => { setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000); })
-            .catch(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; });
+            .then(async (response) => { 
+                if (!response.ok) {
+                    const errText = await response.text();
+                    alert("Supabase Blocked It: " + response.status + " - " + errText);
+                }
+                setTimeout(() => { btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; }, 2000); 
+            })
+            .catch((err) => { 
+                alert("Phone Blocked It: " + err.message);
+                btn.innerHTML = originalContent; btn.style.background = '#2d6a30'; 
+            });
+        } else {
+            alert("Cooldown active! You must wait before nudging again.");
         }
     };
+
 
     const gameHubOverlay = document.getElementById('gameHubOverlay');
     const activeGameStage = document.getElementById('activeGameStage');
