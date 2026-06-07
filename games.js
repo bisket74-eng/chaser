@@ -3471,32 +3471,31 @@
         }
     };
 })();
-/* CHASER PATCH C – cleaner turn labels for Sequence + Uno */
+/* CHASER PATCH C2 – safe visual cleanup only */
 (function () {
     const gameCanvas = document.getElementById("gameCanvasContainer");
 
-    function cleanGameText() {
+    function applySafeVisualCleanup() {
         if (!gameCanvas || !window.chaserGame) return;
 
         const active = window.chaserGame.activeGame;
-        const all = Array.from(gameCanvas.querySelectorAll("div, span"));
+        const nodes = Array.from(gameCanvas.querySelectorAll("div, span"));
 
         if (active === "Sequence") {
-            all.forEach(el => {
+            nodes.forEach(el => {
                 const txt = (el.textContent || "").trim();
 
-                if (
-                    txt === "Blue starts." ||
-                    txt === "Red starts." ||
-                    txt.includes("starts.")
-                ) {
-                    el.textContent = "";
-                    el.style.display = "none";
+                if (txt === "Blue starts." || txt === "Red starts." || txt.includes("starts.")) {
+                    el.style.visibility = "hidden";
+                    el.style.height = "0px";
+                    el.style.minHeight = "0px";
+                    el.style.margin = "0px";
+                    el.style.padding = "0px";
                 }
 
                 if (txt === "YOUR MOVE") {
-                    const blueTurn = all.some(x => (x.textContent || "").includes("BLUE TURN"));
-                    const redTurn = all.some(x => (x.textContent || "").includes("RED TURN"));
+                    const blueTurn = nodes.some(x => (x.textContent || "").includes("BLUE TURN"));
+                    const redTurn = nodes.some(x => (x.textContent || "").includes("RED TURN"));
 
                     el.style.color = blueTurn ? "#00b0ff" : redTurn ? "#e63946" : "#00b050";
                     el.style.fontWeight = "900";
@@ -3505,30 +3504,34 @@
         }
 
         if (active === "Uno") {
-            all.forEach(el => {
+            nodes.forEach(el => {
                 const txt = (el.textContent || "").trim();
 
-                if (txt === "UNO") {
-                    el.style.display = "none";
-                }
-
-                if (txt === "↻" || txt === "↺") {
-                    el.style.display = "none";
-                }
-
                 if (txt.includes("starts.")) {
-                    el.textContent = "";
-                    el.style.display = "none";
+                    el.style.visibility = "hidden";
+                    el.style.height = "0px";
+                    el.style.minHeight = "0px";
+                    el.style.margin = "0px";
+                    el.style.padding = "0px";
+                }
+
+                if (txt === "UNO" || txt === "↻" || txt === "↺") {
+                    el.style.opacity = "0";
+                    el.style.width = "0px";
+                    el.style.minWidth = "0px";
+                    el.style.overflow = "hidden";
                 }
             });
         }
     }
 
-    const obs = new MutationObserver(cleanGameText);
+    const obs = new MutationObserver(() => {
+        setTimeout(applySafeVisualCleanup, 120);
+    });
 
     if (gameCanvas) {
         obs.observe(gameCanvas, { childList:true, subtree:true });
     }
 
-    setInterval(cleanGameText, 800);
+    setInterval(applySafeVisualCleanup, 1200);
 })();
