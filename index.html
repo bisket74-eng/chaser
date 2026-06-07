@@ -40,7 +40,6 @@
         #controls { position:absolute; bottom:20px; left:15px; z-index:10; background:#e2f0d9; padding:16px; border-radius:18px; box-shadow:0 8px 25px rgba(0,0,0,0.35); display:flex; flex-direction:column; gap:12px; width:74%; max-width:340px; box-sizing:border-box; transition:transform 0.3s cubic-bezier(0.25,0.8,0.25,1); }
         #controls:has(input:focus) { transform:translateY(-95px); }
         
-        /* ADAPTIVE INPUT DRAWER FIXES */
         #inputsWrapper { display:flex; flex-direction:column; gap:12px; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1),opacity 0.3s ease; max-height:200px; opacity:1; width:100%; }
         #inputsWrapper.hidden { max-height:0; opacity:0; }
 
@@ -70,7 +69,6 @@
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
         
-        /* ADAPTIVE UNIFORM CHAT HEADER STYLES */
         #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
         .chat-room-title { color:#ffd700; font-size:20px; font-weight:900; font-family:'Impact', sans-serif; text-shadow:2px 2px 4px rgba(0,0,0,0.5); letter-spacing:1px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:0; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
@@ -82,7 +80,8 @@
         
         #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
 
-        #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
+        /* ADAPTIVE GAMES OVERLAY HIERARCHY */
+        #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
         #gameHubOverlay.open { display:flex; }
         .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
         .game-grid-layout { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -91,7 +90,8 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        #activeGameStage { display:none; flex: 0 0 54%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
+        /* EXPANDED ACTIVE GAME DISPLAY UNIT */
+        #activeGameStage { display:none; flex: 0 0 70%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow-y:auto; }
         #activeGameStage.open { display:flex; }
         #gameStageHeader { background:#2d6a30; color:white; padding:8px 12px; font-weight:bold; font-size:14px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
         #exitGameBtn { background:#dc3545; color:white; border:none; border-radius:4px; font-weight:bold; padding:4px 10px; cursor:pointer; }
@@ -387,7 +387,6 @@
         }
     });
 
-    // YouTube player integration click script
     document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
         alert('YouTube player integration coming soon!');
     });
@@ -420,7 +419,7 @@
                             lastPushSent[name] = now2;
                             let sourceSenderName = usernameInput.value.trim() || "A buddy";
                             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                method: 'POST', throws: false, headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ rider_id: r.riderId, sender_name: sourceSenderName })
                             });
                         }
@@ -574,6 +573,7 @@
     const leaveRoomBtn     = el('leaveRoomBtn');
     const modalOrText      = el('modalOrText');
     const toggleInputsBtn  = el('toggleInputsBtn');
+    const controlsContainer = el('controls');
     const inputsWrapper    = el('inputsWrapper');
 
     usernameInput.value = localStorage.getItem('rider_saved_name') || '';
