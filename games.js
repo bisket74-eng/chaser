@@ -1,1061 +1,2098 @@
 /* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 1 OF 3)
+   CHASER ARCADE ENGINE – games.js
+   REBUILT VERSION – PART 1 OF 3
+   Foundation + Lobby + Checkers
    ============================================================ */
 
-/* ── Global Multiplayer Room Handshaking & Seating Sync ──── */
-window.handleIncomingCheckersSync = (p) => {
-    window.syncCheckersBoard = p.boardState;
-    window.checkersTurn      = p.activeTurn;
-    window.consecutiveJumpsActive = p.consecutiveActive || false;
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Checkers')) {
-        renderCheckersGrid();
-    }
-};
+(function () {
+    "use strict";
 
-window.handleIncomingUnoSync = (p) => {
-    window.unoDiscardPile   = p.currentDiscard;
-    window.unoCurrentPlayer = p.turn;
-    window.unoHands         = p.hands;
-    window.unoDeckState     = p.deck;
-    window.unoDirection     = p.direction;
-    window.unoRoomSeats     = p.roomSeats || [];
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Uno')) {
-        renderUnoLayout();
-    }
-};
+    const GAME_VERSION = "chaser-games-rebuild-1";
 
-window.handleIncomingTriviaSync = (p) => {
-    if (!activeGameStage.classList.contains('open') || !activeGameLabelTitle.innerText.includes('Trivia')) return;
-    if (p.phase === 'question') {
-        window.sharedRoomTriviaQuestion = p.triviaData;
-        window.triviaQuestionCount = p.count;
-        runLocalTriviaTimerPhase('question');
-    } else if (p.phase === 'vote') {
-        runLocalTriviaTimerPhase('vote');
-    } else if (p.phase === 'reveal') {
-        window.triviaRoomVotes = p.votes || {};
-        runLocalTriviaTimerPhase('reveal');
-    }
-};
+    const $ = (id) => document.getElementById(id);
 
-window.handleIncomingSequenceSync = (p) => {
-    window.seqBoard         = p.boardState;
-    window.seqTurn          = p.turnState;
-    window.seqSequences     = p.sequenceScores;
-    window.seqRoomSeats     = p.roomSeats || [];
-    if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Sequence')) {
-        renderSequenceBoard();
-    }
-};
+    const gameStage = $("activeGameStage");
+    const gameCanvas = $("gameCanvasContainer");
+    const gameTitle = $("activeGameLabelTitle");
+    const gameHub = $("gameHubOverlay");
 
-/* ── Dynamic Layout Manager & Master Memory Scrubbers ────── */
-window.launchGameEngine = function (gameName, gameIcon) {
-    gameHubOverlay.classList.remove('open');
-    window.shutdownActiveGame(true); // Hard purge of old game memory variables
-    
-    // STRICT FORMATTING MANDATE: Strips away old legacy names wholly and permanently
-    let displayTitle = gameName;
-    if (gameName === 'Battle Uno' || gameName === 'Uno') displayTitle = 'Uno';
-    if (gameName === 'Crew Trivia' || gameName === 'Trivia') displayTitle = 'Trivia';
-    
-    activeGameLabelTitle.innerText = gameIcon + '  ' + displayTitle;
-    activeGameStage.classList.add('open');
-
-    // EXPANDED VIEWPORT FRAME: Elongates the box down over the chat stream to prevent squishing
-    activeGameStage.style.height = "72vh";
-    activeGameStage.style.maxHeight = "580px";
-
-    // Global selector tag font upscaling fix
-    activeGameLabelTitle.style.fontSize = "5.5vw";
-    activeGameLabelTitle.style.fontWeight = "900";
-
-    if (gameName === 'Crew Trivia' || gameName === 'Trivia') {
-        initTriviaGame();
-    } else if (gameName === 'Battle Uno' || gameName === 'Uno') {
-        initChaserUnoGame();
-    } else if (gameName === 'Checkers') {
-        initCheckersGame();
-    } else if (gameName === 'Sequence') {
-        initSequenceGame();
-    } else if (gameName === 'Solitaire') {
-        initSolitaireGame();
-    } else if (gameName === 'Hangman') {
-        initHangmanGame();
-    }
-};
-
-window.shutdownActiveGame = function (isSwitching = false) {
-    if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
-    if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
-    
-    // Restore default layout constraints on teardown
-    if (!isSwitching) {
-        activeGameStage.classList.remove('open');
-        activeGameStage.style.height = "";
-        activeGameStage.style.maxHeight = "";
-    }
-    gameCanvasContainer.innerHTML = '';
-    
-    // Hard scrub to prevent memory leaks or duplicated boards across sessions
-    window.syncCheckersBoard        = null;
-    window.unoDiscardPile           = undefined;
-    window.unoHands                 = [[],[]];
-    window.unoDeckState             = [];
-    window.unoRoomSeats             = [];
-    window.sharedRoomTriviaQuestion = undefined;
-    window.triviaQuestionCount      = 0;
-    window.triviaScorePoints        = 0;
-    window.hangmanState             = null;
-    window.seqBoard                 = null;
-    window.seqRoomSeats             = [];
-};
-
-/* ═══════════════════════════════════════════════════════════
-   1.  CHECKERS ENGINE
-   ═══════════════════════════════════════════════════════════ */
-function initCheckersGame() {
-    window.syncCheckersBoard = Array(64).fill(0).map((_, i) => {
-        const r = Math.floor(i / 8), c = i % 8;
-        if ((r + c) % 2 === 1) {
-            if (r < 3) return 1; 
-            if (r > 4) return 2; 
-        }
-        return 0;
-    });
-    window.checkersTurn           = 1;
-    window.selectedCheckerIdx     = null;
-    window.consecutiveJumpsActive = false;
-    renderCheckersGrid();
-}
-
-function renderCheckersGrid() {
-    const board = window.syncCheckersBoard;
-    const sel   = window.selectedCheckerIdx;
-    const turn  = window.checkersTurn;
-    const boardPx    = Math.min(320, Math.floor((window.innerWidth - 16) * 0.95));
-    const cellPx     = Math.floor(boardPx / 8);
-    const actualBoardPx = cellPx * 8;
-    const piecePx    = Math.floor(cellPx * 0.80);
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;box-sizing:border-box;user-select:none;">
-        <div style="color:#ffd700;font-weight:bold;font-size:5vw;font-family:Impact,sans-serif;letter-spacing:0.5px;">
-            ${turn === 1 ? '🔴 RED TEAM TURN' : '⚫ BLACK TEAM TURN'} ${window.consecutiveJumpsActive ? ' - BONUS JUMP!' : ''}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(8,${cellPx}px);grid-template-rows:repeat(8,${cellPx}px);width:${actualBoardPx}px;height:${actualBoardPx}px;border:3px solid #ffd700;border-radius:6px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.4);">`;
-
-    for (let i = 0; i < 64; i++) {
-        const p = board[i];
-        const bgColor = (Math.floor(i / 8) + i % 8) % 2 === 1 ? '#2d6a30' : '#e2f0d9';
-        let pieceHtml = '';
-        if (p === 1) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>`;
-        if (p === 2) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>`;
-        if (p === 3) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6b6b,#c00);border:3px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:4vw;color:white;font-weight:900;">👑</div>`;
-        if (p === 4) pieceHtml = `<div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#555,#111);border:3px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:4vw;color:white;font-weight:900;">👑</div>`;
-
-        html += `<div onclick="handleCheckerTap(${i})" style="width:${cellPx}px;height:${cellPx}px;background:${bgColor};display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;${sel===i?'outline:3px solid #ffd700;outline-offset:-3px;':''}">
-            ${pieceHtml}
-        </div>`;
-    }
-    gameCanvasContainer.innerHTML = html + `</div></div>`;
-}
-
-function getCheckerMoves(idx, board, turn, jumpOnly) {
-    const p = board[idx], isRed = p === 1 || p === 3, isKing = p === 3 || p === 4, enemy = isRed ? [2, 4] : [1, 3], r = Math.floor(idx / 8), c = idx % 8, moves = [];
-    const dirs = [];
-    if (!isRed || isKing) dirs.push([-1, -1], [-1, 1]);
-    if (isRed || isKing) dirs.push([1, -1], [1, 1]);
-    dirs.forEach(([dr, dc]) => {
-        const nr = r + dr, nc = c + dc, ni = nr * 8 + nc;
-        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
-            if (!board[ni] && !jumpOnly) moves.push(ni);
-            else if (enemy.includes(board[ni])) {
-                const jr = nr + dr, jc = nc + dc, ji = jr * 8 + jc;
-                if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8 && !board[ji]) moves.push(ji);
-            }
-        }
-    });
-    return moves;
-}
-
-window.handleCheckerTap = function (idx) {
-    const board = window.syncCheckersBoard, turn = window.checkersTurn, owned = turn === 1 ? [1, 3] : [2, 4];
-    if (window.selectedCheckerIdx === null) {
-        if (owned.includes(board[idx])) {
-            if (window.consecutiveJumpsActive && idx !== window.lastJumpDestinationIdx) return;
-            window.selectedCheckerIdx = idx; renderCheckersGrid();
-        }
+    if (!gameStage || !gameCanvas) {
+        console.error("Chaser games.js could not find required game containers.");
         return;
     }
-    const from = window.selectedCheckerIdx;
-    const moves = getCheckerMoves(from, board, turn, window.consecutiveJumpsActive);
-    if (!moves.includes(idx)) {
-        if (owned.includes(board[idx]) && !window.consecutiveJumpsActive) { window.selectedCheckerIdx = idx; renderCheckersGrid(); }
-        else if (!window.consecutiveJumpsActive) { window.selectedCheckerIdx = null; renderCheckersGrid(); }
-        return;
-    }
-    const isJump = Math.abs(idx - from) > 10;
-    board[idx] = board[from]; board[from] = 0;
-    if (isJump) board[Math.floor((from + idx) / 2)] = 0;
-    if (board[idx] === 1 && Math.floor(idx / 8) === 7) board[idx] = 3;
-    if (board[idx] === 2 && Math.floor(idx / 8) === 0) board[idx] = 4;
-    
-    let hasMoreJumps = false;
-    if (isJump) {
-        const extraJumps = getCheckerMoves(idx, board, turn, true);
-        if (extraJumps.length > 0) {
-            hasMoreJumps = true; window.consecutiveJumpsActive = true;
-            window.lastJumpDestinationIdx = idx; window.selectedCheckerIdx = idx;
-        }
-    }
-    if (!hasMoreJumps) { window.selectedCheckerIdx = null; window.consecutiveJumpsActive = false; window.checkersTurn = turn === 1 ? 2 : 1; }
-    if (typeof channel !== 'undefined') channel.send({ type:'broadcast', event:'checkers-sync-move', payload:{ boardState:board, activeTurn:window.checkersTurn, consecutiveActive:window.consecutiveJumpsActive } });
-    renderCheckersGrid();
-   
-};/* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 2 OF 3)
-   ============================================================ */
 
-/* ═══════════════════════════════════════════════════════════
-   2.  SEQUENCE ENGINE (AUTHENTIC REGULATION GRID COORDINATES)
-   ═══════════════════════════════════════════════════════════ */
-// OFFICIAL TRADITIONAL BOARD SEQUENCE LAYOUT (EXACT REPLICA MAP)
-const SEQUENCE_MATRIX_GRID = [
-    'FREE','2♠','3♠','4♠','5♠','6♠','7♠','8♠','9♠','FREE',
-    '6♣','5♣','4♣','3♣','2♣','A♥','K♥','Q♥','10♥','10♠',
-    '7♣','A♠','2♦','3♦','4♦','5♦','6♦','7♦','9♥','Q♠',
-    '8♣','K♠','6♣','5♣','4♣','3♣','2♣','8♦','8♥','K♠',
-    '9♣','Q♠','7♣','6♥','5♥','4♥','A♠','9♦','7♥','A♠',
-    '10♣','10♠','8♣','7♥','2♥','3♥','K♠','10♦','6♥','2♦',
-    'Q♣','J♠','9♣','8♥','A♦','K♦','Q♦','J♦','5♥','3♦',
-    'K♣','Q♣','10♣','9♥','10♥','Q♥','K♥','A♥','4♥','4♦',
-    'A♣','3♦','2♦','A♠','K♠','Q♠','J♠','10♠','9♠','5♦',
-    'FREE','A♣','K♣','Q♣','J♣','10♣','9♣','8♣','7♣','FREE'
-];
+    window.chaserGame = {
+        version: GAME_VERSION,
+        activeGame: null,
+        activeGameId: null,
+        expectedPlayers: 1,
+        mySeat: null,
+        hostId: null,
+        players: [],
+        state: {},
+        timers: [],
+        currentLobby: null
+    };
 
-function initSequenceGame() {
-    window.seqBoard = Array(100).fill(0);
-    window.seqTurn  = 1; // 1 = Blue Team, 2 = Red Team
-    window.seqSequences = [0, 0];
-    window.seqSelectedCardIdx = null;
-    window.seqIsZoomedActive  = false;
-
-    // ROCK-SOLID NETWORKING SEAT HANDSHAKE
-    let activeRoster = typeof currentRoomUsers !== 'undefined' ? currentRoomUsers : [];
-    if (activeRoster.length === 0 && typeof getRoomUsersList === 'function') activeRoster = getRoomUsersList();
-    
-    let myUid = typeof currentUserUID !== 'undefined' ? currentUserUID : 'localPlayer';
-    window.seqRoomSeats = activeRoster.map(u => u.uid || u.id);
-    
-    // Seat assignment matrix
-    window.mySequenceTeam = 1; 
-    let mySeatIndex = window.seqRoomSeats.indexOf(myUid);
-    if (mySeatIndex === 1) window.mySequenceTeam = 2; // Second player automatically logs into Red Team 2
-
-    const suits = ['♠','♣','♥','♦'];
-    const ranks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
-    window.mySequenceHand = [];
-    for(let i=0; i<7; i++) {
-        let s = suits[Math.floor(Math.random()*suits.length)];
-        let r = ranks[Math.floor(Math.random()*ranks.length)];
-        window.mySequenceHand.push({ r, s, isRed: (s==='♥'||s==='♦') });
-    }
-    triggerSequenceNetworkSync();
-    renderSequenceBoard();
-}
-
-function triggerSequenceNetworkSync() {
-    if (typeof channel !== 'undefined') {
-        channel.send({
-            type: 'broadcast',
-            event: 'sequence-sync-state',
-            payload: { boardState: window.seqBoard, turnState: window.seqTurn, sequenceScores: window.seqSequences, roomSeats: window.seqRoomSeats }
-        });
-    }
-}
-
-function toggleLocalSequenceZoom() {
-    window.seqIsZoomedActive = !window.seqIsZoomedActive;
-    renderSequenceBoard();
-}
-
-function renderSequenceBoard() {
-    const board = window.seqBoard;
-    const turn  = window.seqTurn;
-    const sel   = window.seqSelectedCardIdx;
-    const isZoomed = window.seqIsZoomedActive;
-
-    const parentContainerW = Math.min(window.innerWidth - 16, 335);
-    const cellPx = isZoomed ? Math.floor(420 / 10) : Math.floor(parentContainerW / 10);
-    const actualGridW = cellPx * 10;
-    
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;width:100%;box-sizing:border-box;height:100%;overflow:hidden;justify-content:space-between;gap:4px;">`;
-    
-    let teamText = turn === 1 ? '🔵 BLUE TEAM' : '🔴 RED TEAM';
-    if (window.mySequenceTeam === turn) teamText += ' (YOUR TURN)';
-    else teamText += ' (WAITING...)';
-    
-    html += `<div style="display:flex;justify-content:space-between;width:100%;align-items:center;padding:0 2px;">
-        <div style="font-size:4vw;color:#ffd700;font-family:Impact,sans-serif;letter-spacing:0.5px;">${teamText}</div>
-        <button onclick="toggleLocalSequenceZoom()" style="background:#ffd700;color:#1e4620;border:none;border-radius:4px;padding:3px 8px;font-size:3.5vw;font-weight:900;font-family:Impact;cursor:pointer;">${isZoomed?'🔍 UNZOOM':'🔍 ZOOM BOARD'}</button>
-    </div>`;
-
-    // VIEWPORT FRAME CORE OVERLAPS
-    html += `<div id="sequenceScrollFrame" style="width:${parentContainerW}px;height:${parentContainerW}px;overflow:${isZoomed?'auto':'hidden'};border:3px solid #ffd700;border-radius:6px;background:#111;-webkit-overflow-scrolling:touch;">
-        <div style="display:grid;grid-template-columns:repeat(10,${cellPx}px);grid-template-rows:repeat(10,${cellPx}px);gap:1px;width:${actualGridW}px;height:${actualGridW}px;background:#222;">`;
-
-    for (let i = 0; i < 100; i++) {
-        const label = SEQUENCE_MATRIX_GRID[i];
-        const token = board[i];
-        const isRed = label.includes('♥') || label.includes('♦');
-        
-        let num = label.replace(/[♠♣♥♦]/g,'');
-        let suit = label.replace(/[^♠♣♥♦]/g,'');
-
-        let tokenMark = '';
-        if (token === 1) tokenMark = '<div style="width:74%;height:74%;border-radius:50%;background:#00b0ff;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
-        if (token === 2) tokenMark = '<div style="width:74%;height:74%;border-radius:50%;background:#e63946;border:2px solid #fff;position:absolute;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,0.4);"></div>';
-
-        let localHighlight = '';
-        if (sel !== null && !token && label !== 'FREE') {
-            if (label === (window.mySequenceHand[sel].r + window.mySequenceHand[sel].s)) {
-                localHighlight = 'background:#fff3cd;box-shadow:inset 0 0 0 2.5px #ffc107;';
-            }
-        }
-
-        html += `<div onclick="handleSequenceGridCellTap(${i})" style="position:relative;background:#fff;color:${isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;line-height:1;height:${cellPx}px;width:${cellPx}px;cursor:pointer;${localHighlight}">
-            ${label==='FREE'?'<span style="color:#ffd700;font-size:5vw;text-shadow:1px 1px 1px #000;">★</span>':`
-                <span style="font-size:${isZoomed?'3.5vw':'2.8vw'};font-weight:900;margin-top:-1px;">${num}</span>
-                <span style="font-size:${isZoomed?'4vw':'3.2vw'};margin-top:1px;">${suit}</span>
-            `}
-            ${tokenMark}
-        </div>`;
-    }
-    html += `</div></div>`;
-
-    // FIXED DECK HAND ROWS
-    html += `<div style="display:flex;gap:4px;width:100%;justify-content:center;padding:2px 0;">`;
-    window.mySequenceHand.forEach((card, idx) => {
-        let isHighlighted = (sel === idx) ? 'border:2.5px solid #ffd700;background:#fff;transform:translateY(-3px);box-shadow:0 4px 8px rgba(0,0,0,0.3);' : 'border:1px solid #666;background:#eee;';
-        html += `<button onclick="window.seqSelectedCardIdx=(window.seqSelectedCardIdx===${idx}?null:${idx});renderSequenceBoard();" style="${isHighlighted}border-radius:5px;width:12.5vw;max-width:44px;height:16.5vw;max-height:58px;font-weight:900;color:${card.isRed?'#c00':'#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 4px rgba(0,0,0,0.2);cursor:pointer;">
-            <span style="font-size:3.8vw;font-weight:900;line-height:1;">${card.r}</span>
-            <span style="font-size:4.2vw;line-height:1;margin-top:2px;">${card.s}</span>
-        </button>`;
-    });
-
-    html += `</div></div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.handleSequenceGridCellTap = function(idx) {
-    if (window.seqTurn !== window.mySequenceTeam) return; 
-    if (window.seqSelectedCardIdx === null || window.seqBoard[idx] !== 0) return;
-    
-    const card = window.mySequenceHand[window.seqSelectedCardIdx];
-    const targetLabel = SEQUENCE_MATRIX_GRID[idx];
-    if (targetLabel !== (card.r + card.s) && targetLabel !== 'FREE') return;
-
-    window.seqBoard[idx] = window.seqTurn;
-    
-    const cardSuits = ['♠','♣','♥','♦'];
-    const cardRanks = ['2','3','4','5','6','7','8','9','10','Q','K','A'];
-    let s = cardSuits[Math.floor(Math.random()*cardSuits.length)];
-    let r = cardRanks[Math.floor(Math.random()*cardRanks.length)];
-    window.mySequenceHand[window.seqSelectedCardIdx] = { r, s, isRed: (s==='♥'||s==='♦') };
-    
-    window.seqSelectedCardIdx = null;
-    window.seqTurn = (window.seqTurn === 1) ? 2 : 1; // Switches control back-and-forth natively
-    
-    triggerSequenceNetworkSync();
-    renderSequenceBoard();
-};
-
-/* ============================================================
-   CHASER ARCADE ENGINE  –  games.js (PART 3 OF 3)
-   ============================================================ */
-
-/* ═══════════════════════════════════════════════════════════
-   3.  UNO ENGINE (HOST DEALER LOCK & EDGE SCROLL AUTO-FOCUS)
-   ═══════════════════════════════════════════════════════════ */
-function initChaserUnoGame() {
-    window.myPlayerNumber = 0;
-    
-    let activeRoster = typeof currentRoomUsers !== 'undefined' ? currentRoomUsers : [];
-    if (activeRoster.length === 0 && typeof getRoomUsersList === 'function') activeRoster = getRoomUsersList();
-    
-    let myUid = typeof currentUserUID !== 'undefined' ? currentUserUID : 'localPlayer';
-    window.unoRoomSeats = activeRoster.map(u => ({ uid: u.uid || u.id, name: u.display_name || u.name || 'User' }));
-    
-    for (let i = 0; i < window.unoRoomSeats.length; i++) {
-        if (window.unoRoomSeats[i].uid === myUid) {
-            window.myPlayerNumber = i;
-            break;
-        }
+    function myGameId() {
+        if (window.myId) return window.myId;
+        const stored = localStorage.getItem("rider_id");
+        return stored || "local-" + Math.random().toString(36).slice(2);
     }
 
-    // STRICT HOST DEALER LOCK: Eliminates twin mirrored hand duplication anomalies
-    if (window.myPlayerNumber === 0) {
-        const colors = ['Red','Yellow','Green','Blue'];
-        window.unoDeckState = [];
-        colors.forEach(c => {
-            window.unoDeckState.push({color:c,value:'0'});
-            ['1','2','3','4','5','6','7','8','9','Skip','⇋','+2'].forEach(v => {
-                window.unoDeckState.push({color:c,value:v},{color:c,value:v});
+    function myGameName() {
+        const input = document.getElementById("username");
+        return (input && input.value.trim()) || localStorage.getItem("rider_saved_name") || "Player";
+    }
+
+    function sendGameEvent(event, payload) {
+        if (typeof channel !== "undefined" && channel && typeof channel.send === "function") {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myGameId(),
+                    senderName: myGameName(),
+                    roomGameId: window.chaserGame.activeGameId
+                }
             });
+        }
+    }
+
+    function clearGameTimers() {
+        window.chaserGame.timers.forEach(t => {
+            clearInterval(t);
+            clearTimeout(t);
         });
-        for(let i=0;i<4;i++) window.unoDeckState.push({color:'Wild',value:'Wild'}, {color:'Wild',value:'+4'});
-        window.unoDeckState.sort(() => Math.random() - 0.5);
+        window.chaserGame.timers = [];
+    }
 
-        window.unoNumPlayers = Math.max(2, window.unoRoomSeats.length);
-        window.unoCurrentPlayer = 0;
-        window.unoDirection = 1;
-        window.unoWildChoosingActive = false;
-        window.unoWildPendingIdx = null;
-        window.unoHands = Array(window.unoNumPlayers).fill(0).map(() => []);
+    function makeGameId(gameName) {
+        return gameName.replace(/\s+/g, "-").toLowerCase() + "-" + Date.now() + "-" + Math.floor(Math.random() * 9999);
+    }
 
-        for(let p=0; p < window.unoNumPlayers; p++) {
-            for(let i=0;i<7;i++) {
-                if (window.unoDeckState.length) window.unoHands[p].push(window.unoDeckState.pop());
-            }
+    function setGameHeader(title) {
+        if (gameTitle) {
+            gameTitle.innerText = title;
         }
-        
-        window.unoDiscardPile = window.unoDeckState.pop();
-        while(window.unoDiscardPile && window.unoDiscardPile.color === 'Wild') {
-            window.unoDeckState.unshift(window.unoDiscardPile);
-            window.unoDiscardPile = window.unoDeckState.pop();
+
+        const roomDisplay = document.getElementById("roomDisplayCode");
+        const headerBtns = document.getElementById("headerActionButtonsContainer");
+        const chatHeader = document.getElementById("chatHeader");
+
+        if (roomDisplay) {
+            roomDisplay.innerText = title;
+            roomDisplay.style.fontFamily = "'Trebuchet MS', sans-serif";
+            roomDisplay.style.fontWeight = "900";
+            roomDisplay.style.fontSize = "18px";
         }
-        triggerUnoNetworkSync();
-    }
-    renderUnoLayout();
-}
 
-function triggerUnoNetworkSync() {
-    if (typeof channel !== 'undefined') {
-        channel.send({
-            type: 'broadcast',
-            event: 'uno-sync-discard',
-            payload: { 
-                currentDiscard: window.unoDiscardPile, 
-                turn: window.unoCurrentPlayer, 
-                hands: window.unoHands, 
-                deck: window.unoDeckState, 
-                direction: window.unoDirection,
-                roomSeats: window.unoRoomSeats
-            }
-        });
-    }
-}
-
-function unoColorClass(c) { return {Red:'#e63946',Yellow:'#ffb703',Green:'#00b050',Blue:'#00b0ff',Wild:'#1e1e1e'}[c]||'#1e1e1e'; }
-
-function renderUnoLayout() {
-    const discard = window.unoDiscardPile || { color: 'Red', value: '0' };
-    const cp = window.unoCurrentPlayer;
-    const hand = window.unoHands ? (window.unoHands[window.myPlayerNumber] || []) : [];
-    
-    let activeProfileName = `Player ${cp + 1}`;
-    if (window.unoRoomSeats && window.unoRoomSeats[cp]) {
-        activeProfileName = window.unoRoomSeats[cp].name;
-    }
-    
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:3vw;width:100%;box-sizing:border-box;user-select:none;">`;
-    html += `<div style="background:#2d6a30;border-radius:4px;padding:4px 16px;color:#ffd700;font-size:4.2vw;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 2px 5px rgba(0,0,0,0.3);letter-spacing:0.5px;">
-        🎴 TURN: ${activeProfileName.toUpperCase()} ${window.myPlayerNumber === cp ? '(YOU)' : ''}
-    </div>`;
-
-    html += `<div style="display:flex;gap:8vw;align-items:flex-end;margin-bottom:2vw;">`;
-    
-    // DRAW BACK CORE: Rich charcoal center body + clear white text + golden border rim frame
-    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-        <div style="color:#a3cfbb;font-size:3vw;font-weight:bold;font-family:sans-serif;">DRAW</div>
-        <div onclick="unoDrawCard()" style="background:linear-gradient(135deg,#242424,#111111);border:3px solid #ffd700;box-shadow:0 4px 8px rgba(0,0,0,0.4);cursor:pointer;width:16vw;height:24vw;max-width:64px;max-height:94px;border-radius:8px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;position:relative;">
-            <div style="color:#fff;font-size:4vw;font-weight:900;font-family:Impact,sans-serif;transform:rotate(-15deg);letter-spacing:0.5px;">UNO</div>
-        </div>
-    </div>`;
-
-    // PLAY PILE
-    const isSkipFont = discard.value === 'Skip';
-    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-        <div style="color:#a3cfbb;font-size:3vw;font-weight:bold;font-family:sans-serif;">PLAY</div>
-        <div style="background:${unoColorClass(discard.color)};width:16vw;height:24vw;max-width:64px;max-height:94px;border:2px solid #fff;border-radius:8px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 8px rgba(0,0,0,0.4);box-sizing:border-box;position:relative;overflow:hidden;">
-            <div style="position:absolute;width:130%;height:40%;background:rgba(255,255,255,0.15);border-radius:50%;transform:rotate(-25deg);"></div>
-            <div style="color:#fff;font-size:${isSkipFont?'3.5vw':'8vw'};font-weight:900;font-family:Impact,sans-serif;z-index:2;text-shadow:2px 2px 4px rgba(0,0,0,0.4);text-align:center;padding:2px;max-width:100%;white-space:nowrap;overflow:hidden;">
-                ${discard.value}
-            </div>
-        </div>
-    </div>`;
-    html += `</div>`;
-
-    if(window.unoWildChoosingActive && window.myPlayerNumber === cp) {
-        html += `<div style="display:grid;grid-template-columns:1fr 1fr;width:80px;height:80px;border-radius:8px;overflow:hidden;border:3px solid #fff;box-shadow:0 4px 8px rgba(0,0,0,0.4);margin-bottom:2vw;">
-            ${['Red','Yellow','Green','Blue'].map(col=> `<div onclick="unoPickWildColor('${col}')" style="background:${unoColorClass(col)};cursor:pointer;"></div>`).join('')}
-        </div>`;
+        if (headerBtns) headerBtns.style.display = "none";
+        if (chatHeader) chatHeader.classList.add("game-active-mode");
     }
 
-    html += `<style>
-        #unoHandScrollWrapper { scroll-behavior: smooth; }
-        #unoHandScrollWrapper::-webkit-scrollbar { height: 9px !important; display: block !important; }
-        #unoHandScrollWrapper::-webkit-scrollbar-thumb { background-color: #ffd700 !important; border-radius: 4px !important; }
-        #unoHandScrollWrapper::-webkit-scrollbar-track { background: rgba(255,255,255,0.08) !important; }
-    </style>
-    <div id="unoHandScrollWrapper" style="display:flex;gap:1.5vw;overflow-x:auto;padding:10px 4px;width:100%;box-sizing:border-box;-webkit-overflow-scrolling:touch;">`;
+    function restoreChatHeader() {
+        const roomDisplay = document.getElementById("roomDisplayCode");
+        const headerBtns = document.getElementById("headerActionButtonsContainer");
+        const chatHeader = document.getElementById("chatHeader");
 
-    hand.forEach((card, i) => {
-        const playable = card.color===discard.color || card.value===discard.value || card.color==='Wild';
-        const innerTxtSkip = card.value === 'Skip';
-        html += `<div onclick="unoPlayCard(${i})" style="flex-shrink:0;width:14vw;height:21vw;max-width:56px;max-height:84px;background:${unoColorClass(card.color)};opacity:${playable?1:0.65};border:2px solid #fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:${innerTxtSkip?'3vw':'6.5vw'};color:#fff;font-family:Impact,sans-serif;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,0.3);cursor:pointer;position:relative;overflow:hidden;">
-            <div style="position:absolute;width:130%;height:45%;background:rgba(255,255,255,0.12);border-radius:50%;transform:rotate(-25deg);"></div>
-            <span style="z-index:2;text-shadow:1px 1px 3px rgba(0,0,0,0.5);text-align:center;padding:1px;white-space:nowrap;max-width:100%;overflow:hidden;">${card.value}</span>
-        </div>`;
-    });
+        if (headerBtns) headerBtns.style.display = "flex";
+        if (chatHeader) chatHeader.classList.remove("game-active-mode");
 
-    if(hand.length > 4) {
-        html += `<div style="flex-shrink:0;width:5vw;height:10px;opacity:0;pointer-events:none;"></div>`;
-    }
+        if (roomDisplay) {
+            roomDisplay.style.fontFamily = "'Trebuchet MS', 'Arial Black', sans-serif";
+            roomDisplay.style.fontWeight = "900";
+            roomDisplay.style.fontSize = "22px";
 
-    html += `</div></div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.unoPlayCard = function(idx) {
-    const cp = window.unoCurrentPlayer;
-    if (window.myPlayerNumber !== cp) return;
-    const card = window.unoHands[cp][idx];
-    const discard = window.unoDiscardPile;
-    if(card.color!==discard.color && card.value!==discard.value && card.color!=='Wild') return;
-
-    if (card.color === 'Wild') {
-        window.unoWildPendingIdx = idx; window.unoWildChoosingActive = true; renderUnoLayout(); return;
-    }
-    window.unoHands[cp].splice(idx, 1);
-    window.unoDiscardPile = card;
-    const numP = window.unoNumPlayers || 2;
-    if (card.value === '⇋') window.unoDirection *= -1;
-    let skip = (card.value === 'Skip');
-    if (card.value === '+2') {
-        const nxt = (cp + window.unoDirection + numP) % numP;
-        if (window.unoHands[nxt]) window.unoHands[nxt].push(window.unoDeckState.pop(), window.unoDeckState.pop());
-        skip = true;
-    }
-    window.unoCurrentPlayer = (cp + (skip ? window.unoDirection * 2 : window.unoDirection) + numP) % numP;
-    triggerUnoNetworkSync(); 
-    renderUnoLayout();
-};
-
-window.unoPickWildColor = function(color) {
-    const cp = window.unoCurrentPlayer;
-    const idx = window.unoWildPendingIdx;
-    const wasD4 = window.unoHands[cp][idx].value === '+4';
-    window.unoHands[cp].splice(idx, 1);
-    window.unoDiscardPile = { color: color, value: wasD4 ? '+4' : 'Wild' };
-    window.unoWildChoosingActive = false;
-    const numP = window.unoNumPlayers || 2;
-    if (wasD4) {
-        const nxt = (cp + window.unoDirection + numP) % numP;
-        for(let i=0;i<4;i++) {
-            if (window.unoDeckState.length) window.unoHands[nxt].push(window.unoDeckState.pop());
-        }
-        window.unoCurrentPlayer = (cp + (window.unoDirection * 2) + numP) % numP;
-    } else {
-        window.unoCurrentPlayer = (cp + window.unoDirection + numP) % numP;
-    }
-    triggerUnoNetworkSync(); 
-    renderUnoLayout();
-};
-
-window.unoDrawCard = function() {
-    if (window.unoCurrentPlayer !== window.myPlayerNumber) return;
-    if (window.unoDeckState.length === 0) return;
-    
-    window.unoHands[window.unoCurrentPlayer].push(window.unoDeckState.pop());
-    window.unoCurrentPlayer = (window.unoCurrentPlayer + window.unoDirection + (window.unoNumPlayers || 2)) % (window.unoNumPlayers || 2);
-    triggerUnoNetworkSync(); 
-    renderUnoLayout();
-    
-    // DYNAMIC EDGE FOCUS: Forces horiz-slider tracking directly to latest drawn card element right flush edge
-    setTimeout(() => {
-        const scroller = document.getElementById('unoHandScrollWrapper');
-        if (scroller) scroller.scrollLeft = scroller.scrollWidth;
-    }, 50);
-};
-
-/* ═══════════════════════════════════════════════════════════
-   4.  SYNCHRONIZED CO-OP TRIVIA ENGINE (5-5 HIDDEN SPLIT LOOP)
-   ═══════════════════════════════════════════════════════════ */
-/* ============================================================
-   4.  THE TRIVIA API - HIGH-VARIETY ENGINE (SINGLE PLAYER)
-   ============================================================ */
-
-window.initTriviaGame = function() {
-    window.triviaQuestionCount = 0;
-    window.triviaScorePoints   = 0;
-    window.triviaRoomVotes     = {};
-    
-    gameCanvasContainer.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vw;padding:4vw;width:100%;box-sizing:border-box;height:100%;user-select:none;">
-            <div style="color:#ffd700;font-size:5.5vw;font-weight:bold;font-family:Impact,sans-serif;text-shadow:2px 2px 4px rgba(0,0,0,0.5);text-align:center;letter-spacing:0.5px;">TRIVIA CATEGORY</div>
-            
-            <div style="position:relative;width:100%;max-width:280px;">
-                <select id="triviaCategoryPicker" style="width:100%;padding:14px;font-size:4vw;font-weight:900;border-radius:10px;border:3px solid #ffd700;background:#2d6a30;color:#fff;outline:none;box-shadow:0 4px 10px rgba(0,0,0,0.3);appearance:none;text-align:center;cursor:pointer;">
-                    <option value="ANY">🌍 Master Variety Mix (10,000+ Pool)</option>
-                    <option value="general_knowledge">General Knowledge</option>
-                    <option value="film_and_tv">Movies & Television</option>
-                    <option value="music">Music & Tracks</option>
-                    <option value="science">Science & Nature</option>
-                    <option value="history">History Channels</option>
-                    <option value="geography">Geography & Travel</option>
-                </select>
-                <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#ffd700;font-size:4vw;">▼</div>
-            </div>
-
-            <button onclick="launchLiveTriviaEngine()" style="width:100%;max-width:280px;padding:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:5vw;border:none;border-radius:10px;cursor:pointer;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.3);letter-spacing:0.5px;">START CAMPAIGN</button>
-        </div>`;
-};
-
-window.launchLiveTriviaEngine = function() {
-    const picker = document.getElementById('triviaCategoryPicker');
-    const pickedVal = picker ? picker.value : 'ANY';
-    
-    // Builds the clean category query structure used by the new API
-    const catQuery = pickedVal === 'ANY' ? '' : `?categories=${pickedVal}`;
-    
-    gameCanvasContainer.innerHTML = `<div style="color:white;font-size:4.5vw;font-weight:bold;text-align:center;padding:40px;font-family:sans-serif;">Fetching question...</div>`;
-    
-    // New high-capacity endpoint request
-    fetch(`https://the-trivia-api.com/v2/questions${catQuery}`)
-        .then(res => res.json())
-        .then(data => {
-            if(!data || data.length === 0) { initTriviaGame(); return; }
-            
-            // The API hands back a list; we grab the first item
-            const item = data[0]; 
-            
-            // Clean text extraction matching the new format structure
-            const questionText = item.question.text;
-            const correctAnswer = item.correctAnswer;
-            
-            // Map over incorrect options and shuffle the deck locally
-            let choices = item.incorrectAnswers.map(ans => ans);
-            choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
-
-            window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices: choices, cat: pickedVal };
-            window.triviaRoomVotes = {};
-
-            runLocalTriviaTimerPhase('question');
-        })
-        .catch(() => { initTriviaGame(); });
-};
-
-function runLocalTriviaTimerPhase(phase) {
-    if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
-    if (window.triviaLocalTimeout) clearTimeout(window.triviaLocalTimeout);
-
-    window.triviaCurrentPhase = phase;
-    let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
-
-    updateTriviaUI(secondsLeft);
-
-    window.triviaLocalInterval = setInterval(() => {
-        secondsLeft--;
-        if (secondsLeft <= 0) {
-            clearInterval(window.triviaLocalInterval);
-            
-            if (phase === 'question') {
-                runLocalTriviaTimerPhase('vote');
-            } else if (phase === 'vote') {
-                runLocalTriviaTimerPhase('reveal');
-            } else if (phase === 'reveal') {
-                window.triviaQuestionCount++;
-                if (window.triviaQuestionCount >= 20) {
-                    // Ends via updates panel evaluation naturally
-                } else {
-                    window.launchLiveTriviaEngine();
-                }
-            }
-        } else {
-            updateTriviaUI(secondsLeft);
-        }
-    }, 1000);
-}
-
-function updateTriviaUI(timerSeconds) {
-    const q = window.sharedRoomTriviaQuestion;
-    if (!q) return;
-
-    const phase = window.triviaCurrentPhase;
-    let statusText = phase === 'question' ? `READING TIME: ${timerSeconds}s` : phase === 'vote' ? `VOTE NOW: ${timerSeconds}s` : `REVEAL: ${timerSeconds}s`;
-    let statusColor = phase === 'question' ? '#ffb703' : phase === 'vote' ? '#00b0ff' : '#00b050';
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
-        <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
-            <span>ROUND: ${window.triviaQuestionCount + 1}/20</span>
-            <span style="color:${statusColor}">${statusText}</span>
-            <span>SCORE: ${window.triviaScorePoints}</span>
-        </div>
-        <div style="background:rgba(0,0,0,0.5);padding:12px;border-radius:8px;font-size:4.8vw;color:#fff;font-weight:900;text-align:center;width:100%;box-sizing:border-box;border:2px solid #ffd700;line-height:1.2;text-shadow:1px 1px 2px #000;">${q.q}</div>
-        <div style="display:flex;flex-direction:column;gap:2vw;width:100%;margin-top:2px;">`;
-
-    if (phase !== 'question') {
-        q.choices.forEach(choice => {
-            let btnBg = '#e2f0d9';
-            let btnColor = '#1e4620';
-            let isDisabled = (phase !== 'vote');
-
-            if (phase === 'vote' && window.triviaRoomVotes[0] === choice) {
-                btnBg = '#00b0ff';
-                btnColor = '#fff';
-            }
-
-            if (phase === 'reveal') {
-                isDisabled = true;
-                if (choice === q.c) {
-                    btnBg = '#00b050'; 
-                    btnColor = '#fff';
-                } else if (window.triviaRoomVotes[0] === choice) {
-                    btnBg = '#e63946'; 
-                    btnColor = '#fff';
-                }
-            }
-
-            // Clean escape wrapper parsing for click elements
-            html += `<button class="trivia-inline-choice-btn" ${isDisabled?'disabled':''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)" >${choice}</button>`;
-        });
-    } else {
-        for(let i=0; i<4; i++) {
-            html += `<div style="width:100%;height:42px;background:rgba(255,255,255,0.03);border:1.5px dashed rgba(255,255,255,0.1);border-radius:6px;"></div>`;
-        }
-    }
-    
-    html += `</div></div>`;
-
-    if (phase === 'reveal' && window.triviaQuestionCount >= 19 && timerSeconds === 1) {
-        setTimeout(() => {
-            gameCanvasContainer.innerHTML = `
-                <div style="text-align:center;padding:20px;user-select:none;">
-                    <h2 style="color:#ffd700;font-family:Impact;font-size:7vw;text-shadow:2px 2px 4px rgba(0,0,0,0.5);">CAMPAIGN COMPLETED</h2>
-                    <div style="font-size:12vw;font-weight:900;color:white;margin:12px 0;font-family:Impact;">${window.triviaScorePoints} / 20</div>
-                    <button onclick="initTriviaGame()" style="padding:12px 24px;font-size:4.5vw;background:#ffd700;color:#1e4620;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-family:Impact,sans-serif;">NEW GAME</button>
-                </div>`;
-        }, 1000);
-    } else {
-        gameCanvasContainer.innerHTML = html;
-    }
-}
-
-window.submitLocalTriviaVote = function(choice) {
-    if (window.triviaCurrentPhase !== 'vote') return;
-    window.triviaRoomVotes[0] = choice;
-    if (choice === window.sharedRoomTriviaQuestion.c) {
-        window.triviaScorePoints++;
-    }
-    updateTriviaUI(5);
-};
-
-
-
-/* ═══════════════════════════════════════════════════════════
-   5.  SOLITAIRE ENGINE (95% GIANT FULL-BODY BACKGROUND SUITS)
-   ═══════════════════════════════════════════════════════════ */
-window.initSolitaireGame = function() {
-    const suits = ['♠','♣','♥','♦'];
-    const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-    let deck = [];
-    
-    suits.forEach(s => ranks.forEach((r, val) => {
-        deck.push({ r, s, val: val + 1, isRed: (s==='♥'||s==='♦'), open: false });
-    }));
-    deck.sort(() => Math.random() - 0.5);
-
-    window.solTableau = Array(7).fill(0).map(() => []);
-    for (let i = 0; i < 7; i++) {
-        for (let j = i; j < 7; j++) {
-            window.solTableau[j].push(deck.pop());
-        }
-        window.solTableau[i][window.solTableau[i].length - 1].open = true;
-    }
-
-    window.solDeck = deck;      
-    window.solWaste = [];       
-    window.solFoundations = Array(4).fill(0).map(() => []); 
-    window.solSelected = null;  
-
-    renderSolitaireBoard();
-};
-
-function renderSolitaireBoard() {
-    const screenW = Math.min(window.innerWidth - 16, 335);
-    const cardW = Math.floor(screenW / 7.6);
-    const cardH = Math.floor(cardW * 1.35); 
-    
-    let html = `<div style="display:flex;flex-direction:column;gap:8px;width:100%;box-sizing:border-box;padding:2px;user-select:none;">`;
-    html += `<div style="display:flex;justify-content:space-between;width:100%;">`;
-    
-    // Draw trigger deck
-    html += `<div onclick="drawSolitaireCard()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:linear-gradient(135deg,#222,#111);border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:4vw;cursor:pointer;box-sizing:border-box;">
-        ${window.solDeck.length ? '⚡' : '↻'}
-    </div>`;
-
-    const topWaste = window.solWaste[window.solWaste.length - 1];
-    let wasteSel = (window.solSelected && window.solSelected.type === 'waste') ? 'outline:2.5px solid #ffd700;outline-offset:-2.5px;' : 'border:1px solid #777;';
-    
-    // Waste Stack Card: 95% Giant Emblem Centered Backing + White Traced Font Layer
-    html += `<div onclick="selectSolitaireWaste()" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topWaste?'#fff':'rgba(0,0,0,0.2)'};color:${topWaste?.isRed?'#e63946':'#111'};${wasteSel}display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
-        ${topWaste ? `
-            <span style="font-size:9.5vw;position:absolute;color:${topWaste.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${topWaste.s}</span>
-            <span style="z-index:2;color:${topWaste.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topWaste.r}</span>` : ''}
-    </div>`;
-
-    html += `<div style="flex-grow:1;"></div>`;
-
-    for (let i = 0; i < 4; i++) {
-        const fPile = window.solFoundations[i];
-        const topF = fPile[fPile.length - 1];
-        html += `<div onclick="targetSolitaireFoundation(${i})" style="width:${cardW}px;height:${cardH}px;border-radius:5px;background:${topF?'#fff':'rgba(255,255,255,0.05)'};border:1.5px dashed rgba(255,215,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;box-sizing:border-box;overflow:hidden;">
-            ${topF ? `
-                <span style="font-size:9.5vw;position:absolute;color:${topF.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${topF.s}</span>
-                <span style="z-index:2;color:${topF.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${topF.r}</span>` : '<span style="color:rgba(255,255,255,0.15);font-size:3.5vw;font-weight:900;">A</span>'}
-        </div>`;
-    }
-    html += `</div>`; 
-
-    // UNIFIED COLUMN CARDS RE-ENGINEERING: Packs cards sequentially downwards onto a clean single layout matrix
-    html += `<div style="display:flex;width:100%;justify-content:space-between;align-items:flex-start;min-height:280px;padding-top:4px;">`;
-    for (let c = 0; c < 7; c++) {
-        const colCards = window.solTableau[c];
-        
-        // EMPTY TARGET CATCHER: Builds interactive dashed boxes if column sets dry out completely to receive Kings
-        html += `<div onclick="targetSolitaireColumn(${c})" style="display:flex;flex-direction:column;width:${cardW}px;min-height:${cardH}px;border-radius:5px;background:${colCards.length?'transparent':'rgba(255,255,255,0.03)'};border:${colCards.length?'none':'1.5px dashed rgba(255,215,0,0.25)'};position:relative;box-sizing:border-box;">`;
-        
-        colCards.forEach((card, idx) => {
-            const isSel = (window.solSelected && window.solSelected.type === 'tableau' && window.solSelected.col === c && window.solSelected.idx === idx);
-            
-            // Tight overlaps: compresses cards smoothly into unified, clear cascades
-            let verticalOffset = 0;
-            for (let k = 0; k < idx; k++) {
-                verticalOffset += colCards[k].open ? 18 : 6;
-            }
-
-            let style = `width:100%;height:${cardH}px;border-radius:5px;position:${idx===0?'relative':'absolute'};margin-top:${idx===0?0:verticalOffset}px;box-sizing:border-box;overflow:hidden;`;
-            
-            if (!card.open) {
-                html += `<div style="${style}background:linear-gradient(135deg,#222,#111);border:1px solid #ffd700;display:flex;align-items:center;justify-content:center;color:#ffd700;font-size:3.2vw;">⚡</div>`;
+            if (typeof activeRoomCode !== "undefined" && activeRoomCode) {
+                roomDisplay.innerText = "Chat Room: " + activeRoomCode;
             } else {
-                let cardBorder = isSel ? 'outline:2.5px solid #ffd700;outline-offset:-2.5px;' : 'border:1px solid #777;';
-                // FIXED INTERACTION WIRE: Tap listeners hook directly into visible cards instead of covered face-downs
-                html += `<div onclick="event.stopPropagation(); selectSolitaireCard(${c}, ${idx})" style="${style}background:#fff;color:${card.isRed?'#e63946':'#111'};${cardBorder}display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;">
-                    <span style="font-size:9.5vw;position:absolute;color:${card.isRed?'#e63946':'#111'};opacity:1;z-index:1;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;text-align:center;line-height:1;">${card.s}</span>
-                    <span style="z-index:2;color:${card.isRed?'#e63946':'#111'};font-size:5vw;font-weight:900;font-family:Impact;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;line-height:1;">${card.r}</span>
-                </div>`;
-            }
-        });
-        html += `</div>`;
-    }
-    html += `</div></div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.drawSolitaireCard = function() {
-    window.solSelected = null;
-    if (window.solDeck.length === 0) {
-        window.solDeck = window.solWaste.reverse().map(c => ({ ...c, open: false }));
-        window.solWaste = [];
-    } else {
-        let card = window.solDeck.pop();
-        card.open = true;
-        window.solWaste.push(card);
-    }
-    renderSolitaireBoard();
-};
-
-window.selectSolitaireWaste = function() {
-    if (window.solWaste.length === 0) return;
-    window.solSelected = { type: 'waste' };
-    renderSolitaireBoard();
-};
-
-window.selectSolitaireCard = function(col, idx) {
-    if (!window.solTableau[col][idx].open) return;
-    window.solSelected = { type: 'tableau', col, idx };
-    renderSolitaireBoard();
-};
-
-window.targetSolitaireColumn = function(toCol) {
-    if (!window.solSelected) return;
-    const targetPile = window.solTableau[toCol];
-    const topTarget = targetPile[targetPile.length - 1];
-    
-    let movingCards = [];
-    // WASTE REDIRECTION TUNNEL: Intercepts active waste nodes to merge them safely down into stacks
-    if (window.solSelected.type === 'waste') {
-        movingCards = [window.solWaste[window.solWaste.length - 1]];
-    } else {
-        movingCards = window.solTableau[window.solSelected.col].slice(window.solSelected.idx);
-    }
-
-    if (!movingCards || movingCards.length === 0 || !movingCards[0]) {
-        window.solSelected = null;
-        return;
-    }
-
-    const firstMovingCard = movingCards[0];
-    let isValid = false;
-    if (!topTarget) {
-        if (firstMovingCard.val === 13) isValid = true; 
-    } else if (topTarget.open && topTarget.isRed !== firstMovingCard.isRed && topTarget.val === firstMovingCard.val + 1) {
-        isValid = true;
-    }
-
-    if (isValid) {
-        if (window.solSelected.type === 'waste') {
-            targetPile.push(window.solWaste.pop());
-        } else {
-            const originCol = window.solTableau[window.solSelected.col];
-            window.solTableau[window.solSelected.col] = originCol.slice(0, window.solSelected.idx);
-            movingCards.forEach(c => targetPile.push(c));
-            if (window.solTableau[window.solSelected.col].length > 0) {
-                window.solTableau[window.solSelected.col][window.solTableau[window.solSelected.col].length - 1].open = true;
+                roomDisplay.innerText = "Chat Room";
             }
         }
-        checkSolitaireVictory();
-    }
-    window.solSelected = null;
-    renderSolitaireBoard();
-};
-
-window.targetSolitaireFoundation = function(fIdx) {
-    if (!window.solSelected || (window.solSelected.type === 'tableau' && window.solSelected.idx !== window.solTableau[window.solSelected.col].length - 1)) return;
-    
-    let card = (window.solSelected.type === 'waste') 
-        ? window.solWaste[window.solWaste.length - 1] 
-        : window.solTableau[window.solSelected.col][window.solSelected.idx];
-        
-    if (!card) return;
-    const fPile = window.solFoundations[fIdx];
-    const topF = fPile[fPile.length - 1];
-    
-    let isValid = false;
-    if (!topF) {
-        if (card.val === 1) isValid = true; 
-    } else if (topF.s === card.s && card.val === topF.val + 1) {
-        isValid = true;
     }
 
-    if (isValid) {
-        if (window.solSelected.type === 'waste') {
-            fPile.push(window.solWaste.pop());
-        } else {
-            fPile.push(window.solTableau[window.solSelected.col].pop());
-            if (window.solTableau[window.solSelected.col].length > 0) {
-                window.solTableau[window.solSelected.col][window.solTableau[window.solSelected.col].length - 1].open = true;
+    function openGameStage() {
+        gameStage.classList.add("open");
+        gameStage.style.height = "72vh";
+        gameStage.style.maxHeight = "580px";
+    }
+
+    function closeGameStage() {
+        gameStage.classList.remove("open");
+        gameStage.style.height = "";
+        gameStage.style.maxHeight = "";
+    }
+
+    window.cleanupRunningGameEngine = function () {
+        clearGameTimers();
+
+        window.chaserGame.activeGame = null;
+        window.chaserGame.activeGameId = null;
+        window.chaserGame.expectedPlayers = 1;
+        window.chaserGame.mySeat = null;
+        window.chaserGame.hostId = null;
+        window.chaserGame.players = [];
+        window.chaserGame.state = {};
+        window.chaserGame.currentLobby = null;
+
+        gameCanvas.innerHTML = "";
+    };
+
+    window.shutdownActiveGame = function () {
+        window.cleanupRunningGameEngine();
+        closeGameStage();
+        restoreChatHeader();
+    };
+
+    window.chaserMasterExitSequence = window.shutdownActiveGame;
+
+    /* ============================================================
+       GAME LAUNCH + PLAYER LOBBY
+       ============================================================ */
+
+    const GAME_CONFIG = {
+        "Checkers": {
+            icon: "🔴",
+            minPlayers: 2,
+            maxPlayers: 2,
+            fixedPlayers: 2,
+            multiplayer: true,
+            init: initCheckersGame
+        },
+        "Sequence": {
+            icon: "⚔️",
+            minPlayers: 2,
+            maxPlayers: 2,
+            fixedPlayers: 2,
+            multiplayer: true,
+            init: () => {
+                if (typeof window.initSequenceGame === "function") window.initSequenceGame();
+            }
+        },
+        "Battle Uno": {
+            icon: "🃏",
+            displayName: "Uno",
+            minPlayers: 2,
+            maxPlayers: 10,
+            multiplayer: true,
+            init: () => {
+                if (typeof window.initChaserUnoGame === "function") window.initChaserUnoGame();
+            }
+        },
+        "Crew Trivia": {
+            icon: "🧠",
+            displayName: "Trivia",
+            minPlayers: 1,
+            maxPlayers: 10,
+            multiplayer: true,
+            init: () => {
+                if (typeof window.initTriviaGame === "function") window.initTriviaGame();
+            }
+        },
+        "Solitaire": {
+            icon: "🃏",
+            minPlayers: 1,
+            maxPlayers: 1,
+            fixedPlayers: 1,
+            multiplayer: false,
+            init: () => {
+                if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
+            }
+        },
+        "Hangman": {
+            icon: "🪓",
+            minPlayers: 1,
+            maxPlayers: 1,
+            fixedPlayers: 1,
+            multiplayer: false,
+            init: () => {
+                if (typeof window.initHangmanGame === "function") window.initHangmanGame();
             }
         }
-        checkSolitaireVictory();
-    }
-    window.solSelected = null;
-    renderSolitaireBoard();
-};
+    };
 
-function checkSolitaireVictory() {
-    if (window.solFoundations.reduce((acc, current) => acc + current.length, 0) === 52) {
-        setTimeout(() => {
-            gameCanvasContainer.innerHTML = `<div style="text-align:center;padding:20px;color:#ffd700;font-family:Impact;font-size:7vw;">👑 SOLITAIRE VICTORY!</div>`;
-        }, 300);
-    }
-}
+    window.launchGameEngine = function (gameName, gameIcon) {
+        if (gameHub) gameHub.classList.remove("open");
 
-/* ═══════════════════════════════════════════════════════════
-   6.  HANGMAN ENGINE
-   ═══════════════════════════════════════════════════════════ */
-const HANGMAN_DICTIONARY_POOL = ['CHASER','UNICYCLE','ADVENTURE','JOURNEY','HIGHWAY','VELOCITY','NAVIGATOR','COMPASS','HORIZON','PASSPORT','WANDERER','ROUTING','POSTAL','BATTERY','SURVIVAL','FLOORING'];
-
-function initHangmanGame() {
-    const targetWord = HANGMAN_DICTIONARY_POOL[Math.floor(Math.random() * HANGMAN_DICTIONARY_POOL.length)];
-    window.hangmanState = { word: targetWord, guessed: [], wrong: 0, maxWrong: 6, dying: false };
-    renderHangmanGame();
-}
-
-function buildHangmanSVG(wrong, dying) {
-    const bodyColor = dying ? '#dc3545' : '#e2f0d9';
-    const shake     = dying ? 'style="animation:hangShake 0.5s ease-in-out 3"' : '';
-    const p = { head: wrong>=1, body: wrong>=2, leftA: wrong>=3, rightA: wrong>=4, leftL: wrong>=5, rightL: wrong>=6 };
-    
-    return `<svg viewBox="0 0 120 120" width="105" height="105" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
-        <style>@keyframes hangShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}</style>
-        <line x1="15" y1="115" x2="105" y2="115" stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
-        <line x1="35" y1="115" x2="35"  y2="12"  stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
-        <line x1="35" y1="12"  x2="80"  y2="12"  stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
-        <line x1="80" y1="12"  x2="80"  y2="28"  stroke="#ffd700" stroke-width="3" stroke-linecap="round"/>
-        <g ${shake} transform-origin="80 34">
-            ${p.head?`<circle cx="80" cy="36" r="9" stroke="${bodyColor}" stroke-width="3" fill="none"/>`:'' }
-            ${p.head&&dying?`<text x="74" y="40" font-size="10" font-weight="bold" fill="${bodyColor}">xx</text>`
-              :p.head?`<circle cx="77" cy="33" r="1" fill="${bodyColor}"/><circle cx="83" cy="33" r="1" fill="${bodyColor}"/><path d="M77 41 Q80 43 83 41" stroke="${bodyColor}" stroke-width="1.5" fill="none"/>`:'' }
-            ${p.body  ?`<line x1="80" y1="45" x2="80" y2="80" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>`:'' }
-            ${p.leftA ?`<line x1="80" y1="52" x2="62" y2="66" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>`:'' }
-            ${p.rightA?`<line x1="80" y1="52" x2="98" y2="66" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>`:'' }
-            ${p.leftL ?`<line x1="80" y1="80" x2="65" y2="104" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>`:'' }
-            ${p.rightL?`<line x1="80" y1="80" x2="95" y2="104" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/>`:'' }
-        </g>
-    </svg>`;
-}
-
-function renderHangmanGame() {
-    const state = window.hangmanState;
-    if(!state || !state.word) return;
-    
-    let isWin = state.word.split('').every(l => state.guessed.includes(l));
-    let isLose = state.wrong >= state.maxWrong;
-
-    let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;box-sizing:border-box;user-select:none;">`;
-    html += `<div style="width:100%;max-height:105px;overflow:hidden;">${buildHangmanSVG(state.wrong, state.dying || isLose)}</div>`;
-
-    html += `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0;">`;
-    state.word.split('').forEach(letter => {
-        const revealed = state.guessed.includes(letter) || isLose;
-        html += `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-            <div style="font-size:6vw;font-weight:900;color:${revealed?(isLose && !state.guessed.includes(letter)?'#dc3545':'#ffd700'):'transparent'};min-width:22px;text-align:center;font-family:Impact,sans-serif;line-height:1;">${letter}</div>
-            <div style="width:22px;height:3.5px;background:#e2f0d9;border-radius:2px;"></div>
-        </div>`;
-    });
-    html += `</div>`;
-
-    if (isWin) {
-        html += `<div style="color:#00b050;font-size:4.5vw;font-weight:bold;text-align:center;">🎉 YOU GOT IT!</div>
-            <button onclick="initHangmanGame()" style="background:#ffd700;color:#1e4620;border:none;border-radius:6px;padding:10px 22px;font-size:3.8vw;font-weight:900;cursor:pointer;margin-top:2px;font-family:Impact,sans-serif;">NEW GAME</button>`;
-    } else if (isLose) {
-        html += `<div style="color:#dc3545;font-size:4.2vw;font-weight:bold;text-align:center;">💀 GAME OVER</div>
-            <button onclick="initHangmanGame()" style="background:#ffd700;color:#1e4620;border:none;border-radius:6px;padding:10px 22px;font-size:3.8vw;font-weight:900;cursor:pointer;margin-top:2px;font-family:Impact,sans-serif;">RETRY</button>`;
-    } else {
-        html += `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:320px;padding:2px 0;">`;
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach(letter => {
-            const used = state.guessed.includes(letter);
-            const isWrong = used && !state.word.includes(letter);
-            const isRight = used && state.word.includes(letter);
-            html += `<button onclick="handleHangmanClick('${letter}')" ${used?'disabled':''}
-                style="width:100%;height:32px;border-radius:4px;border:none;font-weight:900;font-size:3.8vw;
-                cursor:${used?'default':'pointer'};
-                background:${isWrong?'#dc3545':isRight?'#00b050':'#e2f0d9'};
-                color:${used?'white':'#1e4620'};opacity:${used?0.4:1};box-shadow:0 2px 4px rgba(0,0,0,0.15);font-family:Impact,sans-serif;">
-                ${letter}
-            </button>`;
-        });
-        html += `</div>`;
-    }
-    html += `</div>`;
-    gameCanvasContainer.innerHTML = html;
-}
-
-window.handleHangmanClick = function(letter) {
-    const state = window.hangmanState;
-    if(!state || !state.word || state.guessed.includes(letter)) return;
-    
-    state.guessed.push(letter);
-    if(!state.word.includes(letter)) {
-        state.wrong++;
-        if(state.wrong >= state.maxWrong) {
-            state.dying = true;
-            renderHangmanGame();
-            setTimeout(()=>{ state.dying=false; renderHangmanGame(); }, 1600);
+        const config = GAME_CONFIG[gameName];
+        if (!config) {
+            gameCanvas.innerHTML = `<div style="color:white;padding:20px;">Game not found.</div>`;
             return;
         }
+
+        window.cleanupRunningGameEngine();
+
+        const displayName = config.displayName || gameName;
+        window.chaserGame.activeGame = displayName;
+        window.chaserGame.activeGameId = makeGameId(displayName);
+        window.chaserGame.players = [];
+        window.chaserGame.hostId = myGameId();
+
+        openGameStage();
+        setGameHeader(`${config.icon || gameIcon || "🎮"} ${displayName}`);
+
+        if (config.fixedPlayers) {
+            window.chaserGame.expectedPlayers = config.fixedPlayers;
+
+            if (config.fixedPlayers === 1) {
+                window.chaserGame.players = [{
+                    id: myGameId(),
+                    name: myGameName(),
+                    seat: 0
+                }];
+                window.chaserGame.mySeat = 0;
+                config.init();
+                return;
+            }
+
+            createLobby(displayName, config, config.fixedPlayers);
+            return;
+        }
+
+        showPlayerCountChooser(displayName, config);
+    };
+
+    function showPlayerCountChooser(gameName, config) {
+        let buttons = "";
+
+        for (let i = config.minPlayers; i <= config.maxPlayers; i++) {
+            buttons += `
+                <button onclick="window.chooseChaserGamePlayerCount(${i})"
+                    style="background:#e2f0d9;color:#1e4620;border:3px solid #2d6a30;border-radius:10px;
+                    font-size:22px;font-weight:900;padding:10px;cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.3);">
+                    ${i}
+                </button>`;
+        }
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:14px;padding:16px;box-sizing:border-box;color:white;text-align:center;">
+                <div style="font-size:26px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
+                    ${gameName}
+                </div>
+                <div style="font-size:16px;color:#e2f0d9;font-weight:bold;">
+                    How many players?
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;width:100%;max-width:320px;">
+                    ${buttons}
+                </div>
+            </div>`;
+
+        window.chaserGame.pendingConfig = config;
+        window.chaserGame.pendingGameName = gameName;
     }
-    renderHangmanGame();
-};
+
+    window.chooseChaserGamePlayerCount = function (count) {
+        const config = window.chaserGame.pendingConfig;
+        const gameName = window.chaserGame.pendingGameName;
+        if (!config || !gameName) return;
+
+        window.chaserGame.expectedPlayers = count;
+        createLobby(gameName, config, count);
+    };
+
+    function createLobby(gameName, config, expectedPlayers) {
+        const me = {
+            id: myGameId(),
+            name: myGameName(),
+            seat: 0
+        };
+
+        window.chaserGame.players = [me];
+        window.chaserGame.mySeat = 0;
+        window.chaserGame.hostId = me.id;
+        window.chaserGame.currentLobby = {
+            gameName,
+            expectedPlayers,
+            config
+        };
+
+        sendGameEvent("chaser-game-lobby-open", {
+            gameName,
+            expectedPlayers,
+            players: window.chaserGame.players,
+            hostId: me.id
+        });
+
+        renderLobby(gameName, config);
+    }
+
+    function renderLobby(gameName, config) {
+        const expected = window.chaserGame.expectedPlayers;
+        const players = window.chaserGame.players || [];
+        const waiting = Math.max(0, expected - players.length);
+        const isHost = window.chaserGame.hostId === myGameId();
+
+        let playerRows = players.map(p => `
+            <div style="background:#e2f0d9;color:#1e4620;border-radius:8px;padding:8px 10px;
+                font-size:16px;font-weight:900;display:flex;justify-content:space-between;">
+                <span>✓ ${p.name}</span>
+                <span>Seat ${p.seat + 1}</span>
+            </div>
+        `).join("");
+
+        let emptyRows = "";
+        for (let i = 0; i < waiting; i++) {
+            emptyRows += `
+                <div style="background:rgba(255,255,255,0.08);color:#a3cfbb;border:2px dashed rgba(226,240,217,0.25);
+                    border-radius:8px;padding:8px 10px;font-size:16px;font-weight:bold;">
+                    Waiting for player...
+                </div>`;
+        }
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:12px;padding:14px;box-sizing:border-box;text-align:center;">
+                <div style="font-size:28px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
+                    ${gameName}
+                </div>
+                <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">
+                    Expected Players: ${expected}
+                </div>
+                <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:7px;">
+                    ${playerRows}
+                    ${emptyRows}
+                </div>
+                <div style="color:${waiting === 0 ? '#00b050' : '#ffd700'};font-weight:900;font-size:15px;">
+                    ${waiting === 0 ? 'Ready to start!' : 'Waiting for ' + waiting + ' more player' + (waiting === 1 ? '' : 's') + '...'}
+                </div>
+                ${isHost ? `
+                    <button onclick="window.startChaserLobbyGame()"
+                        style="background:${waiting === 0 ? '#ffd700' : '#6c757d'};color:${waiting === 0 ? '#1e4620' : '#ffffff'};
+                        border:none;border-radius:10px;padding:12px 22px;font-size:18px;font-weight:900;cursor:pointer;
+                        font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.35);">
+                        ${waiting === 0 ? 'START GAME' : 'START NOW'}
+                    </button>
+                ` : `
+                    <div style="color:#a3cfbb;font-size:14px;font-weight:bold;">Host will start the game.</div>
+                `}
+            </div>`;
+    }
+
+    window.startChaserLobbyGame = function () {
+        const lobby = window.chaserGame.currentLobby;
+        if (!lobby || !lobby.config) return;
+
+        sendGameEvent("chaser-game-lobby-start", {
+            gameName: lobby.gameName,
+            expectedPlayers: window.chaserGame.expectedPlayers,
+            players: window.chaserGame.players,
+            hostId: window.chaserGame.hostId
+        });
+
+        lobby.config.init();
+    };
+
+    function joinLobby(payload) {
+        if (!payload || !payload.gameName || !payload.roomGameId) return;
+
+        if (window.chaserGame.activeGame && window.chaserGame.activeGameId !== payload.roomGameId) {
+            return;
+        }
+
+        const alreadyIn = (payload.players || []).some(p => p.id === myGameId());
+        const full = (payload.players || []).length >= payload.expectedPlayers;
+
+        if (alreadyIn || full) return;
+
+        window.chaserGame.activeGame = payload.gameName;
+        window.chaserGame.activeGameId = payload.roomGameId;
+        window.chaserGame.expectedPlayers = payload.expectedPlayers;
+        window.chaserGame.hostId = payload.hostId;
+        window.chaserGame.players = payload.players || [];
+
+        const mySeat = window.chaserGame.players.length;
+        window.chaserGame.mySeat = mySeat;
+
+        window.chaserGame.players.push({
+            id: myGameId(),
+            name: myGameName(),
+            seat: mySeat
+        });
+
+        sendGameEvent("chaser-game-lobby-update", {
+            gameName: payload.gameName,
+            expectedPlayers: window.chaserGame.expectedPlayers,
+            players: window.chaserGame.players,
+            hostId: window.chaserGame.hostId
+        });
+
+        openGameStage();
+        setGameHeader(payload.gameName);
+        renderLobby(payload.gameName, GAME_CONFIG[payload.gameName] || GAME_CONFIG["Battle Uno"]);
+    }
+
+    function receiveLobbyUpdate(payload) {
+        if (!payload || payload.roomGameId !== window.chaserGame.activeGameId) return;
+        window.chaserGame.players = payload.players || window.chaserGame.players;
+        window.chaserGame.expectedPlayers = payload.expectedPlayers || window.chaserGame.expectedPlayers;
+        window.chaserGame.hostId = payload.hostId || window.chaserGame.hostId;
+
+        const me = window.chaserGame.players.find(p => p.id === myGameId());
+        if (me) window.chaserGame.mySeat = me.seat;
+
+        if (window.chaserGame.currentLobby) {
+            renderLobby(window.chaserGame.currentLobby.gameName, window.chaserGame.currentLobby.config);
+        }
+    }
+
+    function receiveLobbyStart(payload) {
+        if (!payload || payload.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.chaserGame.players = payload.players || window.chaserGame.players;
+        const me = window.chaserGame.players.find(p => p.id === myGameId());
+        if (me) window.chaserGame.mySeat = me.seat;
+
+        const config = GAME_CONFIG[payload.gameName] || GAME_CONFIG["Battle Uno"];
+        if (config && config.init) config.init();
+    }
+
+    /* ============================================================
+       INCOMING SYNC HANDLERS USED BY INDEX.HTML
+       ============================================================ */
+
+    window.handleIncomingCheckersSync = function (p) {
+        if (!p) return;
+        if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.checkersBoard = p.boardState;
+        window.checkersTurnSeat = p.turnSeat;
+        window.checkersPlayerSeats = p.playerSeats || window.checkersPlayerSeats;
+        window.selectedCheckerIdx = null;
+        window.consecutiveJumpsActive = p.consecutiveActive || false;
+        window.lastJumpDestinationIdx = p.lastJumpDestinationIdx ?? null;
+
+        if (gameStage.classList.contains("open") && window.chaserGame.activeGame === "Checkers") {
+            renderCheckersGrid();
+        }
+    };
+
+    window.handleIncomingUnoSync = function (p) {
+        if (typeof window.receiveUnoSync === "function") window.receiveUnoSync(p);
+    };
+
+    window.handleIncomingTriviaSync = function (p) {
+        if (typeof window.receiveTriviaSync === "function") window.receiveTriviaSync(p);
+    };
+
+    window.handleIncomingSequenceSync = function (p) {
+        if (typeof window.receiveSequenceSync === "function") window.receiveSequenceSync(p);
+    };
+
+    window.handleIncomingChaserGameLobby = function (payload) {
+        joinLobby(payload);
+    };
+
+    window.handleIncomingChaserGameLobbyUpdate = function (payload) {
+        receiveLobbyUpdate(payload);
+    };
+
+    window.handleIncomingChaserGameLobbyStart = function (payload) {
+        receiveLobbyStart(payload);
+    };
+
+    /* ============================================================
+       1. CHECKERS – 2 PLAYER TURN LOCK
+       ============================================================ */
+
+    function initCheckersGame() {
+        window.chaserGame.activeGame = "Checkers";
+
+        const players = window.chaserGame.players && window.chaserGame.players.length
+            ? window.chaserGame.players
+            : [
+                { id: myGameId(), name: myGameName(), seat: 0 },
+                { id: "waiting-player", name: "Player 2", seat: 1 }
+            ];
+
+        window.checkersPlayerSeats = players.slice(0, 2);
+        window.checkersMySeat = window.chaserGame.mySeat ?? 0;
+
+        if (window.chaserGame.hostId === myGameId() || !window.checkersBoard) {
+            window.checkersBoard = Array(64).fill(0).map((_, i) => {
+                const r = Math.floor(i / 8);
+                const c = i % 8;
+                if ((r + c) % 2 === 1) {
+                    if (r < 3) return 2;
+                    if (r > 4) return 1;
+                }
+                return 0;
+            });
+
+            window.checkersTurnSeat = 0;
+            window.selectedCheckerIdx = null;
+            window.consecutiveJumpsActive = false;
+            window.lastJumpDestinationIdx = null;
+
+            syncCheckers();
+        }
+
+        renderCheckersGrid();
+    }
+
+    function syncCheckers() {
+        sendGameEvent("checkers-sync-move", {
+            boardState: window.checkersBoard,
+            turnSeat: window.checkersTurnSeat,
+            playerSeats: window.checkersPlayerSeats,
+            consecutiveActive: window.consecutiveJumpsActive,
+            lastJumpDestinationIdx: window.lastJumpDestinationIdx
+        });
+    }
+
+    function checkerPieceBelongsToSeat(piece, seat) {
+        if (seat === 0) return piece === 1 || piece === 3;
+        if (seat === 1) return piece === 2 || piece === 4;
+        return false;
+    }
+
+    function checkerPieceIsKing(piece) {
+        return piece === 3 || piece === 4;
+    }
+
+    function checkerPieceSeat(piece) {
+        if (piece === 1 || piece === 3) return 0;
+        if (piece === 2 || piece === 4) return 1;
+        return null;
+    }
+
+    function renderCheckersGrid() {
+        const board = window.checkersBoard || [];
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const turnSeat = window.checkersTurnSeat ?? 0;
+        const myTurn = mySeat === turnSeat;
+
+        const boardPx = Math.min(336, Math.floor((window.innerWidth - 18) * 0.96));
+        const cellPx = Math.floor(boardPx / 8);
+        const actualBoardPx = cellPx * 8;
+        const piecePx = Math.floor(cellPx * 0.80);
+
+        const redName = window.checkersPlayerSeats?.[0]?.name || "Red";
+        const blackName = window.checkersPlayerSeats?.[1]?.name || "Black";
+
+        let html = `
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;box-sizing:border-box;user-select:none;">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <div style="color:#ffd700;font-weight:900;font-size:15px;font-family:Impact,sans-serif;">
+                        ${turnSeat === 0 ? "🔴 RED" : "⚫ BLACK"} TURN
+                    </div>
+                    <div style="color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;font-size:13px;">
+                        ${myTurn ? "YOUR MOVE" : "WAITING"}
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(8,${cellPx}px);grid-template-rows:repeat(8,${cellPx}px);
+                    width:${actualBoardPx}px;height:${actualBoardPx}px;border:4px solid #ffd700;border-radius:8px;overflow:hidden;
+                    box-shadow:0 5px 16px rgba(0,0,0,0.5);">`;
+
+        for (let i = 0; i < 64; i++) {
+            const piece = board[i];
+            const row = Math.floor(i / 8);
+            const col = i % 8;
+            const dark = (row + col) % 2 === 1;
+            const bgColor = dark ? "#2d6a30" : "#e2f0d9";
+            const selected = window.selectedCheckerIdx === i;
+
+            let pieceHtml = "";
+            if (piece) {
+                const seat = checkerPieceSeat(piece);
+                const isKing = checkerPieceIsKing(piece);
+                const isRed = seat === 0;
+                const grad = isRed
+                    ? "radial-gradient(circle at 35% 30%,#ff8a8a,#c40000)"
+                    : "radial-gradient(circle at 35% 30%,#666,#111)";
+
+                pieceHtml = `
+                    <div style="width:${piecePx}px;height:${piecePx}px;border-radius:50%;background:${grad};
+                        border:${isKing ? "4px solid #ffd700" : "3px solid #ffffff"};
+                        display:flex;align-items:center;justify-content:center;
+                        box-shadow:0 3px 6px rgba(0,0,0,0.45);color:white;font-size:${Math.floor(piecePx * 0.45)}px;font-weight:900;">
+                        ${isKing ? "♛" : ""}
+                    </div>`;
+            }
+
+            html += `
+                <div onclick="window.handleCheckerTap(${i})"
+                    style="width:${cellPx}px;height:${cellPx}px;background:${bgColor};
+                    display:flex;align-items:center;justify-content:center;box-sizing:border-box;cursor:pointer;
+                    ${selected ? "outline:4px solid #ffd700;outline-offset:-4px;" : ""}">
+                    ${pieceHtml}
+                </div>`;
+        }
+
+        html += `
+                </div>
+                <div style="width:100%;display:flex;justify-content:space-between;color:#e2f0d9;font-size:12px;font-weight:bold;">
+                    <span>🔴 ${redName}</span>
+                    <span>⚫ ${blackName}</span>
+                </div>
+            </div>`;
+
+        gameCanvas.innerHTML = html;
+    }
+
+    function getCheckerMoves(idx, board, seat, jumpOnly) {
+        const piece = board[idx];
+        if (!piece) return [];
+
+        const isKing = checkerPieceIsKing(piece);
+        const r = Math.floor(idx / 8);
+        const c = idx % 8;
+        const moves = [];
+
+        const dirs = [];
+
+        if (seat === 0 || isKing) dirs.push([-1, -1], [-1, 1]);
+        if (seat === 1 || isKing) dirs.push([1, -1], [1, 1]);
+
+        dirs.forEach(([dr, dc]) => {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr < 0 || nr > 7 || nc < 0 || nc > 7) return;
+
+            const ni = nr * 8 + nc;
+            const target = board[ni];
+
+            if (!target && !jumpOnly) {
+                moves.push(ni);
+            } else if (target && checkerPieceSeat(target) !== seat) {
+                const jr = nr + dr;
+                const jc = nc + dc;
+                if (jr < 0 || jr > 7 || jc < 0 || jc > 7) return;
+                const ji = jr * 8 + jc;
+                if (!board[ji]) moves.push(ji);
+            }
+        });
+
+        return moves;
+    }
+
+    window.handleCheckerTap = function (idx) {
+        const board = window.checkersBoard;
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const turnSeat = window.checkersTurnSeat ?? 0;
+
+        if (!board || mySeat !== turnSeat) return;
+
+        const piece = board[idx];
+
+        if (window.selectedCheckerIdx === null) {
+            if (checkerPieceBelongsToSeat(piece, mySeat)) {
+                if (window.consecutiveJumpsActive && idx !== window.lastJumpDestinationIdx) return;
+                window.selectedCheckerIdx = idx;
+                renderCheckersGrid();
+            }
+            return;
+        }
+
+        const from = window.selectedCheckerIdx;
+        const moves = getCheckerMoves(from, board, mySeat, window.consecutiveJumpsActive);
+
+        if (!moves.includes(idx)) {
+            if (checkerPieceBelongsToSeat(piece, mySeat) && !window.consecutiveJumpsActive) {
+                window.selectedCheckerIdx = idx;
+            } else if (!window.consecutiveJumpsActive) {
+                window.selectedCheckerIdx = null;
+            }
+            renderCheckersGrid();
+            return;
+        }
+
+        const isJump = Math.abs(idx - from) > 10;
+
+        board[idx] = board[from];
+        board[from] = 0;
+
+        if (isJump) {
+            board[Math.floor((from + idx) / 2)] = 0;
+        }
+
+        if (board[idx] === 1 && Math.floor(idx / 8) === 0) board[idx] = 3;
+        if (board[idx] === 2 && Math.floor(idx / 8) === 7) board[idx] = 4;
+
+        let hasMoreJumps = false;
+
+        if (isJump) {
+            const extra = getCheckerMoves(idx, board, mySeat, true);
+            if (extra.length > 0) {
+                hasMoreJumps = true;
+                window.consecutiveJumpsActive = true;
+                window.lastJumpDestinationIdx = idx;
+                window.selectedCheckerIdx = idx;
+            }
+        }
+
+        if (!hasMoreJumps) {
+            window.selectedCheckerIdx = null;
+            window.consecutiveJumpsActive = false;
+            window.lastJumpDestinationIdx = null;
+            window.checkersTurnSeat = turnSeat === 0 ? 1 : 0;
+        }
+
+        syncCheckers();
+        renderCheckersGrid();
+    };
+   /* ============================================================
+   CHASER ARCADE ENGINE – games.js
+   REBUILT VERSION – PART 2 OF 3
+   Sequence + Uno
+   ============================================================ */
+
+(function () {
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const gameCanvas = $("gameCanvasContainer");
+    const gameStage = $("activeGameStage");
+
+    function myGameId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function myGameName() {
+        const input = document.getElementById("username");
+        return (input && input.value.trim()) || localStorage.getItem("rider_saved_name") || "Player";
+    }
+
+    function sendGameEvent(event, payload) {
+        if (typeof channel !== "undefined" && channel && typeof channel.send === "function") {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myGameId(),
+                    senderName: myGameName(),
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+    }
+
+    function shuffle(arr) {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    /* ============================================================
+       2. SEQUENCE – REAL STYLE 2 PLAYER VERSION
+       ============================================================ */
+
+    const SEQ_GRID = [
+        "FREE","2S","3S","4S","5S","6S","7S","8S","9S","FREE",
+        "6C","5C","4C","3C","2C","AH","KH","QH","10H","10S",
+        "7C","AS","2D","3D","4D","5D","6D","7D","9H","QS",
+        "8C","KS","6C","5C","4C","3C","2C","8D","8H","KS",
+        "9C","QS","7C","6H","5H","4H","AS","9D","7H","AS",
+        "10C","10S","8C","7H","2H","3H","KS","10D","6H","2D",
+        "QC","JS","9C","8H","AD","KD","QD","JD","5H","3D",
+        "KC","QC","10C","9H","10H","QH","KH","AH","4H","4D",
+        "AC","3D","2D","AS","KS","QS","JS","10S","9S","5D",
+        "FREE","AC","KC","QC","JC","10C","9C","8C","7C","FREE"
+    ];
+
+    const SUIT_SYMBOL = {
+        S: "♠",
+        C: "♣",
+        H: "♥",
+        D: "♦"
+    };
+
+    function displayCard(code) {
+        if (code === "FREE") return { rank: "★", suit: "", red: false, free: true };
+        const suit = code.slice(-1);
+        const rank = code.slice(0, -1);
+        return {
+            rank,
+            suit: SUIT_SYMBOL[suit],
+            red: suit === "H" || suit === "D",
+            free: false
+        };
+    }
+
+    function buildSequenceDeck() {
+        const suits = ["S", "C", "H", "D"];
+        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+        let deck = [];
+        for (let d = 0; d < 2; d++) {
+            suits.forEach(s => ranks.forEach(r => deck.push(r + s)));
+        }
+        return shuffle(deck);
+    }
+
+    function isOneEyedJack(card) {
+        return card === "JS" || card === "JH";
+    }
+
+    function isTwoEyedJack(card) {
+        return card === "JC" || card === "JD";
+    }
+
+    function seqTeamName(team) {
+        return team === 1 ? "BLUE" : "RED";
+    }
+
+    function seqTeamColor(team) {
+        return team === 1 ? "#00b0ff" : "#e63946";
+    }
+
+    window.initSequenceGame = function () {
+        window.chaserGame.activeGame = "Sequence";
+        window.seqMySeat = window.chaserGame.mySeat ?? 0;
+        window.seqMyTeam = window.seqMySeat === 0 ? 1 : 2;
+
+        const isHost = window.chaserGame.hostId === myGameId();
+
+        if (isHost || !window.seqState) {
+            const deck = buildSequenceDeck();
+            const hands = [[], []];
+
+            for (let p = 0; p < 2; p++) {
+                for (let i = 0; i < 7; i++) {
+                    hands[p].push(deck.pop());
+                }
+            }
+
+            window.seqState = {
+                board: Array(100).fill(0),
+                locked: Array(100).fill(0),
+                deck,
+                hands,
+                turnTeam: 1,
+                selectedCardIdx: null,
+                sequences: [0, 0],
+                winner: null,
+                message: "Blue starts."
+            };
+
+            syncSequence();
+        }
+
+        renderSequenceBoard();
+    };
+
+    function syncSequence() {
+        sendGameEvent("sequence-sync-state", {
+            state: window.seqState
+        });
+    }
+
+    window.receiveSequenceSync = function (p) {
+        if (!p || !p.state) return;
+        if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.seqState = p.state;
+        if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Sequence") {
+            renderSequenceBoard();
+        }
+    };
+
+    function countSequenceLines(board, locked, team) {
+        const dirs = [
+            [0, 1],
+            [1, 0],
+            [1, 1],
+            [1, -1]
+        ];
+
+        const cornerIndexes = [0, 9, 90, 99];
+        let lines = [];
+
+        function ownerAt(idx) {
+            if (cornerIndexes.includes(idx)) return team;
+            return board[idx];
+        }
+
+        for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 10; c++) {
+                dirs.forEach(([dr, dc]) => {
+                    let cells = [];
+                    for (let k = 0; k < 5; k++) {
+                        const nr = r + dr * k;
+                        const nc = c + dc * k;
+                        if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) return;
+                        cells.push(nr * 10 + nc);
+                    }
+
+                    if (cells.length === 5 && cells.every(idx => ownerAt(idx) === team)) {
+                        const alreadyLocked = cells.filter(idx => locked[idx] === team).length;
+                        if (alreadyLocked < 5) {
+                            lines.push(cells);
+                        }
+                    }
+                });
+            }
+        }
+
+        return lines;
+    }
+
+    function applyNewSequences(team) {
+        const s = window.seqState;
+        const lines = countSequenceLines(s.board, s.locked, team);
+        let added = 0;
+
+        lines.forEach(line => {
+            let usable = line.some(idx => s.locked[idx] !== team);
+            if (!usable) return;
+
+            line.forEach(idx => {
+                if (SEQ_GRID[idx] !== "FREE") s.locked[idx] = team;
+            });
+
+            added++;
+        });
+
+        if (added > 0) {
+            s.sequences[team - 1] += added;
+            s.message = `${seqTeamName(team)} made a sequence!`;
+
+            if (s.sequences[team - 1] >= 2) {
+                s.winner = team;
+                s.message = `${seqTeamName(team)} wins!`;
+            }
+        }
+    }
+
+    function drawSequenceReplacementCard(handIdx) {
+        const s = window.seqState;
+        if (!s.deck.length) {
+            s.hands[handIdx].splice(s.selectedCardIdx, 1);
+            return;
+        }
+        s.hands[handIdx][s.selectedCardIdx] = s.deck.pop();
+    }
+
+    function renderSequenceBoard() {
+        const s = window.seqState;
+        if (!s) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const myTeam = mySeat === 0 ? 1 : 2;
+        const myHand = s.hands[mySeat] || [];
+        const myTurn = s.turnTeam === myTeam && !s.winner;
+        const selectedCard = s.selectedCardIdx !== null ? myHand[s.selectedCardIdx] : null;
+
+        const screenW = Math.min(window.innerWidth - 16, 352);
+        const cellPx = Math.floor(screenW / 10);
+        const gridPx = cellPx * 10;
+
+        let html = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;box-sizing:border-box;user-select:none;overflow:hidden;">
+                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <div style="font-size:15px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
+                        ${seqTeamName(s.turnTeam)} TURN
+                    </div>
+                    <div style="font-size:13px;font-weight:900;color:${myTurn ? '#00b050' : '#a3cfbb'};">
+                        ${s.winner ? seqTeamName(s.winner) + " WINS" : myTurn ? "YOUR MOVE" : "WAITING"}
+                    </div>
+                    <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
+                        🔵 ${s.sequences[0]} | 🔴 ${s.sequences[1]}
+                    </div>
+                </div>
+
+                <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:16px;text-align:center;">
+                    ${escapeHtml(s.message || "")}
+                </div>
+
+                <div style="width:${gridPx}px;height:${gridPx}px;display:grid;grid-template-columns:repeat(10,${cellPx}px);
+                    grid-template-rows:repeat(10,${cellPx}px);gap:1px;background:#111;border:4px solid #ffd700;
+                    border-radius:8px;overflow:hidden;box-shadow:0 5px 16px rgba(0,0,0,0.5);">`;
+
+        for (let i = 0; i < 100; i++) {
+            const code = SEQ_GRID[i];
+            const card = displayCard(code);
+            const token = s.board[i];
+            const locked = s.locked[i];
+
+            let canPlay = false;
+            if (myTurn && selectedCard && !s.winner) {
+                if (isTwoEyedJack(selectedCard) && !token && code !== "FREE") canPlay = true;
+                else if (isOneEyedJack(selectedCard) && token && token !== myTeam && !locked) canPlay = true;
+                else if (!selectedCard.startsWith("J") && selectedCard === code && !token && code !== "FREE") canPlay = true;
+            }
+
+            let chip = "";
+            if (token) {
+                chip = `
+                    <div style="position:absolute;width:72%;height:72%;border-radius:50%;
+                        background:${seqTeamColor(token)};border:${locked ? '3px solid #ffd700' : '2px solid #fff'};
+                        box-shadow:0 2px 5px rgba(0,0,0,0.45);z-index:3;
+                        display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:900;">
+                        ${locked ? "★" : ""}
+                    </div>`;
+            }
+
+            html += `
+                <div onclick="window.handleSequenceCellTap(${i})"
+                    style="position:relative;width:${cellPx}px;height:${cellPx}px;background:${card.free ? '#1e4620' : '#fff'};
+                    color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 3px #ffd700;background:#fff3cd;' : ''}">
+                    ${card.free ? `
+                        <span style="color:#ffd700;font-size:${Math.floor(cellPx * 0.48)}px;text-shadow:1px 1px 2px #000;">★</span>
+                    ` : `
+                        <span style="font-size:${Math.floor(cellPx * 0.32)}px;font-weight:900;line-height:1;">${card.rank}</span>
+                        <span style="font-size:${Math.floor(cellPx * 0.38)}px;line-height:1;">${card.suit}</span>
+                    `}
+                    ${chip}
+                </div>`;
+        }
+
+        html += `
+                </div>
+
+                <div style="width:100%;display:flex;gap:5px;justify-content:center;align-items:center;padding-top:4px;box-sizing:border-box;">
+        `;
+
+        myHand.forEach((code, idx) => {
+            const card = displayCard(code);
+            const isSelected = s.selectedCardIdx === idx;
+            const jackLabel = isTwoEyedJack(code) ? "Wild" : isOneEyedJack(code) ? "Remove" : "";
+
+            html += `
+                <button onclick="window.selectSequenceCard(${idx})"
+                    style="width:43px;height:58px;border-radius:6px;border:${isSelected ? '3px solid #ffd700' : '1px solid #666'};
+                    background:#fff;color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
+                    justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 3px 7px rgba(0,0,0,0.35);
+                    transform:${isSelected ? 'translateY(-4px)' : 'none'};">
+                    <span style="font-size:17px;line-height:1;">${card.rank}</span>
+                    <span style="font-size:20px;line-height:1;">${card.suit}</span>
+                    ${jackLabel ? `<span style="font-size:8px;color:#2d6a30;font-weight:900;">${jackLabel}</span>` : ""}
+                </button>`;
+        });
+
+        html += `
+                </div>
+            </div>`;
+
+        gameCanvas.innerHTML = html;
+    }
+
+    window.selectSequenceCard = function (idx) {
+        const s = window.seqState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const myTeam = mySeat === 0 ? 1 : 2;
+        if (s.turnTeam !== myTeam) return;
+
+        s.selectedCardIdx = s.selectedCardIdx === idx ? null : idx;
+        renderSequenceBoard();
+    };
+
+    window.handleSequenceCellTap = function (idx) {
+        const s = window.seqState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const myTeam = mySeat === 0 ? 1 : 2;
+        if (s.turnTeam !== myTeam) return;
+
+        if (s.selectedCardIdx === null) return;
+
+        const hand = s.hands[mySeat];
+        const card = hand[s.selectedCardIdx];
+        const target = SEQ_GRID[idx];
+        const token = s.board[idx];
+        const locked = s.locked[idx];
+
+        let valid = false;
+
+        if (isTwoEyedJack(card)) {
+            if (!token && target !== "FREE") {
+                s.board[idx] = myTeam;
+                valid = true;
+            }
+        } else if (isOneEyedJack(card)) {
+            if (token && token !== myTeam && !locked && target !== "FREE") {
+                s.board[idx] = 0;
+                valid = true;
+            }
+        } else {
+            if (card === target && !token && target !== "FREE") {
+                s.board[idx] = myTeam;
+                valid = true;
+            }
+        }
+
+        if (!valid) return;
+
+        drawSequenceReplacementCard(mySeat);
+        s.selectedCardIdx = null;
+
+        applyNewSequences(myTeam);
+
+        if (!s.winner) {
+            s.turnTeam = myTeam === 1 ? 2 : 1;
+            s.message = `${seqTeamName(s.turnTeam)} turn.`;
+        }
+
+        syncSequence();
+        renderSequenceBoard();
+    };
+
+    /* ============================================================
+       3. UNO – 2 TO 10 PLAYER ROOM GAME
+       ============================================================ */
+
+    function buildUnoDeck() {
+        const colors = ["Red", "Yellow", "Green", "Blue"];
+        let deck = [];
+
+        colors.forEach(color => {
+            deck.push({ color, value: "0" });
+            ["1","2","3","4","5","6","7","8","9","Skip","Reverse","+2"].forEach(value => {
+                deck.push({ color, value }, { color, value });
+            });
+        });
+
+        for (let i = 0; i < 4; i++) {
+            deck.push({ color: "Wild", value: "Wild" });
+            deck.push({ color: "Wild", value: "+4" });
+        }
+
+        return shuffle(deck);
+    }
+
+    function unoColorHex(color) {
+        return {
+            Red: "#e63946",
+            Yellow: "#ffb703",
+            Green: "#00b050",
+            Blue: "#00b0ff",
+            Wild: "#202020"
+        }[color] || "#202020";
+    }
+
+    function nextUnoPlayer(from, steps = 1) {
+        const s = window.unoState;
+        const total = s.players.length;
+        let idx = from;
+        for (let i = 0; i < steps; i++) {
+            idx = (idx + s.direction + total) % total;
+        }
+        return idx;
+    }
+
+    window.initChaserUnoGame = function () {
+        window.chaserGame.activeGame = "Uno";
+
+        const isHost = window.chaserGame.hostId === myGameId();
+
+        if (isHost || !window.unoState) {
+            const players = (window.chaserGame.players || []).slice(0, window.chaserGame.expectedPlayers || 2);
+            const deck = buildUnoDeck();
+            const hands = players.map(() => []);
+
+            for (let p = 0; p < players.length; p++) {
+                for (let i = 0; i < 7; i++) {
+                    hands[p].push(deck.pop());
+                }
+            }
+
+            let discard = deck.pop();
+            while (discard && discard.color === "Wild") {
+                deck.unshift(discard);
+                discard = deck.pop();
+            }
+
+            window.unoState = {
+                players,
+                hands,
+                deck,
+                discard,
+                turn: 0,
+                direction: 1,
+                wildChoosingSeat: null,
+                pendingWildCardIndex: null,
+                winner: null,
+                message: `${players[0]?.name || "Player 1"} starts.`
+            };
+
+            syncUno();
+        }
+
+        renderUnoLayout();
+    };
+
+    function syncUno() {
+        sendGameEvent("uno-sync-discard", {
+            state: window.unoState
+        });
+    }
+
+    window.receiveUnoSync = function (p) {
+        if (!p || !p.state) return;
+        if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.unoState = p.state;
+        if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Uno") {
+            renderUnoLayout();
+        }
+    };
+
+    function renderUnoCard(card, onclick, small = false, faded = false) {
+        if (!card) return "";
+
+        const bg = card.color === "Wild"
+            ? "linear-gradient(45deg,#e63946,#ffb703,#00b050,#00b0ff)"
+            : unoColorHex(card.color);
+
+        return `
+            <div ${onclick ? `onclick="${onclick}"` : ""}
+                style="flex-shrink:0;width:${small ? 54 : 66}px;height:${small ? 80 : 98}px;border-radius:8px;
+                background:${bg};border:3px solid #fff;box-shadow:0 4px 8px rgba(0,0,0,0.4);
+                display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:${onclick ? 'pointer' : 'default'};
+                opacity:${faded ? 0.45 : 1};box-sizing:border-box;">
+                <div style="position:absolute;width:130%;height:42%;background:rgba(255,255,255,0.16);border-radius:50%;transform:rotate(-25deg);"></div>
+                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
+                    font-size:${card.value === "Reverse" || card.value === "Skip" || card.value === "Wild" ? (small ? 15 : 18) : (small ? 30 : 36)}px;
+                    text-shadow:2px 2px 4px rgba(0,0,0,0.45);text-align:center;line-height:1;">
+                    ${escapeHtml(card.value)}
+                </div>
+            </div>`;
+    }
+
+    function renderUnoLayout() {
+        const s = window.unoState;
+        if (!s) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const hand = s.hands[mySeat] || [];
+        const discard = s.discard || { color: "Red", value: "0" };
+        const myTurn = s.turn === mySeat && !s.winner;
+        const activeName = s.players[s.turn]?.name || `Player ${s.turn + 1}`;
+
+        let opponents = s.players.map((p, idx) => {
+            if (idx === mySeat) return "";
+            return `
+                <div style="background:${idx === s.turn ? '#ffd700' : 'rgba(226,240,217,0.16)'};color:${idx === s.turn ? '#1e4620' : '#e2f0d9'};
+                    border-radius:8px;padding:6px 8px;font-size:12px;font-weight:900;">
+                    ${escapeHtml(p.name)}: ${s.hands[idx]?.length || 0}
+                </div>`;
+        }).join("");
+
+        let html = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;box-sizing:border-box;user-select:none;overflow:hidden;">
+                <div style="width:100%;display:flex;justify-content:space-between;gap:6px;align-items:center;">
+                    <div style="font-size:15px;color:#ffd700;font-weight:900;font-family:Impact,sans-serif;">
+                        UNO
+                    </div>
+                    <div style="font-size:13px;color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;">
+                        ${s.winner ? escapeHtml(s.winner.name) + " WINS" : myTurn ? "YOUR TURN" : "TURN: " + escapeHtml(activeName)}
+                    </div>
+                    <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
+                        ${s.direction === 1 ? "↻" : "↺"}
+                    </div>
+                </div>
+
+                <div style="width:100%;display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:30px;">
+                    ${opponents}
+                </div>
+
+                <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:15px;text-align:center;">
+                    ${escapeHtml(s.message || "")}
+                </div>
+
+                <div style="display:flex;align-items:flex-end;justify-content:center;gap:36px;margin-top:2px;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <div style="font-size:11px;color:#a3cfbb;font-weight:900;">DRAW</div>
+                        ${renderUnoCard({ color: "Wild", value: "UNO" }, "window.unoDrawCard()", true, !myTurn)}
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <div style="font-size:11px;color:#a3cfbb;font-weight:900;">PLAY</div>
+                        ${renderUnoCard(discard, "", false)}
+                    </div>
+                </div>
+        `;
+
+        if (s.wildChoosingSeat === mySeat) {
+            html += `
+                <div style="display:grid;grid-template-columns:repeat(4,54px);gap:6px;margin-top:2px;">
+                    ${["Red","Yellow","Green","Blue"].map(c => `
+                        <button onclick="window.unoPickWildColor('${c}')"
+                            style="height:42px;border-radius:8px;border:3px solid #fff;background:${unoColorHex(c)};
+                            cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.35);"></button>
+                    `).join("")}
+                </div>`;
+        }
+
+        html += `
+                <div style="width:100%;display:flex;overflow-x:auto;gap:7px;padding:10px 6px 14px 6px;box-sizing:border-box;-webkit-overflow-scrolling:touch;">
+        `;
+
+        hand.forEach((card, idx) => {
+            const playable = myTurn && (
+                card.color === discard.color ||
+                card.value === discard.value ||
+                card.color === "Wild"
+            );
+
+            html += renderUnoCard(card, `window.unoPlayCard(${idx})`, true, !playable);
+        });
+
+        html += `
+                </div>
+            </div>`;
+
+        gameCanvas.innerHTML = html;
+    }
+
+    window.unoPlayCard = function (idx) {
+        const s = window.unoState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        if (s.turn !== mySeat) return;
+
+        const card = s.hands[mySeat][idx];
+        const discard = s.discard;
+
+        const playable = card.color === discard.color || card.value === discard.value || card.color === "Wild";
+        if (!playable) return;
+
+        if (card.color === "Wild") {
+            s.wildChoosingSeat = mySeat;
+            s.pendingWildCardIndex = idx;
+            s.message = "Choose a color.";
+            renderUnoLayout();
+            return;
+        }
+
+        playUnoCardNow(mySeat, idx, card);
+    };
+
+    function playUnoCardNow(seat, idx, card, chosenColor = null) {
+        const s = window.unoState;
+        s.hands[seat].splice(idx, 1);
+
+        s.discard = chosenColor
+            ? { color: chosenColor, value: card.value }
+            : card;
+
+        if (s.hands[seat].length === 0) {
+            s.winner = s.players[seat];
+            s.message = `${s.players[seat].name} wins!`;
+            syncUno();
+            renderUnoLayout();
+            return;
+        }
+
+        let steps = 1;
+
+        if (card.value === "Reverse") {
+            s.direction *= -1;
+            if (s.players.length === 2) steps = 2;
+        }
+
+        if (card.value === "Skip") {
+            steps = 2;
+        }
+
+        if (card.value === "+2") {
+            const target = nextUnoPlayer(seat, 1);
+            for (let i = 0; i < 2; i++) {
+                if (s.deck.length) s.hands[target].push(s.deck.pop());
+            }
+            steps = 2;
+            s.message = `${s.players[target].name} draws 2.`;
+        } else if (card.value === "+4") {
+            const target = nextUnoPlayer(seat, 1);
+            for (let i = 0; i < 4; i++) {
+                if (s.deck.length) s.hands[target].push(s.deck.pop());
+            }
+            steps = 2;
+            s.message = `${s.players[target].name} draws 4.`;
+        } else {
+            s.message = `${s.players[seat].name} played ${card.value}.`;
+        }
+
+        s.turn = nextUnoPlayer(seat, steps);
+        s.wildChoosingSeat = null;
+        s.pendingWildCardIndex = null;
+
+        syncUno();
+        renderUnoLayout();
+    }
+
+    window.unoPickWildColor = function (color) {
+        const s = window.unoState;
+        if (!s) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        if (s.wildChoosingSeat !== mySeat) return;
+
+        const idx = s.pendingWildCardIndex;
+        const card = s.hands[mySeat][idx];
+        if (!card) return;
+
+        playUnoCardNow(mySeat, idx, card, color);
+    };
+
+    window.unoDrawCard = function () {
+        const s = window.unoState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        if (s.turn !== mySeat) return;
+
+        if (!s.deck.length) {
+            s.message = "No cards left to draw.";
+            renderUnoLayout();
+            return;
+        }
+
+        s.hands[mySeat].push(s.deck.pop());
+        s.message = `${s.players[mySeat].name} drew a card.`;
+        s.turn = nextUnoPlayer(mySeat, 1);
+
+        syncUno();
+        renderUnoLayout();
+    };
+/* ============================================================
+   CHASER ARCADE ENGINE – games.js
+   REBUILT VERSION – PART 3 OF 3
+   Trivia + Solitaire + Hangman
+   ============================================================ */
+
+(function () {
+    "use strict";
+
+    const $ = (id) => document.getElementById(id);
+    const gameCanvas = $("gameCanvasContainer");
+    const gameStage = $("activeGameStage");
+
+    function myGameId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function sendGameEvent(event, payload) {
+        if (typeof channel !== "undefined" && channel && typeof channel.send === "function") {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myGameId(),
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+    }
+
+    function shuffle(arr) {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    /* ============================================================
+       4. TRIVIA – 1 TO 10 PLAYERS
+       ============================================================ */
+
+    const LOCAL_TRIVIA = [
+        { q: "What planet is known as the Red Planet?", c: "Mars", a: ["Venus", "Mars", "Jupiter", "Saturn"] },
+        { q: "How many sides does a hexagon have?", c: "6", a: ["5", "6", "7", "8"] },
+        { q: "Which ocean is the largest?", c: "Pacific Ocean", a: ["Atlantic Ocean", "Indian Ocean", "Pacific Ocean", "Arctic Ocean"] },
+        { q: "What is the capital of France?", c: "Paris", a: ["Rome", "Madrid", "Paris", "Berlin"] },
+        { q: "Which animal is known as man's best friend?", c: "Dog", a: ["Cat", "Horse", "Dog", "Rabbit"] },
+        { q: "What color do you get by mixing red and blue?", c: "Purple", a: ["Green", "Orange", "Purple", "Yellow"] },
+        { q: "How many days are in a leap year?", c: "366", a: ["365", "366", "364", "360"] },
+        { q: "What gas do plants absorb?", c: "Carbon dioxide", a: ["Oxygen", "Hydrogen", "Carbon dioxide", "Nitrogen"] },
+        { q: "Which country invented pizza?", c: "Italy", a: ["France", "Italy", "Mexico", "Greece"] },
+        { q: "How many continents are there?", c: "7", a: ["5", "6", "7", "8"] }
+    ];
+
+    window.initTriviaGame = function () {
+        window.chaserGame.activeGame = "Trivia";
+
+        const isHost = window.chaserGame.hostId === myGameId();
+
+        if (isHost || !window.triviaState) {
+            window.triviaState = {
+                players: window.chaserGame.players || [{ id: myGameId(), name: "Player", seat: 0 }],
+                round: 0,
+                totalRounds: 10,
+                score: {},
+                votes: {},
+                current: null,
+                phase: "menu",
+                timer: 0,
+                winner: null
+            };
+
+            window.triviaState.players.forEach(p => {
+                window.triviaState.score[p.id] = 0;
+            });
+
+            syncTrivia();
+        }
+
+        renderTriviaMenu();
+    };
+
+    function syncTrivia() {
+        sendGameEvent("sync-room-trivia", {
+            state: window.triviaState
+        });
+    }
+
+    window.receiveTriviaSync = function (p) {
+        if (!p || !p.state) return;
+        if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.triviaState = p.state;
+
+        if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Trivia") {
+            renderTriviaScreen();
+        }
+    };
+
+    function renderTriviaMenu() {
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:14px;text-align:center;color:white;padding:18px;box-sizing:border-box;">
+                <div style="font-size:30px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">TRIVIA</div>
+                <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">10 rounds • pick your answer fast</div>
+                <button onclick="window.startTriviaRound()"
+                    style="background:#ffd700;color:#1e4620;border:none;border-radius:10px;padding:14px 26px;
+                    font-size:22px;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.35);">
+                    START
+                </button>
+            </div>`;
+    }
+
+    window.startTriviaRound = function () {
+        const s = window.triviaState;
+        if (!s) return;
+
+        const q = LOCAL_TRIVIA[Math.floor(Math.random() * LOCAL_TRIVIA.length)];
+        s.current = { ...q, a: shuffle(q.a) };
+        s.votes = {};
+        s.phase = "vote";
+        s.timer = 12;
+        s.round++;
+
+        syncTrivia();
+        runTriviaTimer();
+        renderTriviaScreen();
+    };
+
+    function runTriviaTimer() {
+        if (window.triviaTimer) clearInterval(window.triviaTimer);
+
+        window.triviaTimer = setInterval(() => {
+            const s = window.triviaState;
+            if (!s || s.phase !== "vote") {
+                clearInterval(window.triviaTimer);
+                return;
+            }
+
+            s.timer--;
+
+            if (s.timer <= 0) {
+                clearInterval(window.triviaTimer);
+                revealTriviaAnswer();
+            } else {
+                renderTriviaScreen();
+            }
+        }, 1000);
+    }
+
+    function revealTriviaAnswer() {
+        const s = window.triviaState;
+        if (!s || !s.current) return;
+
+        s.phase = "reveal";
+
+        Object.keys(s.votes).forEach(playerId => {
+            if (s.votes[playerId] === s.current.c) {
+                s.score[playerId] = (s.score[playerId] || 0) + 1;
+            }
+        });
+
+        syncTrivia();
+        renderTriviaScreen();
+    }
+
+    window.submitTriviaAnswer = function (answer) {
+        const s = window.triviaState;
+        if (!s || s.phase !== "vote") return;
+
+        s.votes[myGameId()] = answer;
+        syncTrivia();
+        renderTriviaScreen();
+    };
+
+    window.nextTriviaRound = function () {
+        const s = window.triviaState;
+        if (!s) return;
+
+        if (s.round >= s.totalRounds) {
+            s.phase = "done";
+            syncTrivia();
+            renderTriviaScreen();
+        } else {
+            window.startTriviaRound();
+        }
+    };
+
+    function renderTriviaScreen() {
+        const s = window.triviaState;
+        if (!s) return;
+
+        if (s.phase === "menu") {
+            renderTriviaMenu();
+            return;
+        }
+
+        if (s.phase === "done") {
+            const sorted = s.players.slice().sort((a, b) => (s.score[b.id] || 0) - (s.score[a.id] || 0));
+            const winner = sorted[0];
+
+            gameCanvas.innerHTML = `
+                <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    gap:12px;text-align:center;color:white;padding:18px;box-sizing:border-box;">
+                    <div style="font-size:30px;color:#ffd700;font-family:Impact,sans-serif;">TRIVIA COMPLETE</div>
+                    <div style="font-size:22px;color:#00b050;font-weight:900;">Winner: ${escapeHtml(winner?.name || "Player")}</div>
+                    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:6px;">
+                        ${sorted.map(p => `
+                            <div style="background:#e2f0d9;color:#1e4620;border-radius:8px;padding:8px;font-weight:900;
+                                display:flex;justify-content:space-between;">
+                                <span>${escapeHtml(p.name)}</span>
+                                <span>${s.score[p.id] || 0}</span>
+                            </div>
+                        `).join("")}
+                    </div>
+                    <button onclick="window.initTriviaGame()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:10px;padding:12px 22px;
+                        font-size:18px;font-weight:900;font-family:Impact,sans-serif;">NEW GAME</button>
+                </div>`;
+            return;
+        }
+
+        const voted = !!s.votes[myGameId()];
+        const q = s.current;
+
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;
+                color:white;padding:8px;box-sizing:border-box;user-select:none;">
+                <div style="width:100%;display:flex;justify-content:space-between;color:#ffd700;font-weight:900;font-size:13px;">
+                    <span>Round ${s.round}/${s.totalRounds}</span>
+                    <span>${s.phase === "vote" ? "Time: " + s.timer : "Reveal"}</span>
+                    <span>Score: ${s.score[myGameId()] || 0}</span>
+                </div>
+
+                <div style="background:rgba(0,0,0,0.45);border:3px solid #ffd700;border-radius:10px;
+                    padding:12px;font-size:18px;font-weight:900;text-align:center;line-height:1.2;width:100%;box-sizing:border-box;">
+                    ${escapeHtml(q.q)}
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:7px;width:100%;">
+                    ${q.a.map(ans => {
+                        let bg = "#e2f0d9";
+                        let color = "#1e4620";
+
+                        if (s.phase === "reveal") {
+                            if (ans === q.c) {
+                                bg = "#00b050";
+                                color = "#fff";
+                            } else if (s.votes[myGameId()] === ans) {
+                                bg = "#dc3545";
+                                color = "#fff";
+                            }
+                        } else if (s.votes[myGameId()] === ans) {
+                            bg = "#00b0ff";
+                            color = "#fff";
+                        }
+
+                        return `
+                            <button onclick="window.submitTriviaAnswer('${String(ans).replace(/'/g, "\\'")}')"
+                                ${s.phase !== "vote" || voted ? "disabled" : ""}
+                                style="background:${bg};color:${color};border:none;border-radius:8px;padding:11px;
+                                font-size:15px;font-weight:900;text-align:left;box-shadow:0 2px 5px rgba(0,0,0,0.25);">
+                                ${escapeHtml(ans)}
+                            </button>`;
+                    }).join("")}
+                </div>
+
+                <div style="font-size:12px;color:#a3cfbb;font-weight:bold;">
+                    Votes: ${Object.keys(s.votes).length}/${s.players.length}
+                </div>
+
+                ${s.phase === "reveal" ? `
+                    <button onclick="window.nextTriviaRound()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:10px 20px;
+                        font-size:16px;font-weight:900;font-family:Impact,sans-serif;">
+                        ${s.round >= s.totalRounds ? "FINISH" : "NEXT"}
+                    </button>
+                ` : ""}
+            </div>`;
+    }
+
+    /* ============================================================
+       5. SOLITAIRE – DRAW 1, CLEAN MOBILE LAYOUT
+       ============================================================ */
+
+    window.initSolitaireGame = function () {
+        const suits = ["S", "C", "H", "D"];
+        const symbols = { S: "♠", C: "♣", H: "♥", D: "♦" };
+        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+
+        let deck = [];
+
+        suits.forEach(s => {
+            ranks.forEach((r, idx) => {
+                deck.push({
+                    suit: s,
+                    symbol: symbols[s],
+                    rank: r,
+                    value: idx + 1,
+                    red: s === "H" || s === "D",
+                    open: false
+                });
+            });
+        });
+
+        deck = shuffle(deck);
+
+        window.solState = {
+            tableau: Array(7).fill(0).map(() => []),
+            stock: deck,
+            waste: [],
+            foundations: { S: [], C: [], H: [], D: [] },
+            selected: null
+        };
+
+        for (let col = 0; col < 7; col++) {
+            for (let row = 0; row <= col; row++) {
+                const card = window.solState.stock.pop();
+                card.open = row === col;
+                window.solState.tableau[col].push(card);
+            }
+        }
+
+        renderSolitaireBoard();
+    };
+
+    function cardHtml(card, onclick, selected, small = false) {
+        if (!card) return "";
+
+        const w = small ? 42 : 44;
+        const h = small ? 58 : 62;
+
+        if (!card.open) {
+            return `
+                <div ${onclick ? `onclick="${onclick}"` : ""}
+                    style="width:${w}px;height:${h}px;border-radius:6px;background:linear-gradient(135deg,#222,#111);
+                    border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;
+                    color:#ffd700;font-size:22px;font-weight:900;box-sizing:border-box;box-shadow:0 2px 5px rgba(0,0,0,0.35);">
+                    ⚡
+                </div>`;
+        }
+
+        return `
+            <div ${onclick ? `onclick="${onclick}"` : ""}
+                style="width:${w}px;height:${h}px;border-radius:6px;background:#fff;color:${card.red ? '#c40000' : '#111'};
+                border:${selected ? '3px solid #ffd700' : '1px solid #555'};box-sizing:border-box;position:relative;
+                display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.35);overflow:hidden;">
+                <div style="position:absolute;top:3px;left:4px;font-size:15px;font-weight:900;line-height:1;">
+                    ${card.rank}
+                </div>
+                <div style="font-size:30px;font-weight:900;line-height:1;">
+                    ${card.symbol}
+                </div>
+                <div style="position:absolute;bottom:3px;right:4px;font-size:15px;font-weight:900;line-height:1;transform:rotate(180deg);">
+                    ${card.rank}
+                </div>
+            </div>`;
+    }
+
+    function renderSolitaireBoard() {
+        const s = window.solState;
+        if (!s) return;
+
+        let html = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;gap:8px;
+                padding:6px;box-sizing:border-box;user-select:none;overflow:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                    <div onclick="window.drawSolitaireCard()"
+                        style="width:44px;height:62px;border-radius:6px;background:${s.stock.length ? 'linear-gradient(135deg,#222,#111)' : 'rgba(255,255,255,0.08)'};
+                        border:2px solid #ffd700;color:#ffd700;display:flex;align-items:center;justify-content:center;
+                        font-size:22px;font-weight:900;box-sizing:border-box;cursor:pointer;">
+                        ${s.stock.length ? "⚡" : "↻"}
+                    </div>
+
+                    <div onclick="window.selectSolWaste()">
+                        ${s.waste.length ? cardHtml(s.waste[s.waste.length - 1], "", s.selected?.type === "waste") :
+                            `<div style="width:44px;height:62px;border-radius:6px;border:2px dashed rgba(255,255,255,0.25);"></div>`}
+                    </div>
+
+                    <div style="flex:1;"></div>
+
+                    ${["S", "C", "H", "D"].map(suit => {
+                        const pile = s.foundations[suit];
+                        const top = pile[pile.length - 1];
+                        return `
+                            <div onclick="window.moveSolToFoundation('${suit}')" style="margin-left:4px;">
+                                ${top ? cardHtml(top, "", false, true) :
+                                    `<div style="width:42px;height:58px;border-radius:6px;border:2px dashed rgba(255,215,0,0.35);
+                                    color:rgba(255,215,0,0.5);display:flex;align-items:center;justify-content:center;font-weight:900;">
+                                    ${suit}</div>`}
+                            </div>`;
+                    }).join("")}
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;width:100%;min-height:340px;">
+        `;
+
+        for (let col = 0; col < 7; col++) {
+            const pile = s.tableau[col];
+
+            html += `
+                <div onclick="window.moveSolToColumn(${col})"
+                    style="width:44px;min-height:62px;position:relative;border-radius:6px;
+                    ${pile.length ? '' : 'border:2px dashed rgba(255,215,0,0.25);'}">`;
+
+            pile.forEach((card, idx) => {
+                const selected = s.selected?.type === "tableau" && s.selected.col === col && s.selected.idx === idx;
+                const top = idx * (card.open ? 22 : 9);
+
+                html += `
+                    <div style="position:absolute;top:${top}px;left:0;"
+                        onclick="event.stopPropagation(); window.selectSolTableau(${col}, ${idx})">
+                        ${cardHtml(card, "", selected)}
+                    </div>`;
+            });
+
+            html += `</div>`;
+        }
+
+        html += `
+                </div>
+            </div>`;
+
+        gameCanvas.innerHTML = html;
+    }
+
+    window.drawSolitaireCard = function () {
+        const s = window.solState;
+        if (!s) return;
+
+        s.selected = null;
+
+        if (s.stock.length) {
+            const card = s.stock.pop();
+            card.open = true;
+            s.waste.push(card);
+        } else {
+            s.stock = s.waste.reverse().map(c => ({ ...c, open: false }));
+            s.waste = [];
+        }
+
+        renderSolitaireBoard();
+    };
+
+    window.selectSolWaste = function () {
+        const s = window.solState;
+        if (!s || !s.waste.length) return;
+        s.selected = { type: "waste" };
+        renderSolitaireBoard();
+    };
+
+    window.selectSolTableau = function (col, idx) {
+        const s = window.solState;
+        if (!s || !s.tableau[col][idx]?.open) return;
+        s.selected = { type: "tableau", col, idx };
+        renderSolitaireBoard();
+    };
+
+    function selectedSolCards() {
+        const s = window.solState;
+        if (!s || !s.selected) return [];
+
+        if (s.selected.type === "waste") {
+            return [s.waste[s.waste.length - 1]];
+        }
+
+        return s.tableau[s.selected.col].slice(s.selected.idx);
+    }
+
+    function removeSelectedSolCards() {
+        const s = window.solState;
+        if (s.selected.type === "waste") {
+            return [s.waste.pop()];
+        }
+
+        const moving = s.tableau[s.selected.col].splice(s.selected.idx);
+        const origin = s.tableau[s.selected.col];
+        if (origin.length && !origin[origin.length - 1].open) {
+            origin[origin.length - 1].open = true;
+        }
+        return moving;
+    }
+
+    window.moveSolToColumn = function (toCol) {
+        const s = window.solState;
+        if (!s || !s.selected) return;
+
+        const moving = selectedSolCards();
+        if (!moving.length) return;
+
+        const first = moving[0];
+        const targetPile = s.tableau[toCol];
+        const top = targetPile[targetPile.length - 1];
+
+        let valid = false;
+
+        if (!top && first.value === 13) valid = true;
+        if (top && top.open && top.red !== first.red && top.value === first.value + 1) valid = true;
+
+        if (valid) {
+            const cards = removeSelectedSolCards();
+            s.tableau[toCol].push(...cards);
+        }
+
+        s.selected = null;
+        renderSolitaireBoard();
+    };
+
+    window.moveSolToFoundation = function (suit) {
+        const s = window.solState;
+        if (!s || !s.selected) return;
+
+        const moving = selectedSolCards();
+        if (moving.length !== 1) return;
+
+        const card = moving[0];
+        if (card.suit !== suit) return;
+
+        const foundation = s.foundations[suit];
+        const top = foundation[foundation.length - 1];
+
+        let valid = false;
+        if (!top && card.value === 1) valid = true;
+        if (top && card.value === top.value + 1) valid = true;
+
+        if (valid) {
+            const cards = removeSelectedSolCards();
+            foundation.push(cards[0]);
+        }
+
+        s.selected = null;
+        renderSolitaireBoard();
+    };
+
+    /* ============================================================
+       6. HANGMAN – CLEAN SINGLE PLAYER
+       ============================================================ */
+
+    const WORDS = [
+        "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
+        "POSTAL", "NAVIGATOR", "HIGHWAY", "HELMET", "COMPASS"
+    ];
+
+    window.initHangmanGame = function () {
+        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        window.hangmanState = {
+            word,
+            guessed: [],
+            wrong: 0,
+            maxWrong: 6
+        };
+        renderHangmanGame();
+    };
+
+    function renderHangmanGame() {
+        const s = window.hangmanState;
+        if (!s) return;
+
+        const won = s.word.split("").every(l => s.guessed.includes(l));
+        const lost = s.wrong >= s.maxWrong;
+
+        const body = [
+            "O",
+            "|",
+            "/",
+            "\\",
+            "/",
+            "\\"
+        ].slice(0, s.wrong).join(" ");
+
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:10px;color:white;text-align:center;padding:12px;box-sizing:border-box;user-select:none;">
+                <div style="font-size:28px;color:#ffd700;font-family:Impact,sans-serif;">HANGMAN</div>
+                <div style="height:46px;color:${lost ? '#dc3545' : '#e2f0d9'};font-size:24px;font-weight:900;">
+                    ${body}
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;">
+                    ${s.word.split("").map(l => `
+                        <div style="border-bottom:4px solid #e2f0d9;width:24px;height:34px;font-size:26px;font-weight:900;color:#ffd700;">
+                            ${s.guessed.includes(l) || lost ? l : ""}
+                        </div>
+                    `).join("")}
+                </div>
+
+                ${won || lost ? `
+                    <div style="font-size:20px;font-weight:900;color:${won ? '#00b050' : '#dc3545'};">
+                        ${won ? "YOU GOT IT!" : "GAME OVER"}
+                    </div>
+                    <button onclick="window.initHangmanGame()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:10px 20px;
+                        font-size:18px;font-weight:900;font-family:Impact,sans-serif;">NEW GAME</button>
+                ` : `
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;width:100%;max-width:330px;">
+                        ${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => {
+                            const used = s.guessed.includes(l);
+                            return `
+                                <button onclick="window.pickHangmanLetter('${l}')" ${used ? "disabled" : ""}
+                                    style="height:34px;border:none;border-radius:5px;background:${used ? '#6c757d' : '#e2f0d9'};
+                                    color:${used ? '#fff' : '#1e4620'};font-size:17px;font-weight:900;">
+                                    ${l}
+                                </button>`;
+                        }).join("")}
+                    </div>
+                `}
+            </div>`;
+    }
+
+    window.pickHangmanLetter = function (letter) {
+        const s = window.hangmanState;
+        if (!s || s.guessed.includes(letter)) return;
+
+        s.guessed.push(letter);
+        if (!s.word.includes(letter)) s.wrong++;
+
+        renderHangmanGame();
+    };
+
+})();
+})();
+
+})();
