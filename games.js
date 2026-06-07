@@ -2864,3 +2864,454 @@
         renderSafeHangman();
     };
 })();
+/* CHASER PATCH A – Sequence layout + Hangman spacing + Trivia host/timer */
+(function () {
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+    const gameStage = document.getElementById("activeGameStage");
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return window.chaserGame && window.chaserGame.hostId === myId();
+    }
+
+    function send(event, payload) {
+        if (typeof channel !== "undefined" && channel) {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myId(),
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+    }
+
+    /* -------- Sequence visual centering fix -------- */
+    const seqVisualObserver = new MutationObserver(() => {
+        if (!gameCanvas || !window.chaserGame || window.chaserGame.activeGame !== "Sequence") return;
+
+        const root = gameCanvas.firstElementChild;
+        if (root) {
+            root.style.width = "100%";
+            root.style.alignItems = "center";
+            root.style.justifyContent = "flex-start";
+            root.style.overflow = "auto";
+            root.style.paddingLeft = "0";
+            root.style.paddingRight = "0";
+            root.style.boxSizing = "border-box";
+        }
+
+        const board = Array.from(gameCanvas.querySelectorAll("div")).find(d =>
+            d.style.gridTemplateColumns && d.style.gridTemplateColumns.includes("repeat(10")
+        );
+
+        if (board) {
+            board.style.transform = "none";
+            board.style.marginLeft = "auto";
+            board.style.marginRight = "auto";
+            board.style.marginBottom = "10px";
+            board.style.boxSizing = "content-box";
+            board.style.border = "5px solid #ffd700";
+            board.style.overflow = "visible";
+        }
+    });
+
+    if (gameCanvas) {
+        seqVisualObserver.observe(gameCanvas, { childList: true, subtree: true });
+    }
+
+    /* -------- Hangman override with taller stand and better spacing -------- */
+    const WORDS = [
+        "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
+        "POSTAL", "NAVIGATOR", "HIGHWAY", "HELMET", "COMPASS"
+    ];
+
+    window.initHangmanGame = function () {
+        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        window.hangmanState = {
+            word,
+            guessed: [],
+            wrong: 0,
+            maxWrong: 6
+        };
+        renderBetterHangman();
+    };
+
+    function buildBetterHangmanSVG(wrong, lost) {
+        const bodyColor = lost ? "#dc3545" : "#e2f0d9";
+        const shake = lost ? "animation:hangShake .45s ease-in-out 4;" : "";
+
+        return `
+            <svg viewBox="0 0 170 160" width="160" height="145" style="display:block;margin:0 auto;${shake}">
+                <style>
+                    @keyframes hangShake {
+                        0%,100% { transform:translateX(0); }
+                        25% { transform:translateX(-4px); }
+                        75% { transform:translateX(4px); }
+                    }
+                </style>
+
+                <line x1="20" y1="150" x2="145" y2="150" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="45" y1="150" x2="45" y2="18" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="45" y1="18" x2="120" y2="18" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="120" y1="18" x2="120" y2="38" stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
+
+                <g style="${shake}">
+                    ${wrong >= 1 ? `<circle cx="120" cy="53" r="14" stroke="${bodyColor}" stroke-width="4" fill="none"/>` : ""}
+                    ${wrong >= 1 && lost ? `
+                        <text x="110" y="58" fill="${bodyColor}" font-size="13" font-weight="900">X X</text>
+                    ` : wrong >= 1 ? `
+                        <circle cx="114" cy="50" r="2" fill="${bodyColor}"/>
+                        <circle cx="126" cy="50" r="2" fill="${bodyColor}"/>
+                        <path d="M114 60 Q120 64 126 60" stroke="${bodyColor}" stroke-width="2" fill="none"/>
+                    ` : ""}
+
+                    ${wrong >= 2 ? `<line x1="120" y1="68" x2="120" y2="105" stroke="${bodyColor}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                    ${wrong >= 3 ? `<line x1="120" y1="77" x2="99" y2="94" stroke="${bodyColor}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                    ${wrong >= 4 ? `<line x1="120" y1="77" x2="141" y2="94" stroke="${bodyColor}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                    ${wrong >= 5 ? `<line x1="120" y1="105" x2="103" y2="136" stroke="${bodyColor}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                    ${wrong >= 6 ? `<line x1="120" y1="105" x2="137" y2="136" stroke="${bodyColor}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                </g>
+            </svg>
+        `;
+    }
+
+    function renderBetterHangman() {
+        const s = window.hangmanState;
+        if (!s || !gameCanvas) return;
+
+        const won = s.word.split("").every(l => s.guessed.includes(l));
+        const lost = s.wrong >= s.maxWrong;
+
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;
+                justify-content:flex-start;gap:6px;color:white;text-align:center;padding:6px 10px 12px 10px;
+                box-sizing:border-box;user-select:none;overflow:auto;">
+
+                <div style="font-size:23px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;line-height:1;">
+                    HANGMAN
+                </div>
+
+                ${buildBetterHangmanSVG(s.wrong, lost)}
+
+                <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin:4px 0 14px 0;">
+                    ${s.word.split("").map(l => `
+                        <div style="border-bottom:4px solid #e2f0d9;width:23px;height:31px;
+                            font-size:24px;font-weight:900;color:#ffd700;">
+                            ${s.guessed.includes(l) || lost ? l : ""}
+                        </div>
+                    `).join("")}
+                </div>
+
+                ${won || lost ? `
+                    <div style="font-size:18px;font-weight:900;color:${won ? "#00b050" : "#dc3545"};">
+                        ${won ? "YOU GOT IT!" : "GAME OVER"}
+                    </div>
+                    <button onclick="window.initHangmanGame()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:9px 18px;
+                        font-size:17px;font-weight:900;font-family:Impact,sans-serif;">NEW GAME</button>
+                ` : `
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px;width:100%;max-width:330px;margin-top:2px;">
+                        ${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => {
+                            const used = s.guessed.includes(l);
+                            return `
+                                <button onclick="window.pickHangmanLetter('${l}')" ${used ? "disabled" : ""}
+                                    style="height:32px;border:none;border-radius:5px;background:${used ? "#6c757d" : "#e2f0d9"};
+                                    color:${used ? "#fff" : "#1e4620"};font-size:16px;font-weight:900;">
+                                    ${l}
+                                </button>`;
+                        }).join("")}
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    window.pickHangmanLetter = function (letter) {
+        const s = window.hangmanState;
+        if (!s || s.guessed.includes(letter)) return;
+
+        s.guessed.push(letter);
+        if (!s.word.includes(letter)) s.wrong++;
+
+        renderBetterHangman();
+    };
+
+    /* -------- Trivia host-controlled synced phases -------- */
+    const TRIVIA_POOL = [
+        { q:"What planet is known as the Red Planet?", c:"Mars", a:["Venus","Mars","Jupiter","Saturn"] },
+        { q:"How many sides does a hexagon have?", c:"6", a:["5","6","7","8"] },
+        { q:"Which ocean is the largest?", c:"Pacific Ocean", a:["Atlantic Ocean","Indian Ocean","Pacific Ocean","Arctic Ocean"] },
+        { q:"What is the capital of France?", c:"Paris", a:["Rome","Madrid","Paris","Berlin"] },
+        { q:"What color do you get by mixing red and blue?", c:"Purple", a:["Green","Orange","Purple","Yellow"] },
+        { q:"How many days are in a leap year?", c:"366", a:["365","366","364","360"] },
+        { q:"What gas do plants absorb?", c:"Carbon dioxide", a:["Oxygen","Hydrogen","Carbon dioxide","Nitrogen"] },
+        { q:"Which country invented pizza?", c:"Italy", a:["France","Italy","Mexico","Greece"] },
+        { q:"How many continents are there?", c:"7", a:["5","6","7","8"] },
+        { q:"Which animal is known as man's best friend?", c:"Dog", a:["Cat","Horse","Dog","Rabbit"] }
+    ];
+
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i=a.length-1; i>0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    function safe(str) {
+        return String(str ?? "")
+            .replace(/&/g,"&amp;")
+            .replace(/</g,"&lt;")
+            .replace(/>/g,"&gt;");
+    }
+
+    window.initTriviaGame = function () {
+        window.chaserGame.activeGame = "Trivia";
+
+        if (isHost() || !window.triviaState) {
+            window.triviaState = {
+                players: window.chaserGame.players || [{ id:myId(), name:"Player", seat:0 }],
+                round:0,
+                totalRounds:10,
+                score:{},
+                votes:{},
+                current:null,
+                phase:"menu",
+                timer:0,
+                phaseEndsAt:0
+            };
+
+            window.triviaState.players.forEach(p => {
+                window.triviaState.score[p.id] = 0;
+            });
+
+            syncTrivia();
+        }
+
+        renderTriviaBetter();
+    };
+
+    function syncTrivia() {
+        send("sync-room-trivia", { state:window.triviaState });
+    }
+
+    window.receiveTriviaSync = function (p) {
+        if (!p || !p.state) return;
+        if (p.roomGameId && window.chaserGame?.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.triviaState = p.state;
+
+        if (window.chaserGame) window.chaserGame.activeGame = "Trivia";
+
+        renderTriviaBetter();
+        runLocalTriviaClock();
+    };
+
+    function startHostPhase(phase, seconds) {
+        const s = window.triviaState;
+        s.phase = phase;
+        s.timer = seconds;
+        s.phaseEndsAt = Date.now() + seconds * 1000;
+        syncTrivia();
+        renderTriviaBetter();
+        runLocalTriviaClock();
+    }
+
+    window.startTriviaRound = function () {
+        if (!isHost()) return;
+
+        const s = window.triviaState;
+        const item = TRIVIA_POOL[Math.floor(Math.random() * TRIVIA_POOL.length)];
+
+        s.current = {
+            q:item.q,
+            c:item.c,
+            a:shuffle(item.a)
+        };
+
+        s.votes = {};
+        s.round++;
+
+        startHostPhase("question", 5);
+    };
+
+    function hostAdvanceTriviaPhase() {
+        if (!isHost()) return;
+        const s = window.triviaState;
+        if (!s) return;
+
+        if (s.phase === "question") {
+            startHostPhase("vote", 5);
+        } else if (s.phase === "vote") {
+            Object.keys(s.votes).forEach(pid => {
+                if (s.votes[pid] === s.current.c) {
+                    s.score[pid] = (s.score[pid] || 0) + 1;
+                }
+            });
+            startHostPhase("reveal", 3);
+        }
+    }
+
+    window.nextTriviaRound = function () {
+        if (!isHost()) return;
+
+        const s = window.triviaState;
+        if (!s) return;
+
+        if (s.round >= s.totalRounds) {
+            s.phase = "done";
+            syncTrivia();
+            renderTriviaBetter();
+        } else {
+            window.startTriviaRound();
+        }
+    };
+
+    function runLocalTriviaClock() {
+        if (window.triviaBetterTimer) clearInterval(window.triviaBetterTimer);
+
+        window.triviaBetterTimer = setInterval(() => {
+            const s = window.triviaState;
+            if (!s || !s.phaseEndsAt || ["menu","done"].includes(s.phase)) {
+                clearInterval(window.triviaBetterTimer);
+                return;
+            }
+
+            const remaining = Math.max(0, Math.ceil((s.phaseEndsAt - Date.now()) / 1000));
+            s.timer = remaining;
+            renderTriviaBetter();
+
+            if (remaining <= 0) {
+                clearInterval(window.triviaBetterTimer);
+                if (isHost()) hostAdvanceTriviaPhase();
+            }
+        }, 350);
+    }
+
+    window.submitTriviaAnswer = function (answer) {
+        const s = window.triviaState;
+        if (!s || s.phase !== "vote") return;
+
+        s.votes[myId()] = answer;
+        syncTrivia();
+        renderTriviaBetter();
+    };
+
+    function renderTriviaBetter() {
+        const s = window.triviaState;
+        if (!s || !gameCanvas) return;
+
+        if (s.phase === "menu") {
+            gameCanvas.innerHTML = `
+                <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    gap:14px;text-align:center;color:white;padding:18px;box-sizing:border-box;">
+                    <div style="font-size:30px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">TRIVIA</div>
+                    <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">Question → Answers → Reveal</div>
+                    ${isHost() ? `
+                        <button onclick="window.startTriviaRound()"
+                            style="background:#ffd700;color:#1e4620;border:none;border-radius:10px;padding:14px 26px;
+                            font-size:22px;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,.35);">
+                            START
+                        </button>
+                    ` : `<div style="color:#a3cfbb;font-weight:bold;">Waiting for host to start...</div>`}
+                </div>`;
+            return;
+        }
+
+        if (s.phase === "done") {
+            const sorted = s.players.slice().sort((a,b) => (s.score[b.id] || 0) - (s.score[a.id] || 0));
+            const winner = sorted[0];
+
+            gameCanvas.innerHTML = `
+                <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    gap:12px;text-align:center;color:white;padding:18px;box-sizing:border-box;">
+                    <div style="font-size:30px;color:#ffd700;font-family:Impact,sans-serif;">TRIVIA COMPLETE</div>
+                    <div style="font-size:22px;color:#00b050;font-weight:900;">Winner: ${safe(winner?.name || "Player")}</div>
+                    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:6px;">
+                        ${sorted.map(p => `
+                            <div style="background:#e2f0d9;color:#1e4620;border-radius:8px;padding:8px;font-weight:900;
+                                display:flex;justify-content:space-between;">
+                                <span>${safe(p.name)}</span>
+                                <span>${s.score[p.id] || 0}</span>
+                            </div>
+                        `).join("")}
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const q = s.current;
+        const voted = !!s.votes[myId()];
+
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;
+                color:white;padding:8px;box-sizing:border-box;user-select:none;overflow:auto;">
+
+                <div style="width:100%;display:flex;justify-content:space-between;color:#ffd700;font-weight:900;font-size:13px;">
+                    <span>Round ${s.round}/${s.totalRounds}</span>
+                    <span>${s.phase.toUpperCase()}: ${s.timer}</span>
+                    <span>Score: ${s.score[myId()] || 0}</span>
+                </div>
+
+                <div style="background:rgba(0,0,0,.45);border:3px solid #ffd700;border-radius:10px;
+                    padding:12px;font-size:18px;font-weight:900;text-align:center;line-height:1.2;width:100%;box-sizing:border-box;">
+                    ${safe(q.q)}
+                </div>
+
+                ${s.phase === "question" ? `
+                    <div style="margin-top:20px;color:#a3cfbb;font-weight:900;font-size:18px;">
+                        Answers coming up...
+                    </div>
+                ` : `
+                    <div style="display:flex;flex-direction:column;gap:7px;width:100%;">
+                        ${q.a.map(ans => {
+                            let bg = "#e2f0d9";
+                            let color = "#1e4620";
+
+                            if (s.phase === "reveal") {
+                                if (ans === q.c) {
+                                    bg = "#00b050";
+                                    color = "#fff";
+                                } else if (s.votes[myId()] === ans) {
+                                    bg = "#dc3545";
+                                    color = "#fff";
+                                }
+                            } else if (s.votes[myId()] === ans) {
+                                bg = "#00b0ff";
+                                color = "#fff";
+                            }
+
+                            return `
+                                <button onclick="window.submitTriviaAnswer('${String(ans).replace(/'/g, "\\'")}')"
+                                    ${s.phase !== "vote" || voted ? "disabled" : ""}
+                                    style="background:${bg};color:${color};border:none;border-radius:8px;padding:11px;
+                                    font-size:15px;font-weight:900;text-align:left;box-shadow:0 2px 5px rgba(0,0,0,.25);">
+                                    ${safe(ans)}
+                                </button>`;
+                        }).join("")}
+                    </div>
+                `}
+
+                <div style="font-size:12px;color:#a3cfbb;font-weight:bold;">
+                    Votes: ${Object.keys(s.votes || {}).length}/${s.players.length}
+                </div>
+
+                ${s.phase === "reveal" && isHost() ? `
+                    <button onclick="window.nextTriviaRound()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:10px 20px;
+                        font-size:16px;font-weight:900;font-family:Impact,sans-serif;">
+                        ${s.round >= s.totalRounds ? "FINISH" : "NEXT QUESTION"}
+                    </button>
+                ` : s.phase === "reveal" ? `
+                    <div style="color:#a3cfbb;font-weight:bold;">Waiting for host...</div>
+                ` : ""}
+            </div>`;
+    }
+})();
