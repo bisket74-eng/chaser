@@ -24,6 +24,19 @@ window.handleIncomingUnoSync = (p) => {
     }
 };
 
+window.handleIncomingTriviaSync = (p) => {
+    if (!activeGameStage.classList.contains('open') || !activeGameLabelTitle.innerText.includes('Trivia')) return;
+    if (p.phase === 'question') {
+        window.sharedRoomTriviaQuestion = p.triviaData;
+        window.triviaQuestionCount = p.count;
+        runLocalTriviaTimerPhase('question');
+    } else if (p.phase === 'vote') {
+        runLocalTriviaTimerPhase('vote');
+    } else if (p.phase === 'reveal') {
+        window.triviaRoomVotes = p.votes || {};
+        runLocalTriviaTimerPhase('reveal');
+    }
+};
 
 window.handleIncomingSequenceSync = (p) => {
     window.seqBoard         = p.boardState;
@@ -679,141 +692,7 @@ function updateTriviaUI(timerSeconds) {
                     : `REVEAL: ${timerSeconds}s`;
     let statusColor = phase === 'question' ? '#ffb703'
                     : phase === 'vote'     ? '#00b0ff'
-/* ═══════════════════════════════════════════════════════════
-   4.  SYNCHRONIZED CO-OP TRIVIA ENGINE
-   ═══════════════════════════════════════════════════════════ */
-
-window.handleIncomingTriviaSync = (p) => {
-    if (!activeGameStage.classList.contains('open') || !activeGameLabelTitle.innerText.includes('Trivia')) return;
-    if (p.phase === 'question') {
-        window.sharedRoomTriviaQuestion = p.triviaData;
-        window.triviaQuestionCount = p.count;
-        window.triviaRoomVotes = {};
-        runLocalTriviaTimerPhase('question');
-    } else if (p.phase === 'vote') {
-        runLocalTriviaTimerPhase('vote');
-    } else if (p.phase === 'reveal') {
-        window.triviaRoomVotes = p.votes || {};
-        runLocalTriviaTimerPhase('reveal');
-    }
-};
-
-function initTriviaGame() {
-    window.triviaQuestionCount = 0;
-    window.triviaScorePoints   = 0;
-    window.triviaRoomVotes     = {};
-    window.sharedRoomTriviaQuestion = undefined;
-
-    gameCanvasContainer.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4vw;padding:4vw;width:100%;box-sizing:border-box;height:100%;user-select:none;">
-            <div style="color:#ffd700;font-size:5.5vw;font-weight:bold;font-family:Impact,sans-serif;text-shadow:2px 2px 4px rgba(0,0,0,0.5);text-align:center;letter-spacing:0.5px;">TRIVIA CATEGORY</div>
-            <div style="position:relative;width:100%;max-width:280px;">
-                <select id="triviaCategoryPicker" style="width:100%;padding:14px;font-size:4vw;font-weight:900;border-radius:10px;border:3px solid #ffd700;background:#2d6a30;color:#fff;outline:none;box-shadow:0 4px 10px rgba(0,0,0,0.3);appearance:none;text-align:center;cursor:pointer;">
-                    <option value="9">General Knowledge</option>
-                    <option value="11">Movies & Cinema</option>
-                    <option value="12">Music & Tracks</option>
-                    <option value="14">Television Shows</option>
-                    <option value="17">Science & Nature</option>
-                    <option value="23">History</option>
-                </select>
-                <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:#ffd700;font-size:4vw;">▼</div>
-            </div>
-            <button onclick="launchLiveTriviaEngine()" style="width:100%;max-width:280px;padding:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:5vw;border:none;border-radius:10px;cursor:pointer;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.3);letter-spacing:0.5px;">START CAMPAIGN</button>
-        </div>`;
-}
-
-window.launchLiveTriviaEngine = function() {
-    const picker = document.getElementById('triviaCategoryPicker');
-    const cat = picker ? picker.value : '9';
-    gameCanvasContainer.innerHTML = `<div style="color:white;font-size:4.5vw;font-weight:bold;text-align:center;padding:40px;font-family:sans-serif;">Fetching question...</div>`;
-
-    fetch(`https://opentdb.com/api.php?amount=1&type=multiple&category=${cat}&cache=${Math.random()}`)
-        .then(res => res.json())
-        .then(data => {
-            if (!data.results || data.results.length === 0) { initTriviaGame(); return; }
-            const item = data.results[0];
-            const decode = s => { let t = document.createElement('textarea'); t.innerHTML = s; return t.value; };
-
-            const questionText  = decode(item.question);
-            const correctAnswer = decode(item.correct_answer);
-            let choices = item.incorrect_answers.map(a => decode(a));
-            choices.splice(Math.floor(Math.random() * (choices.length + 1)), 0, correctAnswer);
-
-            window.sharedRoomTriviaQuestion = { q: questionText, c: correctAnswer, choices, cat };
-            window.triviaRoomVotes = {};
-
-            broadcastTriviaState('question', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
-            runLocalTriviaTimerPhase('question');
-        })
-        .catch(() => { initTriviaGame(); });
-};
-
-function broadcastTriviaState(phase, data, count, votes = {}) {
-    if (typeof channel !== 'undefined') {
-        channel.send({
-            type: 'broadcast',
-            event: 'sync-room-trivia',
-            payload: { phase, triviaData: data, count, votes }
-        });
-    }
-}
-
-function runLocalTriviaTimerPhase(phase) {
-    if (window.triviaLocalInterval) clearInterval(window.triviaLocalInterval);
-    if (window.triviaLocalTimeout)  clearTimeout(window.triviaLocalTimeout);
-
-    window.triviaCurrentPhase = phase;
-
-    let secondsLeft = phase === 'question' ? 5 : phase === 'vote' ? 5 : 3;
-
-    updateTriviaUI(secondsLeft);
-
-    window.triviaLocalInterval = setInterval(() => {
-        secondsLeft--;
-        updateTriviaUI(secondsLeft);
-
-        if (secondsLeft <= 0) {
-            clearInterval(window.triviaLocalInterval);
-
-            window.triviaLocalTimeout = setTimeout(() => {
-                if (phase === 'question') {
-                    if (window.myPlayerNumber === 0) {
-                        broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount);
-                    }
-                    runLocalTriviaTimerPhase('vote');
-
-                } else if (phase === 'vote') {
-                    if (window.myPlayerNumber === 0) {
-                        broadcastTriviaState('reveal', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
-                    }
-                    runLocalTriviaTimerPhase('reveal');
-
-                } else if (phase === 'reveal') {
-                    window.triviaQuestionCount++;
-                    if (window.triviaQuestionCount < 20) {
-                        if (window.myPlayerNumber === 0) {
-                            window.launchLiveTriviaEngine();
-                        }
-                    }
-                }
-            }, 400);
-        }
-    }, 1000);
-}
-
-function updateTriviaUI(timerSeconds) {
-    const q = window.sharedRoomTriviaQuestion;
-    if (!q) return;
-
-    const phase = window.triviaCurrentPhase;
-    const alreadyVoted = window.triviaRoomVotes[window.myPlayerNumber] !== undefined;
-
-    let statusText  = phase === 'question' ? `READING: ${timerSeconds}s`
-                    : phase === 'vote'     ? `VOTE NOW: ${timerSeconds}s`
-                    :                        `REVEAL: ${timerSeconds}s`;
-    let statusColor = phase === 'question' ? '#ffb703'
-                    : phase === 'vote'     ? '#00b0ff'
-                    :                        '#00b050';
+                    : '#00b050';
 
     let html = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vw;width:100%;padding:4px;box-sizing:border-box;user-select:none;">
         <div style="display:flex;justify-content:space-between;width:100%;color:#ffd700;font-size:3.8vw;font-weight:bold;font-family:Impact,sans-serif;">
@@ -826,16 +705,16 @@ function updateTriviaUI(timerSeconds) {
 
     if (phase !== 'question') {
         q.choices.forEach(choice => {
-            let btnBg      = '#e2f0d9';
-            let btnColor   = '#1e4620';
-            let isDisabled = (phase === 'reveal') || (phase === 'vote' && alreadyVoted);
-            let opacity    = (isDisabled && phase === 'vote') ? '0.7' : '1';
+            let btnBg    = '#e2f0d9';
+            let btnColor = '#1e4620';
+            let isDisabled = (phase !== 'vote');
 
             if (phase === 'vote' && window.triviaRoomVotes[window.myPlayerNumber] === choice) {
                 btnBg    = '#00b0ff';
                 btnColor = '#fff';
             }
             if (phase === 'reveal') {
+                isDisabled = true;
                 if (choice === q.c) {
                     btnBg    = '#00b050';
                     btnColor = '#fff';
@@ -845,9 +724,7 @@ function updateTriviaUI(timerSeconds) {
                 }
             }
 
-            html += `<button class="trivia-inline-choice-btn" ${isDisabled ? 'disabled' : ''}
-                style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);opacity:${opacity};"
-                onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)">${choice}</button>`;
+            html += `<button class="trivia-inline-choice-btn" ${isDisabled ? 'disabled' : ''} style="width:100%;padding:12px;background:${btnBg};color:${btnColor};border:none;border-radius:6px;font-weight:900;font-size:3.8vw;text-align:left;box-shadow:0 2px 4px rgba(0,0,0,0.2);" onclick="submitLocalTriviaVote(\`${choice.replace(/'/g, "\\'")}\`)">${choice}</button>`;
         });
     } else {
         for (let i = 0; i < 4; i++) {
@@ -873,7 +750,6 @@ function updateTriviaUI(timerSeconds) {
 
 window.submitLocalTriviaVote = function(choice) {
     if (window.triviaCurrentPhase !== 'vote') return;
-    if (window.triviaRoomVotes[window.myPlayerNumber] !== undefined) return;
     window.triviaRoomVotes[window.myPlayerNumber] = choice;
     if (choice === window.sharedRoomTriviaQuestion.c) {
         window.triviaScorePoints++;
@@ -881,6 +757,7 @@ window.submitLocalTriviaVote = function(choice) {
     broadcastTriviaState('vote', window.sharedRoomTriviaQuestion, window.triviaQuestionCount, window.triviaRoomVotes);
     updateTriviaUI(5);
 };
+
 /* ═══════════════════════════════════════════════════════════
    5.  SOLITAIRE ENGINE (95% GIANT FULL-BODY BACKGROUND SUITS)
    ═══════════════════════════════════════════════════════════ */
