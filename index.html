@@ -78,11 +78,13 @@
         .round-btn:active { transform:scale(0.92); }
         
         #chatGamesTriggerBtn { background:#ffffff !important; color:#0056b3 !important; border:2px solid #0056b3 !important; font-size:20px; }
-        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:2px solid #dc3545 !important; font-family:Arial, sans-serif; font-weight:900; font-size:12px; letter-spacing:0px; }
+        
+        /* NEW RED PILL YOUTUBE BUTTON STYLING */
+        #youtubePlaceholderBtn { background:#dc3545 !important; color:#ffffff !important; border:2px solid #bd2130 !important; border-radius:16px !important; width:auto !important; padding:0 14px !important; font-family:Arial, sans-serif !important; font-weight:900 !important; font-size:14px !important; letter-spacing:0.5px !important; height:32px !important; text-transform:none !important; }
         
         #closeChatBtn { background:none !important; color:#dc3545 !important; border:none !important; font-size:24px; font-weight:900; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:none !important; }
         #chatHeader.game-active-mode #closeChatBtn { margin-left:auto; } 
-        
+
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
         #gameHubOverlay.open { display:flex; }
         .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
@@ -104,7 +106,8 @@
         #youtubeStageWrapper.active { display:flex; }
         .yt-iframe-frame { width:100%; flex:1; border:none; background:#111; }
         
-        .yt-control-dashboard { display:flex; gap:6px; padding:8px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
+        /* INCREASED BOTTOM PADDING TO PREVENT OVERLAP WITH THE EXIT ANCHOR */
+        .yt-control-dashboard { display:flex; gap:6px; padding:8px 10px 42px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
         .yt-control-dashboard input { flex:1; padding:8px 12px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; font-size:14px; box-sizing:border-box; }
         .yt-control-dashboard input::placeholder { color:#777; font-style:italic; }
         .yt-action-trigger-btn { background:#dc3545; color:#ffffff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; text-transform:uppercase; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition:background 0.2s; }
@@ -166,7 +169,6 @@
     </style>
 </head>
 <body>
-
 <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
@@ -227,7 +229,7 @@
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
-            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
+            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YouTube</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
@@ -276,7 +278,7 @@
 
         </div>
         
-        <div class="canvas-exit-anchor-box" onclick="shutdownActiveGame()">
+        <div class="canvas-exit-anchor-box" onclick="chaserMasterExitSequence()">
             <span class="canvas-exit-x-glyph">✕</span>
             <span class="canvas-exit-label-str">exit game</span>
         </div>
@@ -433,7 +435,7 @@
         gameHubOverlay.classList.remove('open');
         
         headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = `📺 YouTube`;
+        roomDisplayCode.innerText = `YouTube`;
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
@@ -483,7 +485,8 @@
         }
     };
 
-    window.shutdownActiveGame = () => {
+    // The new un-overwritable master exit sequence
+    window.chaserMasterExitSequence = () => {
         resetActivityTimer();
         activeGameStage.classList.remove('open');
         youtubeStageWrapper.classList.remove('active');
@@ -510,6 +513,9 @@
             window.cleanupRunningGameEngine();
         }
     };
+    
+    // Fallback for games.js which might still call shutdownActiveGame
+    window.shutdownActiveGame = window.chaserMasterExitSequence;
 
     const fitAllRiders = (animate = true) => {
         const positions = Object.values(incomingRidersCache).filter(r => r.marker).map(r => r.marker.getLatLng());
@@ -803,7 +809,7 @@
         if (timeoutCheckInterval) { clearInterval(timeoutCheckInterval); timeoutCheckInterval = null; }
         el('privacyHint').style.display = 'block';
         chatToggleBtn.style.opacity = '0.35'; chatToggleBtn.style.background = '#555555'; chatToggleBtn.style.pointerEvents = 'none';
-        if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); shutdownActiveGame(); gameHubOverlay.classList.remove('open'); }
+        if (isChatOpen) { isChatOpen = false; chatOverlay.classList.remove('open'); chaserMasterExitSequence(); gameHubOverlay.classList.remove('open'); }
     };
 
     startBtn.addEventListener('click', () => {
@@ -965,7 +971,7 @@
     }
 </script>
 
-<script src="./games.js?v=3"></script>
+<script src="./games.js?v=4"></script>
 
 </body>
 </html>
