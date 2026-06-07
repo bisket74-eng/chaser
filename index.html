@@ -2494,19 +2494,31 @@
 })();
 </script>
 <script>
-/* CHASER YOUTUBE API SEARCH */
+<script>
+/* CHASER YOUTUBE API SEARCH - HARD OVERRIDE */
 (function () {
     const input = document.getElementById("ytUrlInput");
-    const btn = document.getElementById("ytShareSyncBtn");
+    let btn = document.getElementById("ytShareSyncBtn");
     const frame = document.getElementById("ytPlayerFrame");
     const resultsBox = document.getElementById("ytSearchResultsBox");
 
     if (!input || !btn || !frame || !resultsBox || !window.supabaseClient) return;
 
+    const cleanBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(cleanBtn, btn);
+    btn = cleanBtn;
+
+    btn.textContent = "Search";
+
     function safeText(str) {
         return String(str || "").replace(/[&<>"']/g, m => ({
             "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
         }[m]));
+    }
+
+    function getVideoId(text) {
+        const match = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/]+)/);
+        return match && match[1] ? match[1] : null;
     }
 
     function playVideo(videoId) {
@@ -2527,6 +2539,12 @@
         const query = input.value.trim();
         if (!query) return;
 
+        const directVideoId = getVideoId(query);
+        if (directVideoId) {
+            playVideo(directVideoId);
+            return;
+        }
+
         resultsBox.innerHTML = `<div class="yt-search-item">Searching...</div>`;
         resultsBox.classList.add("open");
 
@@ -2534,8 +2552,8 @@
             body: { query }
         });
 
-        if (error || !data || !data.results) {
-            resultsBox.innerHTML = `<div class="yt-search-item">Search failed. Try another phrase.</div>`;
+        if (error || !data || !data.results || !data.results.length) {
+            resultsBox.innerHTML = `<div class="yt-search-item">Search failed or no results found.</div>`;
             return;
         }
 
@@ -2558,9 +2576,9 @@
 
     btn.addEventListener("click", function (e) {
         e.preventDefault();
-        e.stopImmediatePropagation();
+        e.stopPropagation();
         runSearch();
-    }, true);
+    });
 
     input.addEventListener("keydown", function (e) {
         if (e.key === "Enter") {
@@ -2569,6 +2587,6 @@
         }
     });
 })();
-</script>
+</script>>
 </body>
 </html>
