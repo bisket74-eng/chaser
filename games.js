@@ -2096,3 +2096,266 @@
 })();
 
 })();
+
+/* ============================================================
+   CHASER LOBBY FIX PATCH
+   Stops auto-joining people who are only sitting in chat.
+   Players must tap the same game and choose Join.
+   ============================================================ */
+
+(function () {
+    "use strict";
+
+    const openLobbyRegistry = {};
+    const originalLaunchGameEngine = window.launchGameEngine;
+    const originalLobbyUpdateHandler = window.handleIncomingChaserGameLobbyUpdate;
+    const originalLobbyStartHandler = window.handleIncomingChaserGameLobbyStart;
+
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+    const gameStage = document.getElementById("activeGameStage");
+    const gameHub = document.getElementById("gameHubOverlay");
+    const roomDisplayCode = document.getElementById("roomDisplayCode");
+    const headerButtons = document.getElementById("headerActionButtonsContainer");
+    const chatHeader = document.getElementById("chatHeader");
+
+    function myGameId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function myGameName() {
+        const input = document.getElementById("username");
+        return (input && input.value.trim()) || localStorage.getItem("rider_saved_name") || "Player";
+    }
+
+    function normalizeGameName(name) {
+        if (name === "Battle Uno") return "Uno";
+        if (name === "Crew Trivia") return "Trivia";
+        return name;
+    }
+
+    function iconForGame(name) {
+        return {
+            "Checkers": "🔴",
+            "Sequence": "⚔️",
+            "Uno": "🃏",
+            "Trivia": "🧠"
+        }[normalizeGameName(name)] || "🎮";
+    }
+
+    function sendGameEvent(event, payload) {
+        if (typeof channel !== "undefined" && channel && typeof channel.send === "function") {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myGameId(),
+                    senderName: myGameName(),
+                    roomGameId: window.chaserGame?.activeGameId || payload.roomGameId || null
+                }
+            });
+        }
+    }
+
+    function openGameShell(title) {
+        if (gameHub) gameHub.classList.remove("open");
+        if (gameStage) gameStage.classList.add("open");
+
+        if (roomDisplayCode) {
+            roomDisplayCode.innerText = title;
+            roomDisplayCode.classList.remove("youtube-pill-title");
+            roomDisplayCode.style.fontSize = "18px";
+        }
+
+        if (headerButtons) headerButtons.style.display = "none";
+        if (chatHeader) chatHeader.classList.add("game-active-mode");
+    }
+
+    function renderJoinChoice(lobby, requestedGameName) {
+        const gameName = normalizeGameName(requestedGameName);
+        const hostName = lobby.hostName || lobby.players?.[0]?.name || "Host";
+        const currentCount = lobby.players?.length || 1;
+        const expected = lobby.expectedPlayers || 2;
+
+        openGameShell(`${iconForGame(gameName)} ${gameName}`);
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:14px;padding:16px;box-sizing:border-box;text-align:center;color:white;">
+                <div style="font-size:28px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">
+                    ${iconForGame(gameName)} ${gameName}
+                </div>
+
+                <div style="background:#e2f0d9;color:#1e4620;border-radius:12px;padding:12px;width:100%;max-width:300px;
+                    font-weight:900;box-sizing:border-box;">
+                    ${hostName} has an open game<br>
+                    ${currentCount}/${expected} players joined
+                </div>
+
+                <button onclick="window.joinChaserOpenLobby('${lobby.roomGameId}')"
+                    style="background:#00b050;color:white;border:none;border-radius:10px;padding:13px 18px;
+                    width:100%;max-width:300px;font-size:18px;font-weight:900;font-family:Impact,sans-serif;
+                    box-shadow:0 4px 10px rgba(0,0,0,0.35);">
+                    JOIN THIS GAME
+                </button>
+
+                <button onclick="window.startSeparateChaserGame('${requestedGameName}')"
+                    style="background:#ffd700;color:#1e4620;border:none;border-radius:10px;padding:13px 18px;
+                    width:100%;max-width:300px;font-size:18px;font-weight:900;font-family:Impact,sans-serif;
+                    box-shadow:0 4px 10px rgba(0,0,0,0.35);">
+                    START NEW GAME
+                </button>
+            </div>
+        `;
+    }
+
+    function renderJoinedLobby() {
+        const g = window.chaserGame;
+        const players = g.players || [];
+        const waiting = Math.max(0, (g.expectedPlayers || 2) - players.length);
+
+        openGameShell(`${iconForGame(g.activeGame)} ${g.activeGame}`);
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+                gap:12px;padding:16px;box-sizing:border-box;text-align:center;color:white;">
+                <div style="font-size:28px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">
+                    ${iconForGame(g.activeGame)} ${g.activeGame}
+                </div>
+
+                <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">
+                    Expected Players: ${g.expectedPlayers}
+                </div>
+
+                <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:7px;">
+                    ${players.map(p => `
+                        <div style="background:#e2f0d9;color:#1e4620;border-radius:8px;padding:8px 10px;
+                            font-size:16px;font-weight:900;display:flex;justify-content:space-between;">
+                            <span>✓ ${p.name}</span>
+                            <span>Seat ${p.seat + 1}</span>
+                        </div>
+                    `).join("")}
+
+                    ${Array.from({ length: waiting }).map(() => `
+                        <div style="background:rgba(255,255,255,0.08);color:#a3cfbb;border:2px dashed rgba(226,240,217,0.25);
+                            border-radius:8px;padding:8px 10px;font-size:16px;font-weight:bold;">
+                            Waiting for player...
+                        </div>
+                    `).join("")}
+                </div>
+
+                <div style="color:#a3cfbb;font-size:14px;font-weight:bold;">
+                    Waiting for host to start...
+                </div>
+            </div>
+        `;
+    }
+
+    window.handleIncomingChaserGameLobby = function (payload) {
+        if (!payload || !payload.roomGameId || !payload.gameName) return;
+
+        payload.hostName = payload.senderName || payload.players?.[0]?.name || "Host";
+        openLobbyRegistry[payload.roomGameId] = payload;
+    };
+
+    window.handleIncomingChaserGameLobbyUpdate = function (payload) {
+        if (!payload || !payload.roomGameId) return;
+
+        if (openLobbyRegistry[payload.roomGameId]) {
+            openLobbyRegistry[payload.roomGameId] = {
+                ...openLobbyRegistry[payload.roomGameId],
+                ...payload
+            };
+        }
+
+        if (window.chaserGame && window.chaserGame.activeGameId === payload.roomGameId) {
+            window.chaserGame.players = payload.players || window.chaserGame.players;
+            window.chaserGame.expectedPlayers = payload.expectedPlayers || window.chaserGame.expectedPlayers;
+            window.chaserGame.hostId = payload.hostId || window.chaserGame.hostId;
+
+            const me = window.chaserGame.players.find(p => p.id === myGameId());
+            if (me) window.chaserGame.mySeat = me.seat;
+
+            renderJoinedLobby();
+        }
+
+        if (originalLobbyUpdateHandler) {
+            try { originalLobbyUpdateHandler(payload); } catch(e) {}
+        }
+    };
+
+    window.launchGameEngine = function (gameName, gameIcon) {
+        const normalized = normalizeGameName(gameName);
+
+        const matchingLobby = Object.values(openLobbyRegistry).find(lobby => {
+            const lobbyName = normalizeGameName(lobby.gameName);
+            const players = lobby.players || [];
+            const expected = lobby.expectedPlayers || 2;
+            const alreadyIn = players.some(p => p.id === myGameId());
+
+            return lobbyName === normalized && !alreadyIn && players.length < expected;
+        });
+
+        if (matchingLobby) {
+            renderJoinChoice(matchingLobby, gameName);
+            return;
+        }
+
+        originalLaunchGameEngine(gameName, gameIcon);
+    };
+
+    window.joinChaserOpenLobby = function (roomGameId) {
+        const lobby = openLobbyRegistry[roomGameId];
+        if (!lobby) return;
+
+        const players = lobby.players || [];
+        const expected = lobby.expectedPlayers || 2;
+
+        if (players.length >= expected) {
+            alert("That game is already full.");
+            return;
+        }
+
+        const alreadyIn = players.some(p => p.id === myGameId());
+        if (alreadyIn) return;
+
+        const mySeat = players.length;
+
+        const updatedPlayers = players.concat([{
+            id: myGameId(),
+            name: myGameName(),
+            seat: mySeat
+        }]);
+
+        window.chaserGame = window.chaserGame || {};
+        window.chaserGame.activeGame = normalizeGameName(lobby.gameName);
+        window.chaserGame.activeGameId = roomGameId;
+        window.chaserGame.expectedPlayers = expected;
+        window.chaserGame.hostId = lobby.hostId;
+        window.chaserGame.players = updatedPlayers;
+        window.chaserGame.mySeat = mySeat;
+        window.chaserGame.currentLobby = {
+            gameName: normalizeGameName(lobby.gameName),
+            expectedPlayers: expected
+        };
+
+        openLobbyRegistry[roomGameId] = {
+            ...lobby,
+            players: updatedPlayers
+        };
+
+        sendGameEvent("chaser-game-lobby-update", {
+            roomGameId,
+            gameName: normalizeGameName(lobby.gameName),
+            expectedPlayers: expected,
+            players: updatedPlayers,
+            hostId: lobby.hostId
+        });
+
+        renderJoinedLobby();
+    };
+
+    window.startSeparateChaserGame = function (gameName) {
+        originalLaunchGameEngine(gameName, iconForGame(gameName));
+    };
+})();
