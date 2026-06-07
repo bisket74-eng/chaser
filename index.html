@@ -2493,5 +2493,82 @@
     });
 })();
 </script>
+<script>
+/* CHASER YOUTUBE API SEARCH */
+(function () {
+    const input = document.getElementById("ytUrlInput");
+    const btn = document.getElementById("ytShareSyncBtn");
+    const frame = document.getElementById("ytPlayerFrame");
+    const resultsBox = document.getElementById("ytSearchResultsBox");
+
+    if (!input || !btn || !frame || !resultsBox || !window.supabaseClient) return;
+
+    function safeText(str) {
+        return String(str || "").replace(/[&<>"']/g, m => ({
+            "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
+        }[m]));
+    }
+
+    function playVideo(videoId) {
+        frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+        resultsBox.classList.remove("open");
+        input.value = "";
+
+        if (typeof channel !== "undefined" && channel) {
+            channel.send({
+                type:"broadcast",
+                event:"youtube-sync-video",
+                payload:{ videoId }
+            });
+        }
+    }
+
+    async function runSearch() {
+        const query = input.value.trim();
+        if (!query) return;
+
+        resultsBox.innerHTML = `<div class="yt-search-item">Searching...</div>`;
+        resultsBox.classList.add("open");
+
+        const { data, error } = await window.supabaseClient.functions.invoke("youtube-search", {
+            body: { query }
+        });
+
+        if (error || !data || !data.results) {
+            resultsBox.innerHTML = `<div class="yt-search-item">Search failed. Try another phrase.</div>`;
+            return;
+        }
+
+        resultsBox.innerHTML = data.results.map(v => `
+            <div class="yt-search-item" data-video-id="${safeText(v.videoId)}">
+                ${v.thumbnail ? `<img src="${safeText(v.thumbnail)}" style="width:58px;height:36px;object-fit:cover;border-radius:4px;margin-right:8px;vertical-align:middle;">` : ""}
+                <span>${safeText(v.title)}</span>
+                <span class="yt-search-item-channel">${safeText(v.channel)}</span>
+            </div>
+        `).join("");
+
+        resultsBox.querySelectorAll(".yt-search-item[data-video-id]").forEach(item => {
+            item.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                playVideo(this.dataset.videoId);
+            });
+        });
+    }
+
+    btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        runSearch();
+    }, true);
+
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            runSearch();
+        }
+    });
+})();
+</script>
 </body>
 </html>
