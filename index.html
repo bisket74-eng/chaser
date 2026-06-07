@@ -67,11 +67,18 @@
 
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
-        #chatHeader { background:#1e4620; color:white; padding:16px; font-weight:bold; font-size:16px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-shrink:0; z-index:10; }
-        #closeChatBtn { background:none; border:none; color:white; font-size:22px; cursor:pointer; padding:4px; }
         
-        #chatGamesTriggerBtn { background:#b8860b; color:white; border:2px solid #ffd700; border-radius:8px; font-size:13px; font-weight:bold; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.2); transition:transform 0.1s; }
-        #chatGamesTriggerBtn:active { transform:scale(0.92); }
+        /* NEW CHAT HEADER LAYOUT STYLES */
+        #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; z-index:10; user-select:none; }
+        .header-left-col { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+        .header-left-col .sub-label { color:#a3cfbb; font-size:12px; font-weight:bold; letter-spacing:0.5px; text-transform:uppercase; font-family:sans-serif; }
+        .header-left-col .main-label { color:#ffd700; font-size:22px; font-weight:900; font-family:'Impact', sans-serif; text-shadow:2px 2px 4px rgba(0,0,0,0.5); letter-spacing:1px; line-height:1; }
+        .header-btn-row { display:flex; align-items:center; gap:8px; }
+        .pill-btn { display:flex; align-items:center; justify-content:center; gap:4px; padding:6px 12px; border-radius:50px; font-family:'Impact', sans-serif; font-size:14px; font-weight:900; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; border:2px solid; }
+        .pill-btn:active { transform:scale(0.92); }
+        #chatGamesTriggerBtn { background:#2d6a30; color:#fff; border-color:#40916c; }
+        #youtubePlaceholderBtn { background:#242424; color:#e63946; border-color:#dc3545; }
+        #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px 0 4px 4px; }
 
         #gameHubOverlay { position:absolute; top:54px; bottom:0; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; overflow-y:auto; box-sizing:border-box; }
         #gameHubOverlay.open { display:flex; }
@@ -193,9 +200,15 @@
 
 <div id="chatOverlay">
     <div id="chatHeader">
-        <button id="chatGamesTriggerBtn" type="button">🎮 Games</button>
-        <span style="flex:1; text-align:center;">Group Room</span>
-        <button id="closeChatBtn" type="button">✕</button>
+        <div class="header-left-col">
+            <span class="sub-label">Active Session</span>
+            <span class="main-label" id="roomDisplayCode">ROOM</span>
+        </div>
+        <div class="header-btn-row">
+            <button id="chatGamesTriggerBtn" class="pill-btn" type="button">🎮 GAMES</button>
+            <button id="youtubePlaceholderBtn" class="pill-btn" type="button" onclick="alert('YouTube player integration coming soon!')">📺 YT</button>
+            <button id="closeChatBtn" type="button">✕</button>
+        </div>
     </div>
     
     <div id="gameHubOverlay">
@@ -227,7 +240,6 @@
             </div>
         </div>
     </div>
-
 
     <div id="activeGameStage">
         <div id="gameStageHeader">
@@ -681,6 +693,10 @@
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
+        
+        // Updates the new header layout so the actual room code is displayed
+        const roomDisplayEl = document.getElementById('roomDisplayCode');
+        if (roomDisplayEl) roomDisplayEl.innerText = 'ROOM: ' + code;
     };
 
     const leavePrivateRoom = () => {
@@ -689,6 +705,10 @@
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
+        
+        // Resets the new header layout when you leave
+        const roomDisplayEl = document.getElementById('roomDisplayCode');
+        if (roomDisplayEl) roomDisplayEl.innerText = 'ROOM';
     };
 
     roomLockBtn.addEventListener('click', () => {
