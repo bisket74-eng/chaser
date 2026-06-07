@@ -166,7 +166,7 @@
     </style>
 </head>
 <body>
-   <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
+<span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
@@ -429,6 +429,7 @@
         }
     });
 
+    // LAUNCH YOUTUBE CINEMA INTERFACE WIREFRAME
     document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
@@ -441,7 +442,7 @@
         
         chatHeader.classList.add('game-active-mode');
         
-        activeGameStage.classList.add('open');
+        activeGameStage.add ? activeGameStage.add() : activeGameStage.classList.add('open');
         youtubeStageWrapper.classList.add('active');
         
         if (!ytPlayerFrame.src || ytPlayerFrame.src.includes('about:blank')) {
@@ -464,9 +465,7 @@
             ytSearchResultsBox.classList.remove('open');
         }
     });
-</script>
 
-<script>
     window.launchGameEngine = (gameName, gameEmoji) => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
@@ -486,11 +485,12 @@
         }
     };
 
+    // MASTER SYSTEM REBOOT DISPATCH (EXITS GAMES AND CLEANLY TEARS DOWN YOUTUBE SESSIONS)
     window.shutdownActiveGame = () => {
         resetActivityTimer();
         activeGameStage.classList.remove('open');
         youtubeStageWrapper.classList.remove('active');
-        ytPlayerFrame.src = ''; 
+        ytPlayerFrame.src = 'about:blank'; 
         gameCanvasContainer.innerHTML = '';
         
         gameCanvasContainer.appendChild(youtubeStageWrapper);
@@ -621,15 +621,11 @@
 
     const registerPushSubscription = async () => {
         if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
-            alert("Failed: Notifications not supported or VAPID key is missing.");
             return;
         }
         let perm = Notification.permission;
         if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (err) {} }
-        if (perm !== 'granted') {
-            alert("Failed: Notification permission is blocked on this phone.");
-            return;
-        }
+        if (perm !== 'granted') { return; }
 
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -638,17 +634,10 @@
                 userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
             });
             
-            const { error } = await supabaseClient.from('push_subscriptions').upsert({
+            await supabaseClient.from('push_subscriptions').upsert({
                 rider_id: myId, subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
-
-            if (error) {
-                alert("Supabase Error: " + error.message);
-            }
-
-        } catch (err) {
-            alert("Code Crash: " + err.message);
-        }
+        } catch (err) {}
     };
 
     subscribeChannel();
@@ -699,8 +688,6 @@
     const leaveRoomBtn     = el('leaveRoomBtn');
     const modalOrText      = el('modalOrText');
     const toggleInputsBtn  = el('toggleInputsBtn');
-    const controlsContainer = el('controls');
-    const inputsWrapper    = el('inputsWrapper');
 
     usernameInput.value = localStorage.getItem('rider_saved_name') || '';
     chatMsgInput.style.backgroundColor = myChatColor;
@@ -982,4 +969,3 @@
 
 </body>
 </html>
- 
