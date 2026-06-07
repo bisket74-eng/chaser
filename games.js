@@ -2617,3 +2617,250 @@
         renderSeq();
     };
 })();
+/* CHASER QUICK FIX PACK – paste at bottom of games.js */
+(function () {
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function syncGame(event, payload) {
+        if (typeof channel !== "undefined" && channel) {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myId(),
+                    roomGameId: window.chaserGame?.activeGameId || payload.roomGameId || null
+                }
+            });
+        }
+    }
+
+    function normalizeGameName(name) {
+        if (name === "Crew Trivia") return "Trivia";
+        if (name === "Battle Uno") return "Uno";
+        return name;
+    }
+
+    window.handleIncomingChaserGameLobbyStart = function (payload) {
+        if (!payload) return;
+
+        if (window.chaserGame && payload.roomGameId && window.chaserGame.activeGameId !== payload.roomGameId) {
+            return;
+        }
+
+        const gameName = normalizeGameName(payload.gameName);
+
+        window.chaserGame = window.chaserGame || {};
+        window.chaserGame.activeGame = gameName;
+        window.chaserGame.activeGameId = payload.roomGameId;
+        window.chaserGame.expectedPlayers = payload.expectedPlayers;
+        window.chaserGame.players = payload.players || [];
+        window.chaserGame.hostId = payload.hostId;
+
+        const me = window.chaserGame.players.find(p => p.id === myId());
+        if (me) window.chaserGame.mySeat = me.seat;
+
+        if (gameName === "Trivia" && typeof window.initTriviaGame === "function") {
+            window.initTriviaGame();
+        } else if (gameName === "Uno" && typeof window.initChaserUnoGame === "function") {
+            window.initChaserUnoGame();
+        } else if (gameName === "Sequence" && typeof window.initSequenceGame === "function") {
+            window.initSequenceGame();
+        }
+    };
+
+    window.unoDrawCard = function () {
+        const s = window.unoState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat || 0;
+        if (s.turn !== mySeat) return;
+
+        const discard = s.discard;
+        let drawn = 0;
+        let foundPlayable = false;
+
+        while (s.deck.length) {
+            const card = s.deck.pop();
+            s.hands[mySeat].push(card);
+            drawn++;
+
+            if (
+                card.color === discard.color ||
+                card.value === discard.value ||
+                card.color === "Wild"
+            ) {
+                foundPlayable = true;
+                break;
+            }
+        }
+
+        s.message = foundPlayable
+            ? `Drew ${drawn} card${drawn === 1 ? "" : "s"} and found a play.`
+            : `Drew ${drawn} card${drawn === 1 ? "" : "s"}, no play found.`;
+
+        syncGame("uno-sync-discard", { state: s });
+
+        if (typeof window.receiveUnoSync === "function") {
+            window.receiveUnoSync({ state: s, roomGameId: window.chaserGame.activeGameId });
+        }
+
+        setTimeout(() => {
+            const scrollers = document.querySelectorAll('[style*="overflow-x:auto"], [style*="overflow-x: auto"]');
+            scrollers.forEach(scroller => {
+                scroller.scrollLeft = scroller.scrollWidth;
+            });
+        }, 80);
+    };
+
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+
+    const visualFixObserver = new MutationObserver(() => {
+        if (!window.chaserGame) return;
+
+        if (window.chaserGame.activeGame === "Sequence") {
+            const root = gameCanvas.firstElementChild;
+            if (root) {
+                root.style.overflow = "auto";
+                root.style.paddingRight = "10px";
+                root.style.paddingBottom = "10px";
+            }
+
+            const board = Array.from(gameCanvas.querySelectorAll("div")).find(d =>
+                d.style.gridTemplateColumns && d.style.gridTemplateColumns.includes("repeat(10")
+            );
+
+            if (board) {
+                board.style.transform = "scale(0.88)";
+                board.style.transformOrigin = "top left";
+                board.style.marginRight = "26px";
+                board.style.marginBottom = "26px";
+            }
+        }
+
+        if (window.chaserGame.activeGame === "Uno") {
+            setTimeout(() => {
+                const scrollers = document.querySelectorAll('[style*="overflow-x:auto"], [style*="overflow-x: auto"]');
+                scrollers.forEach(scroller => {
+                    scroller.scrollLeft = scroller.scrollWidth;
+                });
+            }, 80);
+        }
+    });
+
+    if (gameCanvas) {
+        visualFixObserver.observe(gameCanvas, { childList: true, subtree: true });
+    }
+
+    const WORDS = [
+        "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
+        "POSTAL", "NAVIGATOR", "HIGHWAY", "HELMET", "COMPASS"
+    ];
+
+    window.initHangmanGame = function () {
+        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        window.hangmanState = {
+            word,
+            guessed: [],
+            wrong: 0,
+            maxWrong: 6
+        };
+        renderSafeHangman();
+    };
+
+    function buildChaserBot(wrong, lost) {
+        const red = lost ? "#dc3545" : "#e2f0d9";
+        const shake = lost ? "animation:botShake .45s ease-in-out 4;" : "";
+
+        return `
+            <svg viewBox="0 0 160 130" width="150" height="120" style="display:block;margin:0 auto;${shake}">
+                <style>
+                    @keyframes botShake {
+                        0%,100% { transform:translateX(0); }
+                        25% { transform:translateX(-4px); }
+                        75% { transform:translateX(4px); }
+                    }
+                </style>
+
+                <line x1="20" y1="118" x2="140" y2="118" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="45" y1="118" x2="45" y2="18" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="45" y1="18" x2="112" y2="18" stroke="#ffd700" stroke-width="5" stroke-linecap="round"/>
+                <line x1="112" y1="18" x2="112" y2="34" stroke="#ffd700" stroke-width="4" stroke-linecap="round"/>
+
+                ${wrong >= 1 ? `<circle cx="112" cy="47" r="14" fill="none" stroke="${red}" stroke-width="4"/>` : ""}
+                ${wrong >= 1 && lost ? `
+                    <text x="102" y="52" fill="${red}" font-size="14" font-weight="900">X X</text>
+                ` : wrong >= 1 ? `
+                    <circle cx="106" cy="44" r="2" fill="${red}"/>
+                    <circle cx="118" cy="44" r="2" fill="${red}"/>
+                    <path d="M105 53 Q112 58 119 53" stroke="${red}" stroke-width="2" fill="none"/>
+                ` : ""}
+
+                ${wrong >= 2 ? `<rect x="99" y="62" width="26" height="34" rx="8" fill="none" stroke="${red}" stroke-width="4"/>` : ""}
+                ${wrong >= 3 ? `<line x1="99" y1="70" x2="78" y2="88" stroke="${red}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                ${wrong >= 4 ? `<line x1="125" y1="70" x2="146" y2="88" stroke="${red}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                ${wrong >= 5 ? `<line x1="105" y1="96" x2="90" y2="118" stroke="${red}" stroke-width="4" stroke-linecap="round"/>` : ""}
+                ${wrong >= 6 ? `<line x1="119" y1="96" x2="134" y2="118" stroke="${red}" stroke-width="4" stroke-linecap="round"/>` : ""}
+            </svg>
+        `;
+    }
+
+    function renderSafeHangman() {
+        const s = window.hangmanState;
+        if (!s || !gameCanvas) return;
+
+        const won = s.word.split("").every(l => s.guessed.includes(l));
+        const lost = s.wrong >= s.maxWrong;
+
+        gameCanvas.innerHTML = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+                gap:7px;color:white;text-align:center;padding:8px;box-sizing:border-box;user-select:none;overflow:auto;">
+                
+                <div style="font-size:24px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">HANGMAN</div>
+
+                ${buildChaserBot(s.wrong, lost)}
+
+                <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;">
+                    ${s.word.split("").map(l => `
+                        <div style="border-bottom:4px solid #e2f0d9;width:23px;height:31px;font-size:24px;font-weight:900;color:#ffd700;">
+                            ${s.guessed.includes(l) || lost ? l : ""}
+                        </div>
+                    `).join("")}
+                </div>
+
+                ${won || lost ? `
+                    <div style="font-size:18px;font-weight:900;color:${won ? "#00b050" : "#dc3545"};">
+                        ${won ? "YOU GOT IT!" : "GAME OVER"}
+                    </div>
+                    <button onclick="window.initHangmanGame()"
+                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:9px 18px;
+                        font-size:17px;font-weight:900;font-family:Impact,sans-serif;">NEW GAME</button>
+                ` : `
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;max-width:330px;">
+                        ${"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map(l => {
+                            const used = s.guessed.includes(l);
+                            return `
+                                <button onclick="window.pickHangmanLetter('${l}')" ${used ? "disabled" : ""}
+                                    style="height:31px;border:none;border-radius:5px;background:${used ? "#6c757d" : "#e2f0d9"};
+                                    color:${used ? "#fff" : "#1e4620"};font-size:16px;font-weight:900;">
+                                    ${l}
+                                </button>`;
+                        }).join("")}
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    window.pickHangmanLetter = function (letter) {
+        const s = window.hangmanState;
+        if (!s || s.guessed.includes(letter)) return;
+
+        s.guessed.push(letter);
+        if (!s.word.includes(letter)) s.wrong++;
+
+        renderSafeHangman();
+    };
+})();
