@@ -341,7 +341,6 @@
         myChatColor = generateRandomPastelColor();
         localStorage.setItem('rider_chat_color', myChatColor);
     }
-
     const buildLabelIcon = (name, dest, color, ghost, riderInternalId) => {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
@@ -429,7 +428,6 @@
         }
     });
 
-    // LAUNCH YOUTUBE CINEMA INTERFACE WIREFRAME
     document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
@@ -442,7 +440,7 @@
         
         chatHeader.classList.add('game-active-mode');
         
-        activeGameStage.add ? activeGameStage.add() : activeGameStage.classList.add('open');
+        activeGameStage.classList.add('open');
         youtubeStageWrapper.classList.add('active');
         
         if (!ytPlayerFrame.src || ytPlayerFrame.src.includes('about:blank')) {
@@ -485,7 +483,6 @@
         }
     };
 
-    // MASTER SYSTEM REBOOT DISPATCH (EXITS GAMES AND CLEANLY TEARS DOWN YOUTUBE SESSIONS)
     window.shutdownActiveGame = () => {
         resetActivityTimer();
         activeGameStage.classList.remove('open');
@@ -688,6 +685,8 @@
     const leaveRoomBtn     = el('leaveRoomBtn');
     const modalOrText      = el('modalOrText');
     const toggleInputsBtn  = el('toggleInputsBtn');
+    const controlsContainer = el('controls');
+    const inputsWrapper    = el('inputsWrapper');
 
     usernameInput.value = localStorage.getItem('rider_saved_name') || '';
     chatMsgInput.style.backgroundColor = myChatColor;
@@ -965,7 +964,8 @@
         });
     }
 </script>
-<script src="./games.js"></script>
+
+<script src="./games.js?v=2"></script>
 
 </body>
 </html>
