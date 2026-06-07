@@ -70,20 +70,23 @@
         #chatOverlay.open { right:0; }
         
         #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
-        .chat-room-title { color:#ffd700; font-size:18px; font-weight:800; font-family:Arial, sans-serif; letter-spacing:1.5px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
+        
+        /* ENLARGED SCRIPT TYPOGRAPHY FOR PRIMARY HEADER TITLE */
+        .chat-room-title { color:#ffd700; font-size:24px; font-weight:normal; font-family:"Brush Script MT", "Comic Sans MS", cursive; letter-spacing:1px; line-height:1; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
         
         .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; flex-shrink:0; padding:0; box-sizing:border-box; }
         .round-btn:active { transform:scale(0.92); }
         
-        /* SHARP, LIGHT GREEN BUTTON WITH EXPLICIT DARK GREEN OUTER RING BACKGROUND */
+        /* UNIFIED CONTRAST INTERFACE TRIGGER STYLES */
         #chatGamesTriggerBtn { background:#e2f0d9 !important; color:#1e4620 !important; border:3px solid #2d6a30 !important; font-size:22px; }
-        #youtubePlaceholderBtn { background:#dc3545; color:#ffffff; border:2px solid #ff4d4d; font-family:'Impact', sans-serif; font-weight:900; }
+        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:3px solid #dc3545 !important; font-family:'Arial Black', 'Impact', sans-serif; font-weight:900; font-size:12px; letter-spacing:-0.5px; }
         
         #headerGameExitTrigger { display:none; align-items:center; margin-left:auto; font-family:Arial, sans-serif; font-size:12px; font-weight:bold; color:#dc3545; text-transform:lowercase; letter-spacing:0.5px; cursor:pointer; border:1px solid #dc3545; padding:4px 10px; border-radius:20px; background:rgba(220,53,69,0.1); transition:background 0.2s; }
         #headerGameExitTrigger:active { background:rgba(220,53,69,0.25); }
         
-        #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+        /* CRISP CIRCULAR MASTER RED CLOSING ELEMENT ELEMENT STYLE */
+        #closeChatBtn { background:#ffffff !important; color:#dc3545 !important; border:3px solid #dc3545 !important; font-size:16px; font-weight:900; width:28px; height:28px; border-radius:50%; cursor:pointer; padding:0; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
         #chatHeader.game-active-mode #closeChatBtn { margin-left:8px; } 
 
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
@@ -149,7 +152,6 @@
 </head>
 <body>
 
-<!-- HIDDEN TRACKER CONTAINER TO EMULATE BACKWARDS COMPATIBLE TARGETING FOR GAMES.JS -->
 <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
@@ -207,7 +209,7 @@
 
 <div id="chatOverlay">
     <div id="chatHeader">
-        <span class="chat-room-title" id="roomDisplayCode">CHAT ROOM</span>
+        <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
             <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
@@ -402,6 +404,9 @@
         
         headerActionButtonsContainer.style.display = 'none';
         roomDisplayCode.innerText = `${gameEmoji} ${gameName}`;
+        roomDisplayCode.style.fontFamily = 'Arial, sans-serif'; 
+        roomDisplayCode.style.fontWeight = '800';
+        roomDisplayCode.style.fontSize = '18px';
         
         headerGameExitTrigger.style.display = 'flex';
         chatHeader.classList.add('game-active-mode');
@@ -421,10 +426,14 @@
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
         
+        roomDisplayCode.style.fontFamily = '"Brush Script MT", "Comic Sans MS", cursive';
+        roomDisplayCode.style.fontWeight = 'normal';
+        roomDisplayCode.style.fontSize = '24px';
+        
         if (activeRoomCode) {
-            roomDisplayCode.innerText = 'CHAT ROOM: ' + activeRoomCode;
+            roomDisplayCode.innerText = 'Chat Room: ' + activeRoomCode;
         } else {
-            roomDisplayCode.innerText = 'CHAT ROOM';
+            roomDisplayCode.innerText = 'Chat Room';
         }
         
         if (window.cleanupRunningGameEngine) {
@@ -768,7 +777,9 @@
         roomModalOverlay.classList.remove('open'); resetModalUI();
         
         const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM: ' + code;
+        if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
+            roomDisplayEl.innerText = 'Chat Room: ' + code;
+        }
     };
 
     const leavePrivateRoom = () => {
@@ -779,7 +790,9 @@
         resetModalUI();
         
         const roomDisplayEl = document.getElementById('roomDisplayCode');
-        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM';
+        if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
+            roomDisplayEl.innerText = 'Chat Room';
+        }
     };
 
     roomLockBtn.addEventListener('click', () => {
