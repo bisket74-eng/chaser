@@ -812,8 +812,13 @@
     async function requestWakeLock() { if('wakeLock' in navigator) try { wakeLock=await navigator.wakeLock.request('screen'); } catch(e){} }
     function releaseWakeLock() { if(wakeLock) wakeLock.release().then(()=>wakeLock=null); }
 
-    if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
-</script>
+    if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').then(() => {
+        // This line makes the magic happen
+        registerPushSubscription();
+    });
+}
+
 
 <script src="./games.js"></script>
 
