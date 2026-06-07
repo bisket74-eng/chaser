@@ -3315,3 +3315,159 @@
             </div>`;
     }
 })();
+/* CHASER PATCH B – Sequence tweaks + bigger trivia variety + Uno header centering */
+(function () {
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return window.chaserGame && window.chaserGame.hostId === myId();
+    }
+
+    function send(event, payload) {
+        if (typeof channel !== "undefined" && channel) {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myId(),
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+    }
+
+    function decodeHTML(str) {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = str;
+        return txt.value;
+    }
+
+    function shuffle(arr) {
+        const a = arr.slice();
+        for (let i = a.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+    }
+
+    /* Sequence visual tweaks */
+    const sequenceTweakObserver = new MutationObserver(() => {
+        if (!window.chaserGame || window.chaserGame.activeGame !== "Sequence" || !gameCanvas) return;
+
+        const allDivs = Array.from(gameCanvas.querySelectorAll("div"));
+
+        allDivs.forEach(d => {
+            if ((d.textContent || "").trim() === "Blue starts.") {
+                d.textContent = "";
+                d.style.display = "none";
+            }
+        });
+
+        allDivs.forEach(d => {
+            const txt = (d.textContent || "").trim();
+            if (txt === "YOUR MOVE") {
+                const turnText = allDivs.find(x => (x.textContent || "").includes("BLUE TURN") || (x.textContent || "").includes("RED TURN"));
+                const isBlue = turnText && turnText.textContent.includes("BLUE");
+                const isRed = turnText && turnText.textContent.includes("RED");
+                d.style.color = isBlue ? "#00b0ff" : isRed ? "#e63946" : "#00b050";
+            }
+        });
+    });
+
+    if (gameCanvas) {
+        sequenceTweakObserver.observe(gameCanvas, { childList: true, subtree: true });
+    }
+
+    /* Uno header centering */
+    const unoTweakObserver = new MutationObserver(() => {
+        if (!window.chaserGame || window.chaserGame.activeGame !== "Uno" || !gameCanvas) return;
+
+        const topRows = Array.from(gameCanvas.querySelectorAll("div")).filter(d =>
+            d.style && d.style.justifyContent === "space-between"
+        );
+
+        topRows.forEach(row => {
+            if ((row.textContent || "").includes("UNO") && (row.textContent || "").includes("TURN")) {
+                row.style.display = "flex";
+                row.style.flexDirection = "column";
+                row.style.alignItems = "center";
+                row.style.justifyContent = "center";
+                row.style.gap = "3px";
+                row.style.textAlign = "center";
+            }
+        });
+    });
+
+    if (gameCanvas) {
+        unoTweakObserver.observe(gameCanvas, { childList: true, subtree: true });
+    }
+
+    /* Trivia: fetch broad online questions and avoid repeats */
+    window.chaserUsedTriviaQuestions = window.chaserUsedTriviaQuestions || [];
+
+    async function fetchFreshTriviaQuestion() {
+        try {
+            const res = await fetch("https://opentdb.com/api.php?amount=1&type=multiple");
+            const data = await res.json();
+
+            if (!data.results || !data.results.length) throw new Error("No trivia returned");
+
+            const item = data.results[0];
+            const q = decodeHTML(item.question);
+
+            if (window.chaserUsedTriviaQuestions.includes(q) && window.chaserUsedTriviaQuestions.length < 500) {
+                return fetchFreshTriviaQuestion();
+            }
+
+            window.chaserUsedTriviaQuestions.push(q);
+            if (window.chaserUsedTriviaQuestions.length > 500) {
+                window.chaserUsedTriviaQuestions.shift();
+            }
+
+            const correct = decodeHTML(item.correct_answer);
+            const choices = shuffle([
+                correct,
+                ...item.incorrect_answers.map(decodeHTML)
+            ]);
+
+            return { q, c: correct, a: choices };
+        } catch (err) {
+            const fallback = [
+                { q:"Which planet is closest to the Sun?", c:"Mercury", a:["Venus","Mercury","Mars","Earth"] },
+                { q:"What is the largest mammal?", c:"Blue whale", a:["Elephant","Blue whale","Giraffe","Orca"] },
+                { q:"Which instrument has keys, pedals, and strings?", c:"Piano", a:["Guitar","Piano","Violin","Flute"] },
+                { q:"What is the hardest natural substance?", c:"Diamond", a:["Gold","Iron","Diamond","Quartz"] },
+                { q:"Which country is shaped like a boot?", c:"Italy", a:["Spain","Italy","Greece","Chile"] }
+            ];
+            return fallback[Math.floor(Math.random() * fallback.length)];
+        }
+    }
+
+    window.startTriviaRound = async function () {
+        if (!isHost()) return;
+
+        const s = window.triviaState;
+        if (!s) return;
+
+        const item = await fetchFreshTriviaQuestion();
+
+        s.current = item;
+        s.votes = {};
+        s.round++;
+        s.phase = "question";
+        s.timer = 5;
+        s.phaseEndsAt = Date.now() + 5000;
+
+        send("sync-room-trivia", { state: s });
+
+        if (typeof window.receiveTriviaSync === "function") {
+            window.receiveTriviaSync({ state: s, roomGameId: window.chaserGame.activeGameId });
+        }
+    };
+})();
