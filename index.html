@@ -166,8 +166,7 @@
     </style>
 </head>
 <body>
-
-<span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
+   <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
@@ -430,14 +429,12 @@
         }
     });
 
-    // LAUNCH YOUTUBE THEATER MODE
     document.getElementById('youtubePlaceholderBtn').addEventListener('click', () => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
         
-        // Take over top row text elements cleanly
         headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = `📺 YOUTUBE`;
+        roomDisplayCode.innerText = `📺 YouTube`;
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
@@ -489,7 +486,6 @@
         }
     };
 
-    // UNIFIED SHUTDOWN DISPATCH ENGINE (HANDLES BOTH GAMES AND YOUTUBE REBOOTS CLEANLY)
     window.shutdownActiveGame = () => {
         resetActivityTimer();
         activeGameStage.classList.remove('open');
@@ -497,7 +493,6 @@
         ytPlayerFrame.src = ''; 
         gameCanvasContainer.innerHTML = '';
         
-        // Safeguard video wrapper layer elements
         gameCanvasContainer.appendChild(youtubeStageWrapper);
         ytSearchResultsBox.classList.remove('open');
         
@@ -987,3 +982,4 @@
 
 </body>
 </html>
+ 
