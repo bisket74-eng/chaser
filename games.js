@@ -3471,3 +3471,64 @@
         }
     };
 })();
+/* CHASER PATCH C – cleaner turn labels for Sequence + Uno */
+(function () {
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+
+    function cleanGameText() {
+        if (!gameCanvas || !window.chaserGame) return;
+
+        const active = window.chaserGame.activeGame;
+        const all = Array.from(gameCanvas.querySelectorAll("div, span"));
+
+        if (active === "Sequence") {
+            all.forEach(el => {
+                const txt = (el.textContent || "").trim();
+
+                if (
+                    txt === "Blue starts." ||
+                    txt === "Red starts." ||
+                    txt.includes("starts.")
+                ) {
+                    el.textContent = "";
+                    el.style.display = "none";
+                }
+
+                if (txt === "YOUR MOVE") {
+                    const blueTurn = all.some(x => (x.textContent || "").includes("BLUE TURN"));
+                    const redTurn = all.some(x => (x.textContent || "").includes("RED TURN"));
+
+                    el.style.color = blueTurn ? "#00b0ff" : redTurn ? "#e63946" : "#00b050";
+                    el.style.fontWeight = "900";
+                }
+            });
+        }
+
+        if (active === "Uno") {
+            all.forEach(el => {
+                const txt = (el.textContent || "").trim();
+
+                if (txt === "UNO") {
+                    el.style.display = "none";
+                }
+
+                if (txt === "↻" || txt === "↺") {
+                    el.style.display = "none";
+                }
+
+                if (txt.includes("starts.")) {
+                    el.textContent = "";
+                    el.style.display = "none";
+                }
+            });
+        }
+    }
+
+    const obs = new MutationObserver(cleanGameText);
+
+    if (gameCanvas) {
+        obs.observe(gameCanvas, { childList:true, subtree:true });
+    }
+
+    setInterval(cleanGameText, 800);
+})();
