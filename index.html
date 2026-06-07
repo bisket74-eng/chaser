@@ -71,22 +71,22 @@
         
         #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
         
-        /* ENLARGED SCRIPT TYPOGRAPHY FOR PRIMARY HEADER TITLE */
-        .chat-room-title { color:#ffd700; font-size:24px; font-weight:normal; font-family:"Brush Script MT", "Comic Sans MS", cursive; letter-spacing:1px; line-height:1; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
+        /* DOMINANT, BOLD, HIGH-LEGIBILITY ALL-CAPS FONT VARIANT */
+        .chat-room-title { color:#ffd700; font-size:22px; font-weight:900; font-family:'Trebuchet MS', 'Arial Black', sans-serif; letter-spacing:2px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
         
         .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; flex-shrink:0; padding:0; box-sizing:border-box; }
         .round-btn:active { transform:scale(0.92); }
         
-        /* UNIFIED CONTRAST INTERFACE TRIGGER STYLES */
-        #chatGamesTriggerBtn { background:#e2f0d9 !important; color:#1e4620 !important; border:3px solid #2d6a30 !important; font-size:22px; }
-        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:3px solid #dc3545 !important; font-family:'Arial Black', 'Impact', sans-serif; font-weight:900; font-size:12px; letter-spacing:-0.5px; }
+        /* SYMMETRICAL ACTION ELEMENT TRIGGER STYLING WITH THINNER ACCENT BORDERS */
+        #chatGamesTriggerBtn { background:#ffffff !important; color:#0056b3 !important; border:2px solid #0056b3 !important; font-size:20px; }
+        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:2px solid #dc3545 !important; font-family:'Arial Black', 'Impact', sans-serif; font-weight:900; font-size:12px; letter-spacing:-0.5px; }
         
         #headerGameExitTrigger { display:none; align-items:center; margin-left:auto; font-family:Arial, sans-serif; font-size:12px; font-weight:bold; color:#dc3545; text-transform:lowercase; letter-spacing:0.5px; cursor:pointer; border:1px solid #dc3545; padding:4px 10px; border-radius:20px; background:rgba(220,53,69,0.1); transition:background 0.2s; }
         #headerGameExitTrigger:active { background:rgba(220,53,69,0.25); }
         
-        /* CRISP CIRCULAR MASTER RED CLOSING ELEMENT ELEMENT STYLE */
-        #closeChatBtn { background:#ffffff !important; color:#dc3545 !important; border:3px solid #dc3545 !important; font-size:16px; font-weight:900; width:28px; height:28px; border-radius:50%; cursor:pointer; padding:0; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:0 2px 6px rgba(0,0,0,0.3); }
+        /* CLEAN, DIRECT RED STANDALONE EXTRUSION LINK WRAPPER */
+        #closeChatBtn { background:none !important; color:#dc3545 !important; border:none !important; font-size:24px; font-weight:900; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:none !important; }
         #chatHeader.game-active-mode #closeChatBtn { margin-left:8px; } 
 
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
@@ -98,9 +98,14 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        #activeGameStage { display:none; flex: 0 0 62%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow:hidden; }
+        #activeGameStage { display:none; flex: 0 0 62%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow:hidden; position:relative; }
         #activeGameStage.open { display:flex; }
         #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:8px; box-sizing:border-box; overflow:auto; }
+
+        /* INLINE COMPACT VINTAGE RED EXIT TERMINATION MODULE IN LOWER LEFT BOUNDS */
+        .canvas-exit-anchor-box { position:absolute; bottom:8px; left:10px; display:flex; align-items:center; gap:5px; z-index:15; cursor:pointer; pointer-events:auto; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+        .canvas-exit-x-glyph { color:#dc3545; font-size:15px; font-weight:900; font-family:Arial, sans-serif; }
+        .canvas-exit-label-str { color:#dc3545; font-size:12px; font-weight:bold; font-family:'Courier New', Courier, monospace; text-transform:lowercase; letter-spacing:0.2px; }
 
         #chatMessages { flex:1; padding:16px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:#e2f0d9; z-index:1; }
         
@@ -250,6 +255,11 @@
 
     <div id="activeGameStage">
         <div id="gameCanvasContainer"></div>
+        <!-- VINTAGE STYLED CLICKABLE TRIGGER ASSIGNED TO ABSOLUTE BOTTOM LEFT FRAME EDGE -->
+        <div class="canvas-exit-anchor-box" onclick="shutdownActiveGame()">
+            <span class="canvas-exit-x-glyph">✕</span>
+            <span class="canvas-exit-label-str">exit game</span>
+        </div>
     </div>
 
     <div id="chatMessages"></div>
@@ -404,8 +414,8 @@
         
         headerActionButtonsContainer.style.display = 'none';
         roomDisplayCode.innerText = `${gameEmoji} ${gameName}`;
-        roomDisplayCode.style.fontFamily = 'Arial, sans-serif'; 
-        roomDisplayCode.style.fontWeight = '800';
+        roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
+        roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
         
         headerGameExitTrigger.style.display = 'flex';
@@ -426,9 +436,9 @@
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
         
-        roomDisplayCode.style.fontFamily = '"Brush Script MT", "Comic Sans MS", cursive';
-        roomDisplayCode.style.fontWeight = 'normal';
-        roomDisplayCode.style.fontSize = '24px';
+        roomDisplayCode.style.fontFamily = "'Trebuchet MS', 'Arial Black', sans-serif";
+        roomDisplayCode.style.fontWeight = '900';
+        roomDisplayCode.style.fontSize = '22px';
         
         if (activeRoomCode) {
             roomDisplayCode.innerText = 'Chat Room: ' + activeRoomCode;
