@@ -201,7 +201,7 @@
 <div id="chatOverlay">
     <div id="chatHeader">
         <div class="header-left-col">
-            <span class="sub-label">Active Session</span>
+            <span class="sub-label">Chat</span>
             <span class="main-label" id="roomDisplayCode">ROOM</span>
         </div>
         <div class="header-btn-row">
@@ -289,7 +289,7 @@
     const sessionMsgToken = 'token-' + Math.floor(Math.random() * 1000000);
 
     const GHOST_THRESHOLD_MS = 30_000;
-    const PUSH_COOLDOWN_MS = 300_000;
+    const PUSH_COOLDOWN_MS = 0;
     const lastPushSent = {};
 
     const iconUnlocked = '<svg viewBox="0 0 24 24"><path d="M12 13c-1.1 0-2 .9-2 2s-.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>';
@@ -401,7 +401,7 @@
         }
     };
 
-    setInterval(() => {
+  setInterval(() => {
         const now = Date.now();
         Object.keys(incomingRidersCache).forEach(name => {
             const r = incomingRidersCache[name];
@@ -417,11 +417,19 @@
                             lastPushSent[name] = now2;
                             let sourceSenderName = usernameInput.value.trim() || "A buddy";
                             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                method: 'POST', 
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer xnwwngqennvwajlhvclj'
+                                },
                                 body: JSON.stringify({ rider_id: r.riderId, sender_name: sourceSenderName })
                             });
                         }
                     }
+                }
+            }
+        });
+    }
                     if (isSharing && r.marker) { r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId)); }
                 }
             }
