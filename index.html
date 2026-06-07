@@ -69,23 +69,21 @@
         #chatOverlay { position:absolute; top:0; right:-100%; width:100%; max-width:340px; height:100%; background:#fff; z-index:20; box-shadow:-4px 0 20px rgba(0,0,0,0.25); display:flex; flex-direction:column; transition:right 0.3s ease-in-out; }
         #chatOverlay.open { right:0; }
         
-        /* INTEGRATED MASTER CHAT/GAME HEADER ROW */
         #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
         .chat-room-title { color:#ffd700; font-size:18px; font-weight:800; font-family:Arial, sans-serif; letter-spacing:1.5px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
         
-        .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; border:2px solid; flex-shrink:0; padding:0; }
+        .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; flex-shrink:0; padding:0; box-sizing:border-box; }
         .round-btn:active { transform:scale(0.92); }
         
-        #chatGamesTriggerBtn { background:#ffffff; color:#1e4620; border-color:#2d6a30; font-size:22px; }
-        #youtubePlaceholderBtn { background:#dc3545; color:#ffffff; border-color:#ff4d4d; font-family:'Impact', sans-serif; font-weight:900; }
+        /* SHARP, LIGHT GREEN BUTTON WITH EXPLICIT DARK GREEN OUTER RING BACKGROUND */
+        #chatGamesTriggerBtn { background:#e2f0d9 !important; color:#1e4620 !important; border:3px solid #2d6a30 !important; font-size:22px; }
+        #youtubePlaceholderBtn { background:#dc3545; color:#ffffff; border:2px solid #ff4d4d; font-family:'Impact', sans-serif; font-weight:900; }
         
-        /* HEADER INLINE GAME TERMINATION TEXT TRIGGER */
         #headerGameExitTrigger { display:none; align-items:center; margin-left:auto; font-family:Arial, sans-serif; font-size:12px; font-weight:bold; color:#dc3545; text-transform:lowercase; letter-spacing:0.5px; cursor:pointer; border:1px solid #dc3545; padding:4px 10px; border-radius:20px; background:rgba(220,53,69,0.1); transition:background 0.2s; }
         #headerGameExitTrigger:active { background:rgba(220,53,69,0.25); }
         
         #closeChatBtn { background:none; border:none; color:white; font-size:24px; font-weight:bold; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-        /* When game is running, close button isn't pushed left by margin-left:auto anymore */
         #chatHeader.game-active-mode #closeChatBtn { margin-left:8px; } 
 
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
@@ -97,7 +95,6 @@
         .game-card-icon { font-size:32px; }
         .game-card-title { color:#1e4620; font-weight:bold; font-size:14px; text-align:center; }
         
-        /* MAXIMUM SPACE ACTIVE GAME AREA CONTAINER */
         #activeGameStage { display:none; flex: 0 0 62%; flex-direction:column; background:#0e2e10; z-index:6; box-sizing:border-box; border-bottom:4px solid #b8860b; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow:hidden; }
         #activeGameStage.open { display:flex; }
         #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:8px; box-sizing:border-box; overflow:auto; }
@@ -151,6 +148,9 @@
     </style>
 </head>
 <body>
+
+<!-- HIDDEN TRACKER CONTAINER TO EMULATE BACKWARDS COMPATIBLE TARGETING FOR GAMES.JS -->
+<span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
@@ -212,7 +212,6 @@
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
             <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
         </div>
-        <!-- INLINE EXIT COMPONENT INCORPORATED DIRECTLY INTO HEADER CHAIN -->
         <div id="headerGameExitTrigger" onclick="shutdownActiveGame()">exit game</div>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
@@ -397,16 +396,13 @@
         alert('YouTube player integration coming soon!');
     });
 
-    /* OPTION 2 HEADER TAKEOVER INTERFACE ROUTINES */
     window.launchGameEngine = (gameName, gameEmoji) => {
         resetActivityTimer();
         gameHubOverlay.classList.remove('open');
         
-        // Hide standard features and inject runtime game metrics into master header row
         headerActionButtonsContainer.style.display = 'none';
         roomDisplayCode.innerText = `${gameEmoji} ${gameName}`;
         
-        // Expose top header inline structural exit hook
         headerGameExitTrigger.style.display = 'flex';
         chatHeader.classList.add('game-active-mode');
         
@@ -421,7 +417,6 @@
         activeGameStage.classList.remove('open');
         gameCanvasContainer.innerHTML = '';
         
-        // Teardown takeover configuration and re-expose standard room details
         headerGameExitTrigger.style.display = 'none';
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
@@ -745,7 +740,7 @@
         const name = usernameInput.value.trim();
         if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
         usernameInput.value = name; localStorage.setItem('rider_saved_name', name); oldBroadcastedName = name; isSharing = true;
-        startBtn.innerText = 'Stop Sharing Location'; startBtn.classList.add('sharing-active');
+        startBtn.innerText = 'Start Sharing Location'; startBtn.classList.add('sharing-active');
 
         startTimeoutMonitor(); displayAllCachedRidersOnMap();
 
@@ -772,9 +767,8 @@
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
         
-        if (!activeGameStage.classList.contains('open')) {
-            roomDisplayCode.innerText = 'CHAT ROOM: ' + code;
-        }
+        const roomDisplayEl = document.getElementById('roomDisplayCode');
+        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM: ' + code;
     };
 
     const leavePrivateRoom = () => {
@@ -784,9 +778,8 @@
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
         
-        if (!activeGameStage.classList.contains('open')) {
-            roomDisplayCode.innerText = 'CHAT ROOM';
-        }
+        const roomDisplayEl = document.getElementById('roomDisplayCode');
+        if (roomDisplayEl) roomDisplayEl.innerText = 'CHAT ROOM';
     };
 
     roomLockBtn.addEventListener('click', () => {
