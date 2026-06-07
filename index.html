@@ -72,18 +72,17 @@
         #chatHeader { background:#111; border-bottom:2px solid #ffd700; padding:12px 16px; display:flex; justify-content:flex-start; align-items:center; gap:12px; flex-shrink:0; z-index:10; user-select:none; box-sizing:border-box; }
         
         .chat-room-title { color:#ffd700; font-size:22px; font-weight:900; font-family:'Trebuchet MS', 'Arial Black', sans-serif; letter-spacing:2px; line-height:1; text-transform:uppercase; white-space:nowrap; flex-shrink:1; overflow:hidden; text-overflow:ellipsis; }
-        .chat-room-title.yt-mode { text-transform:none; }
         .header-btn-row { display:flex; align-items:center; gap:8px; }
         
         .round-btn { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:Arial, sans-serif; font-size:14px; font-weight:bold; cursor:pointer; box-shadow:0 4px 8px rgba(0,0,0,0.3); transition:transform 0.1s; flex-shrink:0; padding:0; box-sizing:border-box; }
         .round-btn:active { transform:scale(0.92); }
         
         #chatGamesTriggerBtn { background:#ffffff !important; color:#0056b3 !important; border:2px solid #0056b3 !important; font-size:20px; }
-        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:2px solid #dc3545 !important; font-family:'Arial Black', 'Impact', sans-serif; font-weight:900; font-size:11px; letter-spacing:-0.5px; }
+        #youtubePlaceholderBtn { background:#ffffff !important; color:#dc3545 !important; border:2px solid #dc3545 !important; font-family:Arial, sans-serif; font-weight:900; font-size:12px; letter-spacing:0px; }
         
         #closeChatBtn { background:none !important; color:#dc3545 !important; border:none !important; font-size:24px; font-weight:900; cursor:pointer; padding:4px; margin-left:auto; flex-shrink:0; display:flex; align-items:center; justify-content:center; box-sizing:border-box; box-shadow:none !important; }
         #chatHeader.game-active-mode #closeChatBtn { margin-left:auto; } 
-
+        
         #gameHubOverlay { position:absolute; top:54px; left:0; right:0; background:#1e4620; z-index:25; display:none; flex-direction:column; padding:16px; box-sizing:border-box; height:max-content; max-height:80%; overflow-y:auto; border-bottom:3px solid #2d6a30; box-shadow:0 8px 20px rgba(0,0,0,0.3); }
         #gameHubOverlay.open { display:flex; }
         .game-hub-headline { color:#e2f0d9; text-align:center; margin:0 0 16px 0; font-size:20px; font-weight:800; border-bottom:1px dashed rgba(226,240,217,0.3); padding-bottom:8px; }
@@ -97,16 +96,15 @@
         #activeGameStage.open { display:flex; }
         #gameCanvasContainer { flex:1; display:flex; align-items:center; justify-content:center; position:relative; color:white; font-weight:bold; text-align:center; padding:8px; box-sizing:border-box; overflow:auto; }
 
-        .canvas-exit-anchor-box { position:absolute; bottom:8px; left:10px; display:flex; align-items:center; gap:6px; z-index:15; cursor:pointer; pointer-events:auto; }
-        .canvas-exit-x-circle { width:20px; height:20px; border-radius:50%; border:2px solid #dc3545; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .canvas-exit-x-glyph { color:#dc3545; font-size:13px; font-weight:900; font-family:Arial, sans-serif; line-height:1; }
-        .canvas-exit-label-str { color:#dc3545; font-size:12px; font-weight:bold; font-family:'Courier New', Courier, monospace; text-transform:lowercase; letter-spacing:0.2px; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+        .canvas-exit-anchor-box { position:absolute; bottom:8px; left:10px; display:flex; align-items:center; gap:5px; z-index:9999; cursor:pointer; pointer-events:auto; text-shadow:0 1px 3px rgba(0,0,0,0.8); }
+        .canvas-exit-x-glyph { color:#dc3545; font-size:15px; font-weight:900; font-family:Arial,sans-serif; }
+        .canvas-exit-label-str { color:#dc3545; font-size:13px; font-weight:bold; font-family:Arial,sans-serif; text-transform:lowercase; letter-spacing:0.2px; }
 
         #youtubeStageWrapper { display:none; width:100%; height:100%; flex-direction:column; box-sizing:border-box; position:relative; background:#000000; }
         #youtubeStageWrapper.active { display:flex; }
-        .yt-iframe-frame { width:100%; flex:1; border:none; background:#111; min-height:0; }
+        .yt-iframe-frame { width:100%; flex:1; border:none; background:#111; }
         
-        .yt-control-dashboard { display:flex; gap:6px; padding:4px 10px 28px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
+        .yt-control-dashboard { display:flex; gap:6px; padding:8px 10px; background:#111111; border-top:1px solid #222; align-items:center; box-sizing:border-box; z-index:20; position:relative; }
         .yt-control-dashboard input { flex:1; padding:8px 12px; border-radius:6px; border:1px solid #444; background:#222; color:#fff; font-size:14px; box-sizing:border-box; }
         .yt-control-dashboard input::placeholder { color:#777; font-style:italic; }
         .yt-action-trigger-btn { background:#dc3545; color:#ffffff; border:none; border-radius:6px; padding:8px 14px; font-size:13px; font-weight:bold; cursor:pointer; text-transform:uppercase; box-shadow:0 2px 5px rgba(0,0,0,0.3); transition:background 0.2s; }
@@ -114,7 +112,7 @@
 
         #ytSearchResultsBox { display:none; position:absolute; bottom:100%; left:10px; right:10px; background:#1a1a1a; border:1px solid #333; border-radius:8px 8px 0 0; box-shadow:0 -4px 15px rgba(0,0,0,0.5); max-height:180px; overflow-y:auto; z-index:35; box-sizing:border-box; }
         #ytSearchResultsBox.open { display:block; }
-        .yt-search-item { padding:10px 12px; color:#ffffff; font-size:13px; text-align:left; font-family:Arial, sans-serif; cursor:pointer; border-bottom:1px solid #2a2a2a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+        .yt-search-item { padding:10px 12px; color:#ffffff; font-size:13px; text-align:left; font-family:Arial,sans-serif; cursor:pointer; border-bottom:1px solid #2a2a2a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
         .yt-search-item:active { background:#2a2a2a; }
         .yt-search-item-channel { display:block; color:#777; font-size:11px; margin-top:2px; font-weight:normal; }
 
@@ -168,6 +166,7 @@
     </style>
 </head>
 <body>
+
 <span id="activeGameLabelTitle" style="display:none !important; position:absolute; visibility:hidden;">Game Title Tracker</span>
 
 <div id="appHeaderContainer">
@@ -228,7 +227,7 @@
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
-            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YouTube</button>
+            <button id="youtubePlaceholderBtn" class="round-btn" type="button">YT</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
     </div>
@@ -278,10 +277,8 @@
         </div>
         
         <div class="canvas-exit-anchor-box" onclick="shutdownActiveGame()">
-            <div class="canvas-exit-x-circle">
-                <span class="canvas-exit-x-glyph">✕</span>
-            </div>
-            <span class="canvas-exit-label-str">exit YouTube</span>
+            <span class="canvas-exit-x-glyph">✕</span>
+            <span class="canvas-exit-label-str">exit game</span>
         </div>
     </div>
 
@@ -298,7 +295,6 @@
         </div>
     </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -349,13 +345,16 @@
     const buildLabelIcon = (name, dest, color, ghost, riderInternalId) => {
         const displayName = name.replace(' (You)', '');
         const isMe = name.includes('(You)');
+        
         const blockWidth = "134px";
         const blockHeight = dest ? "56px" : "34px";
         const dotMarkup = ghost ? '<span class="status-tracker-dot status-dot-stale"></span>' : '';
         const destLine = dest ? `<div class="dest-container"><div class="dest-text-content">Heading to: ${dest}</div></div>` : '';
         const bgColor = color || '#ffffff';
+
         const nudgeButtonMarkup = (!isMe && ghost && riderInternalId) ? 
             `<button class="nudge-refresh-btn" title="Nudge Buddy" onclick="sendTargetedBuddyNudge('${riderInternalId}', '${displayName}', event)">↻</button>` : '';
+
         const html = `
             <div class="rider-icon-container ${ghost ? 'ghost-marker-active' : ''}">
                 <div class="rider-physical-pin"></div>
@@ -376,11 +375,13 @@
         let btn = event.target;
         let originalContent = btn.innerHTML;
         let sourceSenderName = usernameInput.value.trim() || "A buddy";
+        
         const now = Date.now();
         if (!lastPushSent[targetRiderName] || (now - lastPushSent[targetRiderName]) > PUSH_COOLDOWN_MS) {
             lastPushSent[targetRiderName] = now;
             btn.innerHTML = 'Sending...';
             btn.style.background = '#b8860b';
+            
             fetch('https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function', {
                 method: 'POST',
                 headers: { 
@@ -432,13 +433,13 @@
         gameHubOverlay.classList.remove('open');
         
         headerActionButtonsContainer.style.display = 'none';
-        roomDisplayCode.innerText = '📺 YouTube';
-        roomDisplayCode.classList.add('yt-mode');
+        roomDisplayCode.innerText = `📺 YouTube`;
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
         
         chatHeader.classList.add('game-active-mode');
+        
         activeGameStage.classList.add('open');
         youtubeStageWrapper.classList.add('active');
         
@@ -470,12 +471,12 @@
         
         headerActionButtonsContainer.style.display = 'none';
         roomDisplayCode.innerText = `${gameEmoji} ${gameName}`;
-        roomDisplayCode.classList.remove('yt-mode');
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '18px';
         
         chatHeader.classList.add('game-active-mode');
+        
         activeGameStage.classList.add('open');
         if (window.initializeTargetGameCanvas) {
             window.initializeTargetGameCanvas(gameName);
@@ -488,13 +489,13 @@
         youtubeStageWrapper.classList.remove('active');
         ytPlayerFrame.src = 'about:blank'; 
         gameCanvasContainer.innerHTML = '';
+        
         gameCanvasContainer.appendChild(youtubeStageWrapper);
         ytSearchResultsBox.classList.remove('open');
         
         chatHeader.classList.remove('game-active-mode');
         headerActionButtonsContainer.style.display = 'flex';
         
-        roomDisplayCode.classList.remove('yt-mode');
         roomDisplayCode.style.fontFamily = "'Trebuchet MS', 'Arial Black', sans-serif";
         roomDisplayCode.style.fontWeight = '900';
         roomDisplayCode.style.fontSize = '22px';
@@ -527,6 +528,7 @@
         Object.keys(incomingRidersCache).forEach(name => {
             const r = incomingRidersCache[name];
             if (!r) return;
+            
             if (!name.includes('(You)')) {
                 const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
                 if (shouldBeGhost !== r.isGhost) {
@@ -575,6 +577,7 @@
             .on('broadcast', { event:'rename' }, ({ payload }) => {
                 document.querySelectorAll(`.bubble-${payload.id}`).forEach(el => el.querySelector('.msg-user').innerText = payload.newName);
             })
+            
             .on('broadcast', { event:'checkers-sync-move' }, ({ payload }) => {
                 if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
             })
@@ -587,6 +590,7 @@
             .on('broadcast', { event:'youtube-sync-video' }, ({ payload }) => {
                 if (payload.videoId) loadDirectYoutubeVideoId(payload.videoId);
             })
+
             .on('broadcast', { event:'request-chat-sync' }, ({ payload }) => {
                 const bubbles = document.querySelectorAll('.msg-bubble');
                 if (!bubbles.length) return;
@@ -613,16 +617,20 @@
     };
 
     const registerPushSubscription = async () => {
-        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) return;
+        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
+            return;
+        }
         let perm = Notification.permission;
         if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (err) {} }
-        if (perm !== 'granted') return;
+        if (perm !== 'granted') { return; }
+
         try {
             const registration = await navigator.serviceWorker.ready;
             const existing = await registration.pushManager.getSubscription();
             const subscription = existing || await registration.pushManager.subscribe({
                 userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
             });
+            
             await supabaseClient.from('push_subscriptions').upsert({
                 rider_id: myId, subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
@@ -710,13 +718,14 @@
                 marker: null, lastSeen: now, isGhost: false, dest: dest, color: color || '#ffffff', lat: lat, lng: lng, riderId: riderId
             };
         }
-        if (!isSharing) return;
+        if (!isSharing) { return; }
         renderSingleRiderVisualLayers(user);
     }
 
     function renderSingleRiderVisualLayers(user) {
         const rData = incomingRidersCache[user];
         if (!rData || !rData.lat || !rData.lng) return;
+
         if (rData.marker) {
             rData.marker.setLatLng([rData.lat, rData.lng]);
             rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId));
@@ -724,6 +733,7 @@
             const newMarker = L.marker([rData.lat, rData.lng], {
                 icon: buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
             }).addTo(map);
+
             newMarker.on('click', e => {
                 L.DomEvent.stopPropagation(e);
                 if (!newMarker._zoomedIn) {
@@ -733,6 +743,7 @@
                     fitAllRiders(true); newMarker._zoomedIn = false;
                 }
             });
+
             newMarker._zoomedIn = false; rData.marker = newMarker;
             if (!user.includes('(You)')) { setTimeout(() => fitAllRiders(true), 300); }
         }
@@ -749,11 +760,13 @@
         if (!isSharing || !lastLat || !lastLng) return;
         let currentUser = usernameInput.value.trim();
         if (!currentUser || currentUser.toLowerCase() === 'anonymous') currentUser = oldBroadcastedName;
+
         if (oldBroadcastedName !== currentUser) {
             removeRider(`${oldBroadcastedName} (You)`);
             channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
             oldBroadcastedName = currentUser;
         }
+
         processIncomingCoordinateUpdate(`${currentUser} (You)`, destinationInput.value.trim(), lastLat, lastLng, myChatColor, myId);
         channel.send({ type:'broadcast', event:'location-update', payload:{
             user:currentUser, dest:destinationInput.value.trim(), lat:lastLat, lng:lastLng, status:'online', color:myChatColor, riderId:myId
@@ -773,18 +786,20 @@
         }, 30000);
     };
 
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') resetActivityTimer(); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { resetActivityTimer(); } });
 
     const stopSharingLocation = () => {
         isSharing = false; initialFrameDone = false; destinationInput.value = '';
         startBtn.innerText = 'Start Sharing Location'; startBtn.classList.remove('sharing-active');
         if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
         channel.send({ type:'broadcast', event:'location-update', payload:{ user:oldBroadcastedName, dest:'', lat:0, lng:0, status:'offline' } });
+        
         Object.keys(incomingRidersCache).forEach(name => {
             if (incomingRidersCache[name].marker) { map.removeLayer(incomingRidersCache[name].marker); incomingRidersCache[name].marker = null; }
         });
         removeRider(`${oldBroadcastedName} (You)`);
         lastLat = 0; lastLng = 0; updateLiveRiderCounter(); releaseWakeLock();
+
         if (timeoutCheckInterval) { clearInterval(timeoutCheckInterval); timeoutCheckInterval = null; }
         el('privacyHint').style.display = 'block';
         chatToggleBtn.style.opacity = '0.35'; chatToggleBtn.style.background = '#555555'; chatToggleBtn.style.pointerEvents = 'none';
@@ -796,8 +811,10 @@
         const name = usernameInput.value.trim();
         if (!name || name.toLowerCase() === 'anonymous') { requireName(); return; }
         usernameInput.value = name; localStorage.setItem('rider_saved_name', name); oldBroadcastedName = name; isSharing = true;
-        startBtn.innerText = 'Stop Sharing Location'; startBtn.classList.add('sharing-active');
+        startBtn.innerText = 'Start Sharing Location'; startBtn.classList.add('sharing-active');
+
         startTimeoutMonitor(); displayAllCachedRidersOnMap();
+
         if ('geolocation' in navigator) {
             watchId = navigator.geolocation.watchPosition(pos => {
                 lastLat = pos.coords.latitude; lastLng = pos.coords.longitude; broadcastCurrentState();
@@ -820,6 +837,7 @@
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.add('room-active'); roomLockBtn.innerHTML = iconLocked;
         roomModalOverlay.classList.remove('open'); resetModalUI();
+        
         const roomDisplayEl = document.getElementById('roomDisplayCode');
         if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
             roomDisplayEl.innerText = 'Chat Room: ' + code;
@@ -832,6 +850,7 @@
         if (isSharing) setTimeout(broadcastCurrentState, 700);
         roomLockBtn.classList.remove('room-active'); roomLockBtn.innerHTML = iconUnlocked;
         resetModalUI();
+        
         const roomDisplayEl = document.getElementById('roomDisplayCode');
         if (roomDisplayEl && !activeGameStage.classList.contains('open')) {
             roomDisplayEl.innerText = 'Chat Room';
@@ -946,7 +965,7 @@
     }
 </script>
 
-<script src="./games.js?v=2"></script>
+<script src="./games.js?v=3"></script>
 
 </body>
 </html>
