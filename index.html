@@ -2588,5 +2588,77 @@
     });
 })();
 </script>>
+<script>
+/* CHASER YOUTUBE SEARCH FIX - uses existing supabaseClient */
+(function () {
+    const input = document.getElementById("ytUrlInput");
+    let btn = document.getElementById("ytShareSyncBtn");
+    const frame = document.getElementById("ytPlayerFrame");
+    const resultsBox = document.getElementById("ytSearchResultsBox");
+
+    if (!input || !btn || !frame || !resultsBox || typeof supabaseClient === "undefined") {
+        alert("YouTube search setup missing.");
+        return;
+    }
+
+    const cleanBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(cleanBtn, btn);
+    btn = cleanBtn;
+
+    function playVideo(videoId) {
+        frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
+        resultsBox.classList.remove("open");
+        input.value = "";
+    }
+
+    async function runSearch() {
+        const query = input.value.trim();
+        if (!query) return;
+
+        resultsBox.innerHTML = `<div class="yt-search-item">Searching...</div>`;
+        resultsBox.classList.add("open");
+
+        const { data, error } = await supabaseClient.functions.invoke("youtube-search", {
+            body: { query }
+        });
+
+        if (error) {
+            resultsBox.innerHTML = `<div class="yt-search-item">Search error: ${error.message}</div>`;
+            return;
+        }
+
+        if (!data || !data.results || !data.results.length) {
+            resultsBox.innerHTML = `<div class="yt-search-item">No results found.</div>`;
+            return;
+        }
+
+        resultsBox.innerHTML = data.results.map(v => `
+            <div class="yt-search-item" data-video-id="${v.videoId}">
+                ${v.title}<br>
+                <span class="yt-search-item-channel">${v.channel}</span>
+            </div>
+        `).join("");
+
+        resultsBox.querySelectorAll(".yt-search-item[data-video-id]").forEach(item => {
+            item.addEventListener("click", function () {
+                playVideo(this.dataset.videoId);
+            });
+        });
+    }
+
+    btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        runSearch();
+    });
+
+    input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            runSearch();
+        }
+    });
+})();
+</script>
 </body>
 </html>
