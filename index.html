@@ -2495,80 +2495,58 @@
 </script>
 <script>
 <script>
-/* CHASER YOUTUBE API SEARCH - HARD OVERRIDE */
+
+/* CHASER YOUTUBE SEARCH - SIMPLE WORKING VERSION */
 (function () {
     const input = document.getElementById("ytUrlInput");
     let btn = document.getElementById("ytShareSyncBtn");
     const frame = document.getElementById("ytPlayerFrame");
     const resultsBox = document.getElementById("ytSearchResultsBox");
 
-    if (!input || !btn || !frame || !resultsBox || !window.supabaseClient) return;
+    if (!input || !btn || !frame || !resultsBox || typeof supabaseClient === "undefined") {
+        return;
+    }
 
     const cleanBtn = btn.cloneNode(true);
     btn.parentNode.replaceChild(cleanBtn, btn);
     btn = cleanBtn;
 
-    btn.textContent = "Search";
-
-    function safeText(str) {
-        return String(str || "").replace(/[&<>"']/g, m => ({
-            "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
-        }[m]));
-    }
-
-    function getVideoId(text) {
-        const match = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/]+)/);
-        return match && match[1] ? match[1] : null;
-    }
-
     function playVideo(videoId) {
         frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
         resultsBox.classList.remove("open");
         input.value = "";
-
-        if (typeof channel !== "undefined" && channel) {
-            channel.send({
-                type:"broadcast",
-                event:"youtube-sync-video",
-                payload:{ videoId }
-            });
-        }
     }
 
     async function runSearch() {
         const query = input.value.trim();
         if (!query) return;
 
-        const directVideoId = getVideoId(query);
-        if (directVideoId) {
-            playVideo(directVideoId);
-            return;
-        }
-
         resultsBox.innerHTML = `<div class="yt-search-item">Searching...</div>`;
         resultsBox.classList.add("open");
 
-        const { data, error } = await window.supabaseClient.functions.invoke("youtube-search", {
+        const { data, error } = await supabaseClient.functions.invoke("youtube-search", {
             body: { query }
         });
 
-        if (error || !data || !data.results || !data.results.length) {
-            resultsBox.innerHTML = `<div class="yt-search-item">Search failed or no results found.</div>`;
+        if (error) {
+            resultsBox.innerHTML = `<div class="yt-search-item">Search error: ${error.message}</div>`;
+            return;
+        }
+
+        if (!data || !data.results || !data.results.length) {
+            resultsBox.innerHTML = `<div class="yt-search-item">No results found.</div>`;
             return;
         }
 
         resultsBox.innerHTML = data.results.map(v => `
-            <div class="yt-search-item" data-video-id="${safeText(v.videoId)}">
-                ${v.thumbnail ? `<img src="${safeText(v.thumbnail)}" style="width:58px;height:36px;object-fit:cover;border-radius:4px;margin-right:8px;vertical-align:middle;">` : ""}
-                <span>${safeText(v.title)}</span>
-                <span class="yt-search-item-channel">${safeText(v.channel)}</span>
+            <div class="yt-search-item" data-video-id="${v.videoId}">
+                ${v.title}<br>
+                <span class="yt-search-item-channel">${v.channel}</span>
             </div>
         `).join("");
 
         resultsBox.querySelectorAll(".yt-search-item[data-video-id]").forEach(item => {
-            item.addEventListener("click", function (e) {
-                e.preventDefault();
-                e.stopPropagation();
+            item.addEventListener("click", function () {
                 playVideo(this.dataset.videoId);
             });
         });
@@ -2585,147 +2563,6 @@
             e.preventDefault();
             runSearch();
         }
-    });
-})();
-</script>>
-<script>
-<script>
-<script>
-/* CHASER FINAL YOUTUBE SEARCH */
-(function () {
-    const input = document.getElementById("ytUrlInput");
-    let btn = document.getElementById("ytShareSyncBtn");
-    const frame = document.getElementById("ytPlayerFrame");
-    const box = document.getElementById("ytSearchResultsBox");
-
-    if (!input || !btn || !frame || !box || typeof supabaseClient === "undefined") return;
-
-    const oldControls = document.getElementById("chaserYtExtraControls");
-    if (oldControls) oldControls.remove();
-
-    const cleanBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(cleanBtn, btn);
-    btn = cleanBtn;
-    btn.textContent = "Search";
-
-    let results = [];
-    let currentIndex = -1;
-
-    const controls = document.createElement("div");
-    controls.id = "chaserYtExtraControls";
-    controls.style.display = "flex";
-    controls.style.gap = "5px";
-    controls.innerHTML = `
-        <button type="button" class="yt-action-trigger-btn" id="chaserYtPrev">◀</button>
-        <button type="button" class="yt-action-trigger-btn" id="chaserYtNext">▶</button>
-        <button type="button" class="yt-action-trigger-btn" id="chaserYtClear">Clear</button>
-    `;
-    btn.parentNode.appendChild(controls);
-
-    function esc(s) {
-        return String(s || "").replace(/[&<>"']/g, m => ({
-            "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
-        }[m]));
-    }
-
-    function getVideoId(text) {
-        const m = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/]+)/);
-        return m ? m[1] : null;
-    }
-
-    function loadVideoById(videoId) {
-        frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&rel=0`;
-        box.classList.remove("open");
-
-        if (typeof channel !== "undefined" && channel) {
-            channel.send({
-                type: "broadcast",
-                event: "youtube-sync-video",
-                payload: { videoId }
-            });
-        }
-    }
-
-    function playIndex(i) {
-        if (!results.length || !results[i]) return;
-        currentIndex = i;
-        loadVideoById(results[i].videoId);
-    }
-
-    async function searchYoutube() {
-        const q = input.value.trim();
-        if (!q) return;
-
-        const direct = getVideoId(q);
-        if (direct) {
-            results = [{ videoId: direct, title: "Pasted video", channel: "" }];
-            currentIndex = 0;
-            loadVideoById(direct);
-            return;
-        }
-
-        box.innerHTML = `<div class="yt-search-item">Searching...</div>`;
-        box.classList.add("open");
-
-        const { data, error } = await supabaseClient.functions.invoke("youtube-search", {
-            body: { query: q }
-        });
-
-        if (error || !data || !data.results || !data.results.length) {
-            box.innerHTML = `<div class="yt-search-item">No results found.</div>`;
-            return;
-        }
-
-        results = data.results;
-        currentIndex = -1;
-
-        box.innerHTML = results.map((v, i) => `
-            <div class="yt-search-item" data-i="${i}">
-                ${v.thumbnail ? `<img src="${esc(v.thumbnail)}" style="width:58px;height:36px;object-fit:cover;border-radius:4px;margin-right:8px;vertical-align:middle;">` : ""}
-                <span>${esc(v.title)}</span>
-                <span class="yt-search-item-channel">${esc(v.channel)}</span>
-            </div>
-        `).join("");
-
-        box.querySelectorAll(".yt-search-item[data-i]").forEach(item => {
-            item.addEventListener("click", e => {
-                e.preventDefault();
-                e.stopPropagation();
-                playIndex(Number(item.dataset.i));
-            });
-        });
-    }
-
-    btn.addEventListener("click", e => {
-        e.preventDefault();
-        e.stopPropagation();
-        searchYoutube();
-    });
-
-    input.addEventListener("keydown", e => {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            searchYoutube();
-        }
-    });
-
-    document.getElementById("chaserYtNext").addEventListener("click", () => {
-        if (!results.length) return;
-        playIndex((currentIndex + 1) % results.length);
-    });
-
-    document.getElementById("chaserYtPrev").addEventListener("click", () => {
-        if (!results.length) return;
-        playIndex((currentIndex - 1 + results.length) % results.length);
-    });
-
-    document.getElementById("chaserYtClear").addEventListener("click", () => {
-        input.value = "";
-        results = [];
-        currentIndex = -1;
-        box.innerHTML = "";
-        box.classList.remove("open");
-        frame.src = "about:blank";
     });
 })();
 </script>
