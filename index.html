@@ -477,11 +477,17 @@
         return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
     };
 
-    const registerPushSubscription = async () => {
-        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) return;
+        const registerPushSubscription = async () => {
+        if (!('Notification' in window) || VAPID_PUBLIC_KEY.includes('YOUR_ACTUAL')) {
+            alert("Failed: Notifications not supported or VAPID key is missing.");
+            return;
+        }
         let perm = Notification.permission;
         if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (err) {} }
-        if (perm !== 'granted') return;
+        if (perm !== 'granted') {
+            alert("Failed: Notification permission is blocked on this phone.");
+            return;
+        }
 
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -489,11 +495,21 @@
             const subscription = existing || await registration.pushManager.subscribe({
                 userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
             });
-            await supabaseClient.from('push_subscriptions').upsert({
+            
+            // We capture any Supabase errors here
+            const { error } = await supabaseClient.from('push_subscriptions').upsert({
                 rider_id: myId, subscription: JSON.stringify(subscription)
             }, { onConflict: 'rider_id' });
-        } catch (err) {}
+
+            if (error) {
+                alert("Supabase Error: " + error.message);
+            }
+
+        } catch (err) {
+            alert("Code Crash: " + err.message);
+        }
     };
+
     subscribeChannel();
 
     const RadiusControl = L.Control.extend({
