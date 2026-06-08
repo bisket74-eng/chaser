@@ -4076,13 +4076,10 @@
         `;
 
         bar.innerHTML = `
-            <button onclick="showCoupHelpSheet()" style="
-                background:#ffd700;color:#1e4620;border:none;border-radius:999px;
-                padding:7px 10px;font-weight:900;font-size:13px;">Help</button>
-            <button onclick="coupForceNewGame()" style="
-                background:#dc3545;color:white;border:none;border-radius:999px;
-                padding:7px 10px;font-weight:900;font-size:13px;">New</button>
-        `;
+    <button onclick="showCoupHelpSheet()" style="
+        background:#ffd700;color:#1e4620;border:none;border-radius:999px;
+        padding:7px 12px;font-weight:900;font-size:13px;">Help</button>
+`;
 
         gameCanvasContainer.appendChild(bar);
     }
