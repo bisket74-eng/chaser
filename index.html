@@ -2452,47 +2452,7 @@
 <script src="./games.js?v=10"></script>
     
 <script>
-/* CHASER YOUTUBE SEARCH FIX – keeps search inside app iframe */
-(function () {
-    const input = document.getElementById("ytUrlInput");
-    const btn = document.getElementById("ytShareSyncBtn");
-    const frame = document.getElementById("ytPlayerFrame");
-
-    if (!input || !btn || !frame) return;
-
-    function getVideoId(text) {
-        const match = text.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?/]+)/);
-        return match && match[1] ? match[1] : null;
-    }
-
-    function playInApp() {
-        const raw = input.value.trim();
-        if (!raw) return;
-
-        const videoId = getVideoId(raw);
-
-        if (videoId) {
-            frame.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1`;
-        } else {
-            const search = encodeURIComponent(raw);
-            frame.src = `https://www.youtube.com/embed?listType=search&list=${search}&autoplay=1`;
-        }
-    }
-
-    btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        playInApp();
-    });
-
-    input.addEventListener("keydown", function (e) {
-        if (e.key === "Enter") {
-            e.preventDefault();
-            playInApp();
-        }
-    });
-})();
-</script>
+/
 
 
 </body>
