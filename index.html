@@ -1083,6 +1083,60 @@
         .leaflet-popup-content-wrapper,.leaflet-popup-tip {
             display:none!important;
         }
+        /* CHAT HEADER FINAL OVERRIDE */
+#chatHeader {
+    background:#111;
+    border-bottom:2px solid #ffd700;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+    z-index:10;
+    user-select:none;
+    box-sizing:border-box;
+}
+
+.chat-room-title {
+    color:#ffd700 !important;
+    font-size:18px !important;
+    font-weight:900 !important;
+    font-family:'Trebuchet MS','Arial Black',sans-serif !important;
+    letter-spacing:1px !important;
+    line-height:1.05 !important;
+    text-transform:uppercase !important;
+    white-space:nowrap !important;
+    flex:0 1 auto !important;
+    max-width:145px !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+}
+
+.header-btn-row {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:8px !important;
+    flex:1 !important;
+}
+
+#chatGamesTriggerBtn {
+    width:auto !important;
+    height:34px !important;
+    padding:0 16px !important;
+    border-radius:999px !important;
+    background:#ffffff !important;
+    color:#0056b3 !important;
+    border:2px solid #ffd700 !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    font-family:Arial,sans-serif !important;
+    text-transform:uppercase !important;
+}
+
+#closeChatBtn {
+    margin-left:0 !important;
+}
     </style>
 </head>
 <body>
