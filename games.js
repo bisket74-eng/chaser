@@ -191,6 +191,16 @@
                 if (typeof window.initTriviaGame === "function") window.initTriviaGame();
             }
         },
+       "Coup": {
+    icon: "🕶️",
+    displayName: "Coup",
+    minPlayers: 2,
+    maxPlayers: 6,
+    multiplayer: true,
+    init: () => {
+        if (typeof window.initCoupGame === "function") window.initCoupGame();
+    }
+},
         "Solitaire": {
             icon: "🃏",
             minPlayers: 1,
@@ -3510,119 +3520,6 @@
         if (oldUnoReceive) oldUnoReceive(p);
     };
 })();
-/* ============================================================
-   CHASER COUP ENGINE - BETA
-   2-6 Players, large readable cards
-   ============================================================ */
-
-(function () {
-    const oldLaunchGameEngine = window.launchGameEngine;
-
-    window.launchGameEngine = function(gameName, gameIcon) {
-        if (gameName === 'Coup') {
-            gameHubOverlay.classList.remove('open');
-            window.shutdownActiveGame(true);
-
-            activeGameLabelTitle.innerText = gameIcon + '  Coup';
-            activeGameStage.classList.add('open');
-            activeGameStage.style.height = "72vh";
-            activeGameStage.style.maxHeight = "580px";
-
-            initCoupGame();
-            return;
-        }
-
-        oldLaunchGameEngine(gameName, gameIcon);
-    };
-
-    window.handleIncomingCoupSync = function(p) {
-        window.coupState = p;
-        if (activeGameStage.classList.contains('open') && activeGameLabelTitle.innerText.includes('Coup')) {
-            renderCoupGame();
-        }
-    };
-
-    function getCoupMyId() {
-        return window.myId || localStorage.getItem('rider_id') || 'local-player';
-    }
-
-    function getCoupMyName() {
-        const nameInput = document.getElementById('username');
-        return (nameInput && nameInput.value.trim()) || 'Player';
-    }
-
-    function coupBroadcast() {
-        if (typeof channel !== 'undefined' && channel && window.coupState) {
-            channel.send({
-                type:'broadcast',
-                event:'coup-sync-state',
-                payload:window.coupState
-            });
-        }
-    }
-
-    function coupBuildDeck() {
-        const roles = ['Duke','Assassin','Captain','Ambassador','Contessa'];
-        let deck = [];
-        roles.forEach(role => {
-            deck.push(role, role, role);
-        });
-        return deck.sort(() => Math.random() - 0.5);
-    }
-
-    function coupRoleInfo(role) {
-        return {
-            Duke:{ icon:'👑', action:'Tax: take 3 coins', blocks:'Blocks Foreign Aid' },
-            Assassin:{ icon:'🗡️', action:'Assassinate: pay 3', blocks:'Can be blocked by Contessa' },
-            Captain:{ icon:'🏴‍☠️', action:'Steal 2 coins', blocks:'Blocks stealing' },
-            Ambassador:{ icon:'🔄', action:'Exchange cards', blocks:'Blocks stealing' },
-            Contessa:{ icon:'🛡️', action:'No action', blocks:'Blocks Assassin' }
-        }[role] || { icon:'❔', action:'', blocks:'' };
-    }
-
-    window.initCoupGame = function() {
-        if (!window.coupState) {
-            window.coupState = {
-                phase:'setup',
-                hostId:getCoupMyId(),
-                targetPlayers:2,
-                players:[],
-                deck:[],
-                discard:[],
-                turn:0,
-                log:['Welcome to Coup. Choose players and start.']
-            };
-        }
-
-        const myId = getCoupMyId();
-        if (!window.coupState.players.some(p => p.id === myId)) {
-            window.coupState.players.push({
-                id:myId,
-                name:getCoupMyName(),
-                coins:2,
-                cards:[],
-                revealed:[],
-                alive:true
-            });
-            coupBroadcast();
-        }
-
-        renderCoupGame();
-    };
-
-    function renderCoupGame() {
-        const s = window.coupState;
-        const myId = getCoupMyId();
-        const me = s.players.find(p => p.id === myId);
-        const isHost = s.hostId === myId;
-        const activePlayer = s.players[s.turn];
-
-        let html = `
-        <div style="width:100%;height:100%;overflow:auto;box-sizing:border-box;padding:8px;font-family:Arial,sans-serif;color:white;">
-            <div style="color:#ffd700;font-family:Impact,sans-serif;font-size:7vw;letter-spacing:1px;text-align:center;margin-bottom:6px;">
-                🕶️ COUP
-            </div>
-        `;
 
         if (s.phase === 'setup') {
             html += `
@@ -3963,138 +3860,350 @@
             p.alive = false;
             window.coupState.log.push(p.name + ' is out.');
         }
-    }
-})();
-
-/* ============================================================
-   COUP PATCH 1 — HELP CARD + CLEAN NEW GAME / EXIT RESET
-   Paste below the Coup beta code
+    }/* ============================================================
+   COUP ENGINE — LOBBY VERSION
+   Uses Chaser lobby players
    ============================================================ */
 
 (function () {
-    function isCoupOpen() {
-        return activeGameStage.classList.contains('open') &&
-               activeGameLabelTitle.innerText.includes('Coup');
+    const ROLES = {
+        Duke: { icon:"👑", action:"Tax: take 3 coins", block:"Blocks Foreign Aid" },
+        Assassin: { icon:"🗡️", action:"Pay 3 to assassinate", block:"Blocked by Contessa" },
+        Captain: { icon:"🏴‍☠️", action:"Steal 2 coins", block:"Blocked by Captain/Ambassador" },
+        Ambassador: { icon:"🔄", action:"Exchange cards", block:"Blocks stealing" },
+        Contessa: { icon:"🛡️", action:"No action", block:"Blocks Assassin" }
+    };
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local";
     }
 
-    function coupHelpHtml() {
+    function sendCoup() {
+        if (typeof channel !== "undefined" && channel && window.coupState) {
+            channel.send({
+                type:"broadcast",
+                event:"coup-sync-state",
+                payload:window.coupState
+            });
+        }
+    }
+
+    function makeDeck() {
+        let d = [];
+        Object.keys(ROLES).forEach(r => d.push(r, r, r));
+        return d.sort(() => Math.random() - 0.5);
+    }
+
+    window.initCoupGame = function () {
+        activeGameLabelTitle.innerText = "🕶️ Coup";
+
+        const players = (window.chaserGame && window.chaserGame.players) || [];
+        const hostId = window.chaserGame && window.chaserGame.hostId;
+        const amHost = hostId === myId();
+
+        if (amHost) {
+            const deck = makeDeck();
+
+            window.coupState = {
+                phase:"playing",
+                hostId,
+                turn:0,
+                deck,
+                discard:[],
+                log:["Coup started."],
+                players:players.map(p => ({
+                    id:p.id,
+                    name:p.name,
+                    seat:p.seat,
+                    coins:2,
+                    cards:[deck.pop(), deck.pop()],
+                    revealed:[],
+                    alive:true
+                }))
+            };
+
+            sendCoup();
+        }
+
+        renderCoup();
+    };
+
+    window.handleIncomingCoupSync = function (state) {
+        window.coupState = state;
+        if (activeGameLabelTitle.innerText.includes("Coup")) renderCoup();
+    };
+
+    function currentPlayer() {
+        return window.coupState.players[window.coupState.turn];
+    }
+
+    function nextTurn() {
+        const s = window.coupState;
+        let guard = 0;
+
+        do {
+            s.turn = (s.turn + 1) % s.players.length;
+            guard++;
+        } while (!s.players[s.turn].alive && guard < 20);
+
+        const alive = s.players.filter(p => p.alive);
+        if (alive.length === 1) {
+            s.phase = "ended";
+            s.log.push("🏆 " + alive[0].name + " wins!");
+        }
+    }
+
+    function loseCard(target) {
+        if (!target.cards.length) return;
+        const lost = target.cards.shift();
+        target.revealed.push(lost);
+        if (!target.cards.length) {
+            target.alive = false;
+            window.coupState.log.push(target.name + " is out.");
+        }
+    }
+
+    function cardHtml(role) {
+        const r = ROLES[role];
+
+        return `
+            <div style="
+                width:43vw;max-width:150px;min-height:190px;
+                background:#f8f3df;color:#111;
+                border:4px solid #ffd700;border-radius:14px;
+                padding:10px;box-sizing:border-box;
+                box-shadow:0 4px 12px rgba(0,0,0,.45);
+                display:flex;flex-direction:column;
+                justify-content:space-between;align-items:center;
+                text-align:center;">
+                <div style="font-size:46px;">${r.icon}</div>
+                <div style="font-family:Impact;font-size:30px;color:#1e4620;">${role}</div>
+                <div style="font-size:16px;font-weight:900;">${r.action}</div>
+                <div style="font-size:14px;font-weight:900;color:#b00020;">${r.block}</div>
+            </div>
+        `;
+    }
+
+    function helpHtml() {
         return `
             <div id="coupHelpOverlay" style="
-                position:absolute; inset:0; z-index:99999;
-                background:rgba(0,0,0,0.88);
-                display:flex; align-items:center; justify-content:center;
-                padding:10px; box-sizing:border-box;">
+                position:absolute;inset:0;z-index:99999;
+                background:rgba(0,0,0,.88);
+                display:flex;align-items:center;justify-content:center;
+                padding:10px;box-sizing:border-box;">
                 <div style="
-                    background:#e2f0d9; color:#1e4620;
-                    border:4px solid #ffd700; border-radius:14px;
-                    width:96%; max-width:330px; max-height:92%;
-                    overflow:auto; padding:12px; box-sizing:border-box;
-                    font-family:Arial,sans-serif;">
-                    
-                    <div style="font-family:Impact,sans-serif;font-size:8vw;text-align:center;color:#1e4620;margin-bottom:8px;">
+                    background:#e2f0d9;color:#1e4620;
+                    border:4px solid #ffd700;border-radius:14px;
+                    width:96%;max-width:340px;max-height:92%;
+                    overflow:auto;padding:12px;box-sizing:border-box;">
+                    <div style="font-family:Impact;font-size:34px;text-align:center;margin-bottom:8px;">
                         Coup Cheat Sheet
                     </div>
-
-                    ${[
-                        ['👑 Duke', 'Tax: take 3 coins.', 'Blocks Foreign Aid.'],
-                        ['🗡️ Assassin', 'Pay 3 coins to assassinate.', 'Target can block with Contessa.'],
-                        ['🏴‍☠️ Captain', 'Steal 2 coins from a player.', 'Blocked by Captain or Ambassador.'],
-                        ['🔄 Ambassador', 'Exchange cards with the deck.', 'Blocks stealing.'],
-                        ['🛡️ Contessa', 'No main action.', 'Blocks Assassin.']
-                    ].map(r => `
+                    ${Object.keys(ROLES).map(role => `
                         <div style="background:white;border:2px solid #1e4620;border-radius:10px;padding:9px;margin-bottom:8px;">
-                            <div style="font-size:5vw;font-weight:900;color:#111;">${r[0]}</div>
-                            <div style="font-size:4vw;font-weight:900;margin-top:3px;">${r[1]}</div>
-                            <div style="font-size:3.8vw;font-weight:800;color:#b00020;margin-top:3px;">${r[2]}</div>
+                            <div style="font-size:22px;font-weight:900;">${ROLES[role].icon} ${role}</div>
+                            <div style="font-size:17px;font-weight:900;">${ROLES[role].action}</div>
+                            <div style="font-size:16px;font-weight:900;color:#b00020;">${ROLES[role].block}</div>
                         </div>
-                    `).join('')}
-
-                    <div style="font-size:3.8vw;font-weight:900;line-height:1.25;background:#fff3cd;border:2px solid #ffd700;border-radius:10px;padding:8px;margin-top:8px;">
-                        Bluff tip: You can claim any role, even if you do not have that card. 
-                        The risk is another player challenging you.
+                    `).join("")}
+                    <div style="background:#fff3cd;border:2px solid #ffd700;border-radius:10px;padding:8px;font-size:16px;font-weight:900;">
+                        You may claim any role, even if you do not have it. That is the bluff.
                     </div>
-
                     <button onclick="document.getElementById('coupHelpOverlay').remove()" style="
-                        margin-top:10px;width:100%;padding:12px;
-                        border:none;border-radius:10px;background:#dc3545;
-                        color:white;font-size:5vw;font-weight:900;">
-                        Close
-                    </button>
+                        margin-top:10px;width:100%;padding:12px;border:none;
+                        border-radius:10px;background:#dc3545;color:white;
+                        font-size:22px;font-weight:900;">Close</button>
                 </div>
             </div>
         `;
     }
 
     window.showCoupHelpSheet = function () {
-        if (document.getElementById('coupHelpOverlay')) return;
-        gameCanvasContainer.insertAdjacentHTML('beforeend', coupHelpHtml());
+        if (!document.getElementById("coupHelpOverlay")) {
+            gameCanvasContainer.insertAdjacentHTML("beforeend", helpHtml());
+        }
     };
 
-    window.coupForceNewGame = function () {
-        const myId = window.myId || localStorage.getItem('rider_id') || 'local-player';
-        const nameInput = document.getElementById('username');
-        const myName = (nameInput && nameInput.value.trim()) || 'Player';
+    function renderCoup() {
+        const s = window.coupState;
 
-        window.coupState = {
-            phase:'setup',
-            hostId:myId,
-            targetPlayers:2,
-            players:[{
-                id:myId,
-                name:myName,
-                coins:2,
-                cards:[],
-                revealed:[],
-                alive:true
-            }],
-            deck:[],
-            discard:[],
-            turn:0,
-            log:['New Coup game created.']
-        };
-
-        if (typeof channel !== 'undefined' && channel) {
-            channel.send({
-                type:'broadcast',
-                event:'coup-sync-state',
-                payload:window.coupState
-            });
+        if (!s) {
+            gameCanvasContainer.innerHTML = `
+                <div style="color:white;font-size:22px;font-weight:900;text-align:center;padding:20px;">
+                    Waiting for host to deal Coup...
+                </div>
+            `;
+            return;
         }
 
-        if (window.initCoupGame) window.initCoupGame();
-    };
+        const me = s.players.find(p => p.id === myId());
+        const active = currentPlayer();
+        const isMyTurn = active && active.id === myId();
 
-    function injectCoupButtons() {
-        if (!isCoupOpen()) return;
-        if (document.getElementById('coupMiniControls')) return;
+        gameCanvasContainer.innerHTML = `
+            <div style="width:100%;height:100%;overflow:auto;padding:8px;box-sizing:border-box;color:white;font-family:Arial;">
+                <button onclick="showCoupHelpSheet()" style="
+                    position:absolute;top:6px;right:6px;z-index:20;
+                    background:#ffd700;color:#1e4620;border:none;
+                    border-radius:999px;padding:7px 12px;font-weight:900;">
+                    Help
+                </button>
 
-        const bar = document.createElement('div');
-        bar.id = 'coupMiniControls';
-        bar.style.cssText = `
-            position:absolute; top:6px; right:6px; z-index:9999;
-            display:flex; gap:5px;
+                <div style="font-family:Impact;font-size:34px;color:#ffd700;text-align:center;">🕶️ COUP</div>
+
+                <div style="background:#0b2410;border:2px solid #ffd700;border-radius:10px;padding:8px;text-align:center;margin:6px 0;">
+                    <div style="font-size:20px;font-weight:900;color:#ffd700;">
+                        ${s.phase === "ended" ? "GAME OVER" : "TURN: " + active.name}
+                    </div>
+                    ${isMyTurn && s.phase !== "ended" ? `<div style="font-size:18px;font-weight:900;color:#00bfff;">YOUR MOVE</div>` : ""}
+                </div>
+
+                ${s.players.map((p, i) => `
+                    <div style="
+                        display:flex;justify-content:space-between;align-items:center;
+                        background:${p.alive ? "#e2f0d9" : "#555"};
+                        color:${p.alive ? "#1e4620" : "#fff"};
+                        border:${i === s.turn ? "3px solid #ffd700" : "2px solid transparent"};
+                        border-radius:9px;padding:8px;margin-bottom:6px;font-weight:900;">
+                        <div style="font-size:17px;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            ${i === s.turn ? "▶ " : ""}${p.name}
+                        </div>
+                        <div style="font-size:17px;">🪙 ${p.coins}</div>
+                        <div style="font-size:14px;">Hidden: ${p.cards.length} | Out: ${p.revealed.join(", ") || "None"}</div>
+                    </div>
+                `).join("")}
+
+                ${me ? `
+                    <div style="color:#ffd700;font-size:22px;font-weight:900;text-align:center;margin-top:8px;">YOUR CARDS</div>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
+                        ${me.cards.map(cardHtml).join("")}
+                    </div>
+                ` : ""}
+
+                ${isMyTurn && me && me.alive && s.phase !== "ended" ? actionPanel(me) : ""}
+
+                <div style="margin-top:10px;background:rgba(0,0,0,.35);border-radius:8px;padding:8px;">
+                    <div style="color:#ffd700;font-size:18px;font-weight:900;">Log</div>
+                    ${s.log.slice(-5).reverse().map(l => `<div style="font-size:15px;">• ${l}</div>`).join("")}
+                </div>
+            </div>
         `;
-
-        bar.innerHTML = `
-    <button onclick="showCoupHelpSheet()" style="
-        background:#ffd700;color:#1e4620;border:none;border-radius:999px;
-        padding:7px 12px;font-weight:900;font-size:13px;">Help</button>
-`;
-
-        gameCanvasContainer.appendChild(bar);
     }
 
-    const observer = new MutationObserver(() => {
-        setTimeout(injectCoupButtons, 50);
-    });
+    function actionPanel(me) {
+        const mustCoup = me.coins >= 10;
 
-    observer.observe(gameCanvasContainer, { childList:true, subtree:false });
+        return `
+            <div style="margin-top:10px;background:#123b16;border:2px solid #ffd700;border-radius:12px;padding:10px;">
+                <div style="color:#ffd700;font-size:22px;font-weight:900;text-align:center;">Choose Action</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                    ${!mustCoup ? btn("Income", "+1 coin", "coupIncome()") : ""}
+                    ${!mustCoup ? btn("Foreign Aid", "+2 coins", "coupForeignAid()") : ""}
+                    ${!mustCoup ? btn("Tax", "Claim Duke", "coupTax()") : ""}
+                    ${!mustCoup ? btn("Exchange", "Claim Ambassador", "coupExchange()") : ""}
+                    ${!mustCoup ? btn("Steal", "Claim Captain", "coupPickTarget('steal')") : ""}
+                    ${!mustCoup ? btn("Assassinate", "Pay 3", "coupPickTarget('assassinate')") : ""}
+                    ${btn("Coup", "Pay 7", "coupPickTarget('coup')")}
+                </div>
+                ${mustCoup ? `<div style="color:#dc3545;font-size:17px;font-weight:900;text-align:center;margin-top:8px;">10+ coins: you must Coup.</div>` : ""}
+            </div>
+        `;
+    }
 
-    const oldExit = window.chaserMasterExitSequence;
-    window.chaserMasterExitSequence = function () {
-        if (isCoupOpen()) {
-            window.coupState = null;
+    function btn(title, sub, fn) {
+        return `
+            <button onclick="${fn}" style="
+                background:#e2f0d9;color:#1e4620;border:2px solid #ffd700;
+                border-radius:10px;padding:10px 6px;font-weight:900;min-height:64px;">
+                <div style="font-family:Impact;font-size:22px;">${title}</div>
+                <div style="font-size:14px;">${sub}</div>
+            </button>
+        `;
+    }
+
+    window.coupIncome = function () {
+        const p = currentPlayer();
+        p.coins += 1;
+        window.coupState.log.push(p.name + " takes Income.");
+        nextTurn(); sendCoup(); renderCoup();
+    };
+
+    window.coupForeignAid = function () {
+        const p = currentPlayer();
+        p.coins += 2;
+        window.coupState.log.push(p.name + " takes Foreign Aid.");
+        nextTurn(); sendCoup(); renderCoup();
+    };
+
+    window.coupTax = function () {
+        const p = currentPlayer();
+        p.coins += 3;
+        window.coupState.log.push(p.name + " claims Duke and takes Tax.");
+        nextTurn(); sendCoup(); renderCoup();
+    };
+
+    window.coupExchange = function () {
+        const s = window.coupState;
+        const p = currentPlayer();
+        if (s.deck.length < 2) s.deck = s.deck.concat(s.discard).sort(() => Math.random() - 0.5);
+        const pool = p.cards.concat([s.deck.pop(), s.deck.pop()].filter(Boolean));
+        p.cards = pool.slice(0, 2);
+        s.discard.push(...pool.slice(2));
+        s.log.push(p.name + " claims Ambassador and exchanges.");
+        nextTurn(); sendCoup(); renderCoup();
+    };
+
+    window.coupPickTarget = function (type) {
+        const s = window.coupState;
+        const targets = s.players.filter(p => p.alive && p.id !== myId());
+
+        gameCanvasContainer.innerHTML = `
+            <div style="width:100%;height:100%;overflow:auto;padding:14px;box-sizing:border-box;color:white;text-align:center;">
+                <div style="font-family:Impact;font-size:32px;color:#ffd700;margin-bottom:10px;">Choose Target</div>
+                ${targets.map(p => `
+                    <button onclick="coupDoTarget('${type}','${p.id}')" style="
+                        width:100%;padding:14px;margin-bottom:8px;border-radius:10px;
+                        border:2px solid #ffd700;background:#e2f0d9;color:#1e4620;
+                        font-size:22px;font-weight:900;">
+                        ${p.name}
+                    </button>
+                `).join("")}
+                <button onclick="renderCoup()" style="
+                    width:100%;padding:12px;border:none;border-radius:10px;
+                    background:#555;color:white;font-size:18px;font-weight:900;">Cancel</button>
+            </div>
+        `;
+    };
+
+    window.coupDoTarget = function (type, targetId) {
+        const s = window.coupState;
+        const actor = currentPlayer();
+        const target = s.players.find(p => p.id === targetId);
+        if (!target) return;
+
+        if (type === "coup") {
+            if (actor.coins < 7) return;
+            actor.coins -= 7;
+            loseCard(target);
+            s.log.push(actor.name + " coups " + target.name + ".");
         }
-        oldExit();
+
+        if (type === "assassinate") {
+            if (actor.coins < 3) return;
+            actor.coins -= 3;
+            loseCard(target);
+            s.log.push(actor.name + " claims Assassin against " + target.name + ".");
+        }
+
+        if (type === "steal") {
+            const n = Math.min(2, target.coins);
+            target.coins -= n;
+            actor.coins += n;
+            s.log.push(actor.name + " claims Captain and steals from " + target.name + ".");
+        }
+
+        nextTurn(); sendCoup(); renderCoup();
     };
 })();
+})();
+
