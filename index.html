@@ -1226,6 +1226,10 @@
                 <span class="game-card-icon">⚔️</span>
                 <span class="game-card-title">Sequence</span>
             </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Coup', '🕶️')">
+    <span class="game-card-icon">🕶️</span>
+    <span class="game-card-title">Coup</span>
+</div>
             <div class="game-card-btn" onclick="launchGameEngine('Solitaire', '🃏')">
                 <span class="game-card-icon">🃏</span>
                 <span class="game-card-title">Solitaire</span>
@@ -1668,7 +1672,10 @@
             .on('broadcast', { event:'sequence-sync-state' }, ({ payload }) => {
                 if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
             })
-
+            
+           .on('broadcast', { event:'coup-sync-state' }, ({ payload }) => {
+               if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
+            })
             .on('broadcast', { event:'chaser-game-lobby-open' }, ({ payload }) => {
                 if (window.handleIncomingChaserGameLobby) window.handleIncomingChaserGameLobby(payload);
             })
