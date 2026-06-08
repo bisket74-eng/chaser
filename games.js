@@ -3965,3 +3965,139 @@
         }
     }
 })();
+
+/* ============================================================
+   COUP PATCH 1 — HELP CARD + CLEAN NEW GAME / EXIT RESET
+   Paste below the Coup beta code
+   ============================================================ */
+
+(function () {
+    function isCoupOpen() {
+        return activeGameStage.classList.contains('open') &&
+               activeGameLabelTitle.innerText.includes('Coup');
+    }
+
+    function coupHelpHtml() {
+        return `
+            <div id="coupHelpOverlay" style="
+                position:absolute; inset:0; z-index:99999;
+                background:rgba(0,0,0,0.88);
+                display:flex; align-items:center; justify-content:center;
+                padding:10px; box-sizing:border-box;">
+                <div style="
+                    background:#e2f0d9; color:#1e4620;
+                    border:4px solid #ffd700; border-radius:14px;
+                    width:96%; max-width:330px; max-height:92%;
+                    overflow:auto; padding:12px; box-sizing:border-box;
+                    font-family:Arial,sans-serif;">
+                    
+                    <div style="font-family:Impact,sans-serif;font-size:8vw;text-align:center;color:#1e4620;margin-bottom:8px;">
+                        Coup Cheat Sheet
+                    </div>
+
+                    ${[
+                        ['👑 Duke', 'Tax: take 3 coins.', 'Blocks Foreign Aid.'],
+                        ['🗡️ Assassin', 'Pay 3 coins to assassinate.', 'Target can block with Contessa.'],
+                        ['🏴‍☠️ Captain', 'Steal 2 coins from a player.', 'Blocked by Captain or Ambassador.'],
+                        ['🔄 Ambassador', 'Exchange cards with the deck.', 'Blocks stealing.'],
+                        ['🛡️ Contessa', 'No main action.', 'Blocks Assassin.']
+                    ].map(r => `
+                        <div style="background:white;border:2px solid #1e4620;border-radius:10px;padding:9px;margin-bottom:8px;">
+                            <div style="font-size:5vw;font-weight:900;color:#111;">${r[0]}</div>
+                            <div style="font-size:4vw;font-weight:900;margin-top:3px;">${r[1]}</div>
+                            <div style="font-size:3.8vw;font-weight:800;color:#b00020;margin-top:3px;">${r[2]}</div>
+                        </div>
+                    `).join('')}
+
+                    <div style="font-size:3.8vw;font-weight:900;line-height:1.25;background:#fff3cd;border:2px solid #ffd700;border-radius:10px;padding:8px;margin-top:8px;">
+                        Bluff tip: You can claim any role, even if you do not have that card. 
+                        The risk is another player challenging you.
+                    </div>
+
+                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="
+                        margin-top:10px;width:100%;padding:12px;
+                        border:none;border-radius:10px;background:#dc3545;
+                        color:white;font-size:5vw;font-weight:900;">
+                        Close
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    window.showCoupHelpSheet = function () {
+        if (document.getElementById('coupHelpOverlay')) return;
+        gameCanvasContainer.insertAdjacentHTML('beforeend', coupHelpHtml());
+    };
+
+    window.coupForceNewGame = function () {
+        const myId = window.myId || localStorage.getItem('rider_id') || 'local-player';
+        const nameInput = document.getElementById('username');
+        const myName = (nameInput && nameInput.value.trim()) || 'Player';
+
+        window.coupState = {
+            phase:'setup',
+            hostId:myId,
+            targetPlayers:2,
+            players:[{
+                id:myId,
+                name:myName,
+                coins:2,
+                cards:[],
+                revealed:[],
+                alive:true
+            }],
+            deck:[],
+            discard:[],
+            turn:0,
+            log:['New Coup game created.']
+        };
+
+        if (typeof channel !== 'undefined' && channel) {
+            channel.send({
+                type:'broadcast',
+                event:'coup-sync-state',
+                payload:window.coupState
+            });
+        }
+
+        if (window.initCoupGame) window.initCoupGame();
+    };
+
+    function injectCoupButtons() {
+        if (!isCoupOpen()) return;
+        if (document.getElementById('coupMiniControls')) return;
+
+        const bar = document.createElement('div');
+        bar.id = 'coupMiniControls';
+        bar.style.cssText = `
+            position:absolute; top:6px; right:6px; z-index:9999;
+            display:flex; gap:5px;
+        `;
+
+        bar.innerHTML = `
+            <button onclick="showCoupHelpSheet()" style="
+                background:#ffd700;color:#1e4620;border:none;border-radius:999px;
+                padding:7px 10px;font-weight:900;font-size:13px;">Help</button>
+            <button onclick="coupForceNewGame()" style="
+                background:#dc3545;color:white;border:none;border-radius:999px;
+                padding:7px 10px;font-weight:900;font-size:13px;">New</button>
+        `;
+
+        gameCanvasContainer.appendChild(bar);
+    }
+
+    const observer = new MutationObserver(() => {
+        setTimeout(injectCoupButtons, 50);
+    });
+
+    observer.observe(gameCanvasContainer, { childList:true, subtree:false });
+
+    const oldExit = window.chaserMasterExitSequence;
+    window.chaserMasterExitSequence = function () {
+        if (isCoupOpen()) {
+            window.coupState = null;
+        }
+        oldExit();
+    };
+})();
