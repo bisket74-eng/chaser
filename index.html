@@ -527,11 +527,19 @@
         }
 
         #chatGamesTriggerBtn {
-            background:#ffffff !important;
-            color:#0056b3 !important;
-            border:2px solid #0056b3 !important;
-            font-size:20px;
-        }
+    background:#ffffff !important;
+    color:#0056b3 !important;
+    border:2px solid #ffd700 !important;
+    border-radius:999px !important;
+    width:auto !important;
+    min-width:78px !important;
+    height:34px !important;
+    padding:0 14px !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    letter-spacing:0.5px !important;
+    text-transform:uppercase !important;
+}
 
         #youtubePlaceholderBtn {
             background:#ffffff !important;
@@ -1142,7 +1150,7 @@
     <div id="chatHeader">
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
-            <button id="chatGamesTriggerBtn" class="round-btn" type="button">🎮</button>
+            <button id="chatGamesTriggerBtn" class="round-btn" type="button">Games</button>
             <button id="youtubePlaceholderBtn" class="round-btn" type="button" style="display:none;">YT</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
@@ -1151,11 +1159,11 @@
     <div id="gameHubOverlay">
         <div class="game-hub-headline">Chaser Game Center</div>
         <div class="game-grid-layout">
-            <div class="game-card-btn" onclick="launchGameEngine('Crew Trivia', '🧠')">
+            <div class="game-card-btn" onclick="launchGameEngine('Trivia', '🧠')">
                 <span class="game-card-icon">🧠</span>
                 <span class="game-card-title">Crew Trivia</span>
             </div>
-            <div class="game-card-btn" onclick="launchGameEngine('Battle Uno', '🃏')">
+            <div class="game-card-btn" onclick="launchGameEngine('Uno', '🃏')">
                 <span class="game-card-icon">🃏</span>
                 <span class="game-card-title">Battle Uno</span>
             </div>
