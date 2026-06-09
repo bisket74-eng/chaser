@@ -4188,3 +4188,66 @@ window.initSolitaireGame = function () {
         nextTurn(); sendCoup(); renderCoup();
     };
 })();
+/* SOLITAIRE TAP + COMPACT LAYOUT FIX */
+(function () {
+    const oldSelectTableau = window.solSelectTableau;
+
+    window.solSelectTableau = function (col, idx) {
+        const s = window.solState;
+        if (!s) return;
+
+        if (s.selected) {
+            const sameCard =
+                s.selected.type === "tableau" &&
+                s.selected.col === col &&
+                s.selected.idx === idx;
+
+            if (!sameCard) {
+                window.solMoveToTableau(col);
+                return;
+            }
+        }
+
+        oldSelectTableau(col, idx);
+    };
+
+    const canvas = document.getElementById("gameCanvasContainer");
+
+    const solFixObserver = new MutationObserver(() => {
+        if (!window.chaserGame || window.chaserGame.activeGame !== "Solitaire") return;
+
+        const board = canvas.querySelector(".sol-board");
+        const top = canvas.querySelector(".sol-top");
+        const tableau = canvas.querySelector(".sol-tableau");
+
+        if (board) {
+            board.style.padding = "6px";
+            board.style.overflowX = "hidden";
+        }
+
+        if (top) {
+            top.style.gap = "3px";
+            top.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
+        }
+
+        if (tableau) {
+            tableau.style.gap = "3px";
+            tableau.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
+        }
+
+        canvas.querySelectorAll(".sol-card").forEach(card => {
+            card.style.minHeight = "74px";
+        });
+
+        canvas.querySelectorAll(".sol-card-pos").forEach(pos => {
+            const topVal = parseInt(pos.style.top || "0", 10);
+            if (topVal > 0) {
+                pos.style.top = Math.round(topVal * 0.78) + "px";
+            }
+        });
+    });
+
+    if (canvas) {
+        solFixObserver.observe(canvas, { childList:true, subtree:true });
+    }
+})();
