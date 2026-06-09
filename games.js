@@ -4188,5 +4188,84 @@ window.initSolitaireGame = function () {
         nextTurn(); sendCoup(); renderCoup();
     };
 })();
+/* ============================================================
+   CHASER WIDE GAME TABLE PATCH
+   Makes all games open as a wider floating table
+   Paste at very bottom of games.js
+   ============================================================ */
+
+(function () {
+    const styleId = "chaserWideGameTableStyle";
+
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement("style");
+        style.id = styleId;
+        style.innerHTML = `
+            #activeGameStage.open.chaser-wide-game-table {
+                position: fixed !important;
+                top: 64px !important;
+                left: 8px !important;
+                right: 8px !important;
+                width: auto !important;
+                height: 72vh !important;
+                max-height: 580px !important;
+                z-index: 9998 !important;
+                border-radius: 14px !important;
+                overflow: hidden !important;
+                box-shadow: 0 8px 28px rgba(0,0,0,0.55) !important;
+                border-bottom: 5px solid #b89400 !important;
+            }
+
+            #activeGameStage.open.chaser-wide-game-table #gameCanvasContainer {
+                width: 100% !important;
+                max-width: none !important;
+                overflow: auto !important;
+            }
+
+            #activeGameStage.open.chaser-wide-game-table .game-stage-header,
+            #activeGameStage.open.chaser-wide-game-table #activeGameHeader {
+                width: 100% !important;
+            }
+
+            @media (max-width: 430px) {
+                #activeGameStage.open.chaser-wide-game-table {
+                    top: 64px !important;
+                    left: 4px !important;
+                    right: 4px !important;
+                    height: 72vh !important;
+                    border-radius: 10px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function applyWideTable() {
+        const stage = document.getElementById("activeGameStage");
+        if (stage && stage.classList.contains("open")) {
+            stage.classList.add("chaser-wide-game-table");
+        }
+    }
+
+    const oldLaunch = window.launchGameEngine;
+    window.launchGameEngine = function (gameName, gameIcon) {
+        if (typeof oldLaunch === "function") {
+            oldLaunch(gameName, gameIcon);
+            setTimeout(applyWideTable, 50);
+        }
+    };
+
+    const oldExit = window.chaserMasterExitSequence;
+    window.chaserMasterExitSequence = function () {
+        const stage = document.getElementById("activeGameStage");
+        if (stage) stage.classList.remove("chaser-wide-game-table");
+
+        if (typeof oldExit === "function") oldExit();
+    };
+
+    const observer = new MutationObserver(applyWideTable);
+    const stage = document.getElementById("activeGameStage");
+    if (stage) observer.observe(stage, { attributes: true, attributeFilter: ["class"] });
+})();
 
 
