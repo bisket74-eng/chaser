@@ -1765,7 +1765,7 @@
             </div>`;
     }
     
-  /* ============================================================
+ /* ============================================================
    SOLITAIRE — CHASER MOBILE OVERHAUL
    Tap card, then tap destination
    ============================================================ */
@@ -1791,15 +1791,16 @@ window.initSolitaireGame = function () {
 
     function newGame() {
         let deck = [];
+
         suits.forEach(suit => {
             ranks.forEach((rank, i) => {
                 deck.push({
                     suit,
-                    symbol:symbols[suit],
+                    symbol: symbols[suit],
                     rank,
-                    value:i + 1,
+                    value: i + 1,
                     red: suit === "H" || suit === "D",
-                    open:false
+                    open: false
                 });
             });
         });
@@ -1807,12 +1808,12 @@ window.initSolitaireGame = function () {
         deck = shuffle(deck);
 
         window.solState = {
-            stock:deck,
-            waste:[],
-            foundations:{ S:[], C:[], H:[], D:[] },
-            tableau:[[],[],[],[],[],[],[]],
-            selected:null,
-            message:"Tap a card, then tap where you want it to go."
+            stock: deck,
+            waste: [],
+            foundations: { S:[], C:[], H:[], D:[] },
+            tableau: [[],[],[],[],[],[],[]],
+            selected: null,
+            message: "Tap a card, then tap where you want it to go."
         };
 
         for (let col = 0; col < 7; col++) {
@@ -1831,10 +1832,7 @@ window.initSolitaireGame = function () {
     function cardBackHtml() {
         return `
             <div class="sol-card sol-back">
-                <div class="sol-back-brand">CHASER</div>
-                <div class="sol-back-suits">♠ ♥ ♣ ♦</div>
-                <div class="sol-back-bolt">⚡</div>
-                <div class="sol-back-brand bottom">CHASER</div>
+                <div class="sol-vertical-word">CHASER</div>
             </div>
         `;
     }
@@ -1934,7 +1932,7 @@ window.initSolitaireGame = function () {
         const s = window.solState;
         if (!s.waste.length) return;
         s.selected = { type:"waste" };
-        s.message = "Waste card selected. Tap a tableau pile or foundation.";
+        s.message = "Waste card selected.";
         render();
     };
 
@@ -1997,6 +1995,7 @@ window.initSolitaireGame = function () {
             let card;
 
             if (sourceType === "waste") card = s.waste[s.waste.length - 1];
+
             if (sourceType === "tableau") {
                 const pile = s.tableau[col];
                 card = pile[pile.length - 1];
@@ -2006,6 +2005,7 @@ window.initSolitaireGame = function () {
 
             if (canMoveToFoundation(card, card.suit)) {
                 if (sourceType === "waste") s.waste.pop();
+
                 if (sourceType === "tableau") {
                     s.tableau[col].pop();
                     const pile = s.tableau[col];
@@ -2023,6 +2023,7 @@ window.initSolitaireGame = function () {
         while (loop) {
             loop = false;
             if (tryCard("waste")) { moved = true; loop = true; }
+
             for (let c = 0; c < 7; c++) {
                 if (tryCard("tableau", c)) { moved = true; loop = true; }
             }
@@ -2040,7 +2041,6 @@ window.initSolitaireGame = function () {
 
     function render() {
         const s = window.solState;
-
         const stockCard = s.stock.length ? cardBackHtml() : `<div class="sol-card sol-empty">↻</div>`;
         const wasteTop = s.waste[s.waste.length - 1];
 
@@ -2048,37 +2048,74 @@ window.initSolitaireGame = function () {
             <style>
                 .sol-board {
                     width:100%;
-                    min-height:100%;
-                    padding:10px;
+                    height:100%;
+                    padding:6px 8px 14px 8px;
                     box-sizing:border-box;
                     background:
-                        radial-gradient(circle at top, rgba(255,215,0,.10), transparent 35%),
-                        linear-gradient(160deg,#06420f,#022808);
+                        radial-gradient(circle at top, rgba(255,215,0,.10), transparent 32%),
+                        linear-gradient(160deg,#07531b,#02320d);
                     color:white;
                     font-family:Arial,sans-serif;
                     overflow:auto;
+                    user-select:none;
+                }
+
+                .sol-btn-row {
+                    display:flex;
+                    gap:8px;
+                    margin:0 0 7px 0;
+                    padding-top:2px;
+                }
+
+                .sol-btn {
+                    flex:1;
+                    border:2px solid #c9a227;
+                    border-radius:999px;
+                    padding:7px 8px;
+                    background:#e2f0d9;
+                    color:#1e4620;
+                    font-weight:900;
+                    font-size:13px;
+                    box-shadow:0 2px 6px rgba(0,0,0,.35);
+                }
+
+                .sol-section-labels {
+                    display:grid;
+                    grid-template-columns:1fr 1fr .6fr 1fr 1fr 1fr 1fr;
+                    gap:6px;
+                    margin-bottom:3px;
+                    color:#e2f0d9;
+                    font-size:10px;
+                    font-weight:900;
+                    text-align:center;
+                }
+
+                .sol-label-pill {
+                    border-top:1px solid #c9a227;
+                    border-bottom:1px solid #c9a227;
+                    padding:2px 0;
+                    opacity:.95;
                 }
 
                 .sol-top {
                     display:grid;
-                    grid-template-columns:repeat(7,1fr);
+                    grid-template-columns:1fr 1fr .6fr 1fr 1fr 1fr 1fr;
                     gap:6px;
-                    margin-bottom:12px;
+                    margin-bottom:7px;
                     align-items:start;
                 }
 
                 .sol-card {
                     width:100%;
                     aspect-ratio:0.70/1;
-                    min-height:84px;
-                    border-radius:9px;
+                    min-height:72px;
+                    border-radius:6px;
                     box-sizing:border-box;
                     position:relative;
                     background:#fff;
-                    box-shadow:0 4px 10px rgba(0,0,0,.38);
+                    box-shadow:0 3px 7px rgba(0,0,0,.38);
                     border:2px solid #f1f1f1;
                     cursor:pointer;
-                    user-select:none;
                     overflow:hidden;
                 }
 
@@ -2086,15 +2123,15 @@ window.initSolitaireGame = function () {
                 .sol-card.black { color:#111; }
 
                 .sol-card.selected {
-                    outline:4px solid #00bfff;
-                    box-shadow:0 0 16px #00bfff;
+                    outline:3px solid #00bfff;
+                    box-shadow:0 0 14px #00bfff;
                     transform:translateY(-2px);
                 }
 
                 .sol-empty {
-                    background:rgba(255,255,255,.05);
-                    border:2px dashed rgba(255,215,0,.45);
-                    color:rgba(255,215,0,.65);
+                    background:rgba(255,255,255,.045);
+                    border:2px solid rgba(226,240,217,.45);
+                    color:rgba(255,215,0,.60);
                     display:flex;
                     align-items:center;
                     justify-content:center;
@@ -2102,43 +2139,38 @@ window.initSolitaireGame = function () {
                     font-weight:900;
                 }
 
+                .sol-foundation-empty {
+                    background:rgba(255,255,255,.035);
+                    border:2px solid rgba(226,240,217,.45);
+                    color:rgba(255,215,0,.55);
+                }
+
                 .sol-back {
-                    background:linear-gradient(145deg,#111,#1e4620);
+                    background:#063b16;
                     border:3px solid #ffd700;
-                    color:#ffd700;
+                    color:#a8d08d;
                     display:flex;
-                    flex-direction:column;
                     align-items:center;
-                    justify-content:space-around;
+                    justify-content:center;
                     text-align:center;
                     font-weight:900;
                 }
 
-                .sol-back-brand {
-                    font-size:13px;
-                    letter-spacing:1px;
-                    color:#ffffff;
-                }
-
-                .sol-back-brand.bottom {
-                    transform:rotate(180deg);
-                }
-
-                .sol-back-suits {
-                    font-size:14px;
-                    color:#ffd700;
-                }
-
-                .sol-back-bolt {
-                    font-size:30px;
+                .sol-vertical-word {
+                    writing-mode:vertical-rl;
+                    text-orientation:mixed;
+                    letter-spacing:2px;
+                    font-size:15px;
                     line-height:1;
+                    color:#a8d08d;
+                    text-shadow:1px 1px 2px rgba(0,0,0,.6);
                 }
 
                 .sol-rank {
                     position:absolute;
                     font-weight:900;
-                    font-size:19px;
-                    line-height:.95;
+                    font-size:18px;
+                    line-height:.92;
                     text-align:center;
                 }
 
@@ -2158,13 +2190,40 @@ window.initSolitaireGame = function () {
                     left:50%;
                     top:50%;
                     transform:translate(-50%,-50%);
-                    font-size:38px;
+                    font-size:34px;
                     font-weight:900;
                 }
 
                 .sol-foundation-label {
-                    font-size:30px;
+                    font-size:28px;
                     font-weight:900;
+                }
+
+                .sol-message {
+                    background:rgba(0,0,0,.28);
+                    border:1px solid rgba(255,215,0,.35);
+                    border-radius:10px;
+                    padding:7px;
+                    text-align:center;
+                    font-size:14px;
+                    font-weight:900;
+                    color:#e2f0d9;
+                    margin:6px 0 8px 0;
+                    line-height:1.15;
+                }
+
+                .sol-tableau-label {
+                    text-align:center;
+                    color:#e2f0d9;
+                    font-size:11px;
+                    font-weight:900;
+                    margin-bottom:4px;
+                    border-top:1px solid #c9a227;
+                    border-bottom:1px solid #c9a227;
+                    width:110px;
+                    margin-left:auto;
+                    margin-right:auto;
+                    padding:2px 0;
                 }
 
                 .sol-tableau {
@@ -2172,12 +2231,12 @@ window.initSolitaireGame = function () {
                     grid-template-columns:repeat(7,1fr);
                     gap:6px;
                     align-items:start;
-                    min-height:420px;
+                    min-height:390px;
                 }
 
                 .sol-col {
                     position:relative;
-                    min-height:360px;
+                    min-height:340px;
                 }
 
                 .sol-card-pos {
@@ -2186,68 +2245,59 @@ window.initSolitaireGame = function () {
                     width:100%;
                 }
 
-                .sol-message {
-                    background:rgba(0,0,0,.35);
-                    border:1px solid rgba(255,215,0,.35);
-                    border-radius:10px;
-                    padding:8px;
-                    text-align:center;
-                    font-size:15px;
-                    font-weight:900;
-                    color:#e2f0d9;
-                    margin:8px 0;
-                }
-
-                .sol-btn-row {
-                    display:flex;
-                    gap:8px;
-                    margin-bottom:8px;
-                }
-
-                .sol-btn {
-                    flex:1;
-                    border:none;
-                    border-radius:999px;
-                    padding:9px 8px;
-                    background:#ffd700;
-                    color:#1e4620;
-                    font-weight:900;
-                    font-size:14px;
-                    box-shadow:0 3px 8px rgba(0,0,0,.35);
-                }
-
                 @media (max-width:390px) {
-                    .sol-board { padding:8px; }
-                    .sol-top, .sol-tableau { gap:5px; }
-                    .sol-rank { font-size:17px; }
-                    .sol-symbol { font-size:32px; }
-                    .sol-back-brand { font-size:11px; }
-                    .sol-card { min-height:78px; }
+                    .sol-board { padding:5px 7px 12px 7px; }
+                    .sol-top, .sol-tableau, .sol-section-labels { gap:5px; }
+                    .sol-card { min-height:68px; border-radius:6px; }
+                    .sol-rank { font-size:16px; }
+                    .sol-symbol { font-size:30px; }
+                    .sol-vertical-word { font-size:13px; letter-spacing:1.5px; }
+                    .sol-message { font-size:13px; padding:6px; }
+                    .sol-btn { font-size:12px; padding:6px; }
                 }
             </style>
 
             <div class="sol-board">
                 <div class="sol-btn-row">
                     <button class="sol-btn" onclick="solNewGame()">New Deal</button>
-                    <button class="sol-btn" onclick="solAutoFoundation()">Auto</button>
+                    <button class="sol-btn" onclick="solAutoFoundation()">Auto Move</button>
+                </div>
+
+                <div class="sol-section-labels">
+                    <div class="sol-label-pill">Stock</div>
+                    <div class="sol-label-pill">Waste</div>
+                    <div></div>
+                    <div class="sol-label-pill" style="grid-column:4 / span 4;">Foundation</div>
                 </div>
 
                 <div class="sol-top">
                     <div onclick="solDraw()">${stockCard}</div>
-                    <div onclick="solSelectWaste()">${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}</div>
+
+                    <div onclick="solSelectWaste()">
+                        ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
+                    </div>
+
                     <div></div>
+
                     ${suits.map(suit => {
                         const pile = s.foundations[suit];
                         const top = pile[pile.length - 1];
+
                         return `
                             <div onclick="solMoveToFoundation('${suit}')">
-                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`) : `<div class="sol-card sol-empty"><span class="sol-foundation-label">${symbols[suit]}</span></div>`}
+                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`) : `
+                                    <div class="sol-card sol-empty sol-foundation-empty">
+                                        <span class="sol-foundation-label">${symbols[suit]}</span>
+                                    </div>
+                                `}
                             </div>
                         `;
                     }).join("")}
                 </div>
 
                 <div class="sol-message">${checkWin() ? "🏆 SOLITAIRE COMPLETE!" : s.message}</div>
+
+                <div class="sol-tableau-label">Tableau</div>
 
                 <div class="sol-tableau">
         `;
@@ -2266,7 +2316,7 @@ window.initSolitaireGame = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * (card.open ? 32 : 15);
+                const topOffset = idx * (card.open ? 28 : 12);
 
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solSelectTableau(${col}, ${idx});">
@@ -2288,7 +2338,6 @@ window.initSolitaireGame = function () {
 
     newGame();
 };
-
     /* ============================================================
        6. HANGMAN – CLEAN SINGLE PLAYER
        ============================================================ */
