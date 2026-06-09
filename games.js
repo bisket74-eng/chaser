@@ -1770,12 +1770,21 @@ window.nextTriviaRound = function () {
             </div>`;
     }
     
-/* ============================================================
-   SOLITAIRE — CHASER MOBILE OVERHAUL
-   Tap card, then tap destination
-   ============================================================ */
-   window.initSolitaireGame = function () {
+   /**************************************************************
+ SOLITAIRE — CHASER MOBILE v4
+ Fixes:
+ ✓ Tap selected card, then tap destination card to move
+ ✓ Tap same selected card to clear selection
+ ✓ Horizontal foundation piles
+ ✓ Stock/Waste moved below board, more visible
+ ✓ Tighter tableau stacking
+ ✓ Cleaner readable card faces
+ ✓ Smaller vertical CHASER card backs
+**************************************************************/
+
+window.initSolitaireGame = function () {
     const canvas = document.getElementById("gameCanvasContainer");
+
     const suits = ["S", "C", "H", "D"];
     const symbols = { S:"♠", C:"♣", H:"♥", D:"♦" };
     const names = { S:"Spades", C:"Clubs", H:"Hearts", D:"Diamonds" };
@@ -1800,11 +1809,11 @@ window.nextTriviaRound = function () {
             ranks.forEach((rank, i) => {
                 deck.push({
                     suit,
-                    symbol: symbols[suit],
+                    symbol:symbols[suit],
                     rank,
-                    value: i + 1,
-                    red: suit === "H" || suit === "D",
-                    open: false
+                    value:i + 1,
+                    red:suit === "H" || suit === "D",
+                    open:false
                 });
             });
         });
@@ -1812,12 +1821,12 @@ window.nextTriviaRound = function () {
         deck = shuffle(deck);
 
         window.solState = {
-            stock: deck,
-            waste: [],
-            foundations: { S:[], C:[], H:[], D:[] },
-            tableau: [[],[],[],[],[],[],[]],
-            selected: null,
-            message: "Tap a card, then tap where you want it to go."
+            stock:deck,
+            waste:[],
+            foundations:{ S:[], C:[], H:[], D:[] },
+            tableau:[[],[],[],[],[],[],[]],
+            selected:null,
+            message:"Tap a card to select it. Then tap the destination card or empty pile."
         };
 
         for (let col = 0; col < 7; col++) {
@@ -1841,7 +1850,7 @@ window.nextTriviaRound = function () {
         `;
     }
 
-    function cardHtml(card, click, selected=false) {
+    function cardHtml(card, click, selected=false, foundation=false) {
         if (!card) return `<div class="sol-card sol-empty"></div>`;
 
         if (!card.open) {
@@ -1849,10 +1858,9 @@ window.nextTriviaRound = function () {
         }
 
         return `
-            <div onclick="${click}" class="sol-card ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
-                <div class="sol-corner top">${card.rank}<br>${card.symbol}</div>
-                <div class="sol-big-symbol">${card.symbol}</div>
-                <div class="sol-corner bottom">${card.rank}<br>${card.symbol}</div>
+            <div onclick="${click}" class="sol-card ${foundation ? "foundation-card" : ""} ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
+                <div class="sol-face-rank">${card.rank}</div>
+                <div class="sol-face-suit">${card.symbol}</div>
             </div>
         `;
     }
@@ -1936,8 +1944,15 @@ window.nextTriviaRound = function () {
         const s = window.solState;
         if (!s.waste.length) return;
 
+        if (s.selected && s.selected.type === "waste") {
+            s.selected = null;
+            s.message = "Selection cleared.";
+            render();
+            return;
+        }
+
         s.selected = { type:"waste" };
-        s.message = "Waste card selected.";
+        s.message = "Waste card selected. Tap a destination card, foundation, or empty pile.";
         render();
     };
 
@@ -1947,12 +1962,24 @@ window.nextTriviaRound = function () {
         if (!card || !card.open) return;
 
         if (s.selected) {
+            const sameCard =
+                s.selected.type === "tableau" &&
+                s.selected.col === col &&
+                s.selected.idx === idx;
+
+            if (sameCard) {
+                s.selected = null;
+                s.message = "Selection cleared.";
+                render();
+                return;
+            }
+
             window.solMoveToTableau(col);
             return;
         }
 
         s.selected = { type:"tableau", col, idx };
-        s.message = card.rank + card.symbol + " selected.";
+        s.message = card.rank + card.symbol + " selected. Tap the destination card or empty pile.";
         render();
     };
 
@@ -2019,7 +2046,9 @@ window.nextTriviaRound = function () {
                 if (sourceType === "tableau") {
                     s.tableau[col].pop();
                     const pile = s.tableau[col];
-                    if (pile.length && !pile[pile.length - 1].open) pile[pile.length - 1].open = true;
+                    if (pile.length && !pile[pile.length - 1].open) {
+                        pile[pile.length - 1].open = true;
+                    }
                 }
 
                 s.foundations[card.suit].push(card);
@@ -2032,10 +2061,17 @@ window.nextTriviaRound = function () {
         let loop = true;
         while (loop) {
             loop = false;
-            if (tryCard("waste")) { moved = true; loop = true; }
+
+            if (tryCard("waste")) {
+                moved = true;
+                loop = true;
+            }
 
             for (let c = 0; c < 7; c++) {
-                if (tryCard("tableau", c)) { moved = true; loop = true; }
+                if (tryCard("tableau", c)) {
+                    moved = true;
+                    loop = true;
+                }
             }
         }
 
@@ -2059,7 +2095,7 @@ window.nextTriviaRound = function () {
                 .sol-board {
                     width:100%;
                     min-height:100%;
-                    padding:8px;
+                    padding:7px;
                     box-sizing:border-box;
                     background:linear-gradient(160deg,#06420f,#022808);
                     color:white;
@@ -2070,14 +2106,14 @@ window.nextTriviaRound = function () {
                 .sol-btn-row {
                     display:flex;
                     gap:8px;
-                    margin-bottom:6px;
+                    margin-bottom:5px;
                 }
 
                 .sol-btn {
                     flex:1;
                     border:2px solid #b99624;
                     border-radius:999px;
-                    padding:9px 8px;
+                    padding:8px 8px;
                     background:#e2f0d9;
                     color:#1e4620;
                     font-weight:900;
@@ -2089,18 +2125,40 @@ window.nextTriviaRound = function () {
                     display:grid;
                     grid-template-columns:repeat(4,1fr);
                     gap:5px;
-                    margin-bottom:7px;
+                    margin-bottom:5px;
                 }
 
                 .sol-foundation-slot {
-                    height:58px;
-                    border:2px solid rgba(226,240,217,.45);
+                    height:44px;
+                    border:2px solid rgba(255,215,0,.6);
                     border-radius:8px;
                     background:rgba(255,255,255,.06);
                     display:flex;
                     align-items:center;
                     justify-content:center;
                     box-sizing:border-box;
+                    overflow:hidden;
+                }
+
+                .foundation-card {
+                    min-height:40px !important;
+                    height:40px !important;
+                    aspect-ratio:1.55/1 !important;
+                    border-radius:7px !important;
+                }
+
+                .foundation-card .sol-face-rank {
+                    font-size:17px;
+                    left:8px;
+                    top:50%;
+                    transform:translateY(-50%);
+                }
+
+                .foundation-card .sol-face-suit {
+                    font-size:26px;
+                    left:62%;
+                    top:50%;
+                    transform:translate(-50%,-50%);
                 }
 
                 .sol-tableau {
@@ -2108,13 +2166,13 @@ window.nextTriviaRound = function () {
                     grid-template-columns:repeat(7,1fr);
                     gap:3px;
                     align-items:start;
-                    min-height:370px;
-                    margin-top:4px;
+                    min-height:315px;
+                    margin-top:3px;
                 }
 
                 .sol-col {
                     position:relative;
-                    min-height:340px;
+                    min-height:300px;
                 }
 
                 .sol-card-pos {
@@ -2123,20 +2181,37 @@ window.nextTriviaRound = function () {
                     width:100%;
                 }
 
-                .sol-bottom-draw {
+                .sol-bottom-area {
                     display:grid;
-                    grid-template-columns:repeat(2,1fr);
-                    gap:6px;
-                    width:31%;
-                    margin-left:auto;
-                    margin-top:4px;
+                    grid-template-columns:1.35fr 1fr;
+                    gap:7px;
+                    align-items:end;
+                    margin-top:2px;
                     padding-bottom:8px;
+                }
+
+                .sol-help {
+                    background:rgba(0,0,0,.26);
+                    border:1px solid rgba(255,215,0,.38);
+                    border-radius:9px;
+                    color:#e2f0d9;
+                    font-size:12px;
+                    font-weight:900;
+                    line-height:1.25;
+                    padding:7px;
+                    box-sizing:border-box;
+                }
+
+                .sol-draw-row {
+                    display:grid;
+                    grid-template-columns:1fr 1fr;
+                    gap:5px;
                 }
 
                 .sol-label {
                     text-align:center;
                     color:#e2f0d9;
-                    font-size:12px;
+                    font-size:11px;
                     font-weight:900;
                     margin-bottom:2px;
                 }
@@ -2144,43 +2219,48 @@ window.nextTriviaRound = function () {
                 .sol-section-title {
                     text-align:center;
                     color:#e2f0d9;
-                    font-size:14px;
+                    font-size:13px;
                     font-weight:900;
-                    border-top:1px solid rgba(255,215,0,.65);
-                    margin:5px auto 4px auto;
-                    width:36%;
+                    border-top:1px solid rgba(255,215,0,.55);
+                    margin:4px auto 3px auto;
+                    width:42%;
                     padding-top:2px;
                 }
 
                 .sol-message {
                     background:rgba(0,0,0,.28);
                     border:1px solid rgba(255,215,0,.35);
-                    border-radius:10px;
-                    padding:7px;
+                    border-radius:9px;
+                    padding:6px;
                     text-align:center;
-                    font-size:14px;
+                    font-size:13px;
                     font-weight:900;
                     color:#e2f0d9;
-                    margin:6px 0;
+                    margin:5px 0;
                 }
 
                 .sol-card {
                     width:100%;
                     aspect-ratio:.72/1;
-                    min-height:72px;
+                    min-height:64px;
                     border-radius:8px;
                     box-sizing:border-box;
                     position:relative;
                     background:#fff;
                     border:1px solid #ddd;
-                    box-shadow:0 4px 9px rgba(0,0,0,.32);
+                    box-shadow:0 3px 7px rgba(0,0,0,.33);
                     cursor:pointer;
                     user-select:none;
                     overflow:hidden;
                 }
 
-                .sol-card.red { color:#c00000; }
-                .sol-card.black { color:#111; }
+                .sol-card.red {
+                    color:#c00000;
+                }
+
+                .sol-card.black {
+                    color:#111;
+                }
 
                 .sol-card.selected {
                     outline:4px solid #00bfff;
@@ -2194,7 +2274,7 @@ window.nextTriviaRound = function () {
                     display:flex;
                     align-items:center;
                     justify-content:center;
-                    font-size:28px;
+                    font-size:24px;
                     font-weight:900;
                 }
 
@@ -2210,48 +2290,40 @@ window.nextTriviaRound = function () {
                 .sol-back-text {
                     writing-mode:vertical-rl;
                     text-orientation:mixed;
-                    font-size:16px;
+                    font-size:12px;
                     font-weight:900;
-                    letter-spacing:2px;
+                    letter-spacing:1px;
+                    line-height:1;
                 }
 
-                .sol-corner {
+                .sol-face-rank {
                     position:absolute;
+                    top:4px;
+                    left:5px;
+                    font-size:19px;
                     font-weight:900;
-                    font-size:18px;
-                    line-height:.95;
-                    text-align:center;
+                    line-height:1;
                     z-index:2;
                 }
 
-                .sol-corner.top {
-                    top:4px;
-                    left:5px;
-                }
-
-                .sol-corner.bottom {
-                    right:5px;
-                    bottom:4px;
-                    transform:rotate(180deg);
-                }
-
-                .sol-big-symbol {
+                .sol-face-suit {
                     position:absolute;
                     left:50%;
-                    top:50%;
+                    top:57%;
                     transform:translate(-50%,-50%);
-                    font-size:34px;
+                    font-size:35px;
                     font-weight:900;
                     line-height:1;
                 }
 
                 @media (max-width:390px) {
-                    .sol-board { padding:7px; }
-                    .sol-tableau { gap:3px; }
-                    .sol-corner { font-size:16px; }
-                    .sol-big-symbol { font-size:30px; }
-                    .sol-back-text { font-size:15px; }
-                    .sol-card { min-height:68px; }
+                    .sol-board { padding:6px; }
+                    .sol-card { min-height:60px; }
+                    .sol-face-rank { font-size:17px; }
+                    .sol-face-suit { font-size:30px; }
+                    .sol-back-text { font-size:11px; }
+                    .sol-tableau { gap:3px; min-height:300px; }
+                    .sol-col { min-height:285px; }
                 }
             </style>
 
@@ -2269,7 +2341,7 @@ window.nextTriviaRound = function () {
 
                         return `
                             <div class="sol-foundation-slot" onclick="solMoveToFoundation('${suit}')">
-                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`) : `<div style="font-size:28px;color:rgba(255,215,0,.62);font-weight:900;">${symbols[suit]}</div>`}
+                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`, false, true) : `<div style="font-size:24px;color:rgba(255,215,0,.62);font-weight:900;">${symbols[suit]}</div>`}
                             </div>
                         `;
                     }).join("")}
@@ -2295,7 +2367,7 @@ window.nextTriviaRound = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * (card.open ? 24 : 10);
+                const topOffset = idx * (card.open ? 20 : 8);
 
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solSelectTableau(${col}, ${idx});">
@@ -2310,15 +2382,22 @@ window.nextTriviaRound = function () {
         html += `
                 </div>
 
-                <div class="sol-bottom-draw">
-                    <div>
-                        <div class="sol-label">Stock</div>
-                        <div onclick="solDraw()">${stockCard}</div>
+                <div class="sol-bottom-area">
+                    <div class="sol-help">
+                        Tap a card to select it.<br>
+                        Then tap the destination card or empty pile.
                     </div>
-                    <div>
-                        <div class="sol-label">Waste</div>
-                        <div onclick="solSelectWaste()">
-                            ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
+
+                    <div class="sol-draw-row">
+                        <div>
+                            <div class="sol-label">Stock</div>
+                            <div onclick="solDraw()">${stockCard}</div>
+                        </div>
+                        <div>
+                            <div class="sol-label">Waste</div>
+                            <div onclick="solSelectWaste()">
+                                ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2330,6 +2409,9 @@ window.nextTriviaRound = function () {
 
     newGame();
 };
+
+    
+                
     /* ============================================================
        6. HANGMAN – CLEAN SINGLE PLAYER
        ============================================================ */
