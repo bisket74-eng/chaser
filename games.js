@@ -1597,80 +1597,85 @@
             </div>`;
     }
 
-    window.startTriviaRound = function () {
-        const s = window.triviaState;
-        if (!s) return;
+   async function getTriviaBatch() {
+    const fallback = LOCAL_TRIVIA.slice();
 
-        const q = LOCAL_TRIVIA[Math.floor(Math.random() * LOCAL_TRIVIA.length)];
-        s.current = { ...q, a: shuffle(q.a) };
-        s.votes = {};
-        s.phase = "vote";
-        s.timer = 12;
-        s.round++;
+    try {
+        const res = await fetch("https://opentdb.com/api.php?amount=20&type=multiple");
+        const data = await res.json();
 
-        syncTrivia();
-        runTriviaTimer();
-        renderTriviaScreen();
-    };
+        if (!data.results || !data.results.length) throw new Error("No questions");
 
-    function runTriviaTimer() {
-        if (window.triviaTimer) clearInterval(window.triviaTimer);
+        return data.results.map(item => {
+            const decode = (txt) => {
+                const box = document.createElement("textarea");
+                box.innerHTML = txt;
+                return box.value;
+            };
 
-        window.triviaTimer = setInterval(() => {
-            const s = window.triviaState;
-            if (!s || s.phase !== "vote") {
-                clearInterval(window.triviaTimer);
-                return;
-            }
+            const correct = decode(item.correct_answer);
+            const answers = [
+                correct,
+                ...item.incorrect_answers.map(decode)
+            ];
 
-            s.timer--;
-
-            if (s.timer <= 0) {
-                clearInterval(window.triviaTimer);
-                revealTriviaAnswer();
-            } else {
-                renderTriviaScreen();
-            }
-        }, 1000);
-    }
-
-    function revealTriviaAnswer() {
-        const s = window.triviaState;
-        if (!s || !s.current) return;
-
-        s.phase = "reveal";
-
-        Object.keys(s.votes).forEach(playerId => {
-            if (s.votes[playerId] === s.current.c) {
-                s.score[playerId] = (s.score[playerId] || 0) + 1;
-            }
+            return {
+                q: decode(item.question),
+                c: correct,
+                a: shuffle(answers)
+            };
         });
+    } catch (e) {
+        return fallback;
+    }
+}
 
-        syncTrivia();
-        renderTriviaScreen();
+window.startTriviaRound = async function () {
+    const s = window.triviaState;
+    if (!s) return;
+
+    if (!s.questionBank || !s.questionBank.length) {
+        s.questionBank = await getTriviaBatch();
+        s.usedQuestions = [];
     }
 
-    window.submitTriviaAnswer = function (answer) {
-        const s = window.triviaState;
-        if (!s || s.phase !== "vote") return;
+    let q = s.questionBank.shift();
 
-        s.votes[myGameId()] = answer;
+    while (q && s.usedQuestions && s.usedQuestions.includes(q.q)) {
+        q = s.questionBank.shift();
+    }
+
+    if (!q) {
+        s.questionBank = await getTriviaBatch();
+        q = s.questionBank.shift();
+    }
+
+    s.usedQuestions = s.usedQuestions || [];
+    s.usedQuestions.push(q.q);
+
+    s.current = q;
+    s.votes = {};
+    s.phase = "vote";
+    s.timer = 12;
+    s.round++;
+
+    syncTrivia();
+    runTriviaTimer();
+    renderTriviaScreen();
+};
+
+window.nextTriviaRound = function () {
+    const s = window.triviaState;
+    if (!s) return;
+
+    if (s.round >= 20) {
+        s.phase = "done";
         syncTrivia();
         renderTriviaScreen();
-    };
-
-    window.nextTriviaRound = function () {
-        const s = window.triviaState;
-        if (!s) return;
-
-        if (s.round >= s.totalRounds) {
-            s.phase = "done";
-            syncTrivia();
-            renderTriviaScreen();
-        } else {
-            window.startTriviaRound();
-        }
-    };
+    } else {
+        window.startTriviaRound();
+    }
+};
 
     function renderTriviaScreen() {
         const s = window.triviaState;
