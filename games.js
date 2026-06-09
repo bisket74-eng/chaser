@@ -2316,7 +2316,7 @@ window.initSolitaireGame = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * (card.open ? 28 : 12);
+                const topOffset = idx * (card.open ? 18 : 8);
 
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solSelectTableau(${col}, ${idx});">
@@ -4192,24 +4192,34 @@ window.initSolitaireGame = function () {
 (function () {
     const oldSelectTableau = window.solSelectTableau;
 
-    window.solSelectTableau = function (col, idx) {
-        const s = window.solState;
-        if (!s) return;
+   window.solSelectTableau = function (col, idx) {
+    const s = window.solState;
+    if (!s) return;
 
-        if (s.selected) {
-            const sameCard =
-                s.selected.type === "tableau" &&
-                s.selected.col === col &&
-                s.selected.idx === idx;
+    const card = s.tableau[col][idx];
+    if (!card || !card.open) return;
 
-            if (!sameCard) {
-                window.solMoveToTableau(col);
-                return;
-            }
+    if (s.selected) {
+        const sameCard =
+            s.selected.type === "tableau" &&
+            s.selected.col === col &&
+            s.selected.idx === idx;
+
+        if (sameCard) {
+            s.selected = null;
+            s.message = "Selection cleared.";
+            render();
+            return;
         }
 
-        oldSelectTableau(col, idx);
-    };
+        window.solMoveToTableau(col);
+        return;
+    }
+
+    s.selected = { type:"tableau", col, idx };
+    s.message = card.rank + card.symbol + " selected.";
+    render();
+};
 
     const canvas = document.getElementById("gameCanvasContainer");
 
