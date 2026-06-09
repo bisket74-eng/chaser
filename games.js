@@ -1770,7 +1770,10 @@ window.nextTriviaRound = function () {
             </div>`;
     }
     
- /* ============================================================
+/* ============================================================
+   SOLITAIRE — CHASER MOBILE OVERHAUL
+   Tap card, then tap destination
+   ============================================================ */
    window.initSolitaireGame = function () {
     const canvas = document.getElementById("gameCanvasContainer");
     const suits = ["S", "C", "H", "D"];
