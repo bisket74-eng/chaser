@@ -1547,15 +1547,13 @@
             window.triviaState = {
                 players: window.chaserGame.players || [{ id: myGameId(), name: "Player", seat: 0 }],
                 round: 0,
-                totalRounds: 20,
+                totalRounds: 10,
                 score: {},
                 votes: {},
                 current: null,
                 phase: "menu",
                 timer: 0,
                 winner: null
-                questionBank: [],
-                usedQuestions: [],
             };
 
             window.triviaState.players.forEach(p => {
