@@ -1771,11 +1771,7 @@ window.nextTriviaRound = function () {
     }
     
  /* ============================================================
-   SOLITAIRE — CHASER MOBILE OVERHAUL
-   Tap card, then tap destination
-   ============================================================ */
-
-window.initSolitaireGame = function () {
+   window.initSolitaireGame = function () {
     const canvas = document.getElementById("gameCanvasContainer");
     const suits = ["S", "C", "H", "D"];
     const symbols = { S:"♠", C:"♣", H:"♥", D:"♦" };
@@ -1837,7 +1833,7 @@ window.initSolitaireGame = function () {
     function cardBackHtml() {
         return `
             <div class="sol-card sol-back">
-                <div class="sol-vertical-word">CHASER</div>
+                <div class="sol-back-text">CHASER</div>
             </div>
         `;
     }
@@ -1851,9 +1847,9 @@ window.initSolitaireGame = function () {
 
         return `
             <div onclick="${click}" class="sol-card ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
-                <div class="sol-rank top">${card.rank}<br>${card.symbol}</div>
-                <div class="sol-symbol">${card.symbol}</div>
-                <div class="sol-rank bottom">${card.rank}<br>${card.symbol}</div>
+                <div class="sol-corner top">${card.rank}<br>${card.symbol}</div>
+                <div class="sol-big-symbol">${card.symbol}</div>
+                <div class="sol-corner bottom">${card.rank}<br>${card.symbol}</div>
             </div>
         `;
     }
@@ -1936,6 +1932,7 @@ window.initSolitaireGame = function () {
     window.solSelectWaste = function () {
         const s = window.solState;
         if (!s.waste.length) return;
+
         s.selected = { type:"waste" };
         s.message = "Waste card selected.";
         render();
@@ -1945,6 +1942,11 @@ window.initSolitaireGame = function () {
         const s = window.solState;
         const card = s.tableau[col][idx];
         if (!card || !card.open) return;
+
+        if (s.selected) {
+            window.solMoveToTableau(col);
+            return;
+        }
 
         s.selected = { type:"tableau", col, idx };
         s.message = card.rank + card.symbol + " selected.";
@@ -2053,190 +2055,58 @@ window.initSolitaireGame = function () {
             <style>
                 .sol-board {
                     width:100%;
-                    height:100%;
-                    padding:6px 8px 14px 8px;
+                    min-height:100%;
+                    padding:8px;
                     box-sizing:border-box;
-                    background:
-                        radial-gradient(circle at top, rgba(255,215,0,.10), transparent 32%),
-                        linear-gradient(160deg,#07531b,#02320d);
+                    background:linear-gradient(160deg,#06420f,#022808);
                     color:white;
                     font-family:Arial,sans-serif;
                     overflow:auto;
-                    user-select:none;
                 }
 
                 .sol-btn-row {
                     display:flex;
                     gap:8px;
-                    margin:0 0 7px 0;
-                    padding-top:2px;
+                    margin-bottom:6px;
                 }
 
                 .sol-btn {
                     flex:1;
-                    border:2px solid #c9a227;
+                    border:2px solid #b99624;
                     border-radius:999px;
-                    padding:7px 8px;
+                    padding:9px 8px;
                     background:#e2f0d9;
                     color:#1e4620;
                     font-weight:900;
-                    font-size:13px;
-                    box-shadow:0 2px 6px rgba(0,0,0,.35);
-                }
-
-                .sol-section-labels {
-                    display:grid;
-                    grid-template-columns:1fr 1fr .6fr 1fr 1fr 1fr 1fr;
-                    gap:6px;
-                    margin-bottom:3px;
-                    color:#e2f0d9;
-                    font-size:10px;
-                    font-weight:900;
-                    text-align:center;
-                }
-
-                .sol-label-pill {
-                    border-top:1px solid #c9a227;
-                    border-bottom:1px solid #c9a227;
-                    padding:2px 0;
-                    opacity:.95;
-                }
-
-                .sol-top {
-                    display:grid;
-                    grid-template-columns:1fr 1fr .6fr 1fr 1fr 1fr 1fr;
-                    gap:6px;
-                    margin-bottom:7px;
-                    align-items:start;
-                }
-
-                .sol-card {
-                    width:100%;
-                    aspect-ratio:0.70/1;
-                    min-height:72px;
-                    border-radius:6px;
-                    box-sizing:border-box;
-                    position:relative;
-                    background:#fff;
-                    box-shadow:0 3px 7px rgba(0,0,0,.38);
-                    border:2px solid #f1f1f1;
-                    cursor:pointer;
-                    overflow:hidden;
-                }
-
-                .sol-card.red { color:#c00000; }
-                .sol-card.black { color:#111; }
-
-                .sol-card.selected {
-                    outline:3px solid #00bfff;
-                    box-shadow:0 0 14px #00bfff;
-                    transform:translateY(-2px);
-                }
-
-                .sol-empty {
-                    background:rgba(255,255,255,.045);
-                    border:2px solid rgba(226,240,217,.45);
-                    color:rgba(255,215,0,.60);
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    font-size:22px;
-                    font-weight:900;
-                }
-
-                .sol-foundation-empty {
-                    background:rgba(255,255,255,.035);
-                    border:2px solid rgba(226,240,217,.45);
-                    color:rgba(255,215,0,.55);
-                }
-
-                .sol-back {
-                    background:#063b16;
-                    border:3px solid #ffd700;
-                    color:#a8d08d;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    text-align:center;
-                    font-weight:900;
-                }
-
-                .sol-vertical-word {
-                    writing-mode:vertical-rl;
-                    text-orientation:mixed;
-                    letter-spacing:2px;
-                    font-size:15px;
-                    line-height:1;
-                    color:#a8d08d;
-                    text-shadow:1px 1px 2px rgba(0,0,0,.6);
-                }
-
-                .sol-rank {
-                    position:absolute;
-                    font-weight:900;
-                    font-size:18px;
-                    line-height:.92;
-                    text-align:center;
-                }
-
-                .sol-rank.top {
-                    top:4px;
-                    left:5px;
-                }
-
-                .sol-rank.bottom {
-                    right:5px;
-                    bottom:4px;
-                    transform:rotate(180deg);
-                }
-
-                .sol-symbol {
-                    position:absolute;
-                    left:50%;
-                    top:50%;
-                    transform:translate(-50%,-50%);
-                    font-size:34px;
-                    font-weight:900;
-                }
-
-                .sol-foundation-label {
-                    font-size:28px;
-                    font-weight:900;
-                }
-
-                .sol-message {
-                    background:rgba(0,0,0,.28);
-                    border:1px solid rgba(255,215,0,.35);
-                    border-radius:10px;
-                    padding:7px;
-                    text-align:center;
                     font-size:14px;
-                    font-weight:900;
-                    color:#e2f0d9;
-                    margin:6px 0 8px 0;
-                    line-height:1.15;
+                    box-shadow:0 3px 8px rgba(0,0,0,.35);
                 }
 
-                .sol-tableau-label {
-                    text-align:center;
-                    color:#e2f0d9;
-                    font-size:11px;
-                    font-weight:900;
-                    margin-bottom:4px;
-                    border-top:1px solid #c9a227;
-                    border-bottom:1px solid #c9a227;
-                    width:110px;
-                    margin-left:auto;
-                    margin-right:auto;
-                    padding:2px 0;
+                .sol-foundation-row {
+                    display:grid;
+                    grid-template-columns:repeat(4,1fr);
+                    gap:5px;
+                    margin-bottom:7px;
+                }
+
+                .sol-foundation-slot {
+                    height:58px;
+                    border:2px solid rgba(226,240,217,.45);
+                    border-radius:8px;
+                    background:rgba(255,255,255,.06);
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    box-sizing:border-box;
                 }
 
                 .sol-tableau {
                     display:grid;
                     grid-template-columns:repeat(7,1fr);
-                    gap:6px;
+                    gap:3px;
                     align-items:start;
-                    min-height:390px;
+                    min-height:370px;
+                    margin-top:4px;
                 }
 
                 .sol-col {
@@ -2250,15 +2120,135 @@ window.initSolitaireGame = function () {
                     width:100%;
                 }
 
+                .sol-bottom-draw {
+                    display:grid;
+                    grid-template-columns:repeat(2,1fr);
+                    gap:6px;
+                    width:31%;
+                    margin-left:auto;
+                    margin-top:4px;
+                    padding-bottom:8px;
+                }
+
+                .sol-label {
+                    text-align:center;
+                    color:#e2f0d9;
+                    font-size:12px;
+                    font-weight:900;
+                    margin-bottom:2px;
+                }
+
+                .sol-section-title {
+                    text-align:center;
+                    color:#e2f0d9;
+                    font-size:14px;
+                    font-weight:900;
+                    border-top:1px solid rgba(255,215,0,.65);
+                    margin:5px auto 4px auto;
+                    width:36%;
+                    padding-top:2px;
+                }
+
+                .sol-message {
+                    background:rgba(0,0,0,.28);
+                    border:1px solid rgba(255,215,0,.35);
+                    border-radius:10px;
+                    padding:7px;
+                    text-align:center;
+                    font-size:14px;
+                    font-weight:900;
+                    color:#e2f0d9;
+                    margin:6px 0;
+                }
+
+                .sol-card {
+                    width:100%;
+                    aspect-ratio:.72/1;
+                    min-height:72px;
+                    border-radius:8px;
+                    box-sizing:border-box;
+                    position:relative;
+                    background:#fff;
+                    border:1px solid #ddd;
+                    box-shadow:0 4px 9px rgba(0,0,0,.32);
+                    cursor:pointer;
+                    user-select:none;
+                    overflow:hidden;
+                }
+
+                .sol-card.red { color:#c00000; }
+                .sol-card.black { color:#111; }
+
+                .sol-card.selected {
+                    outline:4px solid #00bfff;
+                    box-shadow:0 0 14px #00bfff;
+                }
+
+                .sol-empty {
+                    background:rgba(255,255,255,.06);
+                    border:2px solid rgba(226,240,217,.45);
+                    color:rgba(255,215,0,.62);
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    font-size:28px;
+                    font-weight:900;
+                }
+
+                .sol-back {
+                    background:#0b4b1f;
+                    border:3px solid #ffd700;
+                    color:#b7e3b5;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                }
+
+                .sol-back-text {
+                    writing-mode:vertical-rl;
+                    text-orientation:mixed;
+                    font-size:16px;
+                    font-weight:900;
+                    letter-spacing:2px;
+                }
+
+                .sol-corner {
+                    position:absolute;
+                    font-weight:900;
+                    font-size:18px;
+                    line-height:.95;
+                    text-align:center;
+                    z-index:2;
+                }
+
+                .sol-corner.top {
+                    top:4px;
+                    left:5px;
+                }
+
+                .sol-corner.bottom {
+                    right:5px;
+                    bottom:4px;
+                    transform:rotate(180deg);
+                }
+
+                .sol-big-symbol {
+                    position:absolute;
+                    left:50%;
+                    top:50%;
+                    transform:translate(-50%,-50%);
+                    font-size:34px;
+                    font-weight:900;
+                    line-height:1;
+                }
+
                 @media (max-width:390px) {
-                    .sol-board { padding:5px 7px 12px 7px; }
-                    .sol-top, .sol-tableau, .sol-section-labels { gap:5px; }
-                    .sol-card { min-height:68px; border-radius:6px; }
-                    .sol-rank { font-size:16px; }
-                    .sol-symbol { font-size:30px; }
-                    .sol-vertical-word { font-size:13px; letter-spacing:1.5px; }
-                    .sol-message { font-size:13px; padding:6px; }
-                    .sol-btn { font-size:12px; padding:6px; }
+                    .sol-board { padding:7px; }
+                    .sol-tableau { gap:3px; }
+                    .sol-corner { font-size:16px; }
+                    .sol-big-symbol { font-size:30px; }
+                    .sol-back-text { font-size:15px; }
+                    .sol-card { min-height:68px; }
                 }
             </style>
 
@@ -2268,33 +2258,15 @@ window.initSolitaireGame = function () {
                     <button class="sol-btn" onclick="solAutoFoundation()">Auto Move</button>
                 </div>
 
-                <div class="sol-section-labels">
-                    <div class="sol-label-pill">Stock</div>
-                    <div class="sol-label-pill">Waste</div>
-                    <div></div>
-                    <div class="sol-label-pill" style="grid-column:4 / span 4;">Foundation</div>
-                </div>
-
-                <div class="sol-top">
-                    <div onclick="solDraw()">${stockCard}</div>
-
-                    <div onclick="solSelectWaste()">
-                        ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
-                    </div>
-
-                    <div></div>
-
+                <div class="sol-section-title">Foundation</div>
+                <div class="sol-foundation-row">
                     ${suits.map(suit => {
                         const pile = s.foundations[suit];
                         const top = pile[pile.length - 1];
 
                         return `
-                            <div onclick="solMoveToFoundation('${suit}')">
-                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`) : `
-                                    <div class="sol-card sol-empty sol-foundation-empty">
-                                        <span class="sol-foundation-label">${symbols[suit]}</span>
-                                    </div>
-                                `}
+                            <div class="sol-foundation-slot" onclick="solMoveToFoundation('${suit}')">
+                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`) : `<div style="font-size:28px;color:rgba(255,215,0,.62);font-weight:900;">${symbols[suit]}</div>`}
                             </div>
                         `;
                     }).join("")}
@@ -2302,8 +2274,7 @@ window.initSolitaireGame = function () {
 
                 <div class="sol-message">${checkWin() ? "🏆 SOLITAIRE COMPLETE!" : s.message}</div>
 
-                <div class="sol-tableau-label">Tableau</div>
-
+                <div class="sol-section-title">Tableau</div>
                 <div class="sol-tableau">
         `;
 
@@ -2321,7 +2292,7 @@ window.initSolitaireGame = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * (card.open ? 18 : 8);
+                const topOffset = idx * (card.open ? 24 : 10);
 
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solSelectTableau(${col}, ${idx});">
@@ -2334,6 +2305,19 @@ window.initSolitaireGame = function () {
         }
 
         html += `
+                </div>
+
+                <div class="sol-bottom-draw">
+                    <div>
+                        <div class="sol-label">Stock</div>
+                        <div onclick="solDraw()">${stockCard}</div>
+                    </div>
+                    <div>
+                        <div class="sol-label">Waste</div>
+                        <div onclick="solSelectWaste()">
+                            ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()", s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
