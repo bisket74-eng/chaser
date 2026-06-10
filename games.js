@@ -1770,11 +1770,6 @@ window.nextTriviaRound = function () {
             </div>`;
     }
     
-    /* ============================================================
-   SOLITAIRE — CHASER MOBILE v5
-   Fixed layout + fixed tapping + tight stacks
-   Replace your whole Solitaire block with this.
-   ============================================================ */
 
 /* ============================================================
    SOLITAIRE — CHASER MOBILE OVERHAUL v4
