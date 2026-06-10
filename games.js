@@ -799,10 +799,11 @@
             .replace(/'/g, "&#039;");
     }
 
-       /* ============================================================
+/* ============================================================
    2. SEQUENCE – REAL STYLE 2 PLAYER VERSION (OFFICIAL RETAIL LAYOUT)
    ============================================================ */
 
+// The correct, official commercial board mapping
 const SEQ_GRID = [
     "FREE", "6C",   "7C",   "8C",   "9C",   "10C",  "QC",   "KC",   "AC",   "FREE",
     "5S",   "3D",   "2D",   "AS",   "KS",   "QS",   "JS",   "10S",  "9S",   "AD",
@@ -842,7 +843,11 @@ function buildSequenceDeck() {
     for (let d = 0; d < 2; d++) {
         suits.forEach(s => ranks.forEach(r => deck.push(r + s)));
     }
-    return shuffle(deck);
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
 }
 
 function isOneEyedJack(card) {
@@ -897,29 +902,25 @@ window.initSequenceGame = function () {
 };
 
 function syncSequence() {
-    sendGameEvent("sequence-sync-state", {
-        state: window.seqState
-    });
+    if (typeof sendGameEvent === "function") {
+        sendGameEvent("sequence-sync-state", { state: window.seqState });
+    } else if (window.channel) {
+        window.channel.send({
+            type: "broadcast",
+            event: "sequence-sync-state",
+            payload: { state: window.seqState }
+        });
+    }
 }
 
 window.receiveSequenceSync = function (p) {
     if (!p || !p.state) return;
-    if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
-
     window.seqState = p.state;
-    if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Sequence") {
-        renderSequenceBoard();
-    }
+    renderSequenceBoard();
 };
 
 function countSequenceLines(board, locked, team) {
-    const dirs = [
-        [0, 1],
-        [1, 0],
-        [1, 1],
-        [1, -1]
-    ];
-
+    const dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
     const cornerIndexes = [0, 9, 90, 99];
     let lines = [];
 
@@ -948,7 +949,6 @@ function countSequenceLines(board, locked, team) {
             });
         }
     }
-
     return lines;
 }
 
@@ -964,7 +964,6 @@ function applyNewSequences(team) {
         line.forEach(idx => {
             if (SEQ_GRID[idx] !== "FREE") s.locked[idx] = team;
         });
-
         added++;
     });
 
@@ -998,17 +997,13 @@ function renderSequenceBoard() {
     const myTurn = s.turnTeam === myTeam && !s.winner;
     const selectedCard = s.selectedCardIdx !== null ? myHand[s.selectedCardIdx] : null;
 
-    const screenW = Math.min(window.innerWidth - 16, 352);
-    const cellPx = Math.floor(screenW / 10);
-    const gridPx = cellPx * 10;
-
     let html = `
-        <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;box-sizing:border-box;user-select:none;overflow:hidden;">
-            <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <div style="font-size:15px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
+        <div style="height:100%;width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:5px;box-sizing:border-box;user-select:none;overflow:hidden;margin:0 auto;">
+            <div style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:0 4px;box-sizing:border-box;">
+                <div style="font-size:14px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
                     ${seqTeamName(s.turnTeam)} TURN
                 </div>
-                <div style="font-size:13px;font-weight:900;color:${myTurn ? '#00b050' : '#a3cfbb'};">
+                <div style="font-size:12px;font-weight:900;color:${myTurn ? '#00b050' : '#a3cfbb'};">
                     ${s.winner ? seqTeamName(s.winner) + " WINS" : myTurn ? "YOUR MOVE" : "WAITING"}
                 </div>
                 <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
@@ -1017,12 +1012,12 @@ function renderSequenceBoard() {
             </div>
 
             <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:16px;text-align:center;">
-                ${escapeHtml(s.message || "")}
+                ${(s.message || "")}
             </div>
 
-            <div style="width:${gridPx}px;height:${gridPx}px;display:grid;grid-template-columns:repeat(10,${cellPx}px);
-                grid-template-rows:repeat(10,${cellPx}px);gap:1px;background:#111;border:4px solid #ffd700;
-                border-radius:8px;overflow:hidden;box-shadow:0 5px 16px rgba(0,0,0,0.5);">`;
+            <div style="width:100%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(10,1fr);
+                grid-template-rows:repeat(10,1fr);gap:1px;background:#111;border:3px solid #ffd700;
+                border-radius:8px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.5);box-sizing:border-box;">`;
 
     for (let i = 0; i < 100; i++) {
         const code = SEQ_GRID[i];
@@ -1041,23 +1036,23 @@ function renderSequenceBoard() {
         if (token) {
             chip = `
                 <div style="position:absolute;width:72%;height:72%;border-radius:50%;
-                    background:${seqTeamColor(token)};border:${locked ? '3px solid #ffd700' : '2px solid #fff'};
-                    box-shadow:0 2px 5px rgba(0,0,0,0.45);z-index:3;
-                    display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:900;">
+                    background:${seqTeamColor(token)};border:${locked ? '2px solid #ffd700' : '1px solid #fff'};
+                    box-shadow:0 1px 3px rgba(0,0,0,0.45);z-index:3;
+                    display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:900;">
                     ${locked ? "★" : ""}
                 </div>`;
         }
 
         html += `
             <div onclick="window.handleSequenceCellTap(${i})"
-                style="position:relative;width:${cellPx}px;height:${cellPx}px;background:${card.free ? '#ffffff' : '#fff'};
+                style="position:relative;width:100%;height:100%;background:#fff;
                 color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
-                box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 3px #ffd700;background:#fff3cd;' : ''}">
+                box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 2px #ffd700;background:#fff3cd;' : ''}">
                 ${card.free ? `
-                    <span style="color:#111111;font-size:${Math.floor(cellPx * 0.48)}px;text-shadow:none;">★</span>
+                    <span style="color:#111111;font-size:14px;text-shadow:none;font-weight:bold;">★</span>
                 ` : `
-                    <span style="font-size:${Math.floor(cellPx * 0.32)}px;font-weight:900;line-height:1;">${card.rank}</span>
-                    <span style="font-size:${Math.floor(cellPx * 0.38)}px;line-height:1;">${card.suit}</span>
+                    <span style="font-size:9px;font-weight:900;line-height:1.1;">${card.rank}</span>
+                    <span style="font-size:11px;line-height:1;">${card.suit}</span>
                 `}
                 ${chip}
             </div>`;
@@ -1066,7 +1061,7 @@ function renderSequenceBoard() {
     html += `
             </div>
 
-            <div style="width:100%;display:flex;gap:5px;justify-content:center;align-items:center;padding-top:4px;box-sizing:border-box;">
+            <div style="width:100%;display:flex;gap:4px;justify-content:center;align-items:center;padding-top:6px;box-sizing:border-box;">
     `;
 
     myHand.forEach((code, idx) => {
@@ -1076,13 +1071,13 @@ function renderSequenceBoard() {
 
         html += `
             <button onclick="window.selectSequenceCard(${idx})"
-                style="width:43px;height:58px;border-radius:6px;border:${isSelected ? '3px solid #ffd700' : '1px solid #666'};
+                style="flex:1;max-width:44px;height:56px;border-radius:5px;border:${isSelected ? '2px solid #ffd700' : '1px solid #777'};
                 background:#fff;color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
-                justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 3px 7px rgba(0,0,0,0.35);
-                transform:${isSelected ? 'translateY(-4px)' : 'none'};">
-                <span style="font-size:17px;line-height:1;">${card.rank}</span>
-                <span style="font-size:20px;line-height:1;">${card.suit}</span>
-                ${jackLabel ? `<span style="font-size:8px;color:#2d6a30;font-weight:900;">${jackLabel}</span>` : ""}
+                justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.3);
+                transform:${isSelected ? 'translateY(-4px)' : 'none'};transition:transform 0.1s;">
+                <span style="font-size:14px;line-height:1;">${card.rank}</span>
+                <span style="font-size:16px;line-height:1;">${card.suit}</span>
+                ${jackLabel ? `<span style="font-size:7px;color:#2d6a30;font-weight:900;line-height:1;margin-top:1px;">${jackLabel}</span>` : ""}
             </button>`;
     });
 
@@ -1090,7 +1085,10 @@ function renderSequenceBoard() {
             </div>
         </div>`;
 
-    gameCanvas.innerHTML = html;
+    const canvasContainer = document.getElementById("gameCanvasContainer");
+    if (canvasContainer) {
+        canvasContainer.innerHTML = html;
+    }
 }
 
 window.selectSequenceCard = function (idx) {
@@ -1155,6 +1153,7 @@ window.handleSequenceCellTap = function (idx) {
     syncSequence();
     renderSequenceBoard();
 };
+
 
 
     /* ============================================================
