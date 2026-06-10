@@ -4071,37 +4071,7 @@ window.initSolitaireGame = function () {
 })();
 /* SOLITAIRE TAP + COMPACT LAYOUT FIX */
 (function () {
-    const oldSelectTableau = window.solSelectTableau;
-
-   window.solSelectTableau = function (col, idx) {
-    const s = window.solState;
-    if (!s) return;
-
-    const card = s.tableau[col][idx];
-    if (!card || !card.open) return;
-
-    if (s.selected) {
-        const sameCard =
-            s.selected.type === "tableau" &&
-            s.selected.col === col &&
-            s.selected.idx === idx;
-
-        if (sameCard) {
-            s.selected = null;
-            s.message = "Selection cleared.";
-            render();
-            return;
-        }
-
-        window.solMoveToTableau(col);
-        return;
-    }
-
-    s.selected = { type:"tableau", col, idx };
-    s.message = card.rank + card.symbol + " selected.";
-    render();
-};
-
+    
     const canvas = document.getElementById("gameCanvasContainer");
 
     const solFixObserver = new MutationObserver(() => {
