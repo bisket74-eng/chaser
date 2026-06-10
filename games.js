@@ -799,11 +799,12 @@
             .replace(/'/g, "&#039;");
     }
 
+
+
 /* ============================================================
    2. SEQUENCE – REAL STYLE 2 PLAYER VERSION (OFFICIAL RETAIL LAYOUT)
    ============================================================ */
 
-// The correct, official commercial board mapping
 const SEQ_GRID = [
     "FREE", "6C",   "7C",   "8C",   "9C",   "10C",  "QC",   "KC",   "AC",   "FREE",
     "5S",   "3D",   "2D",   "AS",   "KS",   "QS",   "JS",   "10S",  "9S",   "AD",
@@ -1012,7 +1013,7 @@ function renderSequenceBoard() {
             </div>
 
             <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:16px;text-align:center;">
-                ${(s.message || "")}
+                \${s.message || ""}
             </div>
 
             <div style="width:100%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(10,1fr);
@@ -1036,25 +1037,25 @@ function renderSequenceBoard() {
         if (token) {
             chip = `
                 <div style="position:absolute;width:72%;height:72%;border-radius:50%;
-                    background:${seqTeamColor(token)};border:${locked ? '2px solid #ffd700' : '1px solid #fff'};
+                    background:\${seqTeamColor(token)};border:\${locked ? '2px solid #ffd700' : '1px solid #fff'};
                     box-shadow:0 1px 3px rgba(0,0,0,0.45);z-index:3;
                     display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:900;">
-                    ${locked ? "★" : ""}
+                    \${locked ? "★" : ""}
                 </div>`;
         }
 
         html += `
-            <div onclick="window.handleSequenceCellTap(${i})"
+            <div onclick="window.handleSequenceCellTap(\${i})"
                 style="position:relative;width:100%;height:100%;background:#fff;
-                color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
-                box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 2px #ffd700;background:#fff3cd;' : ''}">
-                ${card.free ? `
+                color:\${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
+                box-sizing:border-box;cursor:pointer;\${canPlay ? 'box-shadow:inset 0 0 0 2px #ffd700;background:#fff3cd;' : ''}">
+                \${card.free ? `
                     <span style="color:#111111;font-size:14px;text-shadow:none;font-weight:bold;">★</span>
                 ` : `
-                    <span style="font-size:9px;font-weight:900;line-height:1.1;">${card.rank}</span>
-                    <span style="font-size:11px;line-height:1;">${card.suit}</span>
+                    <span style="font-size:9px;font-weight:900;line-height:1.1;">\${card.rank}</span>
+                    <span style="font-size:11px;line-height:1;">\${card.suit}</span>
                 `}
-                ${chip}
+                \${chip}
             </div>`;
     }
 
@@ -1070,14 +1071,14 @@ function renderSequenceBoard() {
         const jackLabel = isTwoEyedJack(code) ? "Wild" : isOneEyedJack(code) ? "Remove" : "";
 
         html += `
-            <button onclick="window.selectSequenceCard(${idx})"
-                style="flex:1;max-width:44px;height:56px;border-radius:5px;border:${isSelected ? '2px solid #ffd700' : '1px solid #777'};
-                background:#fff;color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
+            <button onclick="window.selectSequenceCard(\${idx})"
+                style="flex:1;max-width:44px;height:56px;border-radius:5px;border:\${isSelected ? '2px solid #ffd700' : '1px solid #777'};
+                background:#fff;color:\${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
                 justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 2px 5px rgba(0,0,0,0.3);
-                transform:${isSelected ? 'translateY(-4px)' : 'none'};transition:transform 0.1s;">
-                <span style="font-size:14px;line-height:1;">${card.rank}</span>
-                <span style="font-size:16px;line-height:1;">${card.suit}</span>
-                ${jackLabel ? `<span style="font-size:7px;color:#2d6a30;font-weight:900;line-height:1;margin-top:1px;">${jackLabel}</span>` : ""}
+                transform:\${isSelected ? 'translateY(-4px)' : 'none'};transition:transform 0.1s;">
+                <span style="font-size:14px;line-height:1;">\${card.rank}</span>
+                <span style="font-size:16px;line-height:1;">\${card.suit}</span>
+                \${jackLabel ? `<span style="font-size:7px;color:#2d6a30;font-weight:900;line-height:1;margin-top:1px;">\${jackLabel}</span>` : ""}
             </button>`;
     });
 
@@ -1153,7 +1154,6 @@ window.handleSequenceCellTap = function (idx) {
     syncSequence();
     renderSequenceBoard();
 };
-
 
 
     /* ============================================================
