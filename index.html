@@ -1672,6 +1672,11 @@
             .on('broadcast', { event:'sequence-sync-state' }, ({ payload }) => {
                 if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
             })
+
+            // === ADD THIS FOR CRIBBAGE ===
+            .on('broadcast', { event:'cribbage-sync-state' }, ({ payload }) => {
+                if (window.handleIncomingCribbageSync) window.handleIncomingCribbageSync(payload);
+            })
             
            .on('broadcast', { event:'coup-sync-state' }, ({ payload }) => {
                if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
