@@ -1771,11 +1771,10 @@ window.nextTriviaRound = function () {
             </div>`;
     }
     
-
-/* ============================================================
-   SOLITAIRE — CHASER MOBILE OVERHAUL v4
-   Bigger usable layout + fixed tap-to-move behavior
-   Foundation horizontal cards + lower stock/waste
+        /* ============================================================
+   SOLITAIRE — CHASER MOBILE v7
+   Visual v4 layout + restored working mechanics
+   Removed redundant help box + centered Stock/Waste
    ============================================================ */
 
 window.initSolitaireGame = function () {
@@ -1822,7 +1821,7 @@ window.initSolitaireGame = function () {
             foundations: { S:[], C:[], H:[], D:[] },
             tableau: [[],[],[],[],[],[],[]],
             selected: null,
-            message: "Tap a card to select. Then tap the destination card or empty spot."
+            message: "Tap a card to select. Then tap where it should go."
         };
 
         for (let col = 0; col < 7; col++) {
@@ -1838,23 +1837,21 @@ window.initSolitaireGame = function () {
 
     window.solNewGame = newGame;
 
-    function cardBackHtml() {
+    function cardBackHtml(small = false) {
         return `
-            <div class="sol-card sol-back">
+            <div class="sol-card sol-back ${small ? "small" : ""}">
                 <div class="sol-back-text">CHASER</div>
             </div>
         `;
     }
 
-    function cardHtml(card, click, selected = false, small = false) {
-        if (!card) return `<div class="sol-card sol-empty"></div>`;
+    function cardHtml(card, selected = false, small = false) {
+        if (!card) return `<div class="sol-card sol-empty ${small ? "small" : ""}"></div>`;
 
-        if (!card.open) {
-            return `<div onclick="${click}" class="sol-wrap">${cardBackHtml()}</div>`;
-        }
+        if (!card.open) return cardBackHtml(small);
 
         return `
-            <div onclick="${click}" class="sol-card ${small ? "small-foundation-card" : ""} ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
+            <div class="sol-card ${small ? "small-foundation-card" : ""} ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
                 <div class="sol-rank top">${card.rank}<br>${card.symbol}</div>
                 <div class="sol-big-symbol">${card.symbol}</div>
                 <div class="sol-rank bottom">${card.rank}<br>${card.symbol}</div>
@@ -1934,7 +1931,7 @@ window.initSolitaireGame = function () {
         } else {
             s.stock = s.waste.reverse().map(c => ({ ...c, open:false }));
             s.waste = [];
-            s.message = "Waste recycled back into the deck.";
+            s.message = "Waste recycled.";
         }
 
         render();
@@ -1945,40 +1942,49 @@ window.initSolitaireGame = function () {
         if (!s.waste.length) return;
 
         s.selected = { type:"waste" };
-        s.message = "Waste card selected. Tap a destination.";
+        s.message = "Waste card selected.";
         render();
     };
 
-    window.solSelectTableau = function (col, idx) {
+    window.solTapTableau = function (col, idx = null) {
         const s = window.solState;
-        const card = s.tableau[col][idx];
-        if (!card || !card.open) return;
+        const pile = s.tableau[col];
 
         if (s.selected) {
-            window.solMoveToTableau(col);
+            const sameCard =
+                s.selected.type === "tableau" &&
+                s.selected.col === col &&
+                s.selected.idx === idx;
+
+            if (sameCard) {
+                s.selected = null;
+                s.message = "Selection cleared.";
+                render();
+                return;
+            }
+
+            const moving = selectedCards();
+
+            if (canMoveToTableau(moving, col)) {
+                const cards = removeSelectedCards();
+                s.tableau[col].push(...cards);
+                s.message = "Moved.";
+            } else {
+                s.message = "That card cannot go there.";
+            }
+
+            s.selected = null;
+            render();
             return;
         }
 
+        if (idx === null) return;
+
+        const card = pile[idx];
+        if (!card || !card.open) return;
+
         s.selected = { type:"tableau", col, idx };
-        s.message = card.rank + card.symbol + " selected. Tap where to move it.";
-        render();
-    };
-
-    window.solMoveToTableau = function (toCol) {
-        const s = window.solState;
-        const moving = selectedCards();
-
-        if (!moving.length) return;
-
-        if (canMoveToTableau(moving, toCol)) {
-            const cards = removeSelectedCards();
-            s.tableau[toCol].push(...cards);
-            s.message = "Moved.";
-        } else {
-            s.message = "That card cannot go there.";
-        }
-
-        s.selected = null;
+        s.message = card.rank + card.symbol + " selected.";
         render();
     };
 
@@ -1987,7 +1993,7 @@ window.initSolitaireGame = function () {
         const moving = selectedCards();
 
         if (moving.length !== 1) {
-            s.message = "Only one card can move to a foundation.";
+            s.message = "Select one card first.";
             render();
             return;
         }
@@ -2013,9 +2019,7 @@ window.initSolitaireGame = function () {
         function tryCard(sourceType, col = null) {
             let card;
 
-            if (sourceType === "waste") {
-                card = s.waste[s.waste.length - 1];
-            }
+            if (sourceType === "waste") card = s.waste[s.waste.length - 1];
 
             if (sourceType === "tableau") {
                 const pile = s.tableau[col];
@@ -2025,9 +2029,7 @@ window.initSolitaireGame = function () {
             if (!card || !card.open) return false;
 
             if (canMoveToFoundation(card, card.suit)) {
-                if (sourceType === "waste") {
-                    s.waste.pop();
-                }
+                if (sourceType === "waste") s.waste.pop();
 
                 if (sourceType === "tableau") {
                     s.tableau[col].pop();
@@ -2089,6 +2091,7 @@ window.initSolitaireGame = function () {
                     font-family:Arial,sans-serif;
                     overflow:hidden;
                     position:relative;
+                    user-select:none;
                 }
 
                 .sol-btn-row {
@@ -2185,13 +2188,14 @@ window.initSolitaireGame = function () {
 
                 .sol-bottom-zone {
                     position:absolute;
-                    left:12px;
-                    right:12px;
+                    left:50%;
                     bottom:20px;
+                    transform:translateX(-50%);
                     display:grid;
-                    grid-template-columns:76px 76px 1fr;
-                    gap:10px;
+                    grid-template-columns:76px 76px;
+                    gap:14px;
                     align-items:end;
+                    justify-content:center;
                 }
 
                 .sol-bottom-pile-label {
@@ -2200,19 +2204,6 @@ window.initSolitaireGame = function () {
                     font-weight:900;
                     text-align:center;
                     margin-bottom:3px;
-                }
-
-                .sol-help {
-                    border:1px solid rgba(255,215,0,.55);
-                    border-radius:10px;
-                    padding:9px 8px;
-                    color:#e2f0d9;
-                    font-size:14px;
-                    font-weight:900;
-                    text-align:center;
-                    background:rgba(0,0,0,.20);
-                    line-height:1.15;
-                    margin-bottom:2px;
                 }
 
                 .sol-card {
@@ -2226,7 +2217,6 @@ window.initSolitaireGame = function () {
                     box-shadow:0 3px 7px rgba(0,0,0,.35);
                     border:1px solid #eeeeee;
                     cursor:pointer;
-                    user-select:none;
                     overflow:hidden;
                 }
 
@@ -2328,8 +2318,8 @@ window.initSolitaireGame = function () {
                     }
 
                     .sol-bottom-zone {
-                        grid-template-columns:70px 70px 1fr;
-                        gap:8px;
+                        grid-template-columns:70px 70px;
+                        gap:12px;
                     }
 
                     .sol-back-text {
@@ -2362,7 +2352,7 @@ window.initSolitaireGame = function () {
 
                         return `
                             <div class="sol-foundation-slot" onclick="solMoveToFoundation('${suit}')">
-                                ${top ? cardHtml(top, `solMoveToFoundation('${suit}')`, false, true) : symbols[suit]}
+                                ${top ? cardHtml(top, false, true) : symbols[suit]}
                             </div>
                         `;
                     }).join("")}
@@ -2376,7 +2366,7 @@ window.initSolitaireGame = function () {
         `;
 
         for (let col = 0; col < 7; col++) {
-            html += `<div class="sol-col" onclick="solMoveToTableau(${col})">`;
+            html += `<div class="sol-col" onclick="solTapTableau(${col}, null)">`;
 
             s.tableau[col].forEach((card, idx) => {
                 const selected =
@@ -2388,8 +2378,8 @@ window.initSolitaireGame = function () {
                 const topOffset = idx * (card.open ? 12 : 7);
 
                 html += `
-                    <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solSelectTableau(${col}, ${idx});">
-                        ${cardHtml(card, `solSelectTableau(${col}, ${idx})`, selected)}
+                    <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solTapTableau(${col}, ${idx});">
+                        ${cardHtml(card, selected)}
                     </div>
                 `;
             });
@@ -2413,13 +2403,8 @@ window.initSolitaireGame = function () {
                     <div>
                         <div class="sol-bottom-pile-label">Waste</div>
                         <div onclick="solSelectWaste()">
-                            ${wasteTop ? cardHtml(wasteTop, "solSelectWaste()") : `<div class="sol-card sol-empty"></div>`}
+                            ${wasteTop ? cardHtml(wasteTop, s.selected?.type === "waste") : `<div class="sol-card sol-empty"></div>`}
                         </div>
-                    </div>
-
-                    <div class="sol-help">
-                        Tap a card to select.<br>
-                        Then tap the destination card or empty spot.
                     </div>
                 </div>
             </div>
@@ -2429,11 +2414,10 @@ window.initSolitaireGame = function () {
     }
 
     newGame();
-};
-                
-    /* ============================================================
-       6. HANGMAN – CLEAN SINGLE PLAYER
-       ============================================================ */
+};        
+  /* ============================================================
+      SINGLE PLAYER UNO             
+      =========================================================== */
 
     const WORDS = [
         "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
