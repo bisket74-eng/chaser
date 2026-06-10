@@ -799,362 +799,363 @@
             .replace(/'/g, "&#039;");
     }
 
-    /* ============================================================
-       2. SEQUENCE – REAL STYLE 2 PLAYER VERSION
-       ============================================================ */
+       /* ============================================================
+   2. SEQUENCE – REAL STYLE 2 PLAYER VERSION (OFFICIAL RETAIL LAYOUT)
+   ============================================================ */
 
-    const SEQ_GRID = [
-        "FREE","2S","3S","4S","5S","6S","7S","8S","9S","FREE",
-        "6C","5C","4C","3C","2C","AH","KH","QH","10H","10S",
-        "7C","AS","2D","3D","4D","5D","6D","7D","9H","QS",
-        "8C","KS","6C","5C","4C","3C","2C","8D","8H","KS",
-        "9C","QS","7C","6H","5H","4H","AS","9D","7H","AS",
-        "10C","10S","8C","7H","2H","3H","KS","10D","6H","2D",
-        "QC","JS","9C","8H","AD","KD","QD","JD","5H","3D",
-        "KC","QC","10C","9H","10H","QH","KH","AH","4H","4D",
-        "AC","3D","2D","AS","KS","QS","JS","10S","9S","5D",
-        "FREE","AC","KC","QC","JC","10C","9C","8C","7C","FREE"
+const SEQ_GRID = [
+    "FREE", "6C",   "7C",   "8C",   "9C",   "10C",  "QC",   "KC",   "AC",   "FREE",
+    "5S",   "3D",   "2D",   "AS",   "KS",   "QS",   "JS",   "10S",  "9S",   "AD",
+    "4S",   "4D",   "KH",   "QH",   "10H",  "9H",   "8H",   "7H",   "8S",   "KD",
+    "3S",   "5D",   "AH",   "7C",   "8C",   "9C",   "10C",  "6H",   "7S",   "QD",
+    "2S",   "6D",   "2C",   "6C",   "AD",   "KD",   "QC",   "5H",   "6S",   "10D",
+    "2H",   "7D",   "3C",   "5C",   "4D",   "3D",   "10C",  "4H",   "5S",   "9D",
+    "3H",   "8D",   "4C",   "4C",   "5D",   "6D",   "9C",   "3H",   "4S",   "8D",
+    "4H",   "9D",   "5C",   "3C",   "2C",   "AS",   "8C",   "2H",   "3S",   "7D",
+    "5H",   "10D",  "6C",   "7C",   "8C",   "9C",   "10C",  "QC",   "KC",   "6D",
+    "FREE", "QH",   "KH",   "AH",   "2D",   "3D",   "4D",   "5D",   "6D",   "FREE"
+];
+
+const SUIT_SYMBOL = {
+    S: "♠",
+    C: "♣",
+    H: "♥",
+    D: "♦"
+};
+
+function displayCard(code) {
+    if (code === "FREE") return { rank: "★", suit: "", red: false, free: true };
+    const suit = code.slice(-1);
+    const rank = code.slice(0, -1);
+    return {
+        rank,
+        suit: SUIT_SYMBOL[suit],
+        red: suit === "H" || suit === "D",
+        free: false
+    };
+}
+
+function buildSequenceDeck() {
+    const suits = ["S", "C", "H", "D"];
+    const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    let deck = [];
+    for (let d = 0; d < 2; d++) {
+        suits.forEach(s => ranks.forEach(r => deck.push(r + s)));
+    }
+    return shuffle(deck);
+}
+
+function isOneEyedJack(card) {
+    return card === "JS" || card === "JH";
+}
+
+function isTwoEyedJack(card) {
+    return card === "JC" || card === "JD";
+}
+
+function seqTeamName(team) {
+    return team === 1 ? "BLUE" : "RED";
+}
+
+function seqTeamColor(team) {
+    return team === 1 ? "#00b0ff" : "#e63946";
+}
+
+window.initSequenceGame = function () {
+    window.chaserGame.activeGame = "Sequence";
+    window.seqMySeat = window.chaserGame.mySeat ?? 0;
+    window.seqMyTeam = window.seqMySeat === 0 ? 1 : 2;
+
+    const isHost = window.chaserGame.hostId === myGameId();
+
+    if (isHost || !window.seqState) {
+        const deck = buildSequenceDeck();
+        const hands = [[], []];
+
+        for (let p = 0; p < 2; p++) {
+            for (let i = 0; i < 7; i++) {
+                hands[p].push(deck.pop());
+            }
+        }
+
+        window.seqState = {
+            board: Array(100).fill(0),
+            locked: Array(100).fill(0),
+            deck,
+            hands,
+            turnTeam: 1,
+            selectedCardIdx: null,
+            sequences: [0, 0],
+            winner: null,
+            message: "Blue starts."
+        };
+
+        syncSequence();
+    }
+
+    renderSequenceBoard();
+};
+
+function syncSequence() {
+    sendGameEvent("sequence-sync-state", {
+        state: window.seqState
+    });
+}
+
+window.receiveSequenceSync = function (p) {
+    if (!p || !p.state) return;
+    if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
+
+    window.seqState = p.state;
+    if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Sequence") {
+        renderSequenceBoard();
+    }
+};
+
+function countSequenceLines(board, locked, team) {
+    const dirs = [
+        [0, 1],
+        [1, 0],
+        [1, 1],
+        [1, -1]
     ];
 
-    const SUIT_SYMBOL = {
-        S: "♠",
-        C: "♣",
-        H: "♥",
-        D: "♦"
-    };
+    const cornerIndexes = [0, 9, 90, 99];
+    let lines = [];
 
-    function displayCard(code) {
-        if (code === "FREE") return { rank: "★", suit: "", red: false, free: true };
-        const suit = code.slice(-1);
-        const rank = code.slice(0, -1);
-        return {
-            rank,
-            suit: SUIT_SYMBOL[suit],
-            red: suit === "H" || suit === "D",
-            free: false
-        };
+    function ownerAt(idx) {
+        if (cornerIndexes.includes(idx)) return team;
+        return board[idx];
     }
 
-    function buildSequenceDeck() {
-        const suits = ["S", "C", "H", "D"];
-        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-        let deck = [];
-        for (let d = 0; d < 2; d++) {
-            suits.forEach(s => ranks.forEach(r => deck.push(r + s)));
-        }
-        return shuffle(deck);
-    }
-
-    function isOneEyedJack(card) {
-        return card === "JS" || card === "JH";
-    }
-
-    function isTwoEyedJack(card) {
-        return card === "JC" || card === "JD";
-    }
-
-    function seqTeamName(team) {
-        return team === 1 ? "BLUE" : "RED";
-    }
-
-    function seqTeamColor(team) {
-        return team === 1 ? "#00b0ff" : "#e63946";
-    }
-
-    window.initSequenceGame = function () {
-        window.chaserGame.activeGame = "Sequence";
-        window.seqMySeat = window.chaserGame.mySeat ?? 0;
-        window.seqMyTeam = window.seqMySeat === 0 ? 1 : 2;
-
-        const isHost = window.chaserGame.hostId === myGameId();
-
-        if (isHost || !window.seqState) {
-            const deck = buildSequenceDeck();
-            const hands = [[], []];
-
-            for (let p = 0; p < 2; p++) {
-                for (let i = 0; i < 7; i++) {
-                    hands[p].push(deck.pop());
+    for (let r = 0; r < 10; r++) {
+        for (let c = 0; c < 10; c++) {
+            dirs.forEach(([dr, dc]) => {
+                let cells = [];
+                for (let k = 0; k < 5; k++) {
+                    const nr = r + dr * k;
+                    const nc = c + dc * k;
+                    if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) return;
+                    cells.push(nr * 10 + nc);
                 }
-            }
 
-            window.seqState = {
-                board: Array(100).fill(0),
-                locked: Array(100).fill(0),
-                deck,
-                hands,
-                turnTeam: 1,
-                selectedCardIdx: null,
-                sequences: [0, 0],
-                winner: null,
-                message: "Blue starts."
-            };
-
-            syncSequence();
-        }
-
-        renderSequenceBoard();
-    };
-
-    function syncSequence() {
-        sendGameEvent("sequence-sync-state", {
-            state: window.seqState
-        });
-    }
-
-    window.receiveSequenceSync = function (p) {
-        if (!p || !p.state) return;
-        if (p.roomGameId && window.chaserGame.activeGameId && p.roomGameId !== window.chaserGame.activeGameId) return;
-
-        window.seqState = p.state;
-        if (gameStage && gameStage.classList.contains("open") && window.chaserGame.activeGame === "Sequence") {
-            renderSequenceBoard();
-        }
-    };
-
-    function countSequenceLines(board, locked, team) {
-        const dirs = [
-            [0, 1],
-            [1, 0],
-            [1, 1],
-            [1, -1]
-        ];
-
-        const cornerIndexes = [0, 9, 90, 99];
-        let lines = [];
-
-        function ownerAt(idx) {
-            if (cornerIndexes.includes(idx)) return team;
-            return board[idx];
-        }
-
-        for (let r = 0; r < 10; r++) {
-            for (let c = 0; c < 10; c++) {
-                dirs.forEach(([dr, dc]) => {
-                    let cells = [];
-                    for (let k = 0; k < 5; k++) {
-                        const nr = r + dr * k;
-                        const nc = c + dc * k;
-                        if (nr < 0 || nr >= 10 || nc < 0 || nc >= 10) return;
-                        cells.push(nr * 10 + nc);
+                if (cells.length === 5 && cells.every(idx => ownerAt(idx) === team)) {
+                    const alreadyLocked = cells.filter(idx => locked[idx] === team).length;
+                    if (alreadyLocked < 5) {
+                        lines.push(cells);
                     }
-
-                    if (cells.length === 5 && cells.every(idx => ownerAt(idx) === team)) {
-                        const alreadyLocked = cells.filter(idx => locked[idx] === team).length;
-                        if (alreadyLocked < 5) {
-                            lines.push(cells);
-                        }
-                    }
-                });
-            }
-        }
-
-        return lines;
-    }
-
-    function applyNewSequences(team) {
-        const s = window.seqState;
-        const lines = countSequenceLines(s.board, s.locked, team);
-        let added = 0;
-
-        lines.forEach(line => {
-            let usable = line.some(idx => s.locked[idx] !== team);
-            if (!usable) return;
-
-            line.forEach(idx => {
-                if (SEQ_GRID[idx] !== "FREE") s.locked[idx] = team;
+                }
             });
+        }
+    }
 
-            added++;
+    return lines;
+}
+
+function applyNewSequences(team) {
+    const s = window.seqState;
+    const lines = countSequenceLines(s.board, s.locked, team);
+    let added = 0;
+
+    lines.forEach(line => {
+        let usable = line.some(idx => s.locked[idx] !== team);
+        if (!usable) return;
+
+        line.forEach(idx => {
+            if (SEQ_GRID[idx] !== "FREE") s.locked[idx] = team;
         });
 
-        if (added > 0) {
-            s.sequences[team - 1] += added;
-            s.message = `${seqTeamName(team)} made a sequence!`;
+        added++;
+    });
 
-            if (s.sequences[team - 1] >= 2) {
-                s.winner = team;
-                s.message = `${seqTeamName(team)} wins!`;
-            }
+    if (added > 0) {
+        s.sequences[team - 1] += added;
+        s.message = `${seqTeamName(team)} made a sequence!`;
+
+        if (s.sequences[team - 1] >= 2) {
+            s.winner = team;
+            s.message = `${seqTeamName(team)} wins!`;
         }
     }
+}
 
-    function drawSequenceReplacementCard(handIdx) {
-        const s = window.seqState;
-        if (!s.deck.length) {
-            s.hands[handIdx].splice(s.selectedCardIdx, 1);
-            return;
-        }
-        s.hands[handIdx][s.selectedCardIdx] = s.deck.pop();
+function drawSequenceReplacementCard(handIdx) {
+    const s = window.seqState;
+    if (!s.deck.length) {
+        s.hands[handIdx].splice(s.selectedCardIdx, 1);
+        return;
     }
+    s.hands[handIdx][s.selectedCardIdx] = s.deck.pop();
+}
 
-    function renderSequenceBoard() {
-        const s = window.seqState;
-        if (!s) return;
+function renderSequenceBoard() {
+    const s = window.seqState;
+    if (!s) return;
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        const myTeam = mySeat === 0 ? 1 : 2;
-        const myHand = s.hands[mySeat] || [];
-        const myTurn = s.turnTeam === myTeam && !s.winner;
-        const selectedCard = s.selectedCardIdx !== null ? myHand[s.selectedCardIdx] : null;
+    const mySeat = window.chaserGame.mySeat ?? 0;
+    const myTeam = mySeat === 0 ? 1 : 2;
+    const myHand = s.hands[mySeat] || [];
+    const myTurn = s.turnTeam === myTeam && !s.winner;
+    const selectedCard = s.selectedCardIdx !== null ? myHand[s.selectedCardIdx] : null;
 
-        const screenW = Math.min(window.innerWidth - 16, 352);
-        const cellPx = Math.floor(screenW / 10);
-        const gridPx = cellPx * 10;
+    const screenW = Math.min(window.innerWidth - 16, 352);
+    const cellPx = Math.floor(screenW / 10);
+    const gridPx = cellPx * 10;
 
-        let html = `
-            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;box-sizing:border-box;user-select:none;overflow:hidden;">
-                <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                    <div style="font-size:15px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
-                        ${seqTeamName(s.turnTeam)} TURN
-                    </div>
-                    <div style="font-size:13px;font-weight:900;color:${myTurn ? '#00b050' : '#a3cfbb'};">
-                        ${s.winner ? seqTeamName(s.winner) + " WINS" : myTurn ? "YOUR MOVE" : "WAITING"}
-                    </div>
-                    <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
-                        🔵 ${s.sequences[0]} | 🔴 ${s.sequences[1]}
-                    </div>
+    let html = `
+        <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:5px;box-sizing:border-box;user-select:none;overflow:hidden;">
+            <div style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <div style="font-size:15px;font-weight:900;color:#ffd700;font-family:Impact,sans-serif;">
+                    ${seqTeamName(s.turnTeam)} TURN
                 </div>
-
-                <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:16px;text-align:center;">
-                    ${escapeHtml(s.message || "")}
+                <div style="font-size:13px;font-weight:900;color:${myTurn ? '#00b050' : '#a3cfbb'};">
+                    ${s.winner ? seqTeamName(s.winner) + " WINS" : myTurn ? "YOUR MOVE" : "WAITING"}
                 </div>
+                <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
+                    🔵 ${s.sequences[0]} | 🔴 ${s.sequences[1]}
+                </div>
+            </div>
 
-                <div style="width:${gridPx}px;height:${gridPx}px;display:grid;grid-template-columns:repeat(10,${cellPx}px);
-                    grid-template-rows:repeat(10,${cellPx}px);gap:1px;background:#111;border:4px solid #ffd700;
-                    border-radius:8px;overflow:hidden;box-shadow:0 5px 16px rgba(0,0,0,0.5);">`;
+            <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:16px;text-align:center;">
+                ${escapeHtml(s.message || "")}
+            </div>
 
-        for (let i = 0; i < 100; i++) {
-            const code = SEQ_GRID[i];
-            const card = displayCard(code);
-            const token = s.board[i];
-            const locked = s.locked[i];
+            <div style="width:${gridPx}px;height:${gridPx}px;display:grid;grid-template-columns:repeat(10,${cellPx}px);
+                grid-template-rows:repeat(10,${cellPx}px);gap:1px;background:#111;border:4px solid #ffd700;
+                border-radius:8px;overflow:hidden;box-shadow:0 5px 16px rgba(0,0,0,0.5);">`;
 
-            let canPlay = false;
-            if (myTurn && selectedCard && !s.winner) {
-                if (isTwoEyedJack(selectedCard) && !token && code !== "FREE") canPlay = true;
-                else if (isOneEyedJack(selectedCard) && token && token !== myTeam && !locked) canPlay = true;
-                else if (!selectedCard.startsWith("J") && selectedCard === code && !token && code !== "FREE") canPlay = true;
-            }
+    for (let i = 0; i < 100; i++) {
+        const code = SEQ_GRID[i];
+        const card = displayCard(code);
+        const token = s.board[i];
+        const locked = s.locked[i];
 
-            let chip = "";
-            if (token) {
-                chip = `
-                    <div style="position:absolute;width:72%;height:72%;border-radius:50%;
-                        background:${seqTeamColor(token)};border:${locked ? '3px solid #ffd700' : '2px solid #fff'};
-                        box-shadow:0 2px 5px rgba(0,0,0,0.45);z-index:3;
-                        display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:900;">
-                        ${locked ? "★" : ""}
-                    </div>`;
-            }
+        let canPlay = false;
+        if (myTurn && selectedCard && !s.winner) {
+            if (isTwoEyedJack(selectedCard) && !token && code !== "FREE") canPlay = true;
+            else if (isOneEyedJack(selectedCard) && token && token !== myTeam && !locked) canPlay = true;
+            else if (!selectedCard.startsWith("J") && selectedCard === code && !token && code !== "FREE") canPlay = true;
+        }
 
-            html += `
-                <div onclick="window.handleSequenceCellTap(${i})"
-                    style="position:relative;width:${cellPx}px;height:${cellPx}px;background:${card.free ? '#1e4620' : '#fff'};
-                    color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
-                    box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 3px #ffd700;background:#fff3cd;' : ''}">
-                    ${card.free ? `
-                        <span style="color:#ffd700;font-size:${Math.floor(cellPx * 0.48)}px;text-shadow:1px 1px 2px #000;">★</span>
-                    ` : `
-                        <span style="font-size:${Math.floor(cellPx * 0.32)}px;font-weight:900;line-height:1;">${card.rank}</span>
-                        <span style="font-size:${Math.floor(cellPx * 0.38)}px;line-height:1;">${card.suit}</span>
-                    `}
-                    ${chip}
+        let chip = "";
+        if (token) {
+            chip = `
+                <div style="position:absolute;width:72%;height:72%;border-radius:50%;
+                    background:${seqTeamColor(token)};border:${locked ? '3px solid #ffd700' : '2px solid #fff'};
+                    box-shadow:0 2px 5px rgba(0,0,0,0.45);z-index:3;
+                    display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:900;">
+                    ${locked ? "★" : ""}
                 </div>`;
         }
 
         html += `
-                </div>
-
-                <div style="width:100%;display:flex;gap:5px;justify-content:center;align-items:center;padding-top:4px;box-sizing:border-box;">
-        `;
-
-        myHand.forEach((code, idx) => {
-            const card = displayCard(code);
-            const isSelected = s.selectedCardIdx === idx;
-            const jackLabel = isTwoEyedJack(code) ? "Wild" : isOneEyedJack(code) ? "Remove" : "";
-
-            html += `
-                <button onclick="window.selectSequenceCard(${idx})"
-                    style="width:43px;height:58px;border-radius:6px;border:${isSelected ? '3px solid #ffd700' : '1px solid #666'};
-                    background:#fff;color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
-                    justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 3px 7px rgba(0,0,0,0.35);
-                    transform:${isSelected ? 'translateY(-4px)' : 'none'};">
-                    <span style="font-size:17px;line-height:1;">${card.rank}</span>
-                    <span style="font-size:20px;line-height:1;">${card.suit}</span>
-                    ${jackLabel ? `<span style="font-size:8px;color:#2d6a30;font-weight:900;">${jackLabel}</span>` : ""}
-                </button>`;
-        });
-
-        html += `
-                </div>
+            <div onclick="window.handleSequenceCellTap(${i})"
+                style="position:relative;width:${cellPx}px;height:${cellPx}px;background:${card.free ? '#ffffff' : '#fff'};
+                color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;justify-content:center;
+                box-sizing:border-box;cursor:pointer;${canPlay ? 'box-shadow:inset 0 0 0 3px #ffd700;background:#fff3cd;' : ''}">
+                ${card.free ? `
+                    <span style="color:#111111;font-size:${Math.floor(cellPx * 0.48)}px;text-shadow:none;">★</span>
+                ` : `
+                    <span style="font-size:${Math.floor(cellPx * 0.32)}px;font-weight:900;line-height:1;">${card.rank}</span>
+                    <span style="font-size:${Math.floor(cellPx * 0.38)}px;line-height:1;">${card.suit}</span>
+                `}
+                ${chip}
             </div>`;
-
-        gameCanvas.innerHTML = html;
     }
 
-    window.selectSequenceCard = function (idx) {
-        const s = window.seqState;
-        if (!s || s.winner) return;
+    html += `
+            </div>
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        const myTeam = mySeat === 0 ? 1 : 2;
-        if (s.turnTeam !== myTeam) return;
+            <div style="width:100%;display:flex;gap:5px;justify-content:center;align-items:center;padding-top:4px;box-sizing:border-box;">
+    `;
 
-        s.selectedCardIdx = s.selectedCardIdx === idx ? null : idx;
-        renderSequenceBoard();
-    };
+    myHand.forEach((code, idx) => {
+        const card = displayCard(code);
+        const isSelected = s.selectedCardIdx === idx;
+        const jackLabel = isTwoEyedJack(code) ? "Wild" : isOneEyedJack(code) ? "Remove" : "";
 
-    window.handleSequenceCellTap = function (idx) {
-        const s = window.seqState;
-        if (!s || s.winner) return;
+        html += `
+            <button onclick="window.selectSequenceCard(${idx})"
+                style="width:43px;height:58px;border-radius:6px;border:${isSelected ? '3px solid #ffd700' : '1px solid #666'};
+                background:#fff;color:${card.red ? '#c40000' : '#111'};display:flex;flex-direction:column;align-items:center;
+                justify-content:center;padding:0;font-weight:900;cursor:pointer;box-shadow:0 3px 7px rgba(0,0,0,0.35);
+                transform:${isSelected ? 'translateY(-4px)' : 'none'};">
+                <span style="font-size:17px;line-height:1;">${card.rank}</span>
+                <span style="font-size:20px;line-height:1;">${card.suit}</span>
+                ${jackLabel ? `<span style="font-size:8px;color:#2d6a30;font-weight:900;">${jackLabel}</span>` : ""}
+            </button>`;
+    });
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        const myTeam = mySeat === 0 ? 1 : 2;
-        if (s.turnTeam !== myTeam) return;
+    html += `
+            </div>
+        </div>`;
 
-        if (s.selectedCardIdx === null) return;
+    gameCanvas.innerHTML = html;
+}
 
-        const hand = s.hands[mySeat];
-        const card = hand[s.selectedCardIdx];
-        const target = SEQ_GRID[idx];
-        const token = s.board[idx];
-        const locked = s.locked[idx];
+window.selectSequenceCard = function (idx) {
+    const s = window.seqState;
+    if (!s || s.winner) return;
 
-        let valid = false;
+    const mySeat = window.chaserGame.mySeat ?? 0;
+    const myTeam = mySeat === 0 ? 1 : 2;
+    if (s.turnTeam !== myTeam) return;
 
-        if (isTwoEyedJack(card)) {
-            if (!token && target !== "FREE") {
-                s.board[idx] = myTeam;
-                valid = true;
-            }
-        } else if (isOneEyedJack(card)) {
-            if (token && token !== myTeam && !locked && target !== "FREE") {
-                s.board[idx] = 0;
-                valid = true;
-            }
-        } else {
-            if (card === target && !token && target !== "FREE") {
-                s.board[idx] = myTeam;
-                valid = true;
-            }
+    s.selectedCardIdx = s.selectedCardIdx === idx ? null : idx;
+    renderSequenceBoard();
+};
+
+window.handleSequenceCellTap = function (idx) {
+    const s = window.seqState;
+    if (!s || s.winner) return;
+
+    const mySeat = window.chaserGame.mySeat ?? 0;
+    const myTeam = mySeat === 0 ? 1 : 2;
+    if (s.turnTeam !== myTeam) return;
+
+    if (s.selectedCardIdx === null) return;
+
+    const hand = s.hands[mySeat];
+    const card = hand[s.selectedCardIdx];
+    const target = SEQ_GRID[idx];
+    const token = s.board[idx];
+    const locked = s.locked[idx];
+
+    let valid = false;
+
+    if (isTwoEyedJack(card)) {
+        if (!token && target !== "FREE") {
+            s.board[idx] = myTeam;
+            valid = true;
         }
-
-        if (!valid) return;
-
-        drawSequenceReplacementCard(mySeat);
-        s.selectedCardIdx = null;
-
-        applyNewSequences(myTeam);
-
-        if (!s.winner) {
-            s.turnTeam = myTeam === 1 ? 2 : 1;
-            s.message = `${seqTeamName(s.turnTeam)} turn.`;
+    } else if (isOneEyedJack(card)) {
+        if (token && token !== myTeam && !locked && target !== "FREE") {
+            s.board[idx] = 0;
+            valid = true;
         }
+    } else {
+        if (card === target && !token && target !== "FREE") {
+            s.board[idx] = myTeam;
+            valid = true;
+        }
+    }
 
-        syncSequence();
-        renderSequenceBoard();
-    };
+    if (!valid) return;
+
+    drawSequenceReplacementCard(mySeat);
+    s.selectedCardIdx = null;
+
+    applyNewSequences(myTeam);
+
+    if (!s.winner) {
+        s.turnTeam = myTeam === 1 ? 2 : 1;
+        s.message = `${seqTeamName(s.turnTeam)} turn.`;
+    }
+
+    syncSequence();
+    renderSequenceBoard();
+};
+
 
     /* ============================================================
        3. UNO – 2 TO 10 PLAYER ROOM GAME
