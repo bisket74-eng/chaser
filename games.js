@@ -2956,19 +2956,27 @@ window.initSolitaireGame = function () {
         visualFixObserver.observe(gameCanvas, { childList: true, subtree: true });
     }
 
-    const WORDS = [
-        "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
-        "POSTAL", "NAVIGATOR", "HIGHWAY", "HELMET", "COMPASS"
-    ];
+   
 
-    window.initHangmanGame = function () {
-        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
-        window.hangmanState = {
-            word,
-            guessed: [],
-            wrong: 0,
-            maxWrong: 6
-        };
+    // This tracks the words that haven't been played yet
+window.chaserUnusedHangmanWords = window.chaserUnusedHangmanWords || [];
+
+window.initHangmanGame = function () {
+    // If the deck is empty, refill it with your 500 words and shuffle it
+    if (window.chaserUnusedHangmanWords.length === 0) {
+        window.chaserUnusedHangmanWords = WORDS.slice().sort(() => Math.random() - 0.5);
+    }
+
+    // Draw the top word from the shuffled deck
+    const word = window.chaserUnusedHangmanWords.pop();
+
+    window.hangmanState = {
+        word: word,
+        guessed: [],
+        wrong: 0,
+        maxWrong: 6
+    };
+
         renderSafeHangman();
     };
 
@@ -3128,10 +3136,6 @@ window.initSolitaireGame = function () {
     }
 
     /* -------- Hangman override with taller stand and better spacing -------- */
-    const WORDS = [
-        "CHASER", "UNICYCLE", "ADVENTURE", "BATTERY", "ROUTE",
-        "POSTAL", "NAVIGATOR", "HIGHWAY", "HELMET", "COMPASS"
-    ];
 
     window.initHangmanGame = function () {
         const word = WORDS[Math.floor(Math.random() * WORDS.length)];
