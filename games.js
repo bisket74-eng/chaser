@@ -2420,7 +2420,7 @@ window.initSolitaireGame = function () {
       SINGLE PLAYER Hangman          
       =========================================================== */
 
-    const WORDS = [
+    window.WORDS = [
         "JACKET", "QUARTZ", "MYSTERY", "VOLCANO", "ZIGZAG", "WHISPER", "FLAMINGO", "KANGAROO", "BLANKET", "WEATHER",
 "PHANTOM", "GOGGLES", "RESCUE", "TURQUOISE", "UPGRADE", "HORIZON", "DYNAMITE", "XEROGRAPHY", "BLOSSOM", "VINTAGE",
 "JOURNEY", "SQUIRREL", "ZEPHYR", "CRIMSON", "KNIGHT", "WOMBAT", "UMBRELLA", "OCTOPUS", "PIRATE", "GALAXY",
@@ -2959,7 +2959,7 @@ window.initSolitaireGame = function () {
    
 
     // This tracks the words that haven't been played yet
-window.chaserUnusedHangmanWords = window.chaserUnusedHangmanWords || [];
+window.chaserUnusedHangmanWords = window.WORDS.slice().sort(() => Math.random() - 0.5);
 
 window.initHangmanGame = function () {
     // If the deck is empty, refill it with your 500 words and shuffle it
@@ -3137,8 +3137,8 @@ window.initHangmanGame = function () {
 
     /* -------- Hangman override with taller stand and better spacing -------- */
 
-    window.initHangmanGame = function () {
-        const word = WORDS[Math.floor(Math.random() * WORDS.length)];
+        window.initHangmanGame = function () {
+        const word = window.WORDS[Math.floor(Math.random() * window.WORDS.length)];
         window.hangmanState = {
             word,
             guessed: [],
@@ -3147,6 +3147,7 @@ window.initHangmanGame = function () {
         };
         renderBetterHangman();
     };
+
 
     function buildBetterHangmanSVG(wrong, lost) {
         const bodyColor = lost ? "#dc3545" : "#e2f0d9";
