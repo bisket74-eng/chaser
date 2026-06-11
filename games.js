@@ -2396,7 +2396,7 @@ let currentOffset = 0;
                     idx >= s.selected.idx;
 
                 const topOffset = currentOffset;
-currentOffset += card.open ? 20 : 12; 
+currentOffset += card.open ? 18 : 12; 
 
                
                 html += `
@@ -4464,7 +4464,7 @@ window.initHangmanGame = function () {
     document.head.appendChild(style);
 })();
 /* ============================================================
-   CHASER PATCH F - SOLITAIRE LAYOUT FIXES
+   CHASER PATCH G - SOLITAIRE LAYOUT TWEAKS
    ============================================================ */
 (function() {
     "use strict";
@@ -4479,7 +4479,7 @@ window.initHangmanGame = function () {
             display: flex !important; 
             flex-direction: column !important; 
             height: 100% !important; 
-            padding-bottom: 110px !important; /* Make room for the bottom stuff */
+            padding-bottom: 135px !important; /* Increased to account for higher buttons */
             box-sizing: border-box !important;
         }
 
@@ -4492,32 +4492,33 @@ window.initHangmanGame = function () {
         }
         .sol-tableau::-webkit-scrollbar { display: none; }
 
-        /* Pin the New Deal / Auto Move buttons to Bottom-Left */
+        /* Pin the New Deal / Auto Move buttons to Bottom-Left, shifted UP */
         .sol-btn-row { 
             position: absolute !important; 
-            bottom: 10px !important; 
+            bottom: 45px !important; /* Shifted UP to clear Exit Game text */
             left: 10px !important; 
             display: flex !important; 
             flex-direction: column !important; 
             gap: 10px !important; 
             width: auto !important;
             margin: 0 !important;
-            z-index: 999 !important; /* Pull buttons to the very top */
+            z-index: 999 !important;
             background: transparent !important;
         }
 
-        /* Pin the Stock / Waste piles to Bottom-Right */
+        /* Pin the Stock / Waste piles firmly to the Bottom-Right */
         .sol-bottom-zone { 
             position: absolute !important; 
-            bottom: 10px !important; 
-            right: 10px !important; 
-            left: auto !important; /* Stop it from stretching left */
+            bottom: 45px !important; /* Shifted UP to align with buttons */
+            right: 5px !important; /* Pinned flush to the right edge */
+            left: auto !important; 
             margin: 0 !important;
             padding: 0 !important;
             display: flex !important;
-            gap: 15px !important;
+            gap: 10px !important; 
             align-items: flex-end !important;
-            width: auto !important; /* Force it to hug the right side */
+            justify-content: flex-end !important; /* Force to the right wall */
+            width: auto !important; 
             z-index: 900 !important;
             background: transparent !important;
         }
