@@ -4120,3 +4120,311 @@ window.initHangmanGame = function () {
         solFixObserver.observe(canvas, { childList:true, subtree:true });
     }
 })();
+
+/* ============================================================
+   CHASER PATCH C - UNO AESTHETICS & LOBBY RACE CONDITION FIX
+   ============================================================ */
+(function () {
+    "use strict";
+
+    // --- 1. LOBBY SYNC & DISCOVERY FIX ---
+    const prevLaunch = window.launchGameEngine;
+    
+    window.launchGameEngine = function(gameName, gameIcon) {
+        const hub = document.getElementById("gameHubOverlay");
+        const stage = document.getElementById("activeGameStage");
+        const canvas = document.getElementById("gameCanvasContainer");
+
+        if (hub) hub.classList.remove("open");
+        if (stage) stage.classList.add("open");
+
+        // The Discovery Screen
+        if (canvas) {
+            canvas.innerHTML = `
+                <div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:white;gap:15px;user-select:none;">
+                    <div style="font-size:32px;font-family:Impact,sans-serif;color:#ffd700;letter-spacing:1px;">${gameName.toUpperCase()}</div>
+                    <div style="font-size:16px;color:#a3cfbb;font-weight:bold;">Searching for open games...</div>
+                    <div style="width:40px;height:40px;border:4px solid rgba(255,255,255,0.2);border-top:4px solid #ffd700;border-radius:50%;animation:chaserSpin 1s linear infinite;"></div>
+                    <style>@keyframes chaserSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+                </div>
+            `;
+        }
+
+        // Wait 1.5s for incoming lobby broadcasts before creating a new one
+        setTimeout(() => {
+            if (prevLaunch) prevLaunch(gameName, gameIcon);
+        }, 1500);
+    };
+
+    const prevHandleLobby = window.handleIncomingChaserGameLobby;
+    window.handleIncomingChaserGameLobby = function(payload) {
+        if (prevHandleLobby) prevHandleLobby(payload);
+
+        // Auto-join if user is staring at the "How many players?" screen for this exact game
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (canvas && canvas.innerHTML.includes("How many players?") && window.chaserGame && window.chaserGame.pendingGameName) {
+            const normPending = window.chaserGame.pendingGameName.replace("Crew Trivia", "Trivia").replace("Battle Uno", "Uno");
+            const normPayload = payload.gameName.replace("Crew Trivia", "Trivia").replace("Battle Uno", "Uno");
+
+            // Snatch them out of the menu and pull them straight into their friend's lobby
+            if (normPending === normPayload && typeof window.joinChaserOpenLobby === "function") {
+                window.joinChaserOpenLobby(payload.roomGameId);
+            }
+        }
+    };
+
+    // --- 2. UNO AESTHETICS OVERHAUL ---
+    function safeHtml(str) {
+        return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    window.unoColorHex = function(color) {
+        return { Red: "#e63946", Yellow: "#ffb703", Green: "#00b050", Blue: "#00b0ff", Wild: "#202020" }[color] || "#202020";
+    };
+
+    function nextUnoPlayer(from, steps = 1) {
+        const s = window.unoState;
+        const total = s.players.length;
+        let idx = from;
+        for (let i = 0; i < steps; i++) idx = (idx + s.direction + total) % total;
+        return idx;
+    }
+
+    window.renderUnoCard = function(card, onclick, mode = "normal", faded = false) {
+        if (!card) return "";
+
+        let width, height, fontSize;
+        if (mode === "large") { width = 86; height = 126; fontSize = 48; } // Discard pile (Big)
+        else if (mode === "draw") { width = 60; height = 88; fontSize = 22; } // Draw pile (Medium)
+        else if (mode === "small") { width = 50; height = 75; fontSize = 22; } // Hand (Small)
+        else { width = 60; height = 90; fontSize = 28; }
+
+        let bg, content, border = "3px solid #fff";
+
+        if (card.color === "Back") {
+            bg = "#111"; // Black back
+            content = `<div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
+                font-size:${fontSize}px;text-align:center;line-height:1;">UNO</div>`;
+        } else if (card.color === "Wild") {
+            // New 4-Quadrant Wild Look
+            bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
+            content = `
+                <div style="position:absolute;width:65%;height:45%;background:#111;border-radius:8px;z-index:1;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>
+                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
+                    font-size:${mode === 'small' ? 15 : 22}px;text-align:center;line-height:1.1;text-shadow:1px 1px 2px #000;">
+                    ${card.value === '+4' ? 'Wild<br>+4' : 'Wild'}
+                </div>
+            `;
+        } else {
+            bg = window.unoColorHex(card.color);
+            let displayVal = safeHtml(card.value);
+            if (displayVal === "Reverse") displayVal = "↺";
+            if (displayVal === "Skip") displayVal = "⊘";
+            content = `
+                <div style="position:absolute;width:130%;height:42%;background:rgba(255,255,255,0.16);border-radius:50%;transform:rotate(-25deg);"></div>
+                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
+                    font-size:${fontSize}px;text-shadow:2px 2px 4px rgba(0,0,0,0.45);text-align:center;line-height:1;">
+                    ${displayVal}
+                </div>
+            `;
+        }
+
+        return `
+            <div ${onclick ? `onclick="${onclick}"` : ""}
+                style="flex-shrink:0;width:${width}px;height:${height}px;border-radius:8px;
+                background:${bg};border:${border};box-shadow:0 4px 8px rgba(0,0,0,0.4);
+                display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+                cursor:${onclick && !faded ? 'pointer' : 'default'};opacity:${faded ? 0.45 : 1};box-sizing:border-box;">
+                ${content}
+            </div>`;
+    };
+
+    window.renderUnoLayout = function() {
+        const s = window.unoState;
+        if (!s) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        const hand = s.hands[mySeat] || [];
+        const discard = s.discard || { color: "Red", value: "0" };
+        const myTurn = s.turn === mySeat && !s.winner;
+        const activeName = s.players[s.turn]?.name || `Player ${s.turn + 1}`;
+
+        let opponents = s.players.map((p, idx) => {
+            if (idx === mySeat) return "";
+            return `
+                <div style="background:${idx === s.turn ? '#ffd700' : 'rgba(226,240,217,0.16)'};color:${idx === s.turn ? '#1e4620' : '#e2f0d9'};
+                    border-radius:8px;padding:6px 10px;font-size:13px;font-weight:900;">
+                    ${safeHtml(p.name)}: ${s.hands[idx]?.length || 0}
+                </div>`;
+        }).join("");
+
+        let html = `
+            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;box-sizing:border-box;user-select:none;overflow:hidden;">
+                
+                <!-- CLEAN HEADER -->
+                <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;">
+                    <div style="font-size:22px;color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;font-family:Impact,sans-serif;letter-spacing:1px;">
+                        ${s.winner ? safeHtml(s.winner.name) + " WINS!" : myTurn ? "YOUR TURN" : "TURN: " + safeHtml(activeName).toUpperCase()}
+                    </div>
+                </div>
+
+                <div style="width:100%;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:30px;">
+                    ${opponents}
+                </div>
+
+                <div style="font-size:15px;color:#ffd700;font-weight:bold;min-height:18px;text-align:center;">
+                    ${safeHtml(s.message || "")}
+                </div>
+
+                <!-- PILES -->
+                <div style="display:flex;align-items:flex-end;justify-content:center;gap:24px;margin-top:10px;">
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                        <div style="font-size:12px;color:#a3cfbb;font-weight:900;">DRAW</div>
+                        ${window.renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "draw", !myTurn)}
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                        <div style="font-size:12px;color:#a3cfbb;font-weight:900;">PLAY</div>
+                        ${window.renderUnoCard(discard, "", "large")}
+                    </div>
+                </div>
+        `;
+
+        // Color Picker
+        if (s.wildChoosingSeat === mySeat) {
+            html += `
+                <div style="display:grid;grid-template-columns:repeat(4,50px);gap:8px;margin-top:10px;">
+                    ${["Red","Yellow","Green","Blue"].map(c => `
+                        <button onclick="window.unoPickWildColor('${c}')"
+                            style="height:44px;border-radius:8px;border:3px solid #fff;background:${window.unoColorHex(c)};
+                            cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.35);"></button>
+                    `).join("")}
+                </div>`;
+        }
+
+        // HAND
+        html += `
+                <div style="width:100%;display:flex;overflow-x:auto;gap:6px;padding:15px 10px;box-sizing:border-box;-webkit-overflow-scrolling:touch;margin-top:auto;justify-content:flex-start;">
+        `;
+
+        hand.forEach((card, idx) => {
+            const playable = myTurn && (
+                card.color === discard.color ||
+                card.value === discard.value ||
+                card.color === "Wild" ||
+                discard.color === "Wild" 
+            );
+            html += window.renderUnoCard(card, `window.unoPlayCard(${idx})`, "small", !playable);
+        });
+
+        html += `
+                </div>
+            </div>`;
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (canvas) canvas.innerHTML = html;
+    };
+
+    window.unoPlayCard = function(idx) {
+        const s = window.unoState;
+        if (!s || s.winner) return;
+
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        if (s.turn !== mySeat) return;
+
+        const card = s.hands[mySeat][idx];
+        const discard = s.discard;
+
+        const playable = card.color === discard.color || card.value === discard.value || card.color === "Wild" || discard.color === "Wild";
+        if (!playable) return;
+
+        if (card.color === "Wild") {
+            s.wildChoosingSeat = mySeat;
+            s.pendingWildCardIndex = idx;
+            s.message = "Choose a color.";
+            window.renderUnoLayout();
+            return;
+        }
+
+        window.playUnoCardNow(mySeat, idx, card);
+    };
+
+    window.playUnoCardNow = function(seat, idx, card, chosenColor = null) {
+        const s = window.unoState;
+        s.hands[seat].splice(idx, 1);
+
+        s.discard = chosenColor ? { color: chosenColor, value: card.value } : card;
+
+        if (s.hands[seat].length === 0) {
+            s.winner = s.players[seat];
+            s.message = `${s.players[seat].name} wins!`;
+            syncUno();
+            window.renderUnoLayout();
+            return;
+        }
+
+        let steps = 1;
+        if (card.value === "Reverse") {
+            s.direction *= -1;
+            if (s.players.length === 2) steps = 2;
+        }
+        if (card.value === "Skip") steps = 2;
+
+        if (card.value === "+2") {
+            const target = nextUnoPlayer(seat, 1);
+            for (let i = 0; i < 2; i++) if (s.deck.length) s.hands[target].push(s.deck.pop());
+            steps = 2;
+            s.message = `${s.players[target].name} draws 2.`;
+        } else if (card.value === "+4") {
+            const target = nextUnoPlayer(seat, 1);
+            for (let i = 0; i < 4; i++) if (s.deck.length) s.hands[target].push(s.deck.pop());
+            steps = 2;
+            s.message = `${s.players[target].name} draws 4.`;
+        } else {
+            s.message = `${s.players[seat].name} played ${card.value}.`;
+        }
+
+        s.turn = nextUnoPlayer(seat, steps);
+        s.wildChoosingSeat = null;
+        s.pendingWildCardIndex = null;
+
+        syncUno();
+        window.renderUnoLayout();
+    };
+
+    window.unoPickWildColor = function(color) {
+        const s = window.unoState;
+        if (!s) return;
+        const mySeat = window.chaserGame.mySeat ?? 0;
+        if (s.wildChoosingSeat !== mySeat) return;
+
+        const idx = s.pendingWildCardIndex;
+        const card = s.hands[mySeat][idx];
+        if (!card) return;
+
+        window.playUnoCardNow(mySeat, idx, card, color);
+    };
+
+    function syncUno() {
+        if (typeof channel !== "undefined" && channel && window.chaserGame) {
+            channel.send({
+                type: "broadcast",
+                event: "uno-sync-discard",
+                payload: {
+                    state: window.unoState,
+                    senderId: window.myId || localStorage.getItem("rider_id"),
+                    roomGameId: window.chaserGame.activeGameId
+                }
+            });
+        }
+    }
+
+    // Override existing receiver to call new Uno renderer
+    const oldUnoReceive = window.receiveUnoSync;
+    window.receiveUnoSync = function(p) {
+        if (!p || !p.state) return;
+        window.unoState = p.state;
+        if (window.chaserGame) window.chaserGame.activeGame = "Uno";
+        window.renderUnoLayout();
+    };
+
+})();
