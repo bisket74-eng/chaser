@@ -1079,7 +1079,7 @@ function renderSequenceBoard() {
                 transform:${isSelected ? 'translateY(-4px)' : 'none'};transition:transform 0.1s;">
                 <span style="font-size:14px;line-height:1;">${card.rank}</span>
                 <span style="font-size:16px;line-height:1;">${card.suit}</span>
-                ${jackLabel ? `<span style="font-size:7px;color:#2d6a30;font-weight:900;line-height:1;margin-top:1px;">${jackLabel}</span>` : ""}
+                ${jackLabel ? `<span style="font-size:10px;color:#2d6a30;font-weight:900;line-height:1;margin-top:1px;">${jackLabel}</span>` : ""}
             </button>`;
     });
 
