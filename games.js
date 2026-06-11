@@ -1340,7 +1340,7 @@ window.handleSequenceCellTap = function (idx) {
             <div style="display:flex;align-items:flex-end;justify-content:center;gap:24px;margin-top:10px;">
                 <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
                     <div style="font-size:12px;color:#a3cfbb;font-weight:900;">DRAW</div>
-                    ${renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "draw", !myTurn)}
+                    ${renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "large", !myTurn)}
                 </div>
                 <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
                     <div style="font-size:12px;color:#a3cfbb;font-weight:900;">PLAY</div>
@@ -1358,13 +1358,15 @@ window.handleSequenceCellTap = function (idx) {
             </div>`;
     }
 
+    // HAND CONTAINER (Flipped on X-axis to put scrollbar on top, pushed up 45px)
     html += `
-            <div style="width:100%;display:flex;overflow-x:auto;gap:6px;padding:15px 10px;box-sizing:border-box;-webkit-overflow-scrolling:touch;margin-top:auto;justify-content:flex-start;">
+            <div id="uno-hand-container" class="uno-top-scroll" style="width:100%;display:flex;overflow-x:auto;gap:6px;padding:15px 10px;box-sizing:border-box;-webkit-overflow-scrolling:touch;margin-top:auto;margin-bottom:45px;justify-content:flex-start;transform:rotateX(180deg);">
     `;
 
     hand.forEach((card, idx) => {
         const playable = myTurn && (card.color === discard.color || card.value === discard.value || card.color === "Wild" || discard.color === "Wild");
-        html += renderUnoCard(card, `window.unoPlayCard(${idx})`, "small", !playable);
+        // Individual cards flipped back to right-side up
+        html += `<div style="transform:rotateX(180deg);">${renderUnoCard(card, `window.unoPlayCard(${idx})`, "small", !playable)}</div>`;
     });
 
     html += `
@@ -1372,7 +1374,14 @@ window.handleSequenceCellTap = function (idx) {
         </div>`;
 
     const canvas = document.getElementById("gameCanvasContainer");
-    if (canvas) canvas.innerHTML = html;
+    if (canvas) {
+        canvas.innerHTML = html;
+        // Auto-scroll to the far right (newest card) whenever rendered
+        setTimeout(() => {
+            const handContainer = document.getElementById("uno-hand-container");
+            if (handContainer) handContainer.scrollLeft = handContainer.scrollWidth;
+        }, 50);
+    }
 }
 
 
@@ -4536,6 +4545,30 @@ window.initHangmanGame = function () {
         .sol-foundation-slot {
             position: relative !important;
             overflow: hidden !important; 
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+/* ============================================================
+   CHASER PATCH H - UNO TOP SCROLLBAR VISIBILITY
+   ============================================================ */
+(function() {
+    "use strict";
+    const style = document.createElement('style');
+    style.innerHTML = `
+        /* Force a thick, bright gold scrollbar track */
+        .uno-top-scroll::-webkit-scrollbar {
+            height: 14px !important;
+        }
+        .uno-top-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.4) !important;
+            border-radius: 8px !important;
+        }
+        .uno-top-scroll::-webkit-scrollbar-thumb {
+            background: #ffd700 !important; 
+            border-radius: 8px !important;
+            border: 2px solid #111 !important;
         }
     `;
     document.head.appendChild(style);
