@@ -1833,19 +1833,34 @@ window.initSolitaireGame = function () {
         `;
     }
 
-    function cardHtml(card, selected = false, small = false) {
-        if (!card) return `<div class="sol-card sol-empty ${small ? "small" : ""}"></div>`;
-
-        if (!card.open) return cardBackHtml(small);
-
-        return `
-            <div class="sol-card ${small ? "small-foundation-card" : ""} ${card.red ? "red" : "black"} ${selected ? "selected" : ""}">
-                <div class="sol-rank top">${card.rank}<br>${card.symbol}</div>
-                <div class="sol-big-symbol">${card.symbol}</div>
-                <div class="sol-rank bottom">${card.rank}<br>${card.symbol}</div>
-            </div>
-        `;
+    function cardHtml(card, selected, isFoundation = false) {
+    if (!card) return "";
+    
+    // The downward facing card back
+    if (!card.open) {
+        return `<div class="sol-card sol-card-back ${selected ? 'sol-selected' : ''}" style="display:flex;align-items:center;justify-content:center;background:#003300;border:2px solid #ffd700;border-radius:6px;width:100%;height:100%;box-sizing:border-box;">
+                    <div style="font-family:Impact,sans-serif;font-size:18px;color:#fff;transform:rotate(-90deg);letter-spacing:2px;">CHASER</div>
+                </div>`;
     }
+    
+    const color = (card.suit === '♥' || card.suit === '♦') ? '#e63946' : '#111';
+    
+    // The new upward facing card layout
+    return `
+        <div class="sol-card ${selected ? 'sol-selected' : ''}" style="color:${color};position:relative;background:#fff;border-radius:6px;width:100%;height:100%;box-shadow:1px 1px 3px rgba(0,0,0,0.3);box-sizing:border-box;border:1px solid #ccc;overflow:hidden;">
+            
+            <div style="position:absolute;top:2px;left:4px;font-size:15px;font-weight:900;line-height:1;">${card.rank}</div>
+            <div style="position:absolute;top:2px;right:4px;font-size:14px;line-height:1;">${card.suit}</div>
+            
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-size:32px;opacity:0.85;">${card.suit}</div>
+            
+            <div style="position:absolute;bottom:2px;left:4px;font-size:14px;line-height:1;transform:rotate(180deg);">${card.suit}</div>
+            <div style="position:absolute;bottom:2px;right:4px;font-size:15px;font-weight:900;line-height:1;transform:rotate(180deg);">${card.rank}</div>
+            
+        </div>
+    `;
+}
+
 
     function selectedCards() {
         const s = window.solState;
@@ -4417,4 +4432,19 @@ window.initHangmanGame = function () {
         window.renderUnoLayout();
     };
 
+})();
+
+/* ============================================================
+   CHASER PATCH D - SOLITAIRE RESPONSIVE LAYOUT
+   ============================================================ */
+(function() {
+    "use strict";
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .sol-board { display: flex !important; flex-direction: column !important; height: 100% !important; max-height: 100vh !important; overflow: hidden !important; }
+        .sol-tableau { flex: 1 !important; overflow-y: auto !important; margin-bottom: 10px !important; scrollbar-width: none; }
+        .sol-tableau::-webkit-scrollbar { display: none; }
+        .sol-bottom-zone { flex-shrink: 0 !important; margin-top: auto !important; z-index: 10 !important; padding-top:10px; background: inherit; }
+    `;
+    document.head.appendChild(style);
 })();
