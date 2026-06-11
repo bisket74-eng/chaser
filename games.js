@@ -2193,8 +2193,9 @@ window.initSolitaireGame = function () {
                     bottom:20px;
                     transform:translateX(-50%);
                     display:grid;
-                    grid-template-columns:76px 76px;
-                    gap:14px;
+                    grid-template-columns:18% 18%;
+                    width: 100%;
+                    gap:10%;
                     align-items:end;
                     justify-content:center;
                 }
@@ -2263,8 +2264,8 @@ window.initSolitaireGame = function () {
                 .sol-rank {
                     position:absolute;
                     font-weight:900;
-                    font-size:17px;
-                    line-height:.9;
+                    font-size:13px;
+                    line-height:1;
                     text-align:center;
                 }
 
@@ -2284,7 +2285,7 @@ window.initSolitaireGame = function () {
                     left:50%;
                     top:50%;
                     transform:translate(-50%,-50%);
-                    font-size:32px;
+                    font-size:22px;
                     font-weight:900;
                     line-height:1;
                 }
@@ -2376,7 +2377,7 @@ window.initSolitaireGame = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * (card.open ? 12 : 7);
+                const topOffset = idx * (card.open ? 24 : 8);
 
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solTapTableau(${col}, ${idx});">
@@ -4122,15 +4123,6 @@ window.initHangmanGame = function () {
             tableau.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
         }
 
-        canvas.querySelectorAll(".sol-card").forEach(card => {
-            card.style.minHeight = "74px";
-        });
-
-        canvas.querySelectorAll(".sol-card-pos").forEach(pos => {
-            const topVal = parseInt(pos.style.top || "0", 10);
-            if (topVal > 0) {
-                pos.style.top = Math.round(topVal * 0.78) + "px";
-            }
         });
     });
 
