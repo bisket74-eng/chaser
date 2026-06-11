@@ -3669,7 +3669,7 @@ window.initHangmanGame = function () {
         s.votes = {};
         s.round++;
         s.phase = "question";
-        s.timer = 5;
+        s.timer = 8;
         s.phaseEndsAt = Date.now() + 5000;
 
         send("sync-room-trivia", { state: s });
