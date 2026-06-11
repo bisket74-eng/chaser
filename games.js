@@ -1843,23 +1843,31 @@ window.initSolitaireGame = function () {
                 </div>`;
     }
     
-    const color = (card.suit === '♥' || card.suit === '♦') ? '#e63946' : '#111';
+    // Convert text letters to proper suit icons and colors
+    let suitSymbol = card.suit;
+    let color = '#111'; // Default Black
     
-    // The new upward facing card layout
+    if (suitSymbol === 'H' || suitSymbol === '♥') { suitSymbol = '♥'; color = '#e63946'; } // Red Heart
+    else if (suitSymbol === 'D' || suitSymbol === '♦') { suitSymbol = '♦'; color = '#e63946'; } // Red Diamond
+    else if (suitSymbol === 'S' || suitSymbol === '♠') { suitSymbol = '♠'; color = '#111'; } // Black Spade
+    else if (suitSymbol === 'C' || suitSymbol === '♣') { suitSymbol = '♣'; color = '#111'; } // Black Club
+    
+    // The upward facing card layout
     return `
         <div class="sol-card ${selected ? 'sol-selected' : ''}" style="color:${color};position:relative;background:#fff;border-radius:6px;width:100%;height:100%;box-shadow:1px 1px 3px rgba(0,0,0,0.3);box-sizing:border-box;border:1px solid #ccc;overflow:hidden;">
             
             <div style="position:absolute;top:2px;left:4px;font-size:15px;font-weight:900;line-height:1;">${card.rank}</div>
-            <div style="position:absolute;top:2px;right:4px;font-size:14px;line-height:1;">${card.suit}</div>
+            <div style="position:absolute;top:2px;right:4px;font-size:14px;line-height:1;">${suitSymbol}</div>
             
-            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-size:32px;opacity:0.85;">${card.suit}</div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%, -50%);font-size:32px;opacity:0.85;">${suitSymbol}</div>
             
-            <div style="position:absolute;bottom:2px;left:4px;font-size:14px;line-height:1;transform:rotate(180deg);">${card.suit}</div>
+            <div style="position:absolute;bottom:2px;left:4px;font-size:14px;line-height:1;transform:rotate(180deg);">${suitSymbol}</div>
             <div style="position:absolute;bottom:2px;right:4px;font-size:15px;font-weight:900;line-height:1;transform:rotate(180deg);">${card.rank}</div>
             
         </div>
     `;
 }
+
 
 
     function selectedCards() {
@@ -4448,3 +4456,74 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
+/* ============================================================
+   CHASER PATCH E - SOLITAIRE LAYOUT & FOUNDATION REWRITE
+   ============================================================ */
+(function() {
+    "use strict";
+    const style = document.createElement('style');
+    style.innerHTML = `
+        /* Hide the message box entirely to save space */
+        .sol-message { display: none !important; }
+
+        /* Make the board relative so we can pin things to the bottom */
+        .sol-board { 
+            position: relative !important; 
+            display: flex !important; 
+            flex-direction: column !important; 
+            height: 100% !important; 
+            padding-bottom: 100px !important; /* Make room for the bottom stuff */
+            box-sizing: border-box !important;
+        }
+
+        /* Push the tableau to take up all middle space and scroll */
+        .sol-tableau { 
+            flex: 1 !important; 
+            overflow-y: auto !important; 
+            scrollbar-width: none; 
+            margin-bottom: 0 !important;
+        }
+        .sol-tableau::-webkit-scrollbar { display: none; }
+
+        /* Pin the New Deal / Auto Move buttons to Bottom-Left */
+        .sol-btn-row { 
+            position: absolute !important; 
+            bottom: 10px !important; 
+            left: 10px !important; 
+            display: flex !important; 
+            flex-direction: column !important; 
+            gap: 10px !important; 
+            width: auto !important;
+            margin: 0 !important;
+        }
+
+        /* Pin the Stock / Waste piles to Bottom-Right */
+        .sol-bottom-zone { 
+            position: absolute !important; 
+            bottom: 10px !important; 
+            right: 10px !important; 
+            margin: 0 !important;
+            padding: 0 !important;
+            display: flex !important;
+            gap: 15px !important;
+            align-items: flex-end !important;
+        }
+
+        /* Force Foundation Cards to stay inside the borders */
+        .sol-foundation-slot .sol-card {
+            width: 100% !important;
+            height: 100% !important;
+            box-sizing: border-box !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            margin: 0 !important;
+        }
+        .sol-foundation-slot {
+            position: relative !important;
+            overflow: hidden !important; 
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
