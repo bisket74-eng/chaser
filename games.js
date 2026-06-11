@@ -3347,7 +3347,7 @@ window.initHangmanGame = function () {
         s.votes = {};
         s.round++;
 
-        startHostPhase("question", 5);
+        startHostPhase("question", 8);
     };
 
     function hostAdvanceTriviaPhase() {
@@ -3363,7 +3363,7 @@ window.initHangmanGame = function () {
                     s.score[pid] = (s.score[pid] || 0) + 1;
                 }
             });
-            startHostPhase("reveal", 3);
+            startHostPhase("reveal", 2);
         }
     }
 
