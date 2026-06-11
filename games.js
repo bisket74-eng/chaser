@@ -1549,7 +1549,7 @@ window.handleSequenceCellTap = function (idx) {
             window.triviaState = {
                 players: window.chaserGame.players || [{ id: myGameId(), name: "Player", seat: 0 }],
                 round: 0,
-                totalRounds: 10,
+                totalRounds: 20,
                 score: {},
                 votes: {},
                 current: null,
@@ -1590,7 +1590,7 @@ window.handleSequenceCellTap = function (idx) {
             <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
                 gap:14px;text-align:center;color:white;padding:18px;box-sizing:border-box;">
                 <div style="font-size:30px;color:#ffd700;font-family:Impact,sans-serif;font-weight:900;">TRIVIA</div>
-                <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">10 rounds • pick your answer fast</div>
+                <div style="font-size:15px;color:#e2f0d9;font-weight:bold;">20 rounds • pick your answer fast</div>
                 <button onclick="window.startTriviaRound()"
                     style="background:#ffd700;color:#1e4620;border:none;border-radius:10px;padding:14px 26px;
                     font-size:22px;font-weight:900;font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,0.35);">
@@ -1603,7 +1603,7 @@ window.handleSequenceCellTap = function (idx) {
     const fallback = LOCAL_TRIVIA.slice();
 
     try {
-        const res = await fetch("https://opentdb.com/api.php?amount=20&type=multiple");
+        const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=medium&type=multiple");
         const data = await res.json();
 
         if (!data.results || !data.results.length) throw new Error("No questions");
@@ -3287,7 +3287,7 @@ window.initHangmanGame = function () {
             window.triviaState = {
                 players: window.chaserGame.players || [{ id:myId(), name:"Player", seat:0 }],
                 round:0,
-                totalRounds:10,
+                totalRounds:20,
                 score:{},
                 votes:{},
                 current:null,
@@ -3621,7 +3621,7 @@ window.initHangmanGame = function () {
 
     async function fetchFreshTriviaQuestion() {
         try {
-            const res = await fetch("https://opentdb.com/api.php?amount=1&type=multiple");
+            const res = await fetch("https://opentdb.com/api.php?amount=1&category=9&difficulty=medium&type=multiple");
             const data = await res.json();
 
             if (!data.results || !data.results.length) throw new Error("No trivia returned");
