@@ -3380,28 +3380,24 @@ window.initHangmanGame = function () {
     };
 
     function hostAdvanceTriviaPhase() {
-        if (!isHost()) return;
-        const s = window.triviaState;
-        if (!s) return;
+    if (!isHost()) return;
 
-        if (s.phase === "question") {
-            startHostPhase("vote", 8);
-        } else if (s.phase === "vote") {
-            Object.keys(s.votes).forEach(pid => {
-                if (s.votes[pid] === s.current.c) {
-                    s.score[pid] = (s.score[pid] || 0) + 1;
-                }
-            });
-            startHostPhase("reveal", 3);
-        }
-    }
+    const s = window.triviaState;
+    if (!s) return;
 
-    window.nextTriviaRound = function () {
-        if (!isHost()) return;
+    if (s.phase === "question") {
+        startHostPhase("vote", 8);
 
-        const s = window.triviaState;
-        if (!s) return;
+    } else if (s.phase === "vote") {
+        Object.keys(s.votes).forEach(pid => {
+            if (s.votes[pid] === s.current.c) {
+                s.score[pid] = (s.score[pid] || 0) + 1;
+            }
+        });
 
+        startHostPhase("reveal", 5);
+
+    } else if (s.phase === "reveal") {
         if (s.round >= s.totalRounds) {
             s.phase = "done";
             syncTrivia();
@@ -3409,7 +3405,8 @@ window.initHangmanGame = function () {
         } else {
             window.startTriviaRound();
         }
-    };
+    }
+}
 
     function runLocalTriviaClock() {
         if (window.triviaBetterTimer) clearInterval(window.triviaBetterTimer);
@@ -3540,15 +3537,11 @@ window.initHangmanGame = function () {
                     Votes: ${Object.keys(s.votes || {}).length}/${s.players.length}
                 </div>
 
-                ${s.phase === "reveal" && isHost() ? `
-                    <button onclick="window.nextTriviaRound()"
-                        style="background:#ffd700;color:#1e4620;border:none;border-radius:8px;padding:10px 20px;
-                        font-size:16px;font-weight:900;font-family:Impact,sans-serif;">
-                        ${s.round >= s.totalRounds ? "FINISH" : "NEXT QUESTION"}
-                    </button>
-                ` : s.phase === "reveal" ? `
-                    <div style="color:#a3cfbb;font-weight:bold;">Waiting for host...</div>
-                ` : ""}
+                ${s.phase === "reveal" ? `
+    <div style="font-weight:900; color:#1e4620; margin-top:8px;">
+        Next question starting soon...
+    </div>
+` : ""}
             </div>`;
     }
 })();
