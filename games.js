@@ -1258,136 +1258,123 @@ window.handleSequenceCellTap = function (idx) {
         }
     };
 
-    function renderUnoCard(card, onclick, small = false, faded = false) {
-        if (!card) return "";
+    function renderUnoCard(card, onclick, mode = "normal", faded = false) {
+    if (!card) return "";
 
-        const bg = card.color === "Wild"
-            ? "linear-gradient(45deg,#e63946,#ffb703,#00b050,#00b0ff)"
-            : unoColorHex(card.color);
+    let width, height, fontSize;
+    if (mode === "large") { width = 86; height = 126; fontSize = 48; } 
+    else if (mode === "draw") { width = 60; height = 88; fontSize = 22; } 
+    else if (mode === "small") { width = 50; height = 75; fontSize = 22; } 
+    else { width = 60; height = 90; fontSize = 28; }
 
-        return `
-            <div ${onclick ? `onclick="${onclick}"` : ""}
-                style="flex-shrink:0;width:${small ? 54 : 66}px;height:${small ? 80 : 98}px;border-radius:8px;
-                background:${bg};border:3px solid #fff;box-shadow:0 4px 8px rgba(0,0,0,0.4);
-                display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:${onclick ? 'pointer' : 'default'};
-                opacity:${faded ? 0.45 : 1};box-sizing:border-box;">
-                <div style="position:absolute;width:130%;height:42%;background:rgba(255,255,255,0.16);border-radius:50%;transform:rotate(-25deg);"></div>
-                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
-                    font-size:${card.value === "Reverse" || card.value === "Skip" || card.value === "Wild" ? (small ? 15 : 18) : (small ? 30 : 36)}px;
-                    text-shadow:2px 2px 4px rgba(0,0,0,0.45);text-align:center;line-height:1;">
-                    ${escapeHtml(card.value)}
-                </div>
-            </div>`;
+    let bg, content, border = "3px solid #fff";
+
+    if (card.color === "Back") {
+        bg = "#111"; 
+        content = `<div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;font-size:${fontSize}px;text-align:center;line-height:1;">UNO</div>`;
+    } else if (card.color === "Wild") {
+        bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
+        content = `
+            <div style="position:absolute;width:65%;height:45%;background:#111;border-radius:8px;z-index:1;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>
+            <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;font-size:${mode === 'small' ? 15 : 22}px;text-align:center;line-height:1.1;text-shadow:1px 1px 2px #000;">
+                ${card.value === '+4' ? 'Wild<br>+4' : 'Wild'}
+            </div>
+        `;
+    } else {
+        const colors = { Red: "#e63946", Yellow: "#ffb703", Green: "#00b050", Blue: "#00b0ff" };
+        bg = colors[card.color] || "#202020";
+        let displayVal = card.value;
+        if (displayVal === "Reverse") displayVal = "↺";
+        if (displayVal === "Skip") displayVal = "⊘";
+        content = `
+            <div style="position:absolute;width:130%;height:42%;background:rgba(255,255,255,0.16);border-radius:50%;transform:rotate(-25deg);"></div>
+            <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;font-size:${fontSize}px;text-shadow:2px 2px 4px rgba(0,0,0,0.45);text-align:center;line-height:1;">
+                ${displayVal}
+            </div>
+        `;
     }
+
+    return `
+        <div ${onclick ? `onclick="${onclick}"` : ""}
+            style="flex-shrink:0;width:${width}px;height:${height}px;border-radius:8px;background:${bg};border:${border};box-shadow:0 4px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:${onclick && !faded ? 'pointer' : 'default'};opacity:${faded ? 0.45 : 1};box-sizing:border-box;">
+            ${content}
+        </div>`;
+}
+
 
     function renderUnoLayout() {
-        const s = window.unoState;
-        if (!s) return;
+    const s = window.unoState;
+    if (!s) return;
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        const hand = s.hands[mySeat] || [];
-        const discard = s.discard || { color: "Red", value: "0" };
-        const myTurn = s.turn === mySeat && !s.winner;
-        const activeName = s.players[s.turn]?.name || `Player ${s.turn + 1}`;
+    const mySeat = window.chaserGame.mySeat ?? 0;
+    const hand = s.hands[mySeat] || [];
+    const discard = s.discard || { color: "Red", value: "0" };
+    const myTurn = s.turn === mySeat && !s.winner;
+    const activeName = s.players[s.turn]?.name || `Player ${s.turn + 1}`;
 
-        let opponents = s.players.map((p, idx) => {
-            if (idx === mySeat) return "";
-            return `
-                <div style="background:${idx === s.turn ? '#ffd700' : 'rgba(226,240,217,0.16)'};color:${idx === s.turn ? '#1e4620' : '#e2f0d9'};
-                    border-radius:8px;padding:6px 8px;font-size:12px;font-weight:900;">
-                    ${escapeHtml(p.name)}: ${s.hands[idx]?.length || 0}
-                </div>`;
-        }).join("");
-
-        let html = `
-            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:8px;box-sizing:border-box;user-select:none;overflow:hidden;">
-                <div style="width:100%;display:flex;justify-content:space-between;gap:6px;align-items:center;">
-                    <div style="font-size:15px;color:#ffd700;font-weight:900;font-family:Impact,sans-serif;">
-                        UNO
-                    </div>
-                    <div style="font-size:13px;color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;">
-                        ${s.winner ? escapeHtml(s.winner.name) + " WINS" : myTurn ? "YOUR TURN" : "TURN: " + escapeHtml(activeName)}
-                    </div>
-                    <div style="font-size:12px;color:#e2f0d9;font-weight:bold;">
-                        ${s.direction === 1 ? "↻" : "↺"}
-                    </div>
-                </div>
-
-                <div style="width:100%;display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:30px;">
-                    ${opponents}
-                </div>
-
-                <div style="font-size:12px;color:#ffd700;font-weight:bold;min-height:15px;text-align:center;">
-                    ${escapeHtml(s.message || "")}
-                </div>
-
-                <div style="display:flex;align-items:flex-end;justify-content:center;gap:36px;margin-top:2px;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <div style="font-size:11px;color:#a3cfbb;font-weight:900;">DRAW</div>
-                        ${renderUnoCard({ color: "Wild", value: "UNO" }, "window.unoDrawCard()", true, !myTurn)}
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <div style="font-size:11px;color:#a3cfbb;font-weight:900;">PLAY</div>
-                        ${renderUnoCard(discard, "", false)}
-                    </div>
-                </div>
-        `;
-
-        if (s.wildChoosingSeat === mySeat) {
-            html += `
-                <div style="display:grid;grid-template-columns:repeat(4,54px);gap:6px;margin-top:2px;">
-                    ${["Red","Yellow","Green","Blue"].map(c => `
-                        <button onclick="window.unoPickWildColor('${c}')"
-                            style="height:42px;border-radius:8px;border:3px solid #fff;background:${unoColorHex(c)};
-                            cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.35);"></button>
-                    `).join("")}
-                </div>`;
-        }
-
-        html += `
-                <div style="width:100%;display:flex;overflow-x:auto;gap:7px;padding:10px 6px 14px 6px;box-sizing:border-box;-webkit-overflow-scrolling:touch;">
-        `;
-
-        hand.forEach((card, idx) => {
-            const playable = myTurn && (
-                card.color === discard.color ||
-                card.value === discard.value ||
-                card.color === "Wild"
-            );
-
-            html += renderUnoCard(card, `window.unoPlayCard(${idx})`, true, !playable);
-        });
-
-        html += `
-                </div>
+    let opponents = s.players.map((p, idx) => {
+        if (idx === mySeat) return "";
+        return `
+            <div style="background:${idx === s.turn ? '#ffd700' : 'rgba(226,240,217,0.16)'};color:${idx === s.turn ? '#1e4620' : '#e2f0d9'};border-radius:8px;padding:6px 10px;font-size:13px;font-weight:900;">
+                ${p.name}: ${s.hands[idx]?.length || 0}
             </div>`;
+    }).join("");
 
-        gameCanvas.innerHTML = html;
+    let html = `
+        <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;box-sizing:border-box;user-select:none;overflow:hidden;">
+            
+            <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:10px;">
+                <div style="font-size:24px;color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;font-family:Impact,sans-serif;letter-spacing:1px;">
+                    ${s.winner ? s.winner.name + " WINS!" : myTurn ? "YOUR TURN" : "TURN: " + activeName.toUpperCase()}
+                </div>
+            </div>
+
+            <div style="width:100%;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:30px;">
+                ${opponents}
+            </div>
+
+            <div style="font-size:15px;color:#ffd700;font-weight:bold;min-height:18px;text-align:center;">
+                ${s.message || ""}
+            </div>
+
+            <div style="display:flex;align-items:flex-end;justify-content:center;gap:24px;margin-top:10px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                    <div style="font-size:12px;color:#a3cfbb;font-weight:900;">DRAW</div>
+                    ${renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "draw", !myTurn)}
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+                    <div style="font-size:12px;color:#a3cfbb;font-weight:900;">PLAY</div>
+                    ${renderUnoCard(discard, "", "large")}
+                </div>
+            </div>
+    `;
+
+    if (s.wildChoosingSeat === mySeat) {
+        html += `
+            <div style="display:grid;grid-template-columns:repeat(4,50px);gap:8px;margin-top:10px;">
+                ${["Red","Yellow","Green","Blue"].map(c => `
+                    <button onclick="window.unoPickWildColor('${c}')" style="height:44px;border-radius:8px;border:3px solid #fff;background:${{Red:"#e63946",Yellow:"#ffb703",Green:"#00b050",Blue:"#00b0ff"}[c]};cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.35);"></button>
+                `).join("")}
+            </div>`;
     }
 
-    window.unoPlayCard = function (idx) {
-        const s = window.unoState;
-        if (!s || s.winner) return;
+    html += `
+            <div style="width:100%;display:flex;overflow-x:auto;gap:6px;padding:15px 10px;box-sizing:border-box;-webkit-overflow-scrolling:touch;margin-top:auto;justify-content:flex-start;">
+    `;
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        if (s.turn !== mySeat) return;
+    hand.forEach((card, idx) => {
+        const playable = myTurn && (card.color === discard.color || card.value === discard.value || card.color === "Wild" || discard.color === "Wild");
+        html += renderUnoCard(card, `window.unoPlayCard(${idx})`, "small", !playable);
+    });
 
-        const card = s.hands[mySeat][idx];
-        const discard = s.discard;
+    html += `
+            </div>
+        </div>`;
 
-        const playable = card.color === discard.color || card.value === discard.value || card.color === "Wild";
-        if (!playable) return;
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (canvas) canvas.innerHTML = html;
+}
 
-        if (card.color === "Wild") {
-            s.wildChoosingSeat = mySeat;
-            s.pendingWildCardIndex = idx;
-            s.message = "Choose a color.";
-            renderUnoLayout();
-            return;
-        }
-
-        playUnoCardNow(mySeat, idx, card);
-    };
 
     function playUnoCardNow(seat, idx, card, chosenColor = null) {
         const s = window.unoState;
