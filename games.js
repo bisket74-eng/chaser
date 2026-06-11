@@ -1836,9 +1836,15 @@ window.initSolitaireGame = function () {
     function cardHtml(card, selected, isFoundation = false) {
     if (!card) return "";
     
+    // Set up highlight styles
+    const borderStyle = selected ? '2px solid #00b0ff' : '1px solid #ccc';
+    const shadowStyle = selected ? '0 0 10px 2px #00b0ff' : '1px 1px 3px rgba(0,0,0,0.3)';
+    const backBorderStyle = selected ? '3px solid #00b0ff' : '2px solid #ffd700';
+    const backShadowStyle = selected ? '0 0 10px #00b0ff' : 'none';
+
     // The downward facing card back
     if (!card.open) {
-        return `<div class="sol-card sol-card-back ${selected ? 'sol-selected' : ''}" style="display:flex;align-items:center;justify-content:center;background:#003300;border:2px solid #ffd700;border-radius:6px;width:100%;height:100%;box-sizing:border-box;">
+        return `<div class="sol-card sol-card-back ${selected ? 'sol-selected' : ''}" style="display:flex;align-items:center;justify-content:center;background:#003300;border:${backBorderStyle};box-shadow:${backShadowStyle};border-radius:6px;width:100%;height:100%;box-sizing:border-box;">
                     <div style="font-family:Impact,sans-serif;font-size:18px;color:#fff;transform:rotate(-90deg);letter-spacing:2px;">CHASER</div>
                 </div>`;
     }
@@ -1854,7 +1860,7 @@ window.initSolitaireGame = function () {
     
     // The upward facing card layout
     return `
-        <div class="sol-card ${selected ? 'sol-selected' : ''}" style="color:${color};position:relative;background:#fff;border-radius:6px;width:100%;height:100%;box-shadow:1px 1px 3px rgba(0,0,0,0.3);box-sizing:border-box;border:1px solid #ccc;overflow:hidden;">
+        <div class="sol-card ${selected ? 'sol-selected' : ''}" style="color:${color};position:relative;background:#fff;border-radius:6px;width:100%;height:100%;box-shadow:${shadowStyle};box-sizing:border-box;border:${borderStyle};overflow:hidden;">
             
             <div style="position:absolute;top:2px;left:4px;font-size:15px;font-weight:900;line-height:1;">${card.rank}</div>
             <div style="position:absolute;top:2px;right:4px;font-size:14px;line-height:1;">${suitSymbol}</div>
@@ -1867,6 +1873,7 @@ window.initSolitaireGame = function () {
         </div>
     `;
 }
+
 
 
 
@@ -2267,7 +2274,7 @@ window.initSolitaireGame = function () {
                     writing-mode:vertical-rl;
                     text-orientation:mixed;
                     letter-spacing:3px;
-                    font-size:15px;
+                    font-size:12px;
                     line-height:1;
                 }
 
@@ -2389,7 +2396,7 @@ let currentOffset = 0;
                     idx >= s.selected.idx;
 
                 const topOffset = currentOffset;
-currentOffset += card.open ? 25 : 12; 
+currentOffset += card.open ? 20 : 12; 
 
                
                 html += `
@@ -4457,7 +4464,7 @@ window.initHangmanGame = function () {
     document.head.appendChild(style);
 })();
 /* ============================================================
-   CHASER PATCH E - SOLITAIRE LAYOUT & FOUNDATION REWRITE
+   CHASER PATCH F - SOLITAIRE LAYOUT FIXES
    ============================================================ */
 (function() {
     "use strict";
@@ -4472,7 +4479,7 @@ window.initHangmanGame = function () {
             display: flex !important; 
             flex-direction: column !important; 
             height: 100% !important; 
-            padding-bottom: 100px !important; /* Make room for the bottom stuff */
+            padding-bottom: 110px !important; /* Make room for the bottom stuff */
             box-sizing: border-box !important;
         }
 
@@ -4495,6 +4502,8 @@ window.initHangmanGame = function () {
             gap: 10px !important; 
             width: auto !important;
             margin: 0 !important;
+            z-index: 999 !important; /* Pull buttons to the very top */
+            background: transparent !important;
         }
 
         /* Pin the Stock / Waste piles to Bottom-Right */
@@ -4502,11 +4511,15 @@ window.initHangmanGame = function () {
             position: absolute !important; 
             bottom: 10px !important; 
             right: 10px !important; 
+            left: auto !important; /* Stop it from stretching left */
             margin: 0 !important;
             padding: 0 !important;
             display: flex !important;
             gap: 15px !important;
             align-items: flex-end !important;
+            width: auto !important; /* Force it to hug the right side */
+            z-index: 900 !important;
+            background: transparent !important;
         }
 
         /* Force Foundation Cards to stay inside the borders */
@@ -4526,4 +4539,3 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
-
