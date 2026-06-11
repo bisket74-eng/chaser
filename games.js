@@ -1053,8 +1053,8 @@ function renderSequenceBoard() {
                 ${card.free ? `
                     <span style="color:#111111;font-size:14px;text-shadow:none;font-weight:bold;">★</span>
                 ` : `
-                    <span style="font-size:10px;font-weight:900;line-height:1.1;">${card.rank}</span>
-                    <span style="font-size:15px;line-height:1;">${card.suit}</span>
+                    <span style="font-size:12px;font-weight:900;line-height:1.1;">${card.rank}</span>
+                    <span style="font-size:18px;line-height:1;">${card.suit}</span>
                 `}
                 ${chip}
             </div>`;
