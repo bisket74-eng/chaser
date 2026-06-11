@@ -1017,7 +1017,7 @@ function renderSequenceBoard() {
                 ${(s.message || "")}
             </div>
 
-            <div style="width:100%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(10,1fr);
+            <div style="width:92%;aspect-ratio:1/1;display:grid;grid-template-columns:repeat(10,1fr);
                 grid-template-rows:repeat(10,1fr);gap:1px;background:#111;border:3px solid #ffd700;
                 border-radius:8px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.5);box-sizing:border-box;">`;
 
@@ -1053,8 +1053,8 @@ function renderSequenceBoard() {
                 ${card.free ? `
                     <span style="color:#111111;font-size:14px;text-shadow:none;font-weight:bold;">★</span>
                 ` : `
-                    <span style="font-size:9px;font-weight:900;line-height:1.1;">${card.rank}</span>
-                    <span style="font-size:11px;line-height:1;">${card.suit}</span>
+                    <span style="font-size:10px;font-weight:900;line-height:1.1;">${card.rank}</span>
+                    <span style="font-size:15px;line-height:1;">${card.suit}</span>
                 `}
                 ${chip}
             </div>`;
