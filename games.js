@@ -3699,7 +3699,7 @@ window.initHangmanGame = function () {
         s.round++;
         s.phase = "question";
         s.timer = 8;
-        s.phaseEndsAt = Date.now() + 5000;
+        s.phaseEndsAt = Date.now() + 8000;
 
         send("sync-room-trivia", { state: s });
 
