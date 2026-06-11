@@ -3385,14 +3385,14 @@ window.initHangmanGame = function () {
         if (!s) return;
 
         if (s.phase === "question") {
-            startHostPhase("vote", 5);
+            startHostPhase("vote", 8);
         } else if (s.phase === "vote") {
             Object.keys(s.votes).forEach(pid => {
                 if (s.votes[pid] === s.current.c) {
                     s.score[pid] = (s.score[pid] || 0) + 1;
                 }
             });
-            startHostPhase("reveal", 2);
+            startHostPhase("reveal", 3);
         }
     }
 
