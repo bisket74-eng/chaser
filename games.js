@@ -2377,7 +2377,7 @@ window.initSolitaireGame = function () {
                     s.selected.col === col &&
                     idx >= s.selected.idx;
 
-                const topOffset = idx * 7 + (card.open ? 12 : 0);
+                const topOffset = idx * (card.open ? 20 : 7);
                
                 html += `
                     <div class="sol-card-pos" style="top:${topOffset}px;" onclick="event.stopPropagation(); solTapTableau(${col}, ${idx});">
