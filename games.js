@@ -2370,9 +2370,8 @@ window.initSolitaireGame = function () {
         for (let col = 0; col < 7; col++) {
             html += `<div class="sol-col" onclick="solTapTableau(${col}, null)">`;
 let currentOffset = 0;
-s.tableau[col].forEach((card, idx) => {
 
-            s.tableau[col].forEach((card, idx) => {
+         s.tableau[col].forEach((card, idx) => {
                 const selected =
                     s.selected &&
                     s.selected.type === "tableau" &&
