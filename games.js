@@ -4068,36 +4068,34 @@ window.initHangmanGame = function () {
 })();
 /* SOLITAIRE TAP + COMPACT LAYOUT FIX */
 (function () {
-    const oldSelectTableau = window.solSelectTableau;
+    window.solSelectTableau = function (col, idx) {
+        const s = window.solState;
+        if (!s) return;
 
-   window.solSelectTableau = function (col, idx) {
-    const s = window.solState;
-    if (!s) return;
+        const card = s.tableau[col][idx];
+        if (!card || !card.open) return;
 
-    const card = s.tableau[col][idx];
-    if (!card || !card.open) return;
+        if (s.selected) {
+            const sameCard =
+                s.selected.type === "tableau" &&
+                s.selected.col === col &&
+                s.selected.idx === idx;
 
-    if (s.selected) {
-        const sameCard =
-            s.selected.type === "tableau" &&
-            s.selected.col === col &&
-            s.selected.idx === idx;
+            if (sameCard) {
+                s.selected = null;
+                s.message = "Selection cleared.";
+                render(); // Make sure your render function is in scope
+                return;
+            }
 
-        if (sameCard) {
-            s.selected = null;
-            s.message = "Selection cleared.";
-            render();
+            window.solMoveToTableau(col);
             return;
         }
 
-        window.solMoveToTableau(col);
-        return;
-    }
-
-    s.selected = { type:"tableau", col, idx };
-    s.message = card.rank + card.symbol + " selected.";
-    render();
-};
+        s.selected = { type:"tableau", col, idx };
+        s.message = card.rank + card.symbol + " selected.";
+        render();
+    };
 
     const canvas = document.getElementById("gameCanvasContainer");
 
@@ -4105,7 +4103,6 @@ window.initHangmanGame = function () {
         if (!window.chaserGame || window.chaserGame.activeGame !== "Solitaire") return;
 
         const board = canvas.querySelector(".sol-board");
-        const top = canvas.querySelector(".sol-top");
         const tableau = canvas.querySelector(".sol-tableau");
 
         if (board) {
@@ -4113,17 +4110,10 @@ window.initHangmanGame = function () {
             board.style.overflowX = "hidden";
         }
 
-        if (top) {
-            top.style.gap = "3px";
-            top.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
-        }
-
         if (tableau) {
             tableau.style.gap = "3px";
             tableau.style.gridTemplateColumns = "repeat(7, minmax(0, 1fr))";
         }
-
-        });
     });
 
     if (canvas) {
