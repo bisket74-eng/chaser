@@ -5862,3 +5862,86 @@ window.initHangmanGame = function () {
         }
     };
 })();
+/* ============================================================
+   YAHTZEE FIX — close game launcher + centered dice pips
+   Paste at VERY BOTTOM of games.js
+   ============================================================ */
+
+(function () {
+    function closeGameLauncher() {
+        const hub = document.getElementById("gameHubOverlay");
+        if (hub) {
+            hub.classList.remove("open");
+            hub.style.display = "none";
+            hub.style.pointerEvents = "none";
+        }
+    }
+
+    const oldLaunch = window.launchGameEngine;
+
+    window.launchGameEngine = function (gameName, gameIcon) {
+        if (String(gameName || "").trim().toLowerCase() === "yahtzee") {
+            closeGameLauncher();
+        }
+
+        if (typeof oldLaunch === "function") {
+            oldLaunch(gameName, gameIcon);
+        }
+
+        if (String(gameName || "").trim().toLowerCase() === "yahtzee") {
+            setTimeout(closeGameLauncher, 50);
+        }
+    };
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        .yz-die {
+            position: relative !important;
+        }
+
+        .yz-pip {
+            position: absolute !important;
+            width: 12px !important;
+            height: 12px !important;
+            background: #111 !important;
+            border-radius: 50% !important;
+            transform: translate(-50%, -50%) !important;
+        }
+
+        .yz-pip.top-left {
+            left: 28% !important;
+            top: 28% !important;
+        }
+
+        .yz-pip.top-right {
+            left: 72% !important;
+            top: 28% !important;
+        }
+
+        .yz-pip.middle-left {
+            left: 28% !important;
+            top: 50% !important;
+        }
+
+        .yz-pip.middle-right {
+            left: 72% !important;
+            top: 50% !important;
+        }
+
+        .yz-pip.center {
+            left: 50% !important;
+            top: 50% !important;
+        }
+
+        .yz-pip.bottom-left {
+            left: 28% !important;
+            top: 72% !important;
+        }
+
+        .yz-pip.bottom-right {
+            left: 72% !important;
+            top: 72% !important;
+        }
+    `;
+    document.head.appendChild(style);
+})();
