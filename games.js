@@ -4990,3 +4990,119 @@ window.initHangmanGame = function () {
         renderCoupPatched();
     };
 })();
+/* ============================================================
+   SOLITAIRE WIN TORNADO PATCH
+   Paste at VERY BOTTOM of games.js
+   ============================================================ */
+
+(function () {
+    const oldAutoFoundation = window.solAutoFoundation;
+    const oldMoveToFoundation = window.solMoveToFoundation;
+
+    function solitaireIsWon() {
+        const s = window.solState;
+        if (!s || !s.foundations) return false;
+        return ["S", "C", "H", "D"].every(suit => s.foundations[suit].length === 13);
+    }
+
+    function launchSolitaireTornado() {
+        if (document.getElementById("solWinTornado")) return;
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas) return;
+
+        const overlay = document.createElement("div");
+        overlay.id = "solWinTornado";
+        overlay.innerHTML = `
+            <style>
+                @keyframes solSpinWin {
+                    0% {
+                        transform: translate(-50%, -50%) rotate(0deg) scale(.4);
+                        opacity: 0;
+                    }
+                    15% { opacity: 1; }
+                    70% {
+                        transform: translate(var(--x), var(--y)) rotate(720deg) scale(1);
+                        opacity: 1;
+                    }
+                    100% {
+                        transform: translate(-50%, -50%) rotate(1080deg) scale(.2);
+                        opacity: 0;
+                    }
+                }
+
+                .sol-win-card {
+                    position:absolute;
+                    left:50%;
+                    top:50%;
+                    width:42px;
+                    height:58px;
+                    border-radius:7px;
+                    background:#fff;
+                    border:2px solid #ffd700;
+                    color:#1e4620;
+                    font-weight:900;
+                    font-size:15px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    box-shadow:0 4px 10px rgba(0,0,0,.45);
+                    animation:solSpinWin 2.4s ease-in-out forwards;
+                    animation-delay:var(--delay);
+                }
+            </style>
+
+            <div style="position:absolute;inset:0;z-index:99999;pointer-events:none;overflow:hidden;">
+                <div style="position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+                    color:#ffd700;font-family:Impact,sans-serif;font-size:34px;font-weight:900;
+                    text-shadow:2px 3px 6px #000;">
+                    SOLITAIRE COMPLETE!
+                </div>
+            </div>
+        `;
+
+        canvas.appendChild(overlay);
+
+        const layer = overlay.querySelector("div");
+        const symbols = ["A♠","K♥","Q♦","J♣","10♠","9♥","8♦","7♣","6♠","5♥","4♦","3♣","2♠"];
+
+        for (let i = 0; i < 42; i++) {
+            const card = document.createElement("div");
+            card.className = "sol-win-card";
+            card.textContent = symbols[i % symbols.length];
+
+            const angle = i * 28;
+            const radius = 80 + (i % 7) * 22;
+            const x = Math.cos(angle) * radius;
+            const y = Math.sin(angle) * radius;
+
+            card.style.setProperty("--x", `${x}px`);
+            card.style.setProperty("--y", `${y}px`);
+            card.style.setProperty("--delay", `${i * 0.035}s`);
+
+            layer.appendChild(card);
+        }
+
+        setTimeout(() => overlay.remove(), 3400);
+    }
+
+    function checkAndCelebrate() {
+        setTimeout(() => {
+            if (solitaireIsWon()) launchSolitaireTornado();
+        }, 120);
+    }
+
+    window.solMoveToFoundation = function (suit) {
+        if (typeof oldMoveToFoundation === "function") {
+            oldMoveToFoundation(suit);
+            checkAndCelebrate();
+        }
+    };
+
+    window.solAutoFoundation = function () {
+        if (typeof oldAutoFoundation === "function") {
+            oldAutoFoundation();
+            checkAndCelebrate();
+        }
+    };
+})();
