@@ -1,0 +1,1 @@
+alert("TRIVIA JS FILE LOADED");
