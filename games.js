@@ -4566,3 +4566,427 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
+/* ============================================================
+   COUP PATCH — cleaner layout + bluff/challenge actions
+   Paste at VERY BOTTOM of games.js
+   ============================================================ */
+
+(function () {
+    const ROLES = {
+        Duke: { icon:"👑", action:"Tax: take 3 coins", block:"Blocks Foreign Aid" },
+        Assassin: { icon:"🗡️", action:"Pay 3 to assassinate", block:"Blocked by Contessa" },
+        Captain: { icon:"🏴‍☠️", action:"Steal 2 coins", block:"Blocked by Captain/Ambassador" },
+        Ambassador: { icon:"🔄", action:"Exchange cards", block:"Blocks stealing" },
+        Contessa: { icon:"🛡️", action:"Blocks Assassin", block:"Blocks Assassin" }
+    };
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local";
+    }
+
+    function sendCoup() {
+        if (typeof channel !== "undefined" && channel && window.coupState) {
+            channel.send({
+                type:"broadcast",
+                event:"coup-sync-state",
+                payload:{
+                    ...window.coupState,
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+    }
+
+    function shuffle(arr) {
+        return arr.sort(() => Math.random() - 0.5);
+    }
+
+    function makeDeck() {
+        let d = [];
+        Object.keys(ROLES).forEach(r => d.push(r, r, r));
+        return shuffle(d);
+    }
+
+    function currentPlayer() {
+        return window.coupState.players[window.coupState.turn];
+    }
+
+    function alivePlayers() {
+        return window.coupState.players.filter(p => p.alive);
+    }
+
+    function nextTurn() {
+        const s = window.coupState;
+
+        if (alivePlayers().length === 1) {
+            s.phase = "ended";
+            s.log.push("🏆 " + alivePlayers()[0].name + " wins!");
+            return;
+        }
+
+        let guard = 0;
+        do {
+            s.turn = (s.turn + 1) % s.players.length;
+            guard++;
+        } while (!s.players[s.turn].alive && guard < 20);
+    }
+
+    function loseCard(player) {
+        if (!player || !player.cards.length) return;
+        const lost = player.cards.shift();
+        player.revealed.push(lost);
+
+        if (!player.cards.length) {
+            player.alive = false;
+            window.coupState.log.push(player.name + " is out.");
+        }
+    }
+
+    function replaceRevealedClaim(actor, claim) {
+        const s = window.coupState;
+        const idx = actor.cards.indexOf(claim);
+        if (idx === -1) return;
+
+        actor.cards.splice(idx, 1);
+        s.deck.push(claim);
+        s.deck = shuffle(s.deck);
+
+        if (s.deck.length) {
+            actor.cards.push(s.deck.pop());
+        }
+    }
+
+    window.initCoupGame = function () {
+        const players = (window.chaserGame && window.chaserGame.players) || [];
+        const hostId = window.chaserGame && window.chaserGame.hostId;
+        const amHost = hostId === myId();
+
+        if (amHost) {
+            const deck = makeDeck();
+
+            window.coupState = {
+                phase:"playing",
+                hostId,
+                turn:0,
+                deck,
+                discard:[],
+                pending:null,
+                log:["Coup started."],
+                players:players.map(p => ({
+                    id:p.id,
+                    name:p.name,
+                    seat:p.seat,
+                    coins:2,
+                    cards:[deck.pop(), deck.pop()],
+                    revealed:[],
+                    alive:true
+                }))
+            };
+
+            sendCoup();
+        }
+
+        renderCoupPatched();
+    };
+
+    window.handleIncomingCoupSync = function (state) {
+        if (!state) return;
+        if (state.roomGameId && window.chaserGame?.activeGameId && state.roomGameId !== window.chaserGame.activeGameId) return;
+
+        window.coupState = state;
+        renderCoupPatched();
+    };
+
+    function renderCoupPatched() {
+        const s = window.coupState;
+        const gameCanvas = document.getElementById("gameCanvasContainer");
+
+        if (!s || !gameCanvas) {
+            gameCanvas.innerHTML = `<div style="color:white;font-size:22px;font-weight:900;text-align:center;padding:20px;">Waiting for host to deal Coup...</div>`;
+            return;
+        }
+
+        const me = s.players.find(p => p.id === myId());
+        const active = currentPlayer();
+        const isMyTurn = active && active.id === myId();
+        const pending = s.pending;
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;overflow:auto;padding:8px;box-sizing:border-box;color:white;font-family:Arial;">
+
+                ${s.players.map((p, i) => `
+                    <div style="
+                        display:flex;justify-content:space-between;align-items:center;
+                        background:${p.alive ? "#e2f0d9" : "#555"};
+                        color:${p.alive ? "#1e4620" : "#fff"};
+                        border:${i === s.turn ? "4px solid #ff0000" : "2px solid transparent"};
+                        border-radius:9px;padding:8px;margin-bottom:6px;font-weight:900;">
+                        <div style="font-size:17px;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            ${i === s.turn ? `<span style="color:#ff0000;font-size:24px;font-weight:900;">▶</span> ` : ""}${p.name}
+                        </div>
+                        <div style="font-size:17px;">🪙 ${p.coins}</div>
+                        <div style="font-size:14px;">Hidden: ${p.cards.length} | Out: ${p.revealed.join(", ") || "None"}</div>
+                    </div>
+                `).join("")}
+
+                ${me ? `
+                    <div style="color:#ffd700;font-size:22px;font-weight:900;text-align:center;margin-top:8px;">YOUR CARDS</div>
+                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
+                        ${me.cards.map(cardHtml).join("")}
+                    </div>
+                ` : ""}
+
+                ${pending ? pendingPanel(pending, me) : ""}
+                ${!pending && isMyTurn && me && me.alive && s.phase !== "ended" ? actionPanel(me) : ""}
+
+                <div style="margin-top:10px;background:rgba(0,0,0,.35);border-radius:8px;padding:8px;">
+                    <div style="color:#ffd700;font-size:18px;font-weight:900;">Log</div>
+                    ${s.log.slice(-6).reverse().map(l => `<div style="font-size:15px;">• ${l}</div>`).join("")}
+                </div>
+            </div>
+        `;
+    }
+
+    function cardHtml(role) {
+        const r = ROLES[role];
+        return `
+            <div style="
+                width:43vw;max-width:150px;min-height:180px;
+                background:#f8f3df;color:#111;
+                border:4px solid #ffd700;border-radius:14px;
+                padding:10px;box-sizing:border-box;
+                box-shadow:0 4px 12px rgba(0,0,0,.45);
+                display:flex;flex-direction:column;
+                justify-content:space-between;align-items:center;
+                text-align:center;">
+                <div style="font-size:42px;">${r.icon}</div>
+                <div style="font-family:Impact;font-size:28px;color:#1e4620;">${role}</div>
+                <div style="font-size:15px;font-weight:900;">${r.action}</div>
+                <div style="font-size:13px;font-weight:900;color:#b00020;">${r.block}</div>
+            </div>
+        `;
+    }
+
+    function actionPanel(me) {
+        const mustCoup = me.coins >= 10;
+
+        return `
+            <div style="margin-top:10px;background:#123b16;border:2px solid #ffd700;border-radius:12px;padding:10px;">
+                <div style="color:#ffd700;font-size:22px;font-weight:900;text-align:center;">Choose Action</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+                    ${!mustCoup ? btn("Income", "+1 coin", "coupIncome()") : ""}
+                    ${!mustCoup ? btn("Foreign Aid", "+2 coins", "coupForeignAid()") : ""}
+                    ${!mustCoup ? btn("Tax", "Claim Duke", "coupClaimAction('tax','Duke')") : ""}
+                    ${!mustCoup ? btn("Exchange", "Claim Ambassador", "coupClaimAction('exchange','Ambassador')") : ""}
+                    ${!mustCoup ? btn("Steal", "Claim Captain", "coupPickTarget('steal')") : ""}
+                    ${!mustCoup ? btn("Assassinate", "Claim Assassin", "coupPickTarget('assassinate')") : ""}
+                    ${btn("Coup", "Pay 7", "coupPickTarget('coup')")}
+                </div>
+                ${mustCoup ? `<div style="color:#dc3545;font-size:17px;font-weight:900;text-align:center;margin-top:8px;">10+ coins: you must Coup.</div>` : ""}
+            </div>
+        `;
+    }
+
+    function pendingPanel(pending, me) {
+        const actor = window.coupState.players.find(p => p.id === pending.actorId);
+        const target = window.coupState.players.find(p => p.id === pending.targetId);
+
+        return `
+            <div style="margin-top:10px;background:#0b2410;border:3px solid #ffd700;border-radius:12px;padding:10px;text-align:center;">
+                <div style="color:#ffd700;font-size:21px;font-weight:900;">
+                    ${actor.name} claims ${pending.claim}
+                </div>
+                <div style="font-size:15px;font-weight:900;color:#e2f0d9;margin-top:4px;">
+                    Action: ${pending.kind}${target ? " → " + target.name : ""}
+                </div>
+
+                ${me && me.alive && me.id !== pending.actorId ? `
+                    <button onclick="coupChallengeClaim()"
+                        style="margin-top:9px;width:100%;padding:11px;border:none;border-radius:10px;
+                        background:#dc3545;color:white;font-size:18px;font-weight:900;">
+                        CHALLENGE / CALL BLUFF
+                    </button>
+                ` : ""}
+
+                ${me && me.id === pending.actorId ? `
+                    <button onclick="coupResolvePendingAction()"
+                        style="margin-top:9px;width:100%;padding:11px;border:none;border-radius:10px;
+                        background:#00b050;color:white;font-size:18px;font-weight:900;">
+                        RESOLVE ACTION
+                    </button>
+                ` : `
+                    <div style="color:#a3cfbb;font-weight:bold;margin-top:8px;">Waiting...</div>
+                `}
+            </div>
+        `;
+    }
+
+    function btn(title, sub, fn) {
+        return `
+            <button onclick="${fn}" style="
+                background:#e2f0d9;color:#1e4620;border:2px solid #ffd700;
+                border-radius:10px;padding:10px 6px;font-weight:900;min-height:64px;">
+                <div style="font-family:Impact;font-size:22px;">${title}</div>
+                <div style="font-size:14px;">${sub}</div>
+            </button>
+        `;
+    }
+
+    window.coupClaimAction = function (kind, claim, targetId = null) {
+        const s = window.coupState;
+        const actor = currentPlayer();
+        if (!actor || actor.id !== myId()) return;
+
+        s.pending = { kind, claim, actorId:actor.id, targetId };
+        s.log.push(actor.name + " claims " + claim + ".");
+        sendCoup();
+        renderCoupPatched();
+    };
+
+    window.coupChallengeClaim = function () {
+        const s = window.coupState;
+        const pending = s.pending;
+        if (!pending) return;
+
+        const challenger = s.players.find(p => p.id === myId());
+        const actor = s.players.find(p => p.id === pending.actorId);
+        if (!challenger || !actor || challenger.id === actor.id) return;
+
+        if (actor.cards.includes(pending.claim)) {
+            s.log.push(challenger.name + " challenged and was wrong. " + actor.name + " had " + pending.claim + ".");
+            loseCard(challenger);
+            replaceRevealedClaim(actor, pending.claim);
+            applyPendingAction();
+        } else {
+            s.log.push(challenger.name + " caught the bluff! " + actor.name + " did not have " + pending.claim + ".");
+            loseCard(actor);
+            s.pending = null;
+            nextTurn();
+        }
+
+        sendCoup();
+        renderCoupPatched();
+    };
+
+    function applyPendingAction() {
+        const s = window.coupState;
+        const pending = s.pending;
+        if (!pending) return;
+
+        const actor = s.players.find(p => p.id === pending.actorId);
+        const target = s.players.find(p => p.id === pending.targetId);
+
+        if (pending.kind === "tax") {
+            actor.coins += 3;
+            s.log.push(actor.name + " takes Tax.");
+        }
+
+        if (pending.kind === "exchange") {
+            if (s.deck.length < 2) s.deck = shuffle(s.deck.concat(s.discard));
+            const pool = actor.cards.concat([s.deck.pop(), s.deck.pop()].filter(Boolean));
+            actor.cards = pool.slice(0, 2);
+            s.discard.push(...pool.slice(2));
+            s.log.push(actor.name + " exchanges cards.");
+        }
+
+        if (pending.kind === "steal" && target) {
+            const n = Math.min(2, target.coins);
+            target.coins -= n;
+            actor.coins += n;
+            s.log.push(actor.name + " steals " + n + " coins from " + target.name + ".");
+        }
+
+        if (pending.kind === "assassinate" && target) {
+            if (actor.coins >= 3) {
+                actor.coins -= 3;
+                loseCard(target);
+                s.log.push(actor.name + " assassinates " + target.name + ".");
+            }
+        }
+
+        s.pending = null;
+        nextTurn();
+    }
+
+    window.coupResolvePendingAction = function () {
+        const s = window.coupState;
+        if (!s.pending) return;
+        if (s.pending.actorId !== myId()) return;
+
+        applyPendingAction();
+        sendCoup();
+        renderCoupPatched();
+    };
+
+    window.coupIncome = function () {
+        const p = currentPlayer();
+        if (!p || p.id !== myId()) return;
+        p.coins += 1;
+        window.coupState.log.push(p.name + " takes Income.");
+        nextTurn();
+        sendCoup();
+        renderCoupPatched();
+    };
+
+    window.coupForeignAid = function () {
+        const p = currentPlayer();
+        if (!p || p.id !== myId()) return;
+        p.coins += 2;
+        window.coupState.log.push(p.name + " takes Foreign Aid.");
+        nextTurn();
+        sendCoup();
+        renderCoupPatched();
+    };
+
+    window.coupPickTarget = function (type) {
+        const s = window.coupState;
+        const targets = s.players.filter(p => p.alive && p.id !== myId());
+        const gameCanvas = document.getElementById("gameCanvasContainer");
+
+        gameCanvas.innerHTML = `
+            <div style="width:100%;height:100%;overflow:auto;padding:14px;box-sizing:border-box;color:white;text-align:center;">
+                <div style="font-family:Impact;font-size:32px;color:#ffd700;margin-bottom:10px;">Choose Target</div>
+                ${targets.map(p => `
+                    <button onclick="coupDoTarget('${type}','${p.id}')"
+                        style="width:100%;padding:14px;margin-bottom:8px;border-radius:10px;
+                        border:2px solid #ffd700;background:#e2f0d9;color:#1e4620;
+                        font-size:22px;font-weight:900;">
+                        ${p.name}
+                    </button>
+                `).join("")}
+                <button onclick="window.initCoupGame()"
+                    style="width:100%;padding:12px;border:none;border-radius:10px;
+                    background:#555;color:white;font-size:18px;font-weight:900;">Cancel</button>
+            </div>
+        `;
+    };
+
+    window.coupDoTarget = function (type, targetId) {
+        const s = window.coupState;
+        const actor = currentPlayer();
+        const target = s.players.find(p => p.id === targetId);
+        if (!actor || actor.id !== myId() || !target) return;
+
+        if (type === "coup") {
+            if (actor.coins < 7) return;
+            actor.coins -= 7;
+            loseCard(target);
+            s.log.push(actor.name + " coups " + target.name + ".");
+            nextTurn();
+        }
+
+        if (type === "steal") {
+            s.pending = { kind:"steal", claim:"Captain", actorId:actor.id, targetId };
+            s.log.push(actor.name + " claims Captain to steal from " + target.name + ".");
+        }
+
+        if (type === "assassinate") {
+            if (actor.coins < 3) return;
+            s.pending = { kind:"assassinate", claim:"Assassin", actorId:actor.id, targetId };
+            s.log.push(actor.name + " claims Assassin against " + target.name + ".");
+        }
+
+        sendCoup();
+        renderCoupPatched();
+    };
+})();
