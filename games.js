@@ -5513,19 +5513,7 @@ window.initHangmanGame = function () {
                 </div>
 
                 <div style="
-                    background:rgba(0,0,0,.25);
-                    border:2px solid rgba(226,240,217,.55);
-                    border-radius:14px;
-                    padding:10px;
-                    margin-bottom:10px;
-                    text-align:center;
-                ">
-                    <div style="font-weight:900;margin-bottom:6px;">
-                        Round ${s.round} • ${p.name}'s Turn
-                    </div>
-
-                    <div style="font-size:14px;margin-bottom:8px;">
-                        ${s.message}
+         ${s.message}
 /* ============================================================
    CHASER PATCH - YAHTZEE GAME - UPDATED LAYOUT + UPPER BONUS
    Paste at VERY BOTTOM of games.js
