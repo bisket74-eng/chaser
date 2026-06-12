@@ -1,3 +1,5 @@
+alert("YAHTZEE JS FILE LOADED");
+
 /* ============================================================
    CHASER PATCH - YAHTZEE GAME - UPDATED LAYOUT + UPPER BONUS
    Paste at VERY BOTTOM of games.js
