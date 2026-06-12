@@ -1,4 +1,4 @@
-alert("YAHTZEE JS FILE LOADED");
+
 
 /* ============================================================
    CHASER PATCH - YAHTZEE GAME - UPDATED LAYOUT + UPPER BONUS
