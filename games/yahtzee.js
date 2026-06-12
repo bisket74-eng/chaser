@@ -838,34 +838,61 @@ alert("YAHTZEE JS FILE LOADED");
     `;
     document.head.appendChild(style);
 })();
-/* ===== YAHTZEE CLEANUP FIX ===== */
+/* ===== YAHTZEE EXIT / LAUNCHER RESTORE FIX ===== */
 
 (function () {
+    const oldShutdown = window.shutdownActiveGame;
+    const oldMasterExit = window.chaserMasterExitSequence;
 
-    const oldCloseGame = window.closeGame;
+    function restoreAfterYahtzee() {
+        const hub = document.getElementById("gameHubOverlay");
+        const canvas = document.getElementById("gameCanvasContainer");
+        const stage = document.getElementById("activeGameStage");
 
-    window.closeGame = function (...args) {
-
-        // Remove any Yahtzee elements left behind
         document.querySelectorAll(
-            '.yahtzee-overlay, .yahtzee-modal, .yahtzee-popup'
+            ".yahtzee-overlay, .yahtzee-modal, .yahtzee-popup, .yz-overlay, #yahtzeeOverlay"
         ).forEach(el => el.remove());
 
-        // Clear any pointer-event blockers
-        const gameCanvas = document.getElementById('gameCanvasContainer');
-        if (gameCanvas) {
-            gameCanvas.style.pointerEvents = '';
+        if (canvas) {
+            canvas.innerHTML = "";
+            canvas.style.pointerEvents = "";
+            canvas.style.display = "";
         }
 
-        const gameHub = document.getElementById('gameHubOverlay');
-        if (gameHub) {
-            gameHub.style.pointerEvents = '';
-            gameHub.style.display = '';
+        if (stage) {
+            stage.classList.remove("open");
+            stage.style.pointerEvents = "";
+            stage.style.display = "";
+            stage.style.height = "";
+            stage.style.maxHeight = "";
         }
 
-        if (typeof oldCloseGame === 'function') {
-            return oldCloseGame.apply(this, args);
+        if (hub) {
+            hub.classList.remove("open");
+            hub.style.display = "";
+            hub.style.pointerEvents = "";
+            hub.style.visibility = "";
+            hub.style.opacity = "";
+        }
+    }
+
+    window.shutdownActiveGame = function (...args) {
+        restoreAfterYahtzee();
+
+        if (typeof oldShutdown === "function") {
+            return oldShutdown.apply(this, args);
         }
     };
 
+    window.chaserMasterExitSequence = function (...args) {
+        restoreAfterYahtzee();
+
+        if (typeof oldMasterExit === "function") {
+            return oldMasterExit.apply(this, args);
+        }
+
+        if (typeof oldShutdown === "function") {
+            return oldShutdown.apply(this, args);
+        }
+    };
 })();
