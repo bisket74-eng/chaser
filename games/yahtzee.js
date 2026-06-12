@@ -838,3 +838,34 @@ alert("YAHTZEE JS FILE LOADED");
     `;
     document.head.appendChild(style);
 })();
+/* ===== YAHTZEE CLEANUP FIX ===== */
+
+(function () {
+
+    const oldCloseGame = window.closeGame;
+
+    window.closeGame = function (...args) {
+
+        // Remove any Yahtzee elements left behind
+        document.querySelectorAll(
+            '.yahtzee-overlay, .yahtzee-modal, .yahtzee-popup'
+        ).forEach(el => el.remove());
+
+        // Clear any pointer-event blockers
+        const gameCanvas = document.getElementById('gameCanvasContainer');
+        if (gameCanvas) {
+            gameCanvas.style.pointerEvents = '';
+        }
+
+        const gameHub = document.getElementById('gameHubOverlay');
+        if (gameHub) {
+            gameHub.style.pointerEvents = '';
+            gameHub.style.display = '';
+        }
+
+        if (typeof oldCloseGame === 'function') {
+            return oldCloseGame.apply(this, args);
+        }
+    };
+
+})();
