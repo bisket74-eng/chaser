@@ -247,3 +247,30 @@ window.nextTriviaRound = function () {
                 ` : ""}
             </div>`;
     }
+/* CHASER PATCH A – Sequence layout + Hangman spacing + Trivia host/timer */
+(function () {
+    const gameCanvas = document.getElementById("gameCanvasContainer");
+    const gameStage = document.getElementById("activeGameStage");
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return window.chaserGame && window.chaserGame.hostId === myId();
+    }
+
+    function send(event, payload) {
+        if (typeof channel !== "undefined" && channel) {
+            channel.send({
+                type: "broadcast",
+                event,
+                payload: {
+                    ...payload,
+                    senderId: myId(),
+                    roomGameId: window.chaserGame?.activeGameId || null
+                }
+            });
+        }
+           
+    }
