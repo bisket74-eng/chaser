@@ -765,8 +765,8 @@
         const hub = document.getElementById("gameHubOverlay");
         if (hub) {
             hub.classList.remove("open");
-            hub.style.display = "none";
-            hub.style.pointerEvents = "none";
+            hub.style.display = "";
+            hub.style.pointerEvents = "";
         }
     }
 
