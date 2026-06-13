@@ -2,7 +2,7 @@ alert("YAHTZEE JS FILE LOADED");
 
 /* ============================================================
    CHASER YAHTZEE GAME - FULL FILE
-   Updated layout + upper bonus + compact dice after final roll
+   Updated layout + upper bonus + compact dice + Use These Dice
    ============================================================ */
 (function () {
     "use strict";
@@ -55,12 +55,9 @@ alert("YAHTZEE JS FILE LOADED");
     }
 
     function setHeader() {
-        const title = document.getElementById("activeGameLabelTitle");
         const roomDisplay = document.getElementById("roomDisplayCode");
         const headerBtns = document.getElementById("headerActionButtonsContainer");
         const chatHeader = document.getElementById("chatHeader");
-
-        if (title) title.innerText = "🎲 Yahtzee";
 
         if (roomDisplay) {
             roomDisplay.innerText = "🎲 Yahtzee";
@@ -90,9 +87,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     function diceCounts(dice) {
         const counts = {};
-        dice.forEach(d => {
-            if (d) counts[d] = (counts[d] || 0) + 1;
-        });
+        dice.forEach(d => counts[d] = (counts[d] || 0) + 1);
         return counts;
     }
 
@@ -172,6 +167,7 @@ alert("YAHTZEE JS FILE LOADED");
             dice: [null, null, null, null, null],
             held: [false, false, false, false, false],
             rollsLeft: 3,
+            choosingScore: false,
             gameOver: false,
             message: "Roll the dice."
         };
@@ -239,7 +235,20 @@ alert("YAHTZEE JS FILE LOADED");
         }
 
         s.rollsLeft--;
-        s.message = s.rollsLeft > 0 ? "Tap dice to hold them, or roll again." : "Choose a score box.";
+        s.choosingScore = false;
+        s.message = s.rollsLeft > 0 ? "Roll again, hold dice, or use these dice." : "Choose a score box.";
+
+        renderYahtzee();
+        syncYahtzee();
+    };
+
+    window.useYahtzeeDice = function () {
+        const s = window.yahtzeeState;
+        if (!s || s.gameOver) return;
+        if (s.dice.some(d => !d)) return;
+
+        s.choosingScore = true;
+        s.message = "Choose a score box.";
 
         renderYahtzee();
         syncYahtzee();
@@ -247,7 +256,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.toggleYahtzeeHold = function (idx) {
         const s = window.yahtzeeState;
-        if (!s || s.gameOver || !s.dice[idx] || s.rollsLeft === 3) return;
+        if (!s || s.gameOver || !s.dice[idx] || s.rollsLeft === 3 || s.choosingScore) return;
 
         const p = currentPlayer();
         if (p.id !== myId() && s.players.length > 1) return;
@@ -282,6 +291,7 @@ alert("YAHTZEE JS FILE LOADED");
         s.dice = [null, null, null, null, null];
         s.held = [false, false, false, false, false];
         s.rollsLeft = 3;
+        s.choosingScore = false;
         s.message = currentPlayer().name + "'s turn. Roll the dice.";
 
         renderYahtzee();
@@ -308,7 +318,7 @@ alert("YAHTZEE JS FILE LOADED");
         const totalNow = totalFor(p.scores);
         const bonusNeeded = Math.max(0, 63 - upperNow);
 
-        const diceCompact = s.rollsLeft === 0 && !s.gameOver;
+        const diceCompact = (s.choosingScore || s.rollsLeft === 0) && !s.gameOver;
 
         const topDice = diceCompact
             ? s.dice.map((die, idx) => renderDiceButton(die, idx, s.held[idx])).join("")
@@ -354,121 +364,24 @@ alert("YAHTZEE JS FILE LOADED");
 
         canvas.innerHTML = `
             <style>
-                .yz-wrap {
-                    height:100%;
-                    overflow:auto;
-                    box-sizing:border-box;
-                    padding:10px;
-                    color:#e2f0d9;
-                    font-family:'Trebuchet MS', sans-serif;
-                }
+                .yz-wrap { height:100%; overflow:auto; box-sizing:border-box; padding:10px; color:#e2f0d9; font-family:'Trebuchet MS', sans-serif; }
+                .yz-topbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; margin-bottom:8px; }
+                .yz-player-card { background:rgba(0,0,0,.28); border:2px solid rgba(226,240,217,.5); border-radius:14px; padding:9px 10px; min-width:0; }
+                .yz-player-name { font-size:17px; font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#ffd700; }
+                .yz-player-score { font-size:13px; font-weight:900; color:#e2f0d9; margin-top:2px; }
+                .yz-new-btn { padding:11px 12px; border-radius:12px; border:2px solid #e2f0d9; background:#1e4620; color:#e2f0d9; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.35); }
 
-                .yz-topbar {
-                    display:grid;
-                    grid-template-columns:1fr auto;
-                    gap:8px;
-                    align-items:center;
-                    margin-bottom:8px;
-                }
+                .yz-main-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-bottom:10px; text-align:center; }
+                .yz-turn-line { font-weight:900; margin-bottom:4px; color:#ffd700; }
+                .yz-message { font-size:14px; margin-bottom:10px; color:#e2f0d9; }
 
-                .yz-player-card {
-                    background:rgba(0,0,0,.28);
-                    border:2px solid rgba(226,240,217,.5);
-                    border-radius:14px;
-                    padding:9px 10px;
-                    min-width:0;
-                }
+                .yz-dice-area { display:flex; flex-direction:column; align-items:center; gap:10px; margin:8px auto 12px; max-width:340px; }
+                .yz-dice-row { display:flex; justify-content:center; gap:10px; width:100%; }
 
-                .yz-player-name {
-                    font-size:17px;
-                    font-weight:900;
-                    white-space:nowrap;
-                    overflow:hidden;
-                    text-overflow:ellipsis;
-                    color:#ffd700;
-                }
+                .yz-die { position:relative; width:86px; height:86px; border-radius:18px; border:4px solid #111; background:linear-gradient(145deg,#ffffff,#dcdcdc); box-shadow:inset -4px -4px 8px rgba(0,0,0,.18), inset 4px 4px 8px rgba(255,255,255,.85), 0 5px 12px rgba(0,0,0,.45); padding:0; flex:0 0 auto; }
+                .yz-die.held { border-color:#ffd700; background:linear-gradient(145deg,#fff9cc,#ecd86d); transform:translateY(-3px); }
 
-                .yz-player-score {
-                    font-size:13px;
-                    font-weight:900;
-                    color:#e2f0d9;
-                    margin-top:2px;
-                }
-
-                .yz-new-btn {
-                    padding:11px 12px;
-                    border-radius:12px;
-                    border:2px solid #e2f0d9;
-                    background:#1e4620;
-                    color:#e2f0d9;
-                    font-weight:900;
-                    box-shadow:0 3px 8px rgba(0,0,0,.35);
-                }
-
-                .yz-main-panel {
-                    background:rgba(0,0,0,.25);
-                    border:2px solid rgba(226,240,217,.55);
-                    border-radius:14px;
-                    padding:10px;
-                    margin-bottom:10px;
-                    text-align:center;
-                }
-
-                .yz-turn-line {
-                    font-weight:900;
-                    margin-bottom:4px;
-                    color:#ffd700;
-                }
-
-                .yz-message {
-                    font-size:14px;
-                    margin-bottom:10px;
-                    color:#e2f0d9;
-                }
-
-                .yz-dice-area {
-                    display:flex;
-                    flex-direction:column;
-                    align-items:center;
-                    gap:10px;
-                    margin:8px auto 12px;
-                    max-width:340px;
-                }
-
-                .yz-dice-row {
-                    display:flex;
-                    justify-content:center;
-                    gap:10px;
-                    width:100%;
-                }
-
-                .yz-die {
-                    position:relative;
-                    width:86px;
-                    height:86px;
-                    border-radius:18px;
-                    border:4px solid #111;
-                    background:linear-gradient(145deg, #ffffff, #dcdcdc);
-                    box-shadow:inset -4px -4px 8px rgba(0,0,0,.18), inset 4px 4px 8px rgba(255,255,255,.85), 0 5px 12px rgba(0,0,0,.45);
-                    padding:0;
-                    flex:0 0 auto;
-                }
-
-                .yz-die.held {
-                    border-color:#ffd700;
-                    background:linear-gradient(145deg, #fff9cc, #ecd86d);
-                    transform:translateY(-3px);
-                }
-
-                .yz-pip {
-                    position:absolute;
-                    width:12px;
-                    height:12px;
-                    background:#111;
-                    border-radius:50%;
-                    transform:translate(-50%, -50%);
-                }
-
+                .yz-pip { position:absolute; width:12px; height:12px; background:#111; border-radius:50%; transform:translate(-50%,-50%); }
                 .yz-pip.top-left { left:28%; top:28%; }
                 .yz-pip.top-right { left:72%; top:28%; }
                 .yz-pip.middle-left { left:28%; top:50%; }
@@ -477,142 +390,35 @@ alert("YAHTZEE JS FILE LOADED");
                 .yz-pip.bottom-left { left:28%; top:72%; }
                 .yz-pip.bottom-right { left:72%; top:72%; }
 
-                .yz-question {
-                    position:absolute;
-                    inset:0;
-                    display:flex;
-                    align-items:center;
-                    justify-content:center;
-                    color:#111;
-                    font-size:44px;
-                    font-weight:900;
-                }
+                .yz-question { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#111; font-size:44px; font-weight:900; }
 
-                .yz-compact-dice {
-                    margin:2px auto 6px !important;
-                    gap:4px !important;
-                    max-width:100% !important;
-                }
+                .yz-compact-dice { margin:2px auto 6px !important; gap:4px !important; max-width:100% !important; }
+                .yz-compact-dice .yz-dice-row { flex-direction:row !important; gap:5px !important; }
+                .yz-compact-dice .yz-die { width:48px !important; height:48px !important; border-radius:10px !important; border-width:3px !important; }
+                .yz-compact-dice .yz-pip { width:8px !important; height:8px !important; }
+                .yz-compact-dice .yz-question { font-size:26px !important; }
 
-                .yz-compact-dice .yz-dice-row {
-                    flex-direction:row !important;
-                    gap:5px !important;
-                }
-
-                .yz-compact-dice .yz-die {
-                    width:48px !important;
-                    height:48px !important;
-                    border-radius:10px !important;
-                    border-width:3px !important;
-                }
-
-                .yz-compact-dice .yz-pip {
-                    width:8px !important;
-                    height:8px !important;
-                }
-
-                .yz-compact-dice .yz-question {
-                    font-size:26px !important;
-                }
-
-                .yz-roll-btn {
-                    width:100%;
-                    max-width:280px;
-                    padding:12px;
-                    border-radius:14px;
-                    border:3px solid #111;
-                    color:#111;
-                    font-size:17px;
-                    font-weight:900;
-                    box-shadow:0 3px 8px rgba(0,0,0,.35);
-                }
-
+                .yz-roll-btn, .yz-use-btn { width:100%; max-width:280px; padding:12px; border-radius:14px; border:3px solid #111; color:#111; font-size:17px; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.35); }
                 .yz-roll-btn.active { background:#ffd700; }
                 .yz-roll-btn:disabled { background:#777; color:#222; }
+                .yz-use-btn { margin-top:8px; background:#e2f0d9; color:#1e4620; border-color:#ffd700; }
 
-                .yz-score-panel {
-                    background:rgba(0,0,0,.25);
-                    border:2px solid rgba(226,240,217,.55);
-                    border-radius:14px;
-                    padding:10px;
-                    margin-bottom:15px;
-                }
-
-                .yz-score-head,
-                .yz-score-row,
-                .yz-bonus-row {
-                    display:grid;
-                    grid-template-columns:1.5fr .7fr .9fr;
-                    gap:6px;
-                    align-items:center;
-                }
-
-                .yz-score-head {
-                    font-weight:900;
-                    margin-bottom:6px;
-                    color:#ffd700;
-                    font-size:13px;
-                }
-
-                .yz-score-row {
-                    padding:7px 8px;
-                    border-bottom:1px solid rgba(255,255,255,.15);
-                    background:rgba(0,0,0,.18);
-                    border-radius:8px;
-                    margin-bottom:5px;
-                }
-
+                .yz-score-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-bottom:15px; }
+                .yz-score-head, .yz-score-row, .yz-bonus-row { display:grid; grid-template-columns:1.5fr .7fr .9fr; gap:6px; align-items:center; }
+                .yz-score-head { font-weight:900; margin-bottom:6px; color:#ffd700; font-size:13px; }
+                .yz-score-row { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,.15); background:rgba(0,0,0,.18); border-radius:8px; margin-bottom:5px; }
                 .yz-score-row.used { background:rgba(255,255,255,.08); }
-
-                .yz-score-name {
-                    font-weight:900;
-                    font-size:14px;
-                }
-
-                .yz-score-value {
-                    text-align:center;
-                    font-weight:900;
-                }
-
-                .yz-score-btn {
-                    padding:6px;
-                    border-radius:8px;
-                    border:2px solid #e2f0d9;
-                    background:#777;
-                    color:#111;
-                    font-weight:900;
-                }
-
+                .yz-score-name { font-weight:900; font-size:14px; }
+                .yz-score-value { text-align:center; font-weight:900; }
+                .yz-score-btn { padding:6px; border-radius:8px; border:2px solid #e2f0d9; background:#777; color:#111; font-weight:900; }
                 .yz-score-btn.active { background:#ffd700; }
 
-                .yz-bonus-row {
-                    padding:8px;
-                    margin:5px 0;
-                    border-radius:8px;
-                    background:rgba(255,215,0,.14);
-                    color:#ffd700;
-                    font-weight:900;
-                    font-size:13px;
-                }
-
-                .yz-bonus-final {
-                    background:rgba(255,215,0,.22);
-                    margin-bottom:10px;
-                }
-
-                .yz-total-footer {
-                    text-align:center;
-                    color:#ffd700;
-                    font-size:16px;
-                    font-weight:900;
-                    padding:8px 0 12px;
-                }
+                .yz-bonus-row { padding:8px; margin:5px 0; border-radius:8px; background:rgba(255,215,0,.14); color:#ffd700; font-weight:900; font-size:13px; }
+                .yz-bonus-final { background:rgba(255,215,0,.22); margin-bottom:10px; }
+                .yz-total-footer { text-align:center; color:#ffd700; font-size:16px; font-weight:900; padding:8px 0 12px; }
 
                 @media (max-width:390px) {
-                    .yz-die {
-                        width:76px;
-                        height:76px;
-                    }
+                    .yz-die { width:76px; height:76px; }
                 }
             </style>
 
@@ -622,7 +428,6 @@ alert("YAHTZEE JS FILE LOADED");
                         <div class="yz-player-name">${p.name}</div>
                         <div class="yz-player-score">Total: ${totalNow} pts • Bonus: ${bonusNow ? "+35" : "0"}</div>
                     </div>
-
                     <button onclick="newYahtzeeGame()" class="yz-new-btn" type="button">New Game</button>
                 </div>
 
@@ -635,9 +440,15 @@ alert("YAHTZEE JS FILE LOADED");
                         ${bottomDice ? `<div class="yz-dice-row">${bottomDice}</div>` : ""}
                     </div>
 
-                    <button onclick="rollYahtzeeDice()" ${canAct && !s.gameOver && s.rollsLeft > 0 ? "" : "disabled"} class="yz-roll-btn ${canAct && !s.gameOver && s.rollsLeft > 0 ? "active" : ""}" type="button">
+                    <button onclick="rollYahtzeeDice()" ${canAct && !s.gameOver && s.rollsLeft > 0 && !s.choosingScore ? "" : "disabled"} class="yz-roll-btn ${canAct && !s.gameOver && s.rollsLeft > 0 && !s.choosingScore ? "active" : ""}" type="button">
                         Roll Dice (${s.rollsLeft} left)
                     </button>
+
+                    ${canAct && !s.gameOver && !s.dice.some(d => !d) && s.rollsLeft > 0 && !s.choosingScore ? `
+                        <button onclick="useYahtzeeDice()" class="yz-use-btn" type="button">
+                            Use These Dice
+                        </button>
+                    ` : ""}
                 </div>
 
                 <div class="yz-score-panel">
@@ -690,15 +501,6 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.receiveTriviaSync = function (payload) {
         if (payload && payload.yahtzee && payload.state) {
-            if (
-                payload.roomGameId &&
-                window.chaserGame &&
-                window.chaserGame.activeGameId &&
-                payload.roomGameId !== window.chaserGame.activeGameId
-            ) {
-                return;
-            }
-
             window.yahtzeeState = payload.state;
             if (window.chaserGame) window.chaserGame.activeGame = "Yahtzee";
             renderYahtzee();
@@ -748,7 +550,6 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.chaserMasterExitSequence = function (...args) {
         restoreAfterYahtzee();
-
         if (typeof oldMasterExit === "function") return oldMasterExit.apply(this, args);
         if (typeof oldShutdown === "function") return oldShutdown.apply(this, args);
     };
