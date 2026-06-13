@@ -603,4 +603,4 @@ window.nextTriviaRound = function () {
             window.receiveTriviaSync({ state: s, roomGameId: window.chaserGame.activeGameId });
         }
     };
-}
+
