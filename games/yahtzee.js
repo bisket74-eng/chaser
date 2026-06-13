@@ -1,19 +1,19 @@
 alert("YAHTZEE JS FILE LOADED");
 
 /* ============================================================
-   CHASER PATCH - YAHTZEE GAME - UPDATED LAYOUT + UPPER BONUS
-   Paste at VERY BOTTOM of games.js
+   CHASER YAHTZEE GAME - FULL FILE
+   Updated layout + upper bonus + compact dice after final roll
    ============================================================ */
 (function () {
     "use strict";
 
     const YAHTZEE_CATS = [
-        { id: "ones", label: "Ones", upper: true },
-        { id: "twos", label: "Twos", upper: true },
-        { id: "threes", label: "Threes", upper: true },
-        { id: "fours", label: "Fours", upper: true },
-        { id: "fives", label: "Fives", upper: true },
-        { id: "sixes", label: "Sixes", upper: true },
+        { id: "ones", label: "Ones" },
+        { id: "twos", label: "Twos" },
+        { id: "threes", label: "Threes" },
+        { id: "fours", label: "Fours" },
+        { id: "fives", label: "Fives" },
+        { id: "sixes", label: "Sixes" },
         { id: "threeKind", label: "3 of a Kind" },
         { id: "fourKind", label: "4 of a Kind" },
         { id: "fullHouse", label: "Full House" },
@@ -102,10 +102,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     function hasStraight(dice, needed) {
         const unique = [...new Set(dice)].sort((a, b) => a - b).join("");
-        const straights = needed === 5
-            ? ["12345", "23456"]
-            : ["1234", "2345", "3456"];
-
+        const straights = needed === 5 ? ["12345", "23456"] : ["1234", "2345", "3456"];
         return straights.some(s => unique.includes(s));
     }
 
@@ -117,7 +114,7 @@ alert("YAHTZEE JS FILE LOADED");
         const values = Object.values(counts);
 
         switch (cat) {
-            case "ones": return dice.filter(d => d === 1).length * 1;
+            case "ones": return dice.filter(d => d === 1).length;
             case "twos": return dice.filter(d => d === 2).length * 2;
             case "threes": return dice.filter(d => d === 3).length * 3;
             case "fours": return dice.filter(d => d === 4).length * 4;
@@ -151,11 +148,6 @@ alert("YAHTZEE JS FILE LOADED");
         return YAHTZEE_CATS.every(cat => scores[cat.id] !== null && scores[cat.id] !== undefined);
     }
 
-    function currentPlayer() {
-        const s = window.yahtzeeState;
-        return s.players[s.turn] || s.players[0];
-    }
-
     function createScoreCard() {
         return YAHTZEE_CATS.reduce((obj, cat) => {
             obj[cat.id] = null;
@@ -185,6 +177,11 @@ alert("YAHTZEE JS FILE LOADED");
         };
     }
 
+    function currentPlayer() {
+        const s = window.yahtzeeState;
+        return s.players[s.turn] || s.players[0];
+    }
+
     function pipHtml(value) {
         if (!value) return `<span class="yz-question">?</span>`;
 
@@ -202,11 +199,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     function renderDiceButton(value, idx, held) {
         return `
-            <button
-                class="yz-die ${held ? "held" : ""}"
-                onclick="toggleYahtzeeHold(${idx})"
-                type="button"
-            >
+            <button class="yz-die ${held ? "held" : ""}" onclick="toggleYahtzeeHold(${idx})" type="button">
                 ${pipHtml(value)}
             </button>
         `;
@@ -242,15 +235,11 @@ alert("YAHTZEE JS FILE LOADED");
         if (p.id !== myId() && s.players.length > 1) return;
 
         for (let i = 0; i < 5; i++) {
-            if (!s.held[i]) {
-                s.dice[i] = Math.floor(Math.random() * 6) + 1;
-            }
+            if (!s.held[i]) s.dice[i] = Math.floor(Math.random() * 6) + 1;
         }
 
         s.rollsLeft--;
-        s.message = s.rollsLeft > 0
-            ? "Tap dice to hold them, or roll again."
-            : "Choose a score box.";
+        s.message = s.rollsLeft > 0 ? "Tap dice to hold them, or roll again." : "Choose a score box.";
 
         renderYahtzee();
         syncYahtzee();
@@ -258,9 +247,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.toggleYahtzeeHold = function (idx) {
         const s = window.yahtzeeState;
-        if (!s || s.gameOver) return;
-        if (!s.dice[idx]) return;
-        if (s.rollsLeft === 3) return;
+        if (!s || s.gameOver || !s.dice[idx] || s.rollsLeft === 3) return;
 
         const p = currentPlayer();
         if (p.id !== myId() && s.players.length > 1) return;
@@ -272,8 +259,7 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.scoreYahtzeeCategory = function (catId) {
         const s = window.yahtzeeState;
-        if (!s || s.gameOver) return;
-        if (s.dice.some(d => !d)) return;
+        if (!s || s.gameOver || s.dice.some(d => !d)) return;
 
         const p = currentPlayer();
         if (p.id !== myId() && s.players.length > 1) return;
@@ -281,14 +267,9 @@ alert("YAHTZEE JS FILE LOADED");
 
         p.scores[catId] = scoreCategory(catId, s.dice);
 
-        const everyoneDone = s.players.every(player => allScoresFilled(player.scores));
-        if (everyoneDone) {
+        if (s.players.every(player => allScoresFilled(player.scores))) {
             s.gameOver = true;
-
-            const winner = s.players
-                .slice()
-                .sort((a, b) => totalFor(b.scores) - totalFor(a.scores))[0];
-
+            const winner = s.players.slice().sort((a, b) => totalFor(b.scores) - totalFor(a.scores))[0];
             s.message = winner.name + " wins with " + totalFor(winner.scores) + " points!";
             renderYahtzee();
             syncYahtzee();
@@ -296,10 +277,7 @@ alert("YAHTZEE JS FILE LOADED");
         }
 
         s.turn = (s.turn + 1) % s.players.length;
-
-        if (s.turn === 0) {
-            s.round++;
-        }
+        if (s.turn === 0) s.round++;
 
         s.dice = [null, null, null, null, null];
         s.held = [false, false, false, false, false];
@@ -330,6 +308,16 @@ alert("YAHTZEE JS FILE LOADED");
         const totalNow = totalFor(p.scores);
         const bonusNeeded = Math.max(0, 63 - upperNow);
 
+        const diceCompact = s.rollsLeft === 0 && !s.gameOver;
+
+        const topDice = diceCompact
+            ? s.dice.map((die, idx) => renderDiceButton(die, idx, s.held[idx])).join("")
+            : s.dice.slice(0, 3).map((die, idx) => renderDiceButton(die, idx, s.held[idx])).join("");
+
+        const bottomDice = diceCompact
+            ? ""
+            : s.dice.slice(3, 5).map((die, idx) => renderDiceButton(die, idx + 3, s.held[idx + 3])).join("");
+
         let scoreRows = "";
 
         YAHTZEE_CATS.forEach(cat => {
@@ -342,12 +330,7 @@ alert("YAHTZEE JS FILE LOADED");
                 <div class="yz-score-row ${used ? "used" : ""}">
                     <div class="yz-score-name">${cat.label}</div>
                     <div class="yz-score-value">${used ? actual : preview}</div>
-                    <button
-                        onclick="scoreYahtzeeCategory('${cat.id}')"
-                        ${clickable ? "" : "disabled"}
-                        class="yz-score-btn ${clickable ? "active" : ""}"
-                        type="button"
-                    >
+                    <button onclick="scoreYahtzeeCategory('${cat.id}')" ${clickable ? "" : "disabled"} class="yz-score-btn ${clickable ? "active" : ""}" type="button">
                         ${used ? "Used" : "Score"}
                     </button>
                 </div>
@@ -362,285 +345,274 @@ alert("YAHTZEE JS FILE LOADED");
                     </div>
                     <div class="yz-bonus-row yz-bonus-final">
                         <div>Upper Bonus</div>
-                        <div colspan="2">${bonusNow ? "35 points earned" : "0 so far"}</div>
+                        <div>${bonusNow ? "35 earned" : "0 so far"}</div>
                         <div>${bonusNow ? "✅" : "—"}</div>
                     </div>
                 `;
             }
         });
 
-        const topDice = s.dice.slice(0, 3).map((die, idx) => renderDiceButton(die, idx, s.held[idx])).join("");
-        const bottomDice = s.dice.slice(3, 5).map((die, idx) => renderDiceButton(die, idx + 3, s.held[idx + 3])).join("");
-
         canvas.innerHTML = `
             <style>
                 .yz-wrap {
-                    height: 100%;
-                    overflow: auto;
-                    box-sizing: border-box;
-                    padding: 10px;
-                    color: #e2f0d9;
-                    font-family: 'Trebuchet MS', sans-serif;
+                    height:100%;
+                    overflow:auto;
+                    box-sizing:border-box;
+                    padding:10px;
+                    color:#e2f0d9;
+                    font-family:'Trebuchet MS', sans-serif;
                 }
 
                 .yz-topbar {
-                    display: grid;
-                    grid-template-columns: 1fr auto;
-                    gap: 8px;
-                    align-items: center;
-                    margin-bottom: 8px;
+                    display:grid;
+                    grid-template-columns:1fr auto;
+                    gap:8px;
+                    align-items:center;
+                    margin-bottom:8px;
                 }
 
                 .yz-player-card {
-                    background: rgba(0,0,0,.28);
-                    border: 2px solid rgba(226,240,217,.5);
-                    border-radius: 14px;
-                    padding: 9px 10px;
-                    min-width: 0;
+                    background:rgba(0,0,0,.28);
+                    border:2px solid rgba(226,240,217,.5);
+                    border-radius:14px;
+                    padding:9px 10px;
+                    min-width:0;
                 }
 
                 .yz-player-name {
-                    font-size: 17px;
-                    font-weight: 900;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    color: #ffd700;
+                    font-size:17px;
+                    font-weight:900;
+                    white-space:nowrap;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                    color:#ffd700;
                 }
 
                 .yz-player-score {
-                    font-size: 13px;
-                    font-weight: 900;
-                    color: #e2f0d9;
-                    margin-top: 2px;
+                    font-size:13px;
+                    font-weight:900;
+                    color:#e2f0d9;
+                    margin-top:2px;
                 }
 
                 .yz-new-btn {
-                    padding: 11px 12px;
-                    border-radius: 12px;
-                    border: 2px solid #e2f0d9;
-                    background: #1e4620;
-                    color: #e2f0d9;
-                    font-weight: 900;
-                    box-shadow: 0 3px 8px rgba(0,0,0,.35);
+                    padding:11px 12px;
+                    border-radius:12px;
+                    border:2px solid #e2f0d9;
+                    background:#1e4620;
+                    color:#e2f0d9;
+                    font-weight:900;
+                    box-shadow:0 3px 8px rgba(0,0,0,.35);
                 }
 
                 .yz-main-panel {
-                    background: rgba(0,0,0,.25);
-                    border: 2px solid rgba(226,240,217,.55);
-                    border-radius: 14px;
-                    padding: 10px;
-                    margin-bottom: 10px;
-                    text-align: center;
+                    background:rgba(0,0,0,.25);
+                    border:2px solid rgba(226,240,217,.55);
+                    border-radius:14px;
+                    padding:10px;
+                    margin-bottom:10px;
+                    text-align:center;
                 }
 
                 .yz-turn-line {
-                    font-weight: 900;
-                    margin-bottom: 4px;
-                    color: #ffd700;
+                    font-weight:900;
+                    margin-bottom:4px;
+                    color:#ffd700;
                 }
 
                 .yz-message {
-                    font-size: 14px;
-                    margin-bottom: 10px;
-                    color: #e2f0d9;
+                    font-size:14px;
+                    margin-bottom:10px;
+                    color:#e2f0d9;
                 }
 
                 .yz-dice-area {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 10px;
-                    margin: 8px auto 12px;
-                    max-width: 340px;
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    gap:10px;
+                    margin:8px auto 12px;
+                    max-width:340px;
                 }
 
                 .yz-dice-row {
-                    display: flex;
-                    justify-content: center;
-                    gap: 10px;
-                    width: 100%;
+                    display:flex;
+                    justify-content:center;
+                    gap:10px;
+                    width:100%;
                 }
 
                 .yz-die {
-                    position: relative;
-                    width: 86px;
-                    height: 86px;
-                    border-radius: 18px;
-                    border: 4px solid #111;
-                    background: linear-gradient(145deg, #ffffff, #dcdcdc);
-                    box-shadow:
-                        inset -4px -4px 8px rgba(0,0,0,.18),
-                        inset 4px 4px 8px rgba(255,255,255,.85),
-                        0 5px 12px rgba(0,0,0,.45);
-                    padding: 0;
-                    flex: 0 0 auto;
+                    position:relative;
+                    width:86px;
+                    height:86px;
+                    border-radius:18px;
+                    border:4px solid #111;
+                    background:linear-gradient(145deg, #ffffff, #dcdcdc);
+                    box-shadow:inset -4px -4px 8px rgba(0,0,0,.18), inset 4px 4px 8px rgba(255,255,255,.85), 0 5px 12px rgba(0,0,0,.45);
+                    padding:0;
+                    flex:0 0 auto;
                 }
 
                 .yz-die.held {
-                    border-color: #ffd700;
-                    background: linear-gradient(145deg, #fff9cc, #ecd86d);
-                    transform: translateY(-3px);
+                    border-color:#ffd700;
+                    background:linear-gradient(145deg, #fff9cc, #ecd86d);
+                    transform:translateY(-3px);
                 }
 
                 .yz-pip {
-                    position: absolute;
-                    width: 15px;
-                    height: 15px;
-                    border-radius: 50%;
-                    background: #111;
-                    box-shadow: inset 1px 1px 2px rgba(255,255,255,.25);
+                    position:absolute;
+                    width:12px;
+                    height:12px;
+                    background:#111;
+                    border-radius:50%;
+                    transform:translate(-50%, -50%);
                 }
+
+                .yz-pip.top-left { left:28%; top:28%; }
+                .yz-pip.top-right { left:72%; top:28%; }
+                .yz-pip.middle-left { left:28%; top:50%; }
+                .yz-pip.middle-right { left:72%; top:50%; }
+                .yz-pip.center { left:50%; top:50%; }
+                .yz-pip.bottom-left { left:28%; top:72%; }
+                .yz-pip.bottom-right { left:72%; top:72%; }
 
                 .yz-question {
-                    position: absolute;
-                    inset: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #111;
-                    font-size: 44px;
-                    font-weight: 900;
+                    position:absolute;
+                    inset:0;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    color:#111;
+                    font-size:44px;
+                    font-weight:900;
                 }
 
-                .top-left { top: 17px; left: 17px; }
-                .top-right { top: 17px; right: 17px; }
-                .middle-left { top: 35px; left: 17px; }
-                .middle-right { top: 35px; right: 17px; }
-                .center { top: 35px; left: 35px; }
-                .bottom-left { bottom: 17px; left: 17px; }
-                .bottom-right { bottom: 17px; right: 17px; }
+                .yz-compact-dice {
+                    margin:2px auto 6px !important;
+                    gap:4px !important;
+                    max-width:100% !important;
+                }
+
+                .yz-compact-dice .yz-dice-row {
+                    flex-direction:row !important;
+                    gap:5px !important;
+                }
+
+                .yz-compact-dice .yz-die {
+                    width:48px !important;
+                    height:48px !important;
+                    border-radius:10px !important;
+                    border-width:3px !important;
+                }
+
+                .yz-compact-dice .yz-pip {
+                    width:8px !important;
+                    height:8px !important;
+                }
+
+                .yz-compact-dice .yz-question {
+                    font-size:26px !important;
+                }
 
                 .yz-roll-btn {
-                    width: 100%;
-                    max-width: 280px;
-                    padding: 12px;
-                    border-radius: 14px;
-                    border: 3px solid #111;
-                    color: #111;
-                    font-size: 17px;
-                    font-weight: 900;
-                    box-shadow: 0 3px 8px rgba(0,0,0,.35);
+                    width:100%;
+                    max-width:280px;
+                    padding:12px;
+                    border-radius:14px;
+                    border:3px solid #111;
+                    color:#111;
+                    font-size:17px;
+                    font-weight:900;
+                    box-shadow:0 3px 8px rgba(0,0,0,.35);
                 }
 
-                .yz-roll-btn.active {
-                    background: #ffd700;
-                }
-
-                .yz-roll-btn:disabled {
-                    background: #777;
-                    color: #222;
-                }
+                .yz-roll-btn.active { background:#ffd700; }
+                .yz-roll-btn:disabled { background:#777; color:#222; }
 
                 .yz-score-panel {
-                    background: rgba(0,0,0,.25);
-                    border: 2px solid rgba(226,240,217,.55);
-                    border-radius: 14px;
-                    padding: 10px;
-                    margin-bottom: 15px;
+                    background:rgba(0,0,0,.25);
+                    border:2px solid rgba(226,240,217,.55);
+                    border-radius:14px;
+                    padding:10px;
+                    margin-bottom:15px;
+                }
+
+                .yz-score-head,
+                .yz-score-row,
+                .yz-bonus-row {
+                    display:grid;
+                    grid-template-columns:1.5fr .7fr .9fr;
+                    gap:6px;
+                    align-items:center;
                 }
 
                 .yz-score-head {
-                    display: grid;
-                    grid-template-columns: 1.5fr .7fr .9fr;
-                    gap: 6px;
-                    font-weight: 900;
-                    margin-bottom: 6px;
-                    color: #ffd700;
-                    font-size: 13px;
+                    font-weight:900;
+                    margin-bottom:6px;
+                    color:#ffd700;
+                    font-size:13px;
                 }
 
                 .yz-score-row {
-                    display: grid;
-                    grid-template-columns: 1.5fr .7fr .9fr;
-                    gap: 6px;
-                    align-items: center;
-                    padding: 7px 8px;
-                    border-bottom: 1px solid rgba(255,255,255,.15);
-                    background: rgba(0,0,0,.18);
-                    border-radius: 8px;
-                    margin-bottom: 5px;
+                    padding:7px 8px;
+                    border-bottom:1px solid rgba(255,255,255,.15);
+                    background:rgba(0,0,0,.18);
+                    border-radius:8px;
+                    margin-bottom:5px;
                 }
 
-                .yz-score-row.used {
-                    background: rgba(255,255,255,.08);
-                }
+                .yz-score-row.used { background:rgba(255,255,255,.08); }
 
                 .yz-score-name {
-                    font-weight: 900;
-                    font-size: 14px;
+                    font-weight:900;
+                    font-size:14px;
                 }
 
                 .yz-score-value {
-                    text-align: center;
-                    font-weight: 900;
+                    text-align:center;
+                    font-weight:900;
                 }
 
                 .yz-score-btn {
-                    padding: 6px;
-                    border-radius: 8px;
-                    border: 2px solid #e2f0d9;
-                    background: #777;
-                    color: #111;
-                    font-weight: 900;
+                    padding:6px;
+                    border-radius:8px;
+                    border:2px solid #e2f0d9;
+                    background:#777;
+                    color:#111;
+                    font-weight:900;
                 }
 
-                .yz-score-btn.active {
-                    background: #ffd700;
-                }
+                .yz-score-btn.active { background:#ffd700; }
 
                 .yz-bonus-row {
-                    display: grid;
-                    grid-template-columns: 1.5fr .7fr .9fr;
-                    gap: 6px;
-                    align-items: center;
-                    padding: 8px;
-                    margin: 5px 0;
-                    border-radius: 8px;
-                    background: rgba(255,215,0,.14);
-                    color: #ffd700;
-                    font-weight: 900;
-                    font-size: 13px;
+                    padding:8px;
+                    margin:5px 0;
+                    border-radius:8px;
+                    background:rgba(255,215,0,.14);
+                    color:#ffd700;
+                    font-weight:900;
+                    font-size:13px;
                 }
 
                 .yz-bonus-final {
-                    background: rgba(255,215,0,.22);
-                    margin-bottom: 10px;
-                }
-
-                .yz-waiting {
-                    margin-top: 8px;
-                    color: #ffd700;
-                    font-weight: 900;
+                    background:rgba(255,215,0,.22);
+                    margin-bottom:10px;
                 }
 
                 .yz-total-footer {
-                    text-align: center;
-                    color: #ffd700;
-                    font-size: 16px;
-                    font-weight: 900;
-                    padding: 8px 0 12px;
+                    text-align:center;
+                    color:#ffd700;
+                    font-size:16px;
+                    font-weight:900;
+                    padding:8px 0 12px;
                 }
 
-                @media (max-width: 390px) {
+                @media (max-width:390px) {
                     .yz-die {
-                        width: 76px;
-                        height: 76px;
-                        border-radius: 16px;
+                        width:76px;
+                        height:76px;
                     }
-
-                    .yz-pip {
-                        width: 13px;
-                        height: 13px;
-                    }
-
-                    .top-left { top: 15px; left: 15px; }
-                    .top-right { top: 15px; right: 15px; }
-                    .middle-left { top: 31px; left: 15px; }
-                    .middle-right { top: 31px; right: 15px; }
-                    .center { top: 31px; left: 31px; }
-                    .bottom-left { bottom: 15px; left: 15px; }
-                    .bottom-right { bottom: 15px; right: 15px; }
                 }
             </style>
 
@@ -651,38 +623,21 @@ alert("YAHTZEE JS FILE LOADED");
                         <div class="yz-player-score">Total: ${totalNow} pts • Bonus: ${bonusNow ? "+35" : "0"}</div>
                     </div>
 
-                    <button onclick="newYahtzeeGame()" class="yz-new-btn" type="button">
-                        New Game
-                    </button>
+                    <button onclick="newYahtzeeGame()" class="yz-new-btn" type="button">New Game</button>
                 </div>
 
                 <div class="yz-main-panel">
                     <div class="yz-turn-line">Round ${s.round} • ${p.name}'s Turn</div>
                     <div class="yz-message">${s.message}</div>
 
-                    <div class="yz-dice-area">
-                        <div class="yz-dice-row">
-                            ${topDice}
-                        </div>
-                        <div class="yz-dice-row">
-                            ${bottomDice}
-                        </div>
+                    <div class="yz-dice-area ${diceCompact ? "yz-compact-dice" : ""}">
+                        <div class="yz-dice-row">${topDice}</div>
+                        ${bottomDice ? `<div class="yz-dice-row">${bottomDice}</div>` : ""}
                     </div>
 
-                    <button
-                        onclick="rollYahtzeeDice()"
-                        ${canAct && !s.gameOver && s.rollsLeft > 0 ? "" : "disabled"}
-                        class="yz-roll-btn ${canAct && !s.gameOver && s.rollsLeft > 0 ? "active" : ""}"
-                        type="button"
-                    >
+                    <button onclick="rollYahtzeeDice()" ${canAct && !s.gameOver && s.rollsLeft > 0 ? "" : "disabled"} class="yz-roll-btn ${canAct && !s.gameOver && s.rollsLeft > 0 ? "active" : ""}" type="button">
                         Roll Dice (${s.rollsLeft} left)
                     </button>
-
-                    ${!canAct && s.players.length > 1 ? `
-                        <div class="yz-waiting">
-                            Waiting for ${p.name}
-                        </div>
-                    ` : ""}
                 </div>
 
                 <div class="yz-score-panel">
@@ -691,13 +646,10 @@ alert("YAHTZEE JS FILE LOADED");
                         <div style="text-align:center;">Score</div>
                         <div style="text-align:center;">Pick</div>
                     </div>
-
                     ${scoreRows}
                 </div>
 
-                <div class="yz-total-footer">
-                    Current Total: ${totalNow} points
-                </div>
+                <div class="yz-total-footer">Current Total: ${totalNow} points</div>
             </div>
         `;
     }
@@ -719,6 +671,9 @@ alert("YAHTZEE JS FILE LOADED");
             window.chaserGame.mySeat = 0;
             window.chaserGame.hostId = myId();
             window.chaserGame.expectedPlayers = 1;
+
+            const hub = document.getElementById("gameHubOverlay");
+            if (hub) hub.classList.remove("open");
 
             openStage();
             setHeader();
@@ -754,93 +709,7 @@ alert("YAHTZEE JS FILE LOADED");
             oldReceiveTriviaSync(payload);
         }
     };
-})();
-/* ============================================================
-   YAHTZEE FIX — close game launcher + centered dice pips
-   Paste at VERY BOTTOM of games.js
-   ============================================================ */
 
-(function () {
-    function closeGameLauncher() {
-        const hub = document.getElementById("gameHubOverlay");
-        if (hub) {
-            hub.classList.remove("open");
-            hub.style.display = "none";
-            hub.style.pointerEvents = "none";
-        }
-    }
-
-    const oldLaunch = window.launchGameEngine;
-
-    window.launchGameEngine = function (gameName, gameIcon) {
-        if (String(gameName || "").trim().toLowerCase() === "yahtzee") {
-            closeGameLauncher();
-        }
-
-        if (typeof oldLaunch === "function") {
-            oldLaunch(gameName, gameIcon);
-        }
-
-        if (String(gameName || "").trim().toLowerCase() === "yahtzee") {
-            setTimeout(closeGameLauncher, 50);
-        }
-    };
-
-    const style = document.createElement("style");
-    style.innerHTML = `
-        .yz-die {
-            position: relative !important;
-        }
-
-        .yz-pip {
-            position: absolute !important;
-            width: 12px !important;
-            height: 12px !important;
-            background: #111 !important;
-            border-radius: 50% !important;
-            transform: translate(-50%, -50%) !important;
-        }
-
-        .yz-pip.top-left {
-            left: 28% !important;
-            top: 28% !important;
-        }
-
-        .yz-pip.top-right {
-            left: 72% !important;
-            top: 28% !important;
-        }
-
-        .yz-pip.middle-left {
-            left: 28% !important;
-            top: 50% !important;
-        }
-
-        .yz-pip.middle-right {
-            left: 72% !important;
-            top: 50% !important;
-        }
-
-        .yz-pip.center {
-            left: 50% !important;
-            top: 50% !important;
-        }
-
-        .yz-pip.bottom-left {
-            left: 28% !important;
-            top: 72% !important;
-        }
-
-        .yz-pip.bottom-right {
-            left: 72% !important;
-            top: 72% !important;
-        }
-    `;
-    document.head.appendChild(style);
-})();
-/* ===== YAHTZEE EXIT / LAUNCHER RESTORE FIX ===== */
-
-(function () {
     const oldShutdown = window.shutdownActiveGame;
     const oldMasterExit = window.chaserMasterExitSequence;
 
@@ -848,10 +717,6 @@ alert("YAHTZEE JS FILE LOADED");
         const hub = document.getElementById("gameHubOverlay");
         const canvas = document.getElementById("gameCanvasContainer");
         const stage = document.getElementById("activeGameStage");
-
-        document.querySelectorAll(
-            ".yahtzee-overlay, .yahtzee-modal, .yahtzee-popup, .yz-overlay, #yahtzeeOverlay"
-        ).forEach(el => el.remove());
 
         if (canvas) {
             canvas.innerHTML = "";
@@ -878,21 +743,13 @@ alert("YAHTZEE JS FILE LOADED");
 
     window.shutdownActiveGame = function (...args) {
         restoreAfterYahtzee();
-
-        if (typeof oldShutdown === "function") {
-            return oldShutdown.apply(this, args);
-        }
+        if (typeof oldShutdown === "function") return oldShutdown.apply(this, args);
     };
 
     window.chaserMasterExitSequence = function (...args) {
         restoreAfterYahtzee();
 
-        if (typeof oldMasterExit === "function") {
-            return oldMasterExit.apply(this, args);
-        }
-
-        if (typeof oldShutdown === "function") {
-            return oldShutdown.apply(this, args);
-        }
+        if (typeof oldMasterExit === "function") return oldMasterExit.apply(this, args);
+        if (typeof oldShutdown === "function") return oldShutdown.apply(this, args);
     };
 })();
