@@ -896,3 +896,53 @@
         }
     };
 })();
+
+/* ===== YAHTZEE RESTORE GAMES BUTTON FIX ===== */
+
+(function () {
+    function restoreGamesButtonAfterYahtzee() {
+        const chatHeader = document.getElementById("chatHeader");
+        const headerBtns = document.getElementById("headerActionButtonsContainer");
+        const gamesBtn = document.getElementById("chatGamesTriggerBtn");
+        const hub = document.getElementById("gameHubOverlay");
+
+        if (chatHeader) {
+            chatHeader.classList.remove("game-active-mode");
+        }
+
+        if (headerBtns) {
+            headerBtns.style.display = "flex";
+            headerBtns.style.pointerEvents = "";
+            headerBtns.style.visibility = "";
+            headerBtns.style.opacity = "";
+        }
+
+        if (gamesBtn) {
+            gamesBtn.disabled = false;
+            gamesBtn.style.pointerEvents = "";
+            gamesBtn.style.display = "";
+            gamesBtn.style.visibility = "";
+            gamesBtn.style.opacity = "";
+        }
+
+        if (hub) {
+            hub.classList.remove("open");
+            hub.style.pointerEvents = "";
+            hub.style.visibility = "";
+            hub.style.opacity = "";
+        }
+    }
+
+    const oldExit = window.chaserMasterExitSequence;
+
+    window.chaserMasterExitSequence = function (...args) {
+        if (typeof oldExit === "function") {
+            oldExit.apply(this, args);
+        }
+
+        setTimeout(restoreGamesButtonAfterYahtzee, 50);
+        setTimeout(restoreGamesButtonAfterYahtzee, 250);
+    };
+
+    window.shutdownActiveGame = window.chaserMasterExitSequence;
+})();
