@@ -216,9 +216,7 @@ alert("YAHTZEE JS FILE LOADED");
 }
             window.chaserGame.mySeat = 0;
             window.chaserGame.hostId = myId();
-            window.chaserGame.expectedPlayers = 1;
-        }
-
+            window.chaserGame.expectedPlayers = window.chaserGame.players.length || 1;
         window.yahtzeeState = createYahtzeeState();
         openStage();
         setHeader();
