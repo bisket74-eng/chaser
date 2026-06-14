@@ -1,4 +1,4 @@
-alert("YAHTZEE JS FILE LOADED");
+
 
 /* ============================================================
    CHASER YAHTZEE GAME - FULL FILE
@@ -211,12 +211,12 @@ alert("YAHTZEE JS FILE LOADED");
         }
 
         if (!window.chaserGame.players || !window.chaserGame.players.length) {
-            if (!window.chaserGame.players || !window.chaserGame.players.length) {
-    window.chaserGame.players = [{ id: myId(), name: myName(), seat: 0 }];
-}
+            window.chaserGame.players = [{ id: myId(), name: myName(), seat: 0 }];
             window.chaserGame.mySeat = 0;
             window.chaserGame.hostId = myId();
-            window.chaserGame.expectedPlayers = window.chaserGame.players.length || 1;
+            window.chaserGame.expectedPlayers = 1;
+        }
+
         window.yahtzeeState = createYahtzeeState();
         openStage();
         setHeader();
