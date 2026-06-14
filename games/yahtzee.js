@@ -3,6 +3,7 @@ alert("YAHTZEE JS FILE LOADED");
 /* ============================================================
    CHASER YAHTZEE GAME - FULL FILE
    Updated layout + upper bonus + compact dice + Use These Dice
+   Compact mode hides top player/new game row
    ============================================================ */
 (function () {
     "use strict";
@@ -319,6 +320,7 @@ alert("YAHTZEE JS FILE LOADED");
         const bonusNeeded = Math.max(0, 63 - upperNow);
 
         const diceCompact = (s.choosingScore || s.rollsLeft === 0) && !s.gameOver;
+        const showTopbar = !diceCompact;
 
         const topDice = diceCompact
             ? s.dice.map((die, idx) => renderDiceButton(die, idx, s.held[idx])).join("")
@@ -371,7 +373,7 @@ alert("YAHTZEE JS FILE LOADED");
                 .yz-player-score { font-size:13px; font-weight:900; color:#e2f0d9; margin-top:2px; }
                 .yz-new-btn { padding:11px 12px; border-radius:12px; border:2px solid #e2f0d9; background:#1e4620; color:#e2f0d9; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.35); }
 
-                .yz-main-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-bottom:10px; text-align:center; }
+                .yz-main-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-bottom:8px; text-align:center; }
                 .yz-turn-line { font-weight:900; margin-bottom:4px; color:#ffd700; }
                 .yz-message { font-size:14px; margin-bottom:10px; color:#e2f0d9; }
 
@@ -392,7 +394,7 @@ alert("YAHTZEE JS FILE LOADED");
 
                 .yz-question { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#111; font-size:44px; font-weight:900; }
 
-                .yz-compact-dice { margin:2px auto 6px !important; gap:4px !important; max-width:100% !important; }
+                .yz-compact-dice { margin:0 auto 4px !important; gap:4px !important; max-width:100% !important; }
                 .yz-compact-dice .yz-dice-row { flex-direction:row !important; gap:5px !important; }
                 .yz-compact-dice .yz-die { width:48px !important; height:48px !important; border-radius:10px !important; border-width:3px !important; }
                 .yz-compact-dice .yz-pip { width:8px !important; height:8px !important; }
@@ -403,7 +405,7 @@ alert("YAHTZEE JS FILE LOADED");
                 .yz-roll-btn:disabled { background:#777; color:#222; }
                 .yz-use-btn { margin-top:8px; background:#e2f0d9; color:#1e4620; border-color:#ffd700; }
 
-                .yz-score-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-bottom:15px; }
+                .yz-score-panel { background:rgba(0,0,0,.25); border:2px solid rgba(226,240,217,.55); border-radius:14px; padding:10px; margin-top:6px; margin-bottom:15px; }
                 .yz-score-head, .yz-score-row, .yz-bonus-row { display:grid; grid-template-columns:1.5fr .7fr .9fr; gap:6px; align-items:center; }
                 .yz-score-head { font-weight:900; margin-bottom:6px; color:#ffd700; font-size:13px; }
                 .yz-score-row { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,.15); background:rgba(0,0,0,.18); border-radius:8px; margin-bottom:5px; }
@@ -423,13 +425,15 @@ alert("YAHTZEE JS FILE LOADED");
             </style>
 
             <div class="yz-wrap">
-                <div class="yz-topbar">
-                    <div class="yz-player-card">
-                        <div class="yz-player-name">${p.name}</div>
-                        <div class="yz-player-score">Total: ${totalNow} pts • Bonus: ${bonusNow ? "+35" : "0"}</div>
+                ${showTopbar ? `
+                    <div class="yz-topbar">
+                        <div class="yz-player-card">
+                            <div class="yz-player-name">${p.name}</div>
+                            <div class="yz-player-score">Total: ${totalNow} pts • Bonus: ${bonusNow ? "+35" : "0"}</div>
+                        </div>
+                        <button onclick="newYahtzeeGame()" class="yz-new-btn" type="button">New Game</button>
                     </div>
-                    <button onclick="newYahtzeeGame()" class="yz-new-btn" type="button">New Game</button>
-                </div>
+                ` : ""}
 
                 <div class="yz-main-panel">
                     <div class="yz-turn-line">Round ${s.round} • ${p.name}'s Turn</div>
