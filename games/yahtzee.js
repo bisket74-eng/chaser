@@ -211,7 +211,9 @@ alert("YAHTZEE JS FILE LOADED");
         }
 
         if (!window.chaserGame.players || !window.chaserGame.players.length) {
-            window.chaserGame.players = [{ id: myId(), name: myName(), seat: 0 }];
+            if (!window.chaserGame.players || !window.chaserGame.players.length) {
+    window.chaserGame.players = [{ id: myId(), name: myName(), seat: 0 }];
+}
             window.chaserGame.mySeat = 0;
             window.chaserGame.hostId = myId();
             window.chaserGame.expectedPlayers = 1;
