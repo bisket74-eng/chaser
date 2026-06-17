@@ -5947,3 +5947,19 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
+/* COUP HELP BUTTON RESTORE ONLY */
+(function () {
+    window.showCoupHelpSheet = function () {
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas || document.getElementById("coupHelpOverlay")) return;
+
+        canvas.insertAdjacentHTML("beforeend", `
+            <div id="coupHelpOverlay" style="position:absolute;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;">
+                <div style="background:#e2f0d9;color:#1e4620;border:4px solid #ffd700;border-radius:14px;width:96%;max-width:340px;max-height:92%;overflow:auto;padding:12px;box-sizing:border-box;">
+                    <div style="font-family:Impact;font-size:34px;text-align:center;margin-bottom:8px;">Coup Help</div>
+
+                    <div><b>👑 Duke</b><br>Tax: take 3 coins<br>Blocks Foreign Aid</div><hr>
+                    <div><b>🗡️ Assassin</b><br>Pay 3 coins to assassinate</div><hr>
+                    <div><b>🏴‍☠️ Captain</b><br>Steal 2 coins<br>Blocks stealing</div><hr>
+                    <div><b>🔄 Ambassador</b><br>Exchange cards<br>Blocks stealing</div><hr>
+                    <div><b>🛡️ Contessa</
