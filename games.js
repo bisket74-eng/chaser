@@ -4762,7 +4762,7 @@ window.initHangmanGame = function () {
                 justify-content:space-between;align-items:center;
                 text-align:center;">
                 <div style="font-size:42px;">${r.icon}</div>
-                <div style="font-family:Impact;font-size:28px;color:#1e4620;">${role}</div>
+                <div font-size:${role === "Ambassador" ? "22px" : "28px"};color:#1e4620;">${role}</div>
                 <div style="font-size:15px;font-weight:900;">${r.action}</div>
                 <div style="font-size:13px;font-weight:900;color:#b00020;">${r.block}</div>
             </div>
