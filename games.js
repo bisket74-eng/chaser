@@ -5947,60 +5947,7 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
-/* COUP HELP BUTTON RESTORE ONLY - COMPLETE PATCH */
-(function () {
-    window.showCoupHelpSheet = function () {
-        const canvas = document.getElementById("gameCanvasContainer");
-        if (!canvas || document.getElementById("coupHelpOverlay")) return;
 
-        canvas.insertAdjacentHTML("beforeend", `
-            <div id="coupHelpOverlay" style="position:absolute;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;">
-                <div style="background:#e2f0d9;color:#1e4620;border:4px solid #ffd700;border-radius:14px;width:96%;max-width:340px;max-height:92%;overflow:auto;padding:12px;box-sizing:border-box;">
-                    <div style="font-family:Impact;font-size:34px;text-align:center;margin-bottom:8px;">Coup Help</div>
-                    <div><b>👑 Duke</b><br>Tax: take 3 coins<br>Blocks Foreign Aid</div><hr>
-                    <div><b>🗡️ Assassin</b><br>Pay 3 coins to assassinate<br>Blocked by Contessa</div><hr>
-                    <div><b>🏴‍☠️ Captain</b><br>Steal 2 coins<br>Blocks stealing</div><hr>
-                    <div><b>🔄 Ambassador</b><br>Exchange cards<br>Blocks stealing</div><hr>
-                    <div><b>🛡️ Contessa</b><br>Blocks assassination</div><hr>
-                    <div style="background:#fff3cd;border:2px solid #ffd700;border-radius:10px;padding:8px;font-weight:900;">
-                        Bluffing: You may claim any role, even if you do not have it.
-                    </div>
-                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="margin-top:10px;width:100%;padding:12px;border:none;border-radius:10px;background:#dc3545;color:white;font-size:22px;font-weight:900;">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `);
-    };
-
-    const oldHandleCoupSync = window.handleIncomingCoupSync;
-
-    function addHelpButton() {
-        const canvas = document.getElementById("gameCanvasContainer");
-        if (!canvas) return;
-        if (!window.chaserGame || window.chaserGame.activeGame !== "Coup") return;
-        if (document.getElementById("coupHelpBtn")) return;
-
-        canvas.insertAdjacentHTML("beforeend", `
-            <button id="coupHelpBtn" onclick="showCoupHelpSheet()" style="position:absolute;top:6px;right:6px;z-index:9999;background:#ffd700;color:#1e4620;border:none;border-radius:999px;padding:7px 12px;font-weight:900;">
-                Help
-            </button>
-        `);
-    }
-
-    const observer = new MutationObserver(addHelpButton);
-    const canvas = document.getElementById("gameCanvasContainer");
-    if (canvas) observer.observe(canvas, { childList:true, subtree:true });
-
-    window.handleIncomingCoupSync = function (state) {
-        if (typeof oldHandleCoupSync === "function") {
-            oldHandleCoupSync(state);
-        }
-        setTimeout(addHelpButton, 50);
-    };
-
-    setInterval(addHelpButton, 700);
-})();
 /* CHASER GAME FOOTER BUTTON ROW — exit left, Coup help right */
 (function () {
     const style = document.createElement("style");
@@ -6061,66 +6008,40 @@ window.initHangmanGame = function () {
     document.head.appendChild(style);
 })();
 
-/* COUP HELP POSITION + CLEAN POPUP FIX */
+/* ============================================================
+   COUP FINAL VISUAL PATCH
+   - Help button lives in same bottom row as Exit Game
+   - Help popup has red X only, no scroll, no bluff text
+   - Block text is red, action text is white
+   - Ambassador card title fits
+   ============================================================ */
 (function () {
+    "use strict";
+
     const style = document.createElement("style");
     style.innerHTML = `
+        /* Keep footer row space available */
         #activeGameStage {
-            padding-bottom: 44px !important;
+            padding-bottom: 48px !important;
         }
 
-        #coupHelpBtn {
+        /* Exit button: left side of footer row */
+        .canvas-exit-anchor-box {
             position: absolute !important;
-            top: auto !important;
-            bottom: 6px !important;
-            right: 10px !important;
-            left: auto !important;
+            bottom: 7px !important;
+            left: 10px !important;
+            right: auto !important;
             z-index: 9999 !important;
-            background: #ffd700 !important;
-            color: #1e4620 !important;
-            border: 1px solid #ffffff !important;
-            border-radius: 999px !important;
-            padding: 4px 10px !important;
-            font-size: 11px !important;
-            font-weight: 900 !important;
-            box-shadow: 0 2px 7px rgba(0,0,0,.35) !important;
         }
-    `;
-    document.head.appendChild(style);
 
-    window.showCoupHelpSheet = function () {
-        const canvas = document.getElementById("gameCanvasContainer");
-        if (!canvas || document.getElementById("coupHelpOverlay")) return;
-
-        canvas.insertAdjacentHTML("beforeend", `
-            <div id="coupHelpOverlay" style="position:absolute;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box;">
-                <div style="position:relative;background:#e2f0d9;color:#1e4620;border:3px solid #ffd700;border-radius:14px;width:96%;max-width:330px;max-height:96%;overflow:hidden;padding:12px;box-sizing:border-box;">
-                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#dc3545;font-size:26px;font-weight:900;line-height:1;">✕</button>
-
-                    <div style="font-family:Impact;font-size:28px;text-align:center;margin-bottom:8px;">Coup Help</div>
-
-                    <div style="font-size:15px;"><b>👑 Duke</b><br>Tax: take 3 coins<br>Blocks Foreign Aid</div><hr>
-                    <div style="font-size:15px;"><b>🗡️ Assassin</b><br>Pay 3 coins to assassinate<br>Blocked by Contessa</div><hr>
-                    <div style="font-size:15px;"><b>🏴‍☠️ Captain</b><br>Steal 2 coins<br>Blocks stealing</div><hr>
-                    <div style="font-size:15px;"><b>🔄 Ambassador</b><br>Exchange cards<br>Blocks stealing</div><hr>
-                    <div style="font-size:15px;"><b>🛡️ Contessa</b><br>Blocks assassination</div>
-                </div>
-            </div>
-        `);
-    };
-})();
-
-/* COUP HELP ROW + AMBASSADOR FIT FIX */
-(function () {
-    const style = document.createElement("style");
-    style.innerHTML = `
+        /* Help button: right side of the EXACT SAME footer row */
         #coupHelpBtn {
             position: absolute !important;
             top: auto !important;
             bottom: 7px !important;
             right: 10px !important;
             left: auto !important;
-            z-index: 99999 !important;
+            z-index: 9999 !important;
             background: #ffd700 !important;
             color: #1e4620 !important;
             border: 2px solid #ffffff !important;
@@ -6130,27 +6051,104 @@ window.initHangmanGame = function () {
             font-weight: 900 !important;
             box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
         }
-
-        .canvas-exit-anchor-box {
-            bottom: 7px !important;
-        }
-
-        /* make Ambassador fit on cards */
-        #gameCanvasContainer * {
-            word-break: normal;
-        }
-
-        #gameCanvasContainer div {
-            max-width: 100%;
-        }
     `;
     document.head.appendChild(style);
 
-    setInterval(() => {
-        const btn = document.getElementById("coupHelpBtn");
+    function isCoupOpen() {
+        return window.chaserGame && String(window.chaserGame.activeGame || "").toLowerCase() === "coup";
+    }
+
+    function placeCoupHelpButton() {
         const stage = document.getElementById("activeGameStage");
-        if (btn && stage && !stage.contains(btn)) {
+        if (!stage || !isCoupOpen()) return;
+
+        let btn = document.getElementById("coupHelpBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "coupHelpBtn";
+            btn.type = "button";
+            btn.textContent = "Help";
+            btn.onclick = window.showCoupHelpSheet;
+        }
+
+        if (btn.parentElement !== stage) {
             stage.appendChild(btn);
         }
-    }, 300);
+    }
+
+    window.showCoupHelpSheet = function () {
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas || document.getElementById("coupHelpOverlay")) return;
+
+        canvas.insertAdjacentHTML("beforeend", `
+            <div id="coupHelpOverlay" style="
+                position:absolute;
+                inset:0;
+                z-index:99999;
+                background:rgba(0,0,0,.88);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:8px;
+                box-sizing:border-box;
+            ">
+                <div style="
+                    position:relative;
+                    background:#123b16;
+                    color:#ffffff;
+                    border:3px solid #ffd700;
+                    border-radius:14px;
+                    width:96%;
+                    max-width:330px;
+                    overflow:hidden;
+                    padding:12px;
+                    box-sizing:border-box;
+                    font-weight:900;
+                ">
+                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="
+                        position:absolute;
+                        top:6px;
+                        right:8px;
+                        background:none;
+                        border:none;
+                        color:#dc3545;
+                        font-size:26px;
+                        font-weight:900;
+                        line-height:1;
+                    ">✕</button>
+
+                    <div style="font-family:Impact,sans-serif;font-size:27px;text-align:center;margin-bottom:8px;color:#ffd700;">
+                        Coup Help
+                    </div>
+
+                    <div style="font-size:14px;"><b>👑 Duke</b><br><span style="color:#ffffff;">Tax: take 3 coins</span><br><span style="color:#dc3545;">Blocks Foreign Aid</span></div><hr>
+                    <div style="font-size:14px;"><b>🗡️ Assassin</b><br><span style="color:#ffffff;">Pay 3 coins to assassinate</span><br><span style="color:#dc3545;">Blocked by Contessa</span></div><hr>
+                    <div style="font-size:14px;"><b>🏴‍☠️ Captain</b><br><span style="color:#ffffff;">Steal 2 coins</span><br><span style="color:#dc3545;">Blocks stealing</span></div><hr>
+                    <div style="font-size:14px;"><b>🔄 Ambassador</b><br><span style="color:#ffffff;">Exchange cards</span><br><span style="color:#dc3545;">Blocks stealing</span></div><hr>
+                    <div style="font-size:14px;"><b>🛡️ Contessa</b><br><span style="color:#dc3545;">Blocks assassination</span></div>
+                </div>
+            </div>
+        `);
+    };
+
+    /* Shrink Ambassador only when Coup card renders */
+    const observer = new MutationObserver(() => {
+        if (!isCoupOpen()) return;
+
+        placeCoupHelpButton();
+
+        document.querySelectorAll("#gameCanvasContainer div").forEach(el => {
+            if (el.textContent && el.textContent.trim() === "Ambassador") {
+                el.style.fontSize = "22px";
+                el.style.letterSpacing = "-1px";
+                el.style.whiteSpace = "nowrap";
+            }
+        });
+    });
+
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (canvas) observer.observe(canvas, { childList:true, subtree:true });
+
+    setInterval(placeCoupHelpButton, 500);
 })();
