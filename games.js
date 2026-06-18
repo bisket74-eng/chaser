@@ -6060,3 +6060,52 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
+
+/* COUP HELP POSITION + CLEAN POPUP FIX */
+(function () {
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #activeGameStage {
+            padding-bottom: 44px !important;
+        }
+
+        #coupHelpBtn {
+            position: absolute !important;
+            top: auto !important;
+            bottom: 6px !important;
+            right: 10px !important;
+            left: auto !important;
+            z-index: 9999 !important;
+            background: #ffd700 !important;
+            color: #1e4620 !important;
+            border: 1px solid #ffffff !important;
+            border-radius: 999px !important;
+            padding: 4px 10px !important;
+            font-size: 11px !important;
+            font-weight: 900 !important;
+            box-shadow: 0 2px 7px rgba(0,0,0,.35) !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    window.showCoupHelpSheet = function () {
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas || document.getElementById("coupHelpOverlay")) return;
+
+        canvas.insertAdjacentHTML("beforeend", `
+            <div id="coupHelpOverlay" style="position:absolute;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box;">
+                <div style="position:relative;background:#e2f0d9;color:#1e4620;border:3px solid #ffd700;border-radius:14px;width:96%;max-width:330px;max-height:96%;overflow:hidden;padding:12px;box-sizing:border-box;">
+                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#dc3545;font-size:26px;font-weight:900;line-height:1;">✕</button>
+
+                    <div style="font-family:Impact;font-size:28px;text-align:center;margin-bottom:8px;">Coup Help</div>
+
+                    <div style="font-size:15px;"><b>👑 Duke</b><br>Tax: take 3 coins<br>Blocks Foreign Aid</div><hr>
+                    <div style="font-size:15px;"><b>🗡️ Assassin</b><br>Pay 3 coins to assassinate<br>Blocked by Contessa</div><hr>
+                    <div style="font-size:15px;"><b>🏴‍☠️ Captain</b><br>Steal 2 coins<br>Blocks stealing</div><hr>
+                    <div style="font-size:15px;"><b>🔄 Ambassador</b><br>Exchange cards<br>Blocks stealing</div><hr>
+                    <div style="font-size:15px;"><b>🛡️ Contessa</b><br>Blocks assassination</div>
+                </div>
+            </div>
+        `);
+    };
+})();
