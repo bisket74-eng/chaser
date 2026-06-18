@@ -6110,24 +6110,15 @@ window.initHangmanGame = function () {
     };
 })();
 
-/* COUP VISUAL FIX — help row + Ambassador fit + red block text */
+/* COUP HELP ROW + AMBASSADOR FIT FIX */
 (function () {
     const style = document.createElement("style");
     style.innerHTML = `
-        #activeGameStage {
-            padding-bottom: 48px !important;
-        }
-
-        .canvas-exit-anchor-box {
-            bottom: 7px !important;
-            left: 10px !important;
-        }
-
         #coupHelpBtn {
-            position: fixed !important;
+            position: absolute !important;
             top: auto !important;
-            bottom: calc(100vh - (100vh - 7px)) !important;
-            right: 12px !important;
+            bottom: 7px !important;
+            right: 10px !important;
             left: auto !important;
             z-index: 99999 !important;
             background: #ffd700 !important;
@@ -6140,32 +6131,26 @@ window.initHangmanGame = function () {
             box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
         }
 
-        /* Shrink only Ambassador card title so it fits */
-        #gameCanvasContainer div[style*="font-family:Impact"][style*="Ambassador"] {
-            font-size: 22px !important;
-            letter-spacing: -1px !important;
+        .canvas-exit-anchor-box {
+            bottom: 7px !important;
+        }
+
+        /* make Ambassador fit on cards */
+        #gameCanvasContainer * {
+            word-break: normal;
+        }
+
+        #gameCanvasContainer div {
+            max-width: 100%;
         }
     `;
     document.head.appendChild(style);
 
-    window.showCoupHelpSheet = function () {
-        const canvas = document.getElementById("gameCanvasContainer");
-        if (!canvas || document.getElementById("coupHelpOverlay")) return;
-
-        canvas.insertAdjacentHTML("beforeend", `
-            <div id="coupHelpOverlay" style="position:absolute;inset:0;z-index:99999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:8px;box-sizing:border-box;">
-                <div style="position:relative;background:#e2f0d9;color:#1e4620;border:3px solid #ffd700;border-radius:14px;width:96%;max-width:330px;max-height:96%;overflow:hidden;padding:12px;box-sizing:border-box;">
-                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="position:absolute;top:6px;right:8px;background:none;border:none;color:#dc3545;font-size:26px;font-weight:900;line-height:1;">✕</button>
-
-                    <div style="font-family:Impact;font-size:28px;text-align:center;margin-bottom:8px;">Coup Help</div>
-
-                    <div style="font-size:15px;"><b>👑 Duke</b><br>Tax: take 3 coins<br><span style="color:#dc3545;font-weight:900;">Blocks Foreign Aid</span></div><hr>
-                    <div style="font-size:15px;"><b>🗡️ Assassin</b><br>Pay 3 coins to assassinate<br><span style="color:#dc3545;font-weight:900;">Blocked by Contessa</span></div><hr>
-                    <div style="font-size:15px;"><b>🏴‍☠️ Captain</b><br>Steal 2 coins<br><span style="color:#dc3545;font-weight:900;">Blocks stealing</span></div><hr>
-                    <div style="font-size:15px;"><b>🔄 Ambassador</b><br>Exchange cards<br><span style="color:#dc3545;font-weight:900;">Blocks stealing</span></div><hr>
-                    <div style="font-size:15px;"><b>🛡️ Contessa</b><br><span style="color:#dc3545;font-weight:900;">Blocks assassination</span></div>
-                </div>
-            </div>
-        `);
-    };
+    setInterval(() => {
+        const btn = document.getElementById("coupHelpBtn");
+        const stage = document.getElementById("activeGameStage");
+        if (btn && stage && !stage.contains(btn)) {
+            stage.appendChild(btn);
+        }
+    }, 300);
 })();
