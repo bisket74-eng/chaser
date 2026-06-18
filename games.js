@@ -6001,3 +6001,55 @@ window.initHangmanGame = function () {
 
     setInterval(addHelpButton, 700);
 })();
+/* ============================================================
+   CHASER UI FIX — Exit pill + Coup Help moved bottom-right
+   Paste at VERY BOTTOM of games.js
+   ============================================================ */
+(function () {
+    const style = document.createElement("style");
+    style.innerHTML = `
+        .canvas-exit-anchor-box {
+            bottom: 8px !important;
+            left: 10px !important;
+            background: #dc3545 !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important;
+            border-radius: 999px !important;
+            padding: 7px 12px !important;
+            gap: 6px !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,.45) !important;
+        }
+
+        .canvas-exit-x-glyph,
+        .canvas-exit-label-str {
+            color: #ffffff !important;
+            font-weight: 900 !important;
+            text-shadow: none !important;
+        }
+
+        .canvas-exit-x-glyph {
+            font-size: 17px !important;
+        }
+
+        .canvas-exit-label-str {
+            font-size: 13px !important;
+            text-transform: lowercase !important;
+        }
+
+        #coupHelpBtn {
+            top: auto !important;
+            bottom: 8px !important;
+            right: 10px !important;
+            left: auto !important;
+            background: #ffd700 !important;
+            color: #1e4620 !important;
+            border: 2px solid #ffffff !important;
+            border-radius: 999px !important;
+            padding: 8px 14px !important;
+            font-weight: 900 !important;
+            z-index: 9999 !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,.45) !important;
+        }
+    `;
+    document.head.appendChild(style);
+})();
