@@ -2525,7 +2525,37 @@
 }
 
 /* PASTE NEW CODE HERE */
+/* CHASER PATCH — tap Buddies Online to cycle riders */
+let buddyCycleIndex = 0;
 
+const buddyCycleBtn = document.getElementById("riderCounterWidget");
+
+if (buddyCycleBtn) {
+    buddyCycleBtn.style.pointerEvents = "auto";
+    buddyCycleBtn.style.cursor = "pointer";
+
+    buddyCycleBtn.addEventListener("click", () => {
+        const riders = Object.entries(incomingRidersCache)
+            .filter(([name, r]) => r && r.marker && r.lat && r.lng);
+
+        if (!riders.length) return;
+
+        riders.forEach(([name, r]) => {
+            if (r.marker) r.marker.setZIndexOffset(0);
+        });
+
+        buddyCycleIndex = buddyCycleIndex % riders.length;
+
+        const [name, rider] = riders[buddyCycleIndex];
+        buddyCycleIndex++;
+
+        rider.marker.setZIndexOffset(10000);
+
+        map.setView([rider.lat, rider.lng], Math.max(map.getZoom(), 16), {
+            animate: true
+        });
+    });
+}
 </script>
 
 <script src="./games.js?v=35"></script>
