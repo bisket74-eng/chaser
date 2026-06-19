@@ -2521,11 +2521,7 @@
         navigator.serviceWorker.register('/sw.js').then(() => {
             if (typeof registerPushSubscription === 'function') registerPushSubscription();
         });
-    }
-    if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').then(() => {
-        if (typeof registerPushSubscription === 'function') registerPushSubscription();
-    });
+   
 }
 
 /* PASTE NEW CODE HERE */
