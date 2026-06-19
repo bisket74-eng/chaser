@@ -36,10 +36,12 @@ self.addEventListener('push', (event) => {
   }
 
   const sender = pushData.sender_name || 'A buddy';
-  
-  const options = {
-    body: `${sender} requested an updated location on Chaser.`,
-    icon: './icons/icon-192.png',
+const title = pushData.title || 'Chaser Location Request';
+const body = pushData.body || `${sender} requested your updated location. Return to Chaser to refresh your position.`;
+
+const options = {
+  body: body,
+  icon: './icons/icon-192.png',
     badge: './icons/icon-192.png',
     tag: 'chaser-location-reminder',
     renotify: true,
@@ -48,7 +50,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('Chaser', options)
+    self.registration.showNotification(title, options)
   );
 });
 
