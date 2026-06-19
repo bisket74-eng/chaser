@@ -2556,6 +2556,36 @@ if (buddyCycleBtn) {
         });
     });
 }
+   /* CHASER PATCH — remove ghost duplicate of yourself */
+function chaserCleanMyGhostCopies() {
+    const mySavedId = window.myId || localStorage.getItem("rider_id");
+    const myCurrentName = (usernameInput && usernameInput.value.trim()) || oldBroadcastedName || "";
+
+    Object.keys(incomingRidersCache).forEach(name => {
+        const rider = incomingRidersCache[name];
+        if (!rider) return;
+
+        const isYouLabel = name.includes("(You)");
+        const sameRiderId = rider.riderId && mySavedId && rider.riderId === mySavedId;
+        const sameNameNotYou =
+            myCurrentName &&
+            name.replace(" (You)", "").trim().toLowerCase() === myCurrentName.trim().toLowerCase() &&
+            !isYouLabel;
+
+        if (sameRiderId || sameNameNotYou) {
+            if (!isYouLabel) {
+                if (rider.marker) {
+                    map.removeLayer(rider.marker);
+                }
+                delete incomingRidersCache[name];
+            }
+        }
+    });
+
+    updateLiveRiderCounter();
+}
+
+setInterval(chaserCleanMyGhostCopies, 4000); 
 </script>
 
 <script src="./games.js?v=35"></script>
