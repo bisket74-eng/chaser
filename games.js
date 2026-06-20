@@ -200,7 +200,7 @@
     init: () => {
         if (typeof window.initCoupGame === "function") window.initCoupGame();
     }
-}
+},
       "Yahtzee": {
     icon: "🎲",
     displayName: "Yahtzee",
