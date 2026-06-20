@@ -1707,6 +1707,7 @@ window.nextTriviaRound = function () {
 };
 
     function renderTriviaScreen() {
+       const oldScroll = gameCanvas.scrollTop || 0;
         const s = window.triviaState;
         if (!s) return;
 
@@ -1797,6 +1798,9 @@ window.nextTriviaRound = function () {
                     </button>
                 ` : ""}
             </div>`;
+       setTimeout(() => {
+    gameCanvas.scrollTop = oldScroll;
+}, 0);
     }
     
         /* ============================================================
