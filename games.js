@@ -200,7 +200,18 @@
     init: () => {
         if (typeof window.initCoupGame === "function") window.initCoupGame();
     }
+}
+      "Yahtzee": {
+    icon: "🎲",
+    displayName: "Yahtzee",
+    minPlayers: 1,
+    maxPlayers: 6,
+    multiplayer: true,
+    init: () => {
+        if (typeof window.initYahtzeeGame === "function") window.initYahtzeeGame();
+    }
 },
+       
         "Solitaire": {
             icon: "🃏",
             minPlayers: 1,
