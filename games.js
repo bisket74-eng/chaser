@@ -3755,76 +3755,7 @@ window.initHangmanGame = function () {
     };
 })();
 
-    /* Trivia: fetch broad online questions and avoid repeats */
-   function isHost() {
-    return !window.chaserGame ||
-        !window.chaserGame.hostId ||
-        window.chaserGame.hostId === (window.myId || localStorage.getItem("rider_id"));
-}
-window.chaserUsedTriviaQuestions = window.chaserUsedTriviaQuestions || [];
-
-    async function fetchFreshTriviaQuestion() {
-        try {
-            const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=easy&type=multiple");
-            const data = await res.json();
-
-            if (!data.results || !data.results.length) throw new Error("No trivia returned");
-
-            const item = data.results[0];
-            const q = decodeHTML(item.question);
-
-            if (window.chaserUsedTriviaQuestions.includes(q) && window.chaserUsedTriviaQuestions.length < 500) {
-                return fetchFreshTriviaQuestion();
-            }
-
-            window.chaserUsedTriviaQuestions.push(q);
-            if (window.chaserUsedTriviaQuestions.length > 500) {
-                window.chaserUsedTriviaQuestions.shift();
-            }
-
-            const correct = decodeHTML(item.correct_answer);
-            const choices = shuffle([
-                correct,
-                ...item.incorrect_answers.map(decodeHTML)
-            ]);
-
-            return { q, c: correct, a: choices };
-        } catch (err) {
-            const fallback = [
-                { q:"Which planet is closest to the Sun?", c:"Mercury", a:["Venus","Mercury","Mars","Earth"] },
-                { q:"What is the largest mammal?", c:"Blue whale", a:["Elephant","Blue whale","Giraffe","Orca"] },
-                { q:"Which instrument has keys, pedals, and strings?", c:"Piano", a:["Guitar","Piano","Violin","Flute"] },
-                { q:"What is the hardest natural substance?", c:"Diamond", a:["Gold","Iron","Diamond","Quartz"] },
-                { q:"Which country is shaped like a boot?", c:"Italy", a:["Spain","Italy","Greece","Chile"] }
-            ];
-            return fallback[Math.floor(Math.random() * fallback.length)];
-        }
-    }
-
-    window.startTriviaRound = async function () {
-        if (window.chaserGame && window.chaserGame.hostId && window.chaserGame.hostId !== (window.myId || localStorage.getItem("rider_id"))) return;
-
-        const s = window.triviaState;
-        if (!s) return;
-
-        const item = await fetchFreshTriviaQuestion();
-
-        s.current = item;
-        s.votes = {};
-        s.round++;
-        s.phase = "question";
-        s.timer = 8;
-        s.phaseEndsAt = Date.now() + 8000;
-
-        sendGameEvent("sync-room-trivia", { state: s });
-
-        if (typeof window.receiveTriviaSync === "function") {
-            window.receiveTriviaSync({ state: s, roomGameId: window.chaserGame.activeGameId });
-        }
-    };
-
-
-               
+   
 /* ===========================================================
    COUP ENGINE — LOBBY VERSION
    Uses Chaser lobby players
