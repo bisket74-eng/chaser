@@ -6725,3 +6725,30 @@ window.initHangmanGame = function () {
         renderCoupFlow();
     };
 })();
+/* ============================================================
+   CHASER PATCH — Lobby Heartbeat
+   Re-announces open waiting lobby so late joiners can see it
+   ============================================================ */
+(function () {
+    "use strict";
+
+    if (window.__chaserLobbyHeartbeatPatchInstalled) return;
+    window.__chaserLobbyHeartbeatPatchInstalled = true;
+
+    setInterval(() => {
+        const g = window.chaserGame;
+        if (!g || !g.currentLobby) return;
+        if (!g.players || !g.expectedPlayers) return;
+        if (g.hostId !== (window.myId || localStorage.getItem("rider_id"))) return;
+        if (g.players.length >= g.expectedPlayers) return;
+
+        if (typeof sendGameEvent === "function") {
+            sendGameEvent("chaser-game-lobby-open", {
+                gameName: g.currentLobby.gameName,
+                expectedPlayers: g.expectedPlayers,
+                players: g.players,
+                hostId: g.hostId
+            });
+        }
+    }, 4000);
+})();
