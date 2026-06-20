@@ -2652,6 +2652,42 @@ if (chaserFollowBtn) {
     }, { passive:true });
 }
     
+    /* CHASER PATCH — reliable chat history request for late joiners */
+(function () {
+    if (window.__chaserChatHistoryPatchInstalled) return;
+    window.__chaserChatHistoryPatchInstalled = true;
+
+    function requestChatHistorySoon() {
+        if (!channel) return;
+
+        [900, 2500, 5000].forEach(delay => {
+            setTimeout(() => {
+                if (!channel) return;
+
+                channel.send({
+                    type: "broadcast",
+                    event: "request-chat-sync",
+                    payload: {
+                        requestedByToken: sessionMsgToken
+                    }
+                });
+            }, delay);
+        });
+    }
+
+    const oldSubscribeChannel = subscribeChannel;
+
+    subscribeChannel = function () {
+        oldSubscribeChannel();
+        requestChatHistorySoon();
+    };
+
+    chatToggleBtn.addEventListener("click", () => {
+        requestChatHistorySoon();
+    });
+
+    setTimeout(requestChatHistorySoon, 1500);
+})();
 </script>
 
 <script src="./games.js?v=35"></script>
