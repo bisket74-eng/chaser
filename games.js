@@ -3756,7 +3756,12 @@ window.initHangmanGame = function () {
 })();
 
     /* Trivia: fetch broad online questions and avoid repeats */
-    window.chaserUsedTriviaQuestions = window.chaserUsedTriviaQuestions || [];
+   function isHost() {
+    return !window.chaserGame ||
+        !window.chaserGame.hostId ||
+        window.chaserGame.hostId === (window.myId || localStorage.getItem("rider_id"));
+}
+window.chaserUsedTriviaQuestions = window.chaserUsedTriviaQuestions || [];
 
     async function fetchFreshTriviaQuestion() {
         try {
