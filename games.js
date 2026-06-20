@@ -160,6 +160,8 @@
             fixedPlayers: 2,
             multiplayer: true,
             init: initCheckersGame
+             if (typeof window.initCheckersGame === "function") window.initCheckersGame();
+            }
         },
         "Sequence": {
             icon: "⚔️",
@@ -3759,7 +3761,7 @@ window.initHangmanGame = function () {
 
     async function fetchFreshTriviaQuestion() {
         try {
-            const res = await fetch("https://opentdb.com/api.php?amount=1&difficulty=easy&type=multiple");
+            const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=easy&type=multiple");
             const data = await res.json();
 
             if (!data.results || !data.results.length) throw new Error("No trivia returned");
