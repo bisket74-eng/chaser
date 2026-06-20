@@ -1612,7 +1612,7 @@ window.handleSequenceCellTap = function (idx) {
     const fallback = LOCAL_TRIVIA.slice();
 
     try {
-        const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=medium&type=multiple");
+        const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=easy&type=multiple");
         const data = await res.json();
 
         if (!data.results || !data.results.length) throw new Error("No questions");
