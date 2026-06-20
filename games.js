@@ -3376,7 +3376,7 @@ window.initHangmanGame = function () {
     }
 
     window.startTriviaRound = function () {
-        if (!isHost()) return;
+        if (window.chaserGame && window.chaserGame.hostId && window.chaserGame.hostId !== (window.myId || localStorage.getItem("rider_id"))) return;
 
         const s = window.triviaState;
         const item = TRIVIA_POOL[Math.floor(Math.random() * TRIVIA_POOL.length)];
