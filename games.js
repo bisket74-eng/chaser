@@ -1613,12 +1613,30 @@ window.handleSequenceCellTap = function (idx) {
     const fallback = LOCAL_TRIVIA.slice();
 
     try {
-        const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=easy&type=multiple");
-        const data = await res.json();
+        const used = JSON.parse(localStorage.getItem("chaser_used_trivia_questions") || "[]");
 
-        if (!data.results || !data.results.length) throw new Error("No questions");
+        let fresh = [];
 
-        return data.results.map(item => {
+        for (let attempt = 0; attempt < 3 && fresh.length < 20; attempt++) {
+            const res = await fetch("https://opentdb.com/api.php?amount=20&category=9&difficulty=easy&type=multiple");
+            const data = await res.json();
+
+            if (!data.results || !data.results.length) throw new Error("No questions");
+
+            fresh = fresh.concat(data.results.filter(item => !used.includes(item.question)));
+        }
+
+        if (!fresh.length) {
+            localStorage.removeItem("chaser_used_trivia_questions");
+            return fallback;
+        }
+
+        const picked = fresh.slice(0, 20);
+
+        const newlyUsed = used.concat(picked.map(item => item.question)).slice(-300);
+        localStorage.setItem("chaser_used_trivia_questions", JSON.stringify(newlyUsed));
+
+        return picked.map(item => {
             const decode = (txt) => {
                 const box = document.createElement("textarea");
                 box.innerHTML = txt;
@@ -1641,7 +1659,6 @@ window.handleSequenceCellTap = function (idx) {
         return fallback;
     }
 }
-
 window.startTriviaRound = async function () {
     const s = window.triviaState;
     if (!s) return;
