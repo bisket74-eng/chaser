@@ -2590,25 +2590,48 @@ function chaserCleanMyGhostCopies() {
 }
 
 setInterval(chaserCleanMyGhostCopies, 4000); /* CHASER PATCH — smart Follow Me mode */
+/* CHASER PATCH — Follow Me v3, tied directly to GPS updates */
 let chaserFollowMeMode = true;
+let chaserProgrammaticMapMove = false;
 
-/* Turn Follow Me off only when user manually drags or zooms */
+function chaserMapMoveToMe(zoom = null) {
+    if (!isSharing || !lastLat || !lastLng) return;
+
+    chaserProgrammaticMapMove = true;
+
+    if (zoom !== null) {
+        map.setView([lastLat, lastLng], zoom, { animate:true });
+    } else {
+        map.panTo([lastLat, lastLng], { animate:true });
+    }
+
+    setTimeout(() => {
+        chaserProgrammaticMapMove = false;
+    }, 900);
+}
+
 map.on("dragstart zoomstart", () => {
+    if (chaserProgrammaticMapMove) return;
     chaserFollowMeMode = false;
 });
 
-/* Turn Follow Me back on */
 window.chaserEnableFollowMe = function () {
-    if (!isSharing || !lastLat || !lastLng) return;
-
     chaserFollowMeMode = true;
-
-    map.setView([lastLat, lastLng], Math.max(map.getZoom(), 16), {
-        animate: true
-    });
+    chaserMapMoveToMe(Math.max(map.getZoom(), 16));
 };
 
-/* Long-press Buddies Online to follow yourself again */
+window.chaserFollowMeOnGpsUpdate = function () {
+    if (!chaserFollowMeMode) return;
+    if (!isSharing || !lastLat || !lastLng) return;
+
+    const center = map.getCenter();
+    const distanceFromMe = map.distance(center, [lastLat, lastLng]);
+
+    if (distanceFromMe > 40) {
+        chaserMapMoveToMe();
+    }
+};
+
 const chaserFollowBtn = document.getElementById("riderCounterWidget");
 
 if (chaserFollowBtn) {
@@ -2624,29 +2647,10 @@ if (chaserFollowBtn) {
         clearTimeout(chaserFollowPressTimer);
     }, { passive:true });
 
-    chaserFollowBtn.addEventListener("mousedown", () => {
-        chaserFollowPressTimer = setTimeout(() => {
-            window.chaserEnableFollowMe();
-        }, 700);
-    });
-
-    chaserFollowBtn.addEventListener("mouseup", () => {
+    chaserFollowBtn.addEventListener("touchcancel", () => {
         clearTimeout(chaserFollowPressTimer);
-    });
+    }, { passive:true });
 }
-
-/* Follow your own live location while Follow Me is enabled */
-function chaserFollowMeTick() {
-    if (!chaserFollowMeMode) return;
-    if (!isSharing || !lastLat || !lastLng) return;
-    if (isChatOpen) return;
-
-    map.panTo([lastLat, lastLng], {
-        animate: true
-    });
-}
-
-setInterval(chaserFollowMeTick, 4000);
     
 </script>
 
