@@ -2688,6 +2688,62 @@ if (chaserFollowBtn) {
 
     setTimeout(requestChatHistorySoon, 1500);
 })();
+    /* CHASER PATCH — bigger pop-out game table */
+(function () {
+    if (window.__chaserGameTablePatchInstalled) return;
+    window.__chaserGameTablePatchInstalled = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #activeGameStage.open {
+            position: fixed !important;
+            left: 50% !important;
+            top: 48% !important;
+            transform: translate(-50%, -50%) !important;
+
+            width: min(94vw, 720px) !important;
+            height: min(72vh, 680px) !important;
+            max-height: 680px !important;
+
+            z-index: 9998 !important;
+            border-radius: 22px !important;
+            border: 3px solid #e2f0d9 !important;
+            background: rgba(30, 70, 32, 0.96) !important;
+            box-shadow: 0 10px 35px rgba(0,0,0,.55) !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        #gameCanvasContainer {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: auto !important;
+            box-sizing: border-box !important;
+            padding-bottom: 48px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position: fixed !important;
+            left: 14px !important;
+            bottom: 84px !important;
+            z-index: 10000 !important;
+        }
+
+        @media (max-width: 520px) {
+            #activeGameStage.open {
+                width: 94vw !important;
+                height: 68vh !important;
+                top: 46% !important;
+            }
+
+            .canvas-exit-anchor-box {
+                bottom: 82px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+})();
 </script>
 
 <script src="./games.js?v=36"></script>
