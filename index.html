@@ -2750,6 +2750,72 @@ if (chaserFollowBtn) {
     `;
     document.head.appendChild(style);
 })();
+    /* CHASER PATCH — collapse/expand game board to see chat */
+(function () {
+    if (window.__chaserGameCollapsePatchInstalled) return;
+    window.__chaserGameCollapsePatchInstalled = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #chaserGameCollapseBtn {
+            position: fixed !important;
+            right: 14px !important;
+            bottom: 84px !important;
+            z-index: 10001 !important;
+            width: 46px !important;
+            height: 34px !important;
+            border-radius: 999px !important;
+            border: 2px solid #ffffff !important;
+            background: #ffd700 !important;
+            color: #1e4620 !important;
+            font-size: 20px !important;
+            font-weight: 900 !important;
+            box-shadow: 0 3px 9px rgba(0,0,0,.4) !important;
+        }
+
+        body.chaser-game-collapsed #activeGameStage.open {
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            padding: 0 !important;
+            border-width: 0 !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    function ensureButton() {
+        let btn = document.getElementById("chaserGameCollapseBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserGameCollapseBtn";
+            btn.type = "button";
+            btn.innerText = "⌄";
+            document.body.appendChild(btn);
+
+            btn.addEventListener("click", () => {
+                document.body.classList.toggle("chaser-game-collapsed");
+                btn.innerText = document.body.classList.contains("chaser-game-collapsed") ? "⌃" : "⌄";
+            });
+        }
+
+        const stage = document.getElementById("activeGameStage");
+        btn.style.display = stage && stage.classList.contains("open") ? "block" : "none";
+    }
+
+    setInterval(ensureButton, 500);
+
+    const oldExit = window.chaserMasterExitSequence;
+    window.chaserMasterExitSequence = function (...args) {
+        document.body.classList.remove("chaser-game-collapsed");
+        const btn = document.getElementById("chaserGameCollapseBtn");
+        if (btn) btn.style.display = "none";
+        if (typeof oldExit === "function") return oldExit.apply(this, args);
+    };
+})();
 </script>
 
 <script src="./games.js?v=36"></script>
