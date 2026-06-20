@@ -3694,7 +3694,7 @@ window.initHangmanGame = function () {
     }
 
     window.startTriviaRound = async function () {
-        if (!isHost()) return;
+        if (window.chaserGame && window.chaserGame.hostId && window.chaserGame.hostId !== (window.myId || localStorage.getItem("rider_id"))) return;
 
         const s = window.triviaState;
         if (!s) return;
@@ -3797,7 +3797,7 @@ window.initHangmanGame = function () {
     }
 
     window.startTriviaRound = async function () {
-        if (!isHost()) return;
+        if (window.chaserGame && window.chaserGame.hostId && window.chaserGame.hostId !== (window.myId || localStorage.getItem("rider_id"))) return;
 
         const s = window.triviaState;
         if (!s) return;
