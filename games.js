@@ -212,6 +212,18 @@
         if (typeof window.initYahtzeeGame === "function") window.initYahtzeeGame();
     }
 },
+       "Scrabble": {
+    icon: "🔤",
+    displayName: "Scrabble",
+    minPlayers: 2,
+    maxPlayers: 4,
+    multiplayer: true,
+    init: () => {
+        if (typeof window.initScrabbleGame === "function") {
+            window.initScrabbleGame();
+        }
+    }
+},
        
         "Solitaire": {
             icon: "🃏",
