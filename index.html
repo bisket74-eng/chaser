@@ -2758,37 +2758,37 @@ if (chaserFollowBtn) {
     const style = document.createElement("style");
     style.innerHTML = `
         #chaserGameCollapseBtn {
-            position: fixed !important;
-            right: 24px !important;
-            bottom: 92px !important;
-            z-index: 10001 !important;
-            min-width: 64px !important;
-            height: 38px !important;
-            border-radius: 999px !important;
-            border: 2px solid #ffffff !important;
-            background: #ffd700 !important;
-            color: #1e4620 !important;
-            font-size: 13px !important;
-            font-weight: 900 !important;
-            box-shadow: 0 3px 9px rgba(0,0,0,.4) !important;
-        }
+    position: fixed !important;
+    right: calc(3vw + 8px) !important;
+    bottom: 92px !important;
+    z-index: 10001 !important;
+    min-width: 64px !important;
+    height: 38px !important;
+    border-radius: 999px !important;
+    border: 2px solid #ffffff !important;
+    background: #ffd700 !important;
+    color: #1e4620 !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 3px 9px rgba(0,0,0,.4) !important;
+}
 
-        #chaserGameNamePill {
-            position: fixed !important;
-            left: 50% !important;
-            bottom: 94px !important;
-            transform: translateX(-50%) !important;
-            z-index: 10000 !important;
-            color: #ffd700 !important;
-            background: rgba(30,70,32,.92) !important;
-            border: 2px solid #e2f0d9 !important;
-            border-radius: 999px !important;
-            padding: 7px 14px !important;
-            font-size: 14px !important;
-            font-weight: 900 !important;
-            box-shadow: 0 3px 9px rgba(0,0,0,.35) !important;
-            pointer-events: none !important;
-        }
+#chaserGameNamePill {
+    position: fixed !important;
+    left: 130px !important;
+    bottom: 94px !important;
+    transform: none !important;
+    z-index: 10000 !important;
+    color: #ffd700 !important;
+    background: rgba(30,70,32,.92) !important;
+    border: 2px solid #e2f0d9 !important;
+    border-radius: 999px !important;
+    padding: 7px 14px !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 3px 9px rgba(0,0,0,.35) !important;
+    pointer-events: none !important;
+}
 
         body.chaser-game-collapsed #activeGameStage.open {
             height: 0 !important;
@@ -2866,7 +2866,28 @@ if (chaserFollowBtn) {
         if (typeof oldExit === "function") return oldExit.apply(this, args);
     };
 })();
-</script>
+   </script>
+
+<style>
+/* COUP - make cards fit side-by-side on squat screens */
+
+#gameCanvasContainer div[style*="YOUR CARDS"] + div {
+    display:flex !important;
+    flex-wrap:nowrap !important;
+    justify-content:center !important;
+    gap:8px !important;
+}
+
+#gameCanvasContainer div[style*="YOUR CARDS"] + div > div {
+    width:42vw !important;
+    max-width:150px !important;
+    min-width:120px !important;
+}
+</style>
+
+<script src="./games.js?v=36"></script>
+<script src="./games/yahtzee.js"></script>
+<script src="./games/scrabble.js?v=1"></script>
 
 <script src="./games.js?v=36"></script>
 <script src="/games/yahtzee.js"></script>
