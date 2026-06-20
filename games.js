@@ -803,14 +803,14 @@
         return copy;
     }
 
-    function escapeHtml(str) {
-        return String(str ?? "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
+   function escapeHtml(str) {
+    return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 /* ============================================================
    2. SEQUENCE – REAL STYLE 2 PLAYER VERSION (OFFICIAL RETAIL LAYOUT)
@@ -1525,7 +1525,7 @@ window.handleSequenceCellTap = function (idx) {
         return copy;
     }
 
-    function escapeHtml(str) {
+   function escapeHtml(str) {
     return String(str ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
