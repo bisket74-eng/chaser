@@ -811,15 +811,17 @@
         }
 
         #chatMessages {
-            flex:1;
-            padding:16px;
-            overflow-y:auto;
-            display:flex;
-            flex-direction:column;
-            gap:12px;
-            background:#e2f0d9;
-            z-index:1;
-        }
+    flex:1;
+    padding:16px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:12px;
+    background:#e2f0d9;
+    z-index:1;
+    min-height:0;
+}
 
         .msg-bubble {
             position:relative;
