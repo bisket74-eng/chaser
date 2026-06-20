@@ -160,8 +160,7 @@
             fixedPlayers: 2,
             multiplayer: true,
             init: initCheckersGame
-             if (typeof window.initCheckersGame === "function") window.initCheckersGame();
-            }
+           
         },
         "Sequence": {
             icon: "⚔️",
