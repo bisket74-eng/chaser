@@ -3816,7 +3816,7 @@ window.chaserUsedTriviaQuestions = window.chaserUsedTriviaQuestions || [];
         s.timer = 8;
         s.phaseEndsAt = Date.now() + 8000;
 
-        send("sync-room-trivia", { state: s });
+        sendGameEvent("sync-room-trivia", { state: s });
 
         if (typeof window.receiveTriviaSync === "function") {
             window.receiveTriviaSync({ state: s, roomGameId: window.chaserGame.activeGameId });
