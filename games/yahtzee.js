@@ -469,44 +469,12 @@
         `;
     }
 
-    const oldLaunchGameEngine = window.launchGameEngine;
-
-    window.launchGameEngine = function (gameName, gameIcon) {
-    const normalized = String(gameName || "").trim().toLowerCase();
-
-    if (normalized === "yahtzee") {
-        if (typeof window.cleanupRunningGameEngine === "function") {
-            window.cleanupRunningGameEngine();
-        }
-
-        window.chaserGame = window.chaserGame || {};
-        window.chaserGame.activeGame = "Yahtzee";
-
-        if (!window.chaserGame.activeGameId) {
-            window.chaserGame.activeGameId = makeGameId();
-        }
-
-        if (!window.chaserGame.players || !window.chaserGame.players.length) {
-            window.chaserGame.players = [{ id: myId(), name: myName(), seat: 0 }];
-            window.chaserGame.mySeat = 0;
-            window.chaserGame.hostId = myId();
-            window.chaserGame.expectedPlayers = 1;
-        }
-
-        const hub = document.getElementById("gameHubOverlay");
-        if (hub) hub.classList.remove("open");
-
-        openStage();
-        setHeader();
-        window.initYahtzeeGame();
-        return;
-    }
-
-    if (typeof oldLaunchGameEngine === "function") {
-        oldLaunchGameEngine(gameName, gameIcon);
-    }
+   /* YAHTZEE — use normal Chaser lobby instead of forcing single-player */
+window.startYahtzeeFromLobby = function () {
+    openStage();
+    setHeader();
+    window.initYahtzeeGame();
 };
-
     const oldReceiveTriviaSync = window.receiveTriviaSync;
 
     window.receiveTriviaSync = function (payload) {
