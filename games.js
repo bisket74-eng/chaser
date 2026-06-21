@@ -6089,10 +6089,10 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
-/* COUP HELP FIX v3 — blue Help button + simple no-flash cheat sheet */
+/* COUP HELP FIX v4 — compact blue help cheat sheet */
 (function () {
-    if (window.__coupHelpCleanNoFlashV3) return;
-    window.__coupHelpCleanNoFlashV3 = true;
+    if (window.__coupHelpCompactBlueV4) return;
+    window.__coupHelpCompactBlueV4 = true;
 
     const style = document.createElement("style");
     style.innerHTML = `
@@ -6135,22 +6135,24 @@ window.initHangmanGame = function () {
             background:rgba(0,0,0,.72) !important;
             z-index:10080 !important;
             border-radius:22px 22px 0 0 !important;
-            padding:14px !important;
+            padding:8px 14px 0 14px !important;
             box-sizing:border-box !important;
-            overflow-y:auto !important;
+            overflow:hidden !important;
+            display:flex !important;
+            flex-direction:column !important;
         }
 
         #coupHelpCloseBtn {
             position:absolute !important;
-            top:10px !important;
-            right:10px !important;
-            width:44px !important;
-            height:44px !important;
+            top:8px !important;
+            right:8px !important;
+            width:40px !important;
+            height:40px !important;
             border-radius:999px !important;
             border:2px solid #ffffff !important;
             background:#1d4ed8 !important;
             color:#ffffff !important;
-            font-size:24px !important;
+            font-size:22px !important;
             font-weight:900 !important;
             line-height:1 !important;
             display:flex !important;
@@ -6161,19 +6163,22 @@ window.initHangmanGame = function () {
         }
 
         .coup-help-list {
+            flex:1 1 auto !important;
+            min-height:0 !important;
             background:#eaf4df !important;
             border:4px solid #ffd700 !important;
             border-radius:18px !important;
-            padding:54px 10px 12px 10px !important;
+            padding:42px 10px 10px 10px !important;
             box-sizing:border-box !important;
+            overflow-y:auto !important;
         }
 
         .coup-help-role {
             background:#ffffff !important;
             border:2px solid #1e4620 !important;
             border-radius:12px !important;
-            margin:8px 0 !important;
-            padding:8px 6px !important;
+            margin:6px 0 !important;
+            padding:7px 6px !important;
             color:#1e4620 !important;
             text-align:center !important;
             font-weight:900 !important;
@@ -6181,21 +6186,41 @@ window.initHangmanGame = function () {
         }
 
         .coup-help-role-name {
-            font-size:24px !important;
-            line-height:1.1 !important;
+            font-size:23px !important;
+            line-height:1.05 !important;
         }
 
         .coup-help-role-action {
-            font-size:18px !important;
-            line-height:1.15 !important;
+            font-size:17px !important;
+            line-height:1.1 !important;
             margin-top:3px !important;
         }
 
         .coup-help-role-block {
             color:#a6002b !important;
-            font-size:18px !important;
-            line-height:1.15 !important;
+            font-size:17px !important;
+            line-height:1.1 !important;
             margin-top:3px !important;
+        }
+
+        @media (max-width:430px), (max-height:740px) {
+            .coup-help-list {
+                padding:40px 8px 8px 8px !important;
+            }
+
+            .coup-help-role {
+                margin:5px 0 !important;
+                padding:6px 5px !important;
+            }
+
+            .coup-help-role-name {
+                font-size:21px !important;
+            }
+
+            .coup-help-role-action,
+            .coup-help-role-block {
+                font-size:16px !important;
+            }
         }
     `;
     document.head.appendChild(style);
