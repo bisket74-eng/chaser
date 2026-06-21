@@ -2750,7 +2750,125 @@ if (chaserFollowBtn) {
     `;
     document.head.appendChild(style);
 })();
-   
+    /* CHASER PATCH — game board collapse button + game name */
+(function () {
+    if (window.__chaserGameCollapsePatchInstalledV2) return;
+    window.__chaserGameCollapsePatchInstalledV2 = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #chaserGameCollapseBtn {
+    position: fixed !important;
+    right: calc(3vw + 8px) !important;
+    bottom: 92px !important;
+    z-index: 10001 !important;
+    min-width: 64px !important;
+    height: 38px !important;
+    border-radius: 999px !important;
+    border: 2px solid #ffffff !important;
+    background: #ffd700 !important;
+    color: #1e4620 !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 3px 9px rgba(0,0,0,.4) !important;
+}
+
+#chaserGameNamePill {
+    position: fixed !important;
+    left: 130px !important;
+    bottom: 94px !important;
+    transform: none !important;
+    z-index: 10000 !important;
+    color: #ffd700 !important;
+    background: rgba(30,70,32,.92) !important;
+    border: 2px solid #e2f0d9 !important;
+    border-radius: 999px !important;
+    padding: 7px 14px !important;
+    font-size: 14px !important;
+    font-weight: 900 !important;
+    box-shadow: 0 3px 9px rgba(0,0,0,.35) !important;
+    pointer-events: none !important;
+}
+
+        body.chaser-game-collapsed #activeGameStage.open {
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            padding: 0 !important;
+            border-width: 0 !important;
+            overflow: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        #roomDisplayCode {
+            text-indent: -9999px;
+        }
+
+        #roomDisplayCode::after {
+            content: "Chat Room";
+            text-indent: 0;
+            float: left;
+        }
+    `;
+    document.head.appendChild(style);
+
+    function currentGameName() {
+        return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
+    }
+
+    function ensureControls() {
+        const stage = document.getElementById("activeGameStage");
+        const isOpen = stage && stage.classList.contains("open");
+
+        let btn = document.getElementById("chaserGameCollapseBtn");
+        let namePill = document.getElementById("chaserGameNamePill");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserGameCollapseBtn";
+            btn.type = "button";
+            btn.innerText = "hide ▲";
+            document.body.appendChild(btn);
+
+            btn.addEventListener("click", () => {
+                document.body.classList.toggle("chaser-game-collapsed");
+                btn.innerText = document.body.classList.contains("chaser-game-collapsed")
+                    ? "show ▼"
+                    : "hide ▲";
+            });
+        }
+
+        if (!namePill) {
+            namePill = document.createElement("div");
+            namePill.id = "chaserGameNamePill";
+            document.body.appendChild(namePill);
+        }
+
+        namePill.innerText = currentGameName();
+
+        btn.style.display = isOpen ? "block" : "none";
+        namePill.style.display = isOpen ? "block" : "none";
+    }
+
+    setInterval(ensureControls, 400);
+
+    const oldExit = window.chaserMasterExitSequence;
+    window.chaserMasterExitSequence = function (...args) {
+        document.body.classList.remove("chaser-game-collapsed");
+
+        const btn = document.getElementById("chaserGameCollapseBtn");
+        const namePill = document.getElementById("chaserGameNamePill");
+
+        if (btn) btn.style.display = "none";
+        if (namePill) namePill.style.display = "none";
+
+        if (typeof oldExit === "function") return oldExit.apply(this, args);
+    };
+})();
+   </script>
+
+<style>
 /* COUP - make cards fit side-by-side on squat screens */
 
 #gameCanvasContainer div[style*="YOUR CARDS"] + div {
@@ -2767,10 +2885,11 @@ if (chaserFollowBtn) {
 }
 </style>
 
-<script src="./games.js?v=36"></script>
-<script src="./games/yahtzee.js"></script>
-<script src="./games/scrabble.js?v=1"></script>
 
+
+<script src="./games.js?v=36"></script>
+<script src="/games/yahtzee.js"></script>
+    <script src="./games/scrabble.js?v=1"></script>
 
 
 </body>
