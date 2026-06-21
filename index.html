@@ -2749,108 +2749,91 @@ if (chaserFollowBtn) {
         }
     `;
     document.head.appendChild(style);
-})();
-   /* CHASER PATCH — attached game controls + Coup card fit */
+})();/* CHASER PATCH — locked game footer controls */
 (function () {
-    if (window.__chaserGameControlsFinal) return;
-    window.__chaserGameControlsFinal = true;
+    if (window.__chaserLockedGameFooter) return;
+    window.__chaserLockedGameFooter = true;
 
     const style = document.createElement("style");
     style.innerHTML = `
-        #chaserGameCollapseBtn {
-            position: fixed !important;
-            z-index: 10005 !important;
-            min-width: 76px !important;
-            height: 38px !important;
-            border-radius: 999px !important;
-            border: 2px solid #ffffff !important;
-            background: #ffd700 !important;
-            color: #1e4620 !important;
-            font-size: 13px !important;
-            font-weight: 900 !important;
-            box-shadow: 0 3px 9px rgba(0,0,0,.45) !important;
+        #activeGameStage.open {
+            padding-bottom:56px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position:absolute !important;
+            left:14px !important;
+            bottom:12px !important;
+            z-index:10004 !important;
         }
 
         #chaserGameNamePill {
-            position: fixed !important;
-            z-index: 10004 !important;
-            color: #ffd700 !important;
-            background: rgba(30,70,32,.95) !important;
-            border: 2px solid #e2f0d9 !important;
-            border-radius: 999px !important;
-            padding: 6px 12px !important;
-            font-size: 14px !important;
-            font-weight: 900 !important;
-            box-shadow: 0 3px 9px rgba(0,0,0,.35) !important;
-            pointer-events: none !important;
+            position:absolute !important;
+            left:128px !important;
+            bottom:12px !important;
+            z-index:10004 !important;
+            color:#ffd700 !important;
+            background:rgba(30,70,32,.95) !important;
+            border:2px solid #e2f0d9 !important;
+            border-radius:999px !important;
+            padding:7px 14px !important;
+            font-size:14px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.35) !important;
+            pointer-events:none !important;
+        }
+
+        #chaserGameCollapseBtn {
+            position:fixed !important;
+            z-index:10005 !important;
+            min-width:76px !important;
+            height:40px !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            font-size:14px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.45) !important;
         }
 
         body.chaser-game-collapsed #activeGameStage.open {
-            height: 0 !important;
-            min-height: 0 !important;
-            max-height: 0 !important;
-            padding: 0 !important;
-            border-width: 0 !important;
-            overflow: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
+            height:0 !important;
+            min-height:0 !important;
+            max-height:0 !important;
+            padding:0 !important;
+            border-width:0 !important;
+            overflow:hidden !important;
+            opacity:0 !important;
+            pointer-events:none !important;
         }
 
         body.chaser-game-collapsed .canvas-exit-anchor-box,
         body.chaser-game-collapsed #chaserGameNamePill,
         body.chaser-game-collapsed #coupHelpBtn {
-            display: none !important;
+            display:none !important;
         }
 
         #roomDisplayCode {
-            text-indent: -9999px;
+            text-indent:-9999px;
         }
 
         #roomDisplayCode::after {
-            content: "Chat Room";
-            text-indent: 0;
-            float: left;
-        }
-
-        /* Coup cards: keep two cards side-by-side on short/squat screens */
-        #gameCanvasContainer div[style*="YOUR CARDS"] + div {
-            display: flex !important;
-            flex-wrap: nowrap !important;
-            justify-content: center !important;
-            gap: 8px !important;
-        }
-
-        #gameCanvasContainer div[style*="width:43vw"] {
-            width: 43% !important;
-            max-width: 150px !important;
-            min-width: 0 !important;
-        }
-
-        @media (max-width: 430px), (max-height: 720px) {
-            #gameCanvasContainer div[style*="width:43vw"] {
-                width: 43% !important;
-                max-width: 138px !important;
-                min-height: 158px !important;
-                padding: 7px !important;
-            }
+            content:"Chat Room";
+            text-indent:0;
+            float:left;
         }
     `;
     document.head.appendChild(style);
 
     let lastRect = null;
 
-    function currentGameName() {
+    function gameName() {
         return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
-    }
-
-    function setImportant(el, prop, value) {
-        if (el) el.style.setProperty(prop, value, "important");
     }
 
     function ensureControls() {
         const stage = document.getElementById("activeGameStage");
-        const exitBtn = document.querySelector(".canvas-exit-anchor-box");
-        const helpBtn = document.getElementById("coupHelpBtn");
         const isOpen = stage && stage.classList.contains("open");
         const collapsed = document.body.classList.contains("chaser-game-collapsed");
 
@@ -2866,16 +2849,13 @@ if (chaserFollowBtn) {
 
             btn.addEventListener("click", () => {
                 document.body.classList.toggle("chaser-game-collapsed");
-                btn.innerText = document.body.classList.contains("chaser-game-collapsed")
-                    ? "show ▼"
-                    : "hide ▲";
+                btn.innerText = document.body.classList.contains("chaser-game-collapsed") ? "show ▼" : "hide ▲";
             });
         }
 
         if (!namePill) {
             namePill = document.createElement("div");
             namePill.id = "chaserGameNamePill";
-            document.body.appendChild(namePill);
         }
 
         if (!isOpen) {
@@ -2884,57 +2864,23 @@ if (chaserFollowBtn) {
             return;
         }
 
-        if (!collapsed && stage) {
+        if (namePill.parentElement !== stage) {
+            stage.appendChild(namePill);
+        }
+
+        if (!collapsed) {
             lastRect = stage.getBoundingClientRect();
+            namePill.innerText = gameName();
+            namePill.style.display = "block";
         }
 
         const r = lastRect || stage.getBoundingClientRect();
-        const bottom = Math.max(8, window.innerHeight - r.bottom + 8);
-        const left = r.left + 10;
-        const right = Math.max(8, window.innerWidth - r.right + 10);
-
         btn.style.display = "block";
-        setImportant(btn, "right", right + "px");
-        setImportant(btn, "bottom", bottom + "px");
-
-        if (!collapsed) {
-            namePill.innerText = currentGameName();
-            namePill.style.display = "block";
-
-            if (exitBtn) {
-                exitBtn.style.display = "flex";
-                setImportant(exitBtn, "position", "fixed");
-                setImportant(exitBtn, "left", (left+12) + "px");
-                setImportant(exitBtn, "bottom", (bottom+10) + "px");
-                setImportant(exitBtn, "z-index", "10004");
-            }
-
-            setImportant(namePill, "left", (left + 130) + "px");
-            setImportant(namePill, "bottom", (bottom + 11) + "px");
-
-            if (helpBtn) {
-                setImportant(helpBtn, "position", "fixed");
-                setImportant(helpBtn, "right", right + "px");
-                setImportant(helpBtn, "bottom", (bottom + 44) + "px");
-                setImportant(helpBtn, "z-index", "10004");
-            }
-        }
+        btn.style.right = Math.max(8, window.innerWidth - r.right + 12) + "px";
+        btn.style.bottom = Math.max(8, window.innerHeight - r.bottom + 12) + "px";
     }
 
     setInterval(ensureControls, 300);
-
-    const oldExit = window.chaserMasterExitSequence;
-    window.chaserMasterExitSequence = function (...args) {
-        document.body.classList.remove("chaser-game-collapsed");
-
-        const btn = document.getElementById("chaserGameCollapseBtn");
-        const namePill = document.getElementById("chaserGameNamePill");
-
-        if (btn) btn.style.display = "none";
-        if (namePill) namePill.style.display = "none";
-
-        if (typeof oldExit === "function") return oldExit.apply(this, args);
-    };
 })();
 </script>
 <script src="./games.js?v=36"></script>
