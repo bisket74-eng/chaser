@@ -2926,6 +2926,8 @@ if (chaserFollowBtn) {
         const stage = document.getElementById("activeGameStage");
         const exitBtn = document.querySelector(".canvas-exit-anchor-box");
         if (!stage || !exitBtn) return;
+        const exitLabel = exitBtn.querySelector(".canvas-exit-label-str");
+if (exitLabel) exitLabel.innerText = "Exit Game";
 
         const isOpen = stage.classList.contains("open");
         const hidden = stage.classList.contains("game-board-hidden");
