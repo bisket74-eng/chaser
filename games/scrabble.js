@@ -335,148 +335,166 @@
     }
 
     function setupBoardView() {
-        const root = canvas();
-        if (!root) return;
+    const root = canvas();
+    if (!root) return;
 
-        const wrap = root.querySelector(".sc-wrap");
-        const zone = root.querySelector(".sc-board-zone");
-        const viewport = root.querySelector(".sc-board-viewport");
-        const shell = root.querySelector(".sc-board-shell");
-        const board = root.querySelector(".sc-board");
+    const wrap = root.querySelector(".sc-wrap");
+    const zone = root.querySelector(".sc-board-zone");
+    const viewport = root.querySelector(".sc-board-viewport");
+    const shell = root.querySelector(".sc-board-shell");
+    const board = root.querySelector(".sc-board");
 
-        if (!wrap || !zone || !viewport || !shell || !board) return;
+    if (!wrap || !zone || !viewport || !shell || !board) return;
 
-        const zoneW = zone.clientWidth || wrap.clientWidth || 320;
-        const zoneH = zone.clientHeight || 320;
-        const base = Math.floor(Math.max(255, Math.min(zoneW, zoneH, 520)));
-        const scaled = Math.floor(base * boardView.scale);
+    const zoneW = zone.clientWidth || wrap.clientWidth || 320;
+    const zoneH = zone.clientHeight || 280;
 
-        viewport.style.width = base + "px";
-        viewport.style.height = base + "px";
-        viewport.style.overflow = boardView.scale > 1.02 ? "auto" : "hidden";
+    /*
+       Important:
+       No forced minimum here. On shorter phones, forcing a minimum
+       makes only half the board show. This lets the full board fit first.
+    */
+    const base = Math.floor(Math.max(170, Math.min(zoneW, zoneH, 520)));
 
-        shell.style.width = scaled + "px";
-        shell.style.height = scaled + "px";
-        shell.style.minWidth = scaled + "px";
-        shell.style.minHeight = scaled + "px";
+    boardView.base = base;
 
-        board.style.width = base + "px";
-        board.style.height = base + "px";
-        board.style.minWidth = base + "px";
-        board.style.minHeight = base + "px";
-        board.style.transform = "scale(" + boardView.scale + ")";
+    viewport.style.width = base + "px";
+    viewport.style.height = base + "px";
+    viewport.style.overflow = "hidden";
 
-        requestAnimationFrame(() => {
-            if (boardView.scale > 1.02) {
-                viewport.scrollLeft = boardView.scrollLeft;
-                viewport.scrollTop = boardView.scrollTop;
-            } else {
-                viewport.scrollLeft = 0;
-                viewport.scrollTop = 0;
-            }
-        });
+    shell.style.width = base + "px";
+    shell.style.height = base + "px";
+    shell.style.minWidth = base + "px";
+    shell.style.minHeight = base + "px";
+    shell.style.overflow = "hidden";
+    shell.style.position = "relative";
 
-        if (viewport.__scrabbleZoomWired) return;
-        viewport.__scrabbleZoomWired = true;
+    board.style.width = base + "px";
+    board.style.height = base + "px";
+    board.style.minWidth = base + "px";
+    board.style.minHeight = base + "px";
 
-        viewport.addEventListener("scroll", function () {
-            boardView.scrollLeft = viewport.scrollLeft;
-            boardView.scrollTop = viewport.scrollTop;
-        }, { passive: true });
+    function clampView() {
+        const scaled = base * boardView.scale;
 
-        let startDistance = 0;
-        let startScale = boardView.scale;
-        let startScrollLeft = 0;
-        let startScrollTop = 0;
-        let oneX = 0;
-        let oneY = 0;
-        let lastTap = 0;
-
-        viewport.addEventListener("touchstart", function (e) {
-            if (e.touches.length === 2) {
-                startDistance = distance(e.touches[0], e.touches[1]);
-                startScale = boardView.scale;
-            }
-
-            if (e.touches.length === 1 && boardView.scale > 1.02) {
-                oneX = e.touches[0].clientX;
-                oneY = e.touches[0].clientY;
-                startScrollLeft = viewport.scrollLeft;
-                startScrollTop = viewport.scrollTop;
-            }
-        }, { passive: false });
-
-        viewport.addEventListener("touchmove", function (e) {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-
-                const newDistance = distance(e.touches[0], e.touches[1]);
-                if (!startDistance) return;
-
-                const rect = viewport.getBoundingClientRect();
-                const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
-                const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
-
-                const boardX = (viewport.scrollLeft + midX) / boardView.scale;
-                const boardY = (viewport.scrollTop + midY) / boardView.scale;
-
-                let nextScale = startScale * (newDistance / startDistance);
-                nextScale = Math.max(1, Math.min(2.4, nextScale));
-
-                boardView.scale = nextScale;
-
-                const baseNow = viewport.clientWidth || 300;
-                const newScaled = Math.floor(baseNow * boardView.scale);
-
-                shell.style.width = newScaled + "px";
-                shell.style.height = newScaled + "px";
-                shell.style.minWidth = newScaled + "px";
-                shell.style.minHeight = newScaled + "px";
-
-                board.style.transform = "scale(" + boardView.scale + ")";
-                viewport.style.overflow = boardView.scale > 1.02 ? "auto" : "hidden";
-
-                viewport.scrollLeft = Math.max(0, boardX * boardView.scale - midX);
-                viewport.scrollTop = Math.max(0, boardY * boardView.scale - midY);
-
-                boardView.scrollLeft = viewport.scrollLeft;
-                boardView.scrollTop = viewport.scrollTop;
-            }
-
-            if (e.touches.length === 1 && boardView.scale > 1.02) {
-                e.preventDefault();
-
-                const dx = e.touches[0].clientX - oneX;
-                const dy = e.touches[0].clientY - oneY;
-
-                viewport.scrollLeft = startScrollLeft - dx;
-                viewport.scrollTop = startScrollTop - dy;
-
-                boardView.scrollLeft = viewport.scrollLeft;
-                boardView.scrollTop = viewport.scrollTop;
-            }
-        }, { passive: false });
-
-        viewport.addEventListener("touchend", function () {
-            const now = Date.now();
-
-            if (now - lastTap < 300) {
-                boardView.scale = 1;
-                boardView.scrollLeft = 0;
-                boardView.scrollTop = 0;
-                setupBoardView();
-            }
-
-            lastTap = now;
-        }, { passive: true });
-
-        viewport.addEventListener("dblclick", function () {
+        if (boardView.scale <= 1.02) {
             boardView.scale = 1;
-            boardView.scrollLeft = 0;
-            boardView.scrollTop = 0;
-            setupBoardView();
-        });
+            boardView.x = 0;
+            boardView.y = 0;
+            return;
+        }
+
+        const minX = Math.min(0, base - scaled);
+        const minY = Math.min(0, base - scaled);
+
+        boardView.x = Math.max(minX, Math.min(0, boardView.x));
+        boardView.y = Math.max(minY, Math.min(0, boardView.y));
     }
+
+    function applyView() {
+        clampView();
+
+        board.style.transformOrigin = "top left";
+        board.style.transform =
+            "translate(" + boardView.x + "px, " + boardView.y + "px) scale(" + boardView.scale + ")";
+    }
+
+    applyView();
+
+    if (viewport.__scrabbleTransformZoomWired) return;
+    viewport.__scrabbleTransformZoomWired = true;
+
+    let startDistance = 0;
+    let startScale = 1;
+    let startX = 0;
+    let startY = 0;
+
+    let startFingerX = 0;
+    let startFingerY = 0;
+    let moved = false;
+    let lastTap = 0;
+
+    function touchDistance(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    viewport.addEventListener("touchstart", function (e) {
+        moved = false;
+
+        if (e.touches.length === 2) {
+            startDistance = touchDistance(e.touches[0], e.touches[1]);
+            startScale = boardView.scale;
+            startX = boardView.x;
+            startY = boardView.y;
+        }
+
+        if (e.touches.length === 1) {
+            startFingerX = e.touches[0].clientX;
+            startFingerY = e.touches[0].clientY;
+            startX = boardView.x;
+            startY = boardView.y;
+        }
+    }, { passive:false });
+
+    viewport.addEventListener("touchmove", function (e) {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            moved = true;
+
+            const rect = viewport.getBoundingClientRect();
+            const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+            const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+
+            const boardX = (midX - boardView.x) / boardView.scale;
+            const boardY = (midY - boardView.y) / boardView.scale;
+
+            const newDistance = touchDistance(e.touches[0], e.touches[1]);
+            if (!startDistance) return;
+
+            let nextScale = startScale * (newDistance / startDistance);
+            nextScale = Math.max(1, Math.min(2.75, nextScale));
+
+            boardView.scale = nextScale;
+            boardView.x = midX - boardX * boardView.scale;
+            boardView.y = midY - boardY * boardView.scale;
+
+            applyView();
+        }
+
+        if (e.touches.length === 1 && boardView.scale > 1.02) {
+            e.preventDefault();
+
+            const dx = e.touches[0].clientX - startFingerX;
+            const dy = e.touches[0].clientY - startFingerY;
+
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                moved = true;
+            }
+
+            boardView.x = startX + dx;
+            boardView.y = startY + dy;
+
+            applyView();
+        }
+    }, { passive:false });
+
+    viewport.addEventListener("touchend", function () {
+        const now = Date.now();
+
+        if (!moved && now - lastTap < 300) {
+            boardView.scale = 1;
+            boardView.x = 0;
+            boardView.y = 0;
+            applyView();
+        }
+
+        if (!moved) {
+            lastTap = now;
+        }
+    }, { passive:true });
+}
 
     window.initScrabbleGame = function () {
         window.chaserGame = window.chaserGame || {};
