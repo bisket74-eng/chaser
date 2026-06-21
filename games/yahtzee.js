@@ -498,7 +498,7 @@ window.startYahtzeeFromLobby = function () {
         }
 
         if (typeof oldReceiveTriviaSync === "function") {
-            oldReceiveTriviaSync(payload);
+            oldReceiveTriviaSync(payload)
         }
     };
 
