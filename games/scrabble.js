@@ -4,7 +4,7 @@ Bigger fitted board + stable pinch zoom + pan + exchange tile + online word chec
 (function () {
 "use strict";
 
-```
+
 const LETTERS = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUUDDDDGGGBBCCMMPPFFHHVVWWYYKJXQZ".split("");
 
 const VALUES = {
