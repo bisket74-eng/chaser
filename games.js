@@ -473,16 +473,46 @@
         }
     }
 
-    function receiveLobbyStart(payload) {
-        if (!payload || payload.roomGameId !== window.chaserGame.activeGameId) return;
+   function receiveLobbyStart(payload) {
+    if (!payload) return;
 
-        window.chaserGame.players = payload.players || window.chaserGame.players;
-        const me = window.chaserGame.players.find(p => p.id === myGameId());
-        if (me) window.chaserGame.mySeat = me.seat;
+    const incomingRoomGameId = payload.roomGameId || window.chaserGame.activeGameId;
+
+    if (incomingRoomGameId && window.chaserGame.activeGameId && incomingRoomGameId !== window.chaserGame.activeGameId) {
+        return;
+    }
+
+    window.chaserGame.activeGame = payload.gameName;
+    window.chaserGame.activeGameId = incomingRoomGameId;
+    window.chaserGame.players = payload.players || window.chaserGame.players;
+    window.chaserGame.expectedPlayers = payload.expectedPlayers || window.chaserGame.expectedPlayers;
+    window.chaserGame.hostId = payload.hostId || window.chaserGame.hostId;
+
+    const me = window.chaserGame.players.find(p => p.id === myGameId());
+    if (me) window.chaserGame.mySeat = me.seat;
+
+    openGameStage();
+    setGameHeader(payload.gameName);
+
+    let tries = 0;
+
+    const tryStart = () => {
+        tries++;
 
         const config = GAME_CONFIG[payload.gameName] || GAME_CONFIG["Battle Uno"];
-        if (config && config.init) config.init();
-    }
+
+        if (config && typeof config.init === "function") {
+            config.init();
+            return;
+        }
+
+        if (tries < 10) {
+            setTimeout(tryStart, 250);
+        }
+    };
+
+    tryStart();
+}
 
     /* ============================================================
        INCOMING SYNC HANDLERS USED BY INDEX.HTML
