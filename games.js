@@ -6089,3 +6089,153 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
+
+/* COUP HELP FIX — blue Help button + visible close button */
+(function () {
+    if (window.__coupHelpBlueCloseFixV1) return;
+    window.__coupHelpBlueCloseFixV1 = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        /* Hide the old bottom Coup help button, if it still exists */
+        #coupHelpBtn {
+            display:none !important;
+        }
+
+        /* Shrink the YOUR CARDS title row a little */
+        .coup-cards-header-row {
+            margin:4px auto 6px auto !important;
+            gap:8px !important;
+            align-items:center !important;
+        }
+
+        .coup-cards-title {
+            font-size:21px !important;
+            letter-spacing:1px !important;
+            max-width:calc(100% - 92px) !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            white-space:nowrap !important;
+        }
+
+        /* Blue Help button beside YOUR CARDS */
+        #coupInlineHelpBtn,
+        .coup-cards-header-row button {
+            background:#1d4ed8 !important;
+            color:#ffffff !important;
+            border:2px solid #ffffff !important;
+            border-radius:999px !important;
+            width:78px !important;
+            min-width:78px !important;
+            height:30px !important;
+            padding:0 !important;
+            margin:0 !important;
+            font-size:13px !important;
+            font-weight:900 !important;
+            line-height:1 !important;
+            text-align:center !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            box-sizing:border-box !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+        }
+
+        /* Big visible red close button for the Help screen */
+        #coupHelpCloseBtn {
+            position:fixed !important;
+            top:92px !important;
+            right:18px !important;
+            width:44px !important;
+            height:44px !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#dc3545 !important;
+            color:#ffffff !important;
+            font-size:24px !important;
+            font-weight:900 !important;
+            line-height:1 !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            z-index:200000 !important;
+            box-shadow:0 4px 12px rgba(0,0,0,.55) !important;
+        }
+
+        @media (max-width:430px), (max-height:740px) {
+            .coup-cards-title {
+                font-size:19px !important;
+                letter-spacing:.5px !important;
+            }
+
+            #coupInlineHelpBtn,
+            .coup-cards-header-row button {
+                width:72px !important;
+                min-width:72px !important;
+                height:28px !important;
+                font-size:12px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    function closeCoupHelp() {
+        const overlay = document.getElementById("coupHelpOverlay");
+        if (overlay) overlay.remove();
+
+        const closeBtn = document.getElementById("coupHelpCloseBtn");
+        if (closeBtn) closeBtn.remove();
+    }
+
+    function addCloseButtonIfHelpOpen() {
+        const overlay = document.getElementById("coupHelpOverlay");
+        const existingClose = document.getElementById("coupHelpCloseBtn");
+
+        if (!overlay) {
+            if (existingClose) existingClose.remove();
+            return;
+        }
+
+        if (existingClose) return;
+
+        const closeBtn = document.createElement("button");
+        closeBtn.id = "coupHelpCloseBtn";
+        closeBtn.type = "button";
+        closeBtn.textContent = "×";
+        closeBtn.onclick = closeCoupHelp;
+
+        document.body.appendChild(closeBtn);
+    }
+
+    function openOrCloseCoupHelp(e) {
+        if (e) e.stopPropagation();
+
+        const overlay = document.getElementById("coupHelpOverlay");
+
+        if (overlay) {
+            closeCoupHelp();
+            return;
+        }
+
+        if (typeof window.showCoupHelpSheet === "function") {
+            window.showCoupHelpSheet();
+        }
+
+        setTimeout(addCloseButtonIfHelpOpen, 50);
+    }
+
+    function wireHelpButton() {
+        const inlineHelp =
+            document.getElementById("coupInlineHelpBtn") ||
+            document.querySelector(".coup-cards-header-row button");
+
+        if (inlineHelp && !inlineHelp.__coupBlueHelpWired) {
+            inlineHelp.__coupBlueHelpWired = true;
+            inlineHelp.onclick = openOrCloseCoupHelp;
+        }
+
+        addCloseButtonIfHelpOpen();
+    }
+
+    setInterval(wireHelpButton, 200);
+})();
