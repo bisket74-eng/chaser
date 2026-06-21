@@ -2855,8 +2855,6 @@ if (chaserFollowBtn) {
 
         #gameBoardToggleBtn {
             position:fixed !important;
-            right:14px !important
-            bottom:10px !important
             width:96px !important;     
             min-width:96px !important;
             max-width:96px !important;
@@ -2975,8 +2973,8 @@ if (chaserFollowBtn) {
         const r = lastRect || stage.getBoundingClientRect();
 
         toggle.style.display = "block";
-        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 118, r.right - 124)) + "px";
-        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 42, r.bottom - 44)) + "px";
+        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 104, r.right - 106)) + "px";
+        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 38, r.bottom - 40)) + "px";
     }
 
     setInterval(ensureFooter, 300);
