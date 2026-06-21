@@ -1,5 +1,5 @@
 /* CHASER SCRABBLE - SEPARATE GAME FILE
-   UI cleanup + real bonus board + basic word validation
+   Stable board fit + no zoom flicker + exchange tile + online word check
 */
 (function () {
     "use strict";
@@ -11,47 +11,26 @@
         N:1, O:1, P:3, Q:10, R:1, S:1, T:1, U:1, V:4, W:4, X:8, Y:4, Z:10
     };
 
-    const SMALL_BACKUP_WORDS = new Set(`
-        A I AN AS AT AM ARE BE BY DO GO HE HI IF IN IS IT ME MY NO OF OH ON OR OX
-        SO TO UP US WE
-        CAT DOG HAT BAT RAT MAT SAT FAT PAT CAP MAP TAP SAP CAR BAR FAR WAR ART ARM
-        SUN RUN FUN GUN BUN CUP CUT CUTE COT COG LOG FOG HOG HOT NOT POT ROT LOT
-        ONE TWO THREE FOUR FIVE SIX SEVEN EIGHT NINE TEN
-        TAX DUKE COIN COINS STEAL BLOCK BLOCKS CARD CARDS GAME PLAY WORD WORDS TILE TILES
-        HELLO HELP TEST TREE ROAD HOME HOUSE WATER FIRE FOOD GOOD BAD BIG SMALL
-    `.trim().split(/\s+/));
+    const EXTRA_SCRABBLE_STYLE_WORDS = new Set([
+        "QI", "ZA", "JO", "OX", "AX", "EX", "XI", "XU", "KA", "KI", "KO", "KY",
+        "AA", "AB", "AD", "AE", "AG", "AH", "AI", "AL", "AM", "AN", "AR", "AS", "AT", "AW", "AY",
+        "BA", "BE", "BI", "BO", "BY", "DA", "DE", "DO", "ED", "EF", "EH", "EL", "EM", "EN", "ER", "ES", "ET",
+        "FA", "FE", "GI", "GO", "HA", "HE", "HI", "HM", "HO", "ID", "IF", "IN", "IS", "IT",
+        "LA", "LI", "LO", "MA", "ME", "MI", "MM", "MO", "MU", "MY", "NA", "NE", "NO", "NU",
+        "OD", "OE", "OF", "OH", "OI", "OM", "ON", "OP", "OR", "OS", "OW", "OY",
+        "PA", "PE", "PI", "PO", "RE", "SH", "SI", "SO", "TA", "TE", "TI", "TO", "UH", "UM", "UN", "UP", "US", "UT",
+        "WE", "WO", "YE", "YO"
+    ]);
 
-    let WORD_SET = SMALL_BACKUP_WORDS;
-    let dictionaryLoaded = false;
+    const WORD_CACHE = {};
 
-    async function loadDictionary() {
-        if (dictionaryLoaded) return;
-        dictionaryLoaded = true;
+    const boardView = {
+        scale: 1,
+        scrollLeft: 0,
+        scrollTop: 0
+    };
 
-        if (window.SCRABBLE_WORD_SET instanceof Set) {
-            WORD_SET = window.SCRABBLE_WORD_SET;
-            return;
-        }
-
-        try {
-            const res = await fetch("./games/scrabble-words.txt?v=1", { cache: "no-store" });
-            if (!res.ok) return;
-
-            const text = await res.text();
-            const words = text
-                .split(/\r?\n/)
-                .map(w => w.trim().toUpperCase())
-                .filter(w => /^[A-Z]{2,15}$/.test(w));
-
-            if (words.length > 100) {
-                WORD_SET = new Set(words);
-            }
-        } catch (err) {
-            // Uses small backup dictionary if file does not exist yet.
-        }
-    }
-
-    function myId() {
+    function getMyId() {
         if (typeof window.myId === "function") return window.myId();
         if (typeof window.myId === "string") return window.myId;
         return localStorage.getItem("rider_id") || "local-player";
@@ -96,7 +75,7 @@
     function createState() {
         const players = window.chaserGame?.players?.length
             ? window.chaserGame.players
-            : [{ id: myId(), name: myName(), seat: 0 }];
+            : [{ id: getMyId(), name: myName(), seat: 0 }];
 
         const s = {
             board: makeBoard(),
@@ -125,7 +104,7 @@
 
     function isMyTurn() {
         const p = currentPlayer();
-        return p && p.id === myId();
+        return p && p.id === getMyId();
     }
 
     const TW = new Set(["0,0","0,7","0,14","7,0","7,14","14,0","14,7","14,14"]);
@@ -142,10 +121,6 @@
         return "";
     }
 
-    function isPendingCell(s, r, c) {
-        return s.pending.some(t => t.r === r && t.c === c);
-    }
-
     function boardHasPermanentTiles(s) {
         return s.board.some(row => row.some(cell => cell && !cell.pending));
     }
@@ -155,8 +130,7 @@
     }
 
     function touchesPermanentTile(s, r, c) {
-        const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
-        return dirs.some(([dr, dc]) => {
+        return [[1,0],[-1,0],[0,1],[0,-1]].some(([dr, dc]) => {
             const nr = r + dr;
             const nc = c + dc;
             return nr >= 0 && nr < 15 && nc >= 0 && nc < 15 && s.board[nr][nc] && !s.board[nr][nc].pending;
@@ -210,7 +184,30 @@
         return total * wordMultiplier;
     }
 
-    function validateMove(s) {
+    async function isValidWordOnline(word) {
+        const clean = String(word || "").trim().toUpperCase();
+
+        if (!/^[A-Z]{2,15}$/.test(clean)) return false;
+
+        if (EXTRA_SCRABBLE_STYLE_WORDS.has(clean)) return true;
+
+        if (WORD_CACHE[clean] !== undefined) {
+            return WORD_CACHE[clean];
+        }
+
+        try {
+            const url = "https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(clean.toLowerCase());
+            const res = await fetch(url);
+
+            WORD_CACHE[clean] = res.ok;
+            return res.ok;
+        } catch (err) {
+            WORD_CACHE[clean] = false;
+            return false;
+        }
+    }
+
+    async function validateMove(s) {
         if (!s.pending.length) {
             return { ok: false, message: "Place at least one tile." };
         }
@@ -305,9 +302,14 @@
             return { ok: false, message: "Make a word of at least 2 letters." };
         }
 
-        const invalid = uniqueWords
-            .map(w => w.word.toUpperCase())
-            .filter(w => !WORD_SET.has(w));
+        const invalid = [];
+
+        for (const w of uniqueWords) {
+            const checkWord = w.word.toUpperCase();
+            const ok = await isValidWordOnline(checkWord);
+
+            if (!ok) invalid.push(checkWord);
+        }
 
         if (invalid.length) {
             return { ok: false, message: invalid.join(", ") + " not in dictionary." };
@@ -325,6 +327,156 @@
         };
     }
 
+    function distance(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function setupBoardView() {
+        const root = canvas();
+        if (!root) return;
+
+        const wrap = root.querySelector(".sc-wrap");
+        const zone = root.querySelector(".sc-board-zone");
+        const viewport = root.querySelector(".sc-board-viewport");
+        const shell = root.querySelector(".sc-board-shell");
+        const board = root.querySelector(".sc-board");
+
+        if (!wrap || !zone || !viewport || !shell || !board) return;
+
+        const zoneW = zone.clientWidth || wrap.clientWidth || 320;
+        const zoneH = zone.clientHeight || 320;
+        const base = Math.floor(Math.max(255, Math.min(zoneW, zoneH, 520)));
+        const scaled = Math.floor(base * boardView.scale);
+
+        viewport.style.width = base + "px";
+        viewport.style.height = base + "px";
+        viewport.style.overflow = boardView.scale > 1.02 ? "auto" : "hidden";
+
+        shell.style.width = scaled + "px";
+        shell.style.height = scaled + "px";
+        shell.style.minWidth = scaled + "px";
+        shell.style.minHeight = scaled + "px";
+
+        board.style.width = base + "px";
+        board.style.height = base + "px";
+        board.style.minWidth = base + "px";
+        board.style.minHeight = base + "px";
+        board.style.transform = "scale(" + boardView.scale + ")";
+
+        requestAnimationFrame(() => {
+            if (boardView.scale > 1.02) {
+                viewport.scrollLeft = boardView.scrollLeft;
+                viewport.scrollTop = boardView.scrollTop;
+            } else {
+                viewport.scrollLeft = 0;
+                viewport.scrollTop = 0;
+            }
+        });
+
+        if (viewport.__scrabbleZoomWired) return;
+        viewport.__scrabbleZoomWired = true;
+
+        viewport.addEventListener("scroll", function () {
+            boardView.scrollLeft = viewport.scrollLeft;
+            boardView.scrollTop = viewport.scrollTop;
+        }, { passive: true });
+
+        let startDistance = 0;
+        let startScale = boardView.scale;
+        let startScrollLeft = 0;
+        let startScrollTop = 0;
+        let oneX = 0;
+        let oneY = 0;
+        let lastTap = 0;
+
+        viewport.addEventListener("touchstart", function (e) {
+            if (e.touches.length === 2) {
+                startDistance = distance(e.touches[0], e.touches[1]);
+                startScale = boardView.scale;
+            }
+
+            if (e.touches.length === 1 && boardView.scale > 1.02) {
+                oneX = e.touches[0].clientX;
+                oneY = e.touches[0].clientY;
+                startScrollLeft = viewport.scrollLeft;
+                startScrollTop = viewport.scrollTop;
+            }
+        }, { passive: false });
+
+        viewport.addEventListener("touchmove", function (e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const newDistance = distance(e.touches[0], e.touches[1]);
+                if (!startDistance) return;
+
+                const rect = viewport.getBoundingClientRect();
+                const midX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+                const midY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+
+                const boardX = (viewport.scrollLeft + midX) / boardView.scale;
+                const boardY = (viewport.scrollTop + midY) / boardView.scale;
+
+                let nextScale = startScale * (newDistance / startDistance);
+                nextScale = Math.max(1, Math.min(2.4, nextScale));
+
+                boardView.scale = nextScale;
+
+                const baseNow = viewport.clientWidth || 300;
+                const newScaled = Math.floor(baseNow * boardView.scale);
+
+                shell.style.width = newScaled + "px";
+                shell.style.height = newScaled + "px";
+                shell.style.minWidth = newScaled + "px";
+                shell.style.minHeight = newScaled + "px";
+
+                board.style.transform = "scale(" + boardView.scale + ")";
+                viewport.style.overflow = boardView.scale > 1.02 ? "auto" : "hidden";
+
+                viewport.scrollLeft = Math.max(0, boardX * boardView.scale - midX);
+                viewport.scrollTop = Math.max(0, boardY * boardView.scale - midY);
+
+                boardView.scrollLeft = viewport.scrollLeft;
+                boardView.scrollTop = viewport.scrollTop;
+            }
+
+            if (e.touches.length === 1 && boardView.scale > 1.02) {
+                e.preventDefault();
+
+                const dx = e.touches[0].clientX - oneX;
+                const dy = e.touches[0].clientY - oneY;
+
+                viewport.scrollLeft = startScrollLeft - dx;
+                viewport.scrollTop = startScrollTop - dy;
+
+                boardView.scrollLeft = viewport.scrollLeft;
+                boardView.scrollTop = viewport.scrollTop;
+            }
+        }, { passive: false });
+
+        viewport.addEventListener("touchend", function () {
+            const now = Date.now();
+
+            if (now - lastTap < 300) {
+                boardView.scale = 1;
+                boardView.scrollLeft = 0;
+                boardView.scrollTop = 0;
+                setupBoardView();
+            }
+
+            lastTap = now;
+        }, { passive: true });
+
+        viewport.addEventListener("dblclick", function () {
+            boardView.scale = 1;
+            boardView.scrollLeft = 0;
+            boardView.scrollTop = 0;
+            setupBoardView();
+        });
+    }
+
     window.initScrabbleGame = function () {
         window.chaserGame = window.chaserGame || {};
         window.chaserGame.activeGame = "Scrabble";
@@ -339,14 +491,13 @@
         if (headerBtns) headerBtns.style.display = "none";
         if (chatHeader) chatHeader.classList.add("game-active-mode");
 
-        const amHost = window.chaserGame?.hostId === myId();
+        const amHost = window.chaserGame?.hostId === getMyId();
 
         if (amHost || !window.scrabbleState) {
             window.scrabbleState = createState();
             syncScrabble();
         }
 
-        loadDictionary().then(() => renderScrabble());
         renderScrabble();
     };
 
@@ -398,13 +549,16 @@
         syncScrabble();
     };
 
-    window.submitScrabbleMove = function () {
+    window.submitScrabbleMove = async function () {
         const s = window.scrabbleState;
         const p = currentPlayer();
 
         if (!s || !p || !isMyTurn() || !s.pending.length) return;
 
-        const result = validateMove(s);
+        s.message = "Checking word...";
+        renderScrabble();
+
+        const result = await validateMove(s);
 
         if (!result.ok) {
             s.message = result.message;
@@ -451,6 +605,44 @@
         syncScrabble();
     };
 
+    window.exchangeScrabbleSelectedTile = function () {
+        const s = window.scrabbleState;
+        const p = currentPlayer();
+
+        if (!s || !p || !isMyTurn()) return;
+
+        if (s.pending.length) {
+            s.message = "Undo placed tiles before exchanging.";
+            renderScrabble();
+            return;
+        }
+
+        if (s.selectedRack === null || s.selectedRack === undefined) {
+            s.message = "Select a tile to exchange.";
+            renderScrabble();
+            return;
+        }
+
+        if (!s.bag.length) {
+            s.message = "No tiles left to exchange.";
+            renderScrabble();
+            return;
+        }
+
+        const oldTile = p.rack.splice(s.selectedRack, 1)[0];
+        s.bag.unshift(oldTile);
+        shuffle(s.bag);
+        drawTiles(s, p);
+
+        s.selectedRack = null;
+        s.turn = (s.turn + 1) % s.players.length;
+        s.lastMessage = p.name + " exchanged a tile.";
+        s.message = "";
+
+        renderScrabble();
+        syncScrabble();
+    };
+
     window.handleIncomingScrabbleSync = function (payload) {
         if (!payload || !payload.state) return;
         if (payload.roomGameId && window.chaserGame?.activeGameId && payload.roomGameId !== window.chaserGame.activeGameId) return;
@@ -466,7 +658,7 @@
         if (!el || !s) return;
 
         const p = currentPlayer();
-        const me = s.players.find(x => x.id === myId()) || s.players[0];
+        const me = s.players.find(x => x.id === getMyId()) || s.players[0];
         const myTurn = isMyTurn();
 
         const boardHtml = s.board.map((row, r) =>
@@ -488,23 +680,29 @@
             </button>
         `).join("");
 
+        const canExchange = myTurn && !s.pending.length && s.selectedRack !== null && s.selectedRack !== undefined;
+
         el.innerHTML = `
             <style>
                 .sc-wrap {
                     height:100%;
-                    overflow:auto;
-                    padding:8px 8px 76px;
+                    overflow:hidden;
+                    padding:8px 8px 58px;
                     box-sizing:border-box;
                     color:#e2f0d9;
                     font-family:Arial,sans-serif;
+                    display:flex;
+                    flex-direction:column;
                 }
 
                 .sc-score {
+                    flex:0 0 auto;
                     display:grid;
                     grid-template-columns:repeat(2,minmax(0,1fr));
                     gap:7px;
                     max-width:500px;
-                    margin:0 auto 8px;
+                    width:100%;
+                    margin:0 auto 7px;
                 }
 
                 .sc-player {
@@ -512,7 +710,7 @@
                     color:#1e4620;
                     border:3px solid #e2f0d9;
                     border-radius:9px;
-                    padding:6px 8px;
+                    padding:5px 8px;
                     font-weight:900;
                     text-align:center;
                     box-sizing:border-box;
@@ -525,7 +723,7 @@
                 }
 
                 .sc-player-name {
-                    font-size:17px;
+                    font-size:16px;
                     white-space:nowrap;
                     overflow:hidden;
                     text-overflow:ellipsis;
@@ -533,25 +731,52 @@
                 }
 
                 .sc-player-score {
-                    font-size:14px;
+                    font-size:13px;
                     line-height:1.1;
-                    margin-top:2px;
+                    margin-top:1px;
                 }
 
-                .sc-board {
-                    display:grid;
-                    grid-template-columns:repeat(15,1fr);
-                    gap:1px;
-                    background:#0b2410;
-                    border:3px solid #ffd700;
-                    border-radius:8px;
-                    padding:3px;
-                    max-width:520px;
+                .sc-board-zone {
+                    flex:1 1 auto;
+                    min-height:0;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    width:100%;
                     margin:0 auto;
                 }
 
+                .sc-board-viewport {
+                    overflow:hidden;
+                    touch-action:none;
+                    -webkit-overflow-scrolling:touch;
+                    box-sizing:border-box;
+                    border:3px solid #ffd700;
+                    border-radius:8px;
+                    background:#0b2410;
+                    max-width:100%;
+                    max-height:100%;
+                }
+
+                .sc-board-shell {
+                    position:relative;
+                    transform-origin:top left;
+                }
+
+                .sc-board {
+                    margin:0;
+                    border:0;
+                    border-radius:0;
+                    padding:3px;
+                    display:grid;
+                    grid-template-columns:repeat(15,1fr);
+                    grid-template-rows:repeat(15,1fr);
+                    gap:1px;
+                    box-sizing:border-box;
+                    transform-origin:top left;
+                }
+
                 .sc-cell {
-                    aspect-ratio:1/1;
                     border:1px solid rgba(0,0,0,.45);
                     background:#d9ead3;
                     color:#1e4620;
@@ -561,10 +786,11 @@
                     position:relative;
                     overflow:hidden;
                     line-height:1;
+                    box-sizing:border-box;
                 }
 
                 .sc-cell span {
-                    font-size:9px;
+                    font-size:8px;
                     font-weight:900;
                     opacity:.78;
                 }
@@ -595,10 +821,11 @@
                 }
 
                 .sc-rack {
+                    flex:0 0 auto;
                     display:flex;
                     justify-content:center;
                     gap:5px;
-                    margin:8px auto;
+                    margin:7px auto 6px;
                     flex-wrap:wrap;
                 }
 
@@ -621,10 +848,11 @@
                 }
 
                 .sc-msg {
+                    flex:0 0 auto;
                     text-align:center;
                     color:#ffd700;
                     font-weight:900;
-                    margin:4px auto 6px;
+                    margin:2px auto 5px;
                     max-width:500px;
                     font-size:13px;
                     line-height:1.15;
@@ -638,16 +866,19 @@
                 }
 
                 .sc-actions {
+                    flex:0 0 auto;
                     display:flex;
-                    gap:8px;
+                    gap:6px;
                     justify-content:center;
-                    margin-bottom:10px;
+                    margin-bottom:4px;
+                    flex-wrap:wrap;
                 }
 
                 .sc-actions button {
                     border:none;
                     border-radius:10px;
-                    padding:9px 12px;
+                    padding:8px 10px;
+                    font-size:13px;
                     font-weight:900;
                     background:#ffd700;
                     color:#1e4620;
@@ -658,12 +889,9 @@
                     color:#222;
                 }
 
-                @media (max-width:390px) {
-                    .sc-player-name { font-size:15px; }
-                    .sc-player-score { font-size:13px; }
-                    .sc-cell span { font-size:7px; }
-                    .sc-cell b { font-size:13px; }
-                    .sc-tile { width:35px; height:39px; }
+                .sc-exchange-btn {
+                    background:#1d4ed8 !important;
+                    color:#ffffff !important;
                 }
             </style>
 
@@ -677,7 +905,13 @@
                     `).join("")}
                 </div>
 
-                <div class="sc-board">${boardHtml}</div>
+                <div class="sc-board-zone">
+                    <div class="sc-board-viewport">
+                        <div class="sc-board-shell">
+                            <div class="sc-board">${boardHtml}</div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="sc-rack">${rackHtml}</div>
 
@@ -687,9 +921,12 @@
                 <div class="sc-actions">
                     <button onclick="submitScrabbleMove()" ${myTurn && s.pending.length ? "" : "disabled"} type="button">Submit</button>
                     <button onclick="undoScrabbleMove()" ${myTurn && s.pending.length ? "" : "disabled"} type="button">Undo</button>
+                    <button onclick="exchangeScrabbleSelectedTile()" ${canExchange ? "" : "disabled"} class="sc-exchange-btn" type="button">Exchange</button>
                     <button onclick="passScrabbleTurn()" ${myTurn ? "" : "disabled"} type="button">Pass</button>
                 </div>
             </div>
         `;
+
+        setupBoardView();
     }
 })();
