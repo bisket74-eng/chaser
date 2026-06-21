@@ -372,10 +372,11 @@ function setupBoardView() {
     const msgH = msg ? msg.offsetHeight : 0;
     const actionsH = actions ? actions.offsetHeight : 0;
 
-    const reservedHeight = scoreH + rackH + msgH + actionsH + 18;
-    const availableHeight = Math.max(190, wrap.clientHeight - reservedHeight);
-    const availableWidth = Math.max(250, wrap.clientWidth - 4);
-    const base = Math.floor(Math.min(availableWidth, availableHeight, 660));
+    const reservedHeight = scoreH + rackH + msgH + actionsH + 2;
+const availableHeight = Math.max(240, wrap.clientHeight - reservedHeight);
+const availableWidth = Math.max(280, wrap.clientWidth);
+
+const calculatedBase = Math.floor(Math.min(availableWidth, availableHeight, 760));
 
     boardView.base = base;
 
