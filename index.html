@@ -2749,27 +2749,88 @@ if (chaserFollowBtn) {
 })();
 </script>
     <script>
-/* CHASER PATCH — Hide/Show Game Board Button */
+<script>
+/* CHASER PATCH — final hide/show board controls */
 (function () {
-    if (window.__chaserHideBoardButtonInstalled) return;
-    window.__chaserHideBoardButtonInstalled = true;
+    if (window.__chaserHideBoardFinal) return;
+    window.__chaserHideBoardFinal = true;
 
-    let hideBtn = null;
+    let toggleBtn = null;
+    let gameNameText = null;
+    let lastRect = null;
+    let draggedPos = null;
+    let dragging = false;
+    let moved = false;
+    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
     const style = document.createElement("style");
     style.innerHTML = `
+        #roomDisplayCode {
+            text-indent:-9999px !important;
+        }
+        #roomDisplayCode::after {
+            content:"Chat Room";
+            text-indent:0;
+            float:left;
+        }
+
+        .canvas-exit-anchor-box {
+            position:absolute !important;
+            left:10px !important;
+            bottom:8px !important;
+            min-width:96px !important;
+            height:40px !important;
+            background:#dc3545 !important;
+            border:2px solid #ffffff !important;
+            border-radius:999px !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:4px !important;
+            z-index:10020 !important;
+            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
+        }
+
+        .canvas-exit-x-glyph,
+        .canvas-exit-label-str {
+            color:#ffffff !important;
+            font-size:13px !important;
+            font-weight:900 !important;
+            text-shadow:none !important;
+        }
+
         #gameBoardToggleBtn {
             position:fixed !important;
             z-index:10060 !important;
-            width:92px !important;
-            height:42px !important;
+            min-width:96px !important;
+            height:40px !important;
             border-radius:999px !important;
             border:2px solid #ffffff !important;
             background:#ffd700 !important;
             color:#1e4620 !important;
-            font-size:14px !important;
+            font-size:13px !important;
             font-weight:900 !important;
             box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
+            touch-action:none !important;
+        }
+
+        #gameBoardToggleBtn .gb-arrow {
+            font-size:18px !important;
+            line-height:1 !important;
+        }
+
+        #chaserGameNameText {
+            position:absolute !important;
+            left:118px !important;
+            bottom:15px !important;
+            z-index:10019 !important;
+            color:#ffd700 !important;
+            font-family:"Trebuchet MS","Arial Black",sans-serif !important;
+            font-size:17px !important;
+            font-weight:900 !important;
+            text-shadow:0 2px 4px rgba(0,0,0,.75) !important;
+            pointer-events:none !important;
+            white-space:nowrap !important;
         }
 
         #activeGameStage.game-board-hidden {
@@ -2784,55 +2845,128 @@ if (chaserFollowBtn) {
         }
 
         #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
+        #activeGameStage.game-board-hidden #chaserGameNameText,
         #activeGameStage.game-board-hidden #coupHelpBtn {
             display:none !important;
-        }
-
-        #coupHelpBtn {
-            position:absolute !important;
-            bottom:12px !important;
-            left:220px !important;
-            right:auto !important;
-            top:auto !important;
-            z-index:10020 !important;
         }
     `;
     document.head.appendChild(style);
 
-    function placeHideButton() {
+    function gameName() {
+        return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
+    }
+
+    function setBtnText(hidden) {
+        toggleBtn.innerHTML = hidden
+            ? 'Show <span class="gb-arrow">▴</span>'
+            : 'Hide <span class="gb-arrow">▾</span>';
+    }
+
+    function placeControls() {
         const stage = document.getElementById("activeGameStage");
         if (!stage) return;
 
-        if (!hideBtn) {
-            hideBtn = document.createElement("button");
-            hideBtn.id = "gameBoardToggleBtn";
-            hideBtn.type = "button";
-            hideBtn.innerText = "Hide ▾";
-            document.body.appendChild(hideBtn);
+        if (!toggleBtn) {
+            toggleBtn = document.createElement("button");
+            toggleBtn.id = "gameBoardToggleBtn";
+            toggleBtn.type = "button";
+            setBtnText(false);
+            document.body.appendChild(toggleBtn);
 
-            hideBtn.addEventListener("click", () => {
+            toggleBtn.addEventListener("pointerdown", e => {
+                if (!stage.classList.contains("game-board-hidden")) return;
+
+                dragging = true;
+                moved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = toggleBtn.offsetLeft;
+                startTop = toggleBtn.offsetTop;
+                toggleBtn.setPointerCapture(e.pointerId);
+            });
+
+            toggleBtn.addEventListener("pointermove", e => {
+                if (!dragging) return;
+
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+
+                const newLeft = Math.max(6, Math.min(window.innerWidth - toggleBtn.offsetWidth - 6, startLeft + dx));
+                const newTop = Math.max(6, Math.min(window.innerHeight - toggleBtn.offsetHeight - 6, startTop + dy));
+
+                toggleBtn.style.left = newLeft + "px";
+                toggleBtn.style.top = newTop + "px";
+                draggedPos = { left:newLeft, top:newTop };
+            });
+
+            toggleBtn.addEventListener("pointerup", () => {
+                dragging = false;
+            });
+
+            toggleBtn.addEventListener("click", e => {
+                if (moved) {
+                    e.preventDefault();
+                    moved = false;
+                    return;
+                }
+
                 const hidden = stage.classList.toggle("game-board-hidden");
-                hideBtn.innerText = hidden ? "Show ▴" : "Hide ▾";
+                setBtnText(hidden);
+
+                if (!hidden) {
+                    draggedPos = null;
+                    setTimeout(placeControls, 50);
+                }
             });
         }
 
-        if (!stage.classList.contains("open")) {
-            hideBtn.style.display = "none";
+        if (!gameNameText) {
+            gameNameText = document.createElement("div");
+            gameNameText.id = "chaserGameNameText";
+        }
+
+        const isOpen = stage.classList.contains("open");
+        const hidden = stage.classList.contains("game-board-hidden");
+
+        if (!isOpen) {
+            toggleBtn.style.display = "none";
             stage.classList.remove("game-board-hidden");
-            hideBtn.innerText = "Hide ▾";
+            setBtnText(false);
             return;
         }
 
-        hideBtn.style.display = "block";
+        if (gameNameText.parentElement !== stage) stage.appendChild(gameNameText);
+        gameNameText.innerText = gameName();
 
-        const rect = stage.getBoundingClientRect();
+        toggleBtn.style.display = "block";
 
-        hideBtn.style.left = (rect.right - 104) + "px";
-        hideBtn.style.top = (rect.bottom - 54) + "px";
+        if (!hidden) {
+            lastRect = stage.getBoundingClientRect();
+            const rect = lastRect;
+
+            toggleBtn.style.left = (rect.right - 106) + "px";
+            toggleBtn.style.top = (rect.bottom - 50) + "px";
+        } else if (draggedPos) {
+            toggleBtn.style.left = draggedPos.left + "px";
+            toggleBtn.style.top = draggedPos.top + "px";
+        }
+
+        const helpBtn = document.getElementById("coupHelpBtn");
+        if (helpBtn && window.chaserGame && String(window.chaserGame.activeGame || "").toLowerCase() === "coup" && !hidden) {
+            helpBtn.style.setProperty("position", "absolute", "important");
+            helpBtn.style.setProperty("left", "220px", "important");
+            helpBtn.style.setProperty("bottom", "8px", "important");
+            helpBtn.style.setProperty("right", "auto", "important");
+            helpBtn.style.setProperty("top", "auto", "important");
+            helpBtn.style.setProperty("z-index", "10021", "important");
+        }
     }
 
-    setInterval(placeHideButton, 250);
+    setInterval(placeControls, 250);
 })();
+</script>
 </script>
     
 <script src="./games.js?v=36"></script>
