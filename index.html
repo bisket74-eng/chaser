@@ -2748,6 +2748,93 @@ if (chaserFollowBtn) {
     document.head.appendChild(style);
 })();
 </script>
+    <script>
+/* CHASER PATCH — Hide/Show Game Board Button */
+(function () {
+    if (window.__chaserHideBoardButtonInstalled) return;
+    window.__chaserHideBoardButtonInstalled = true;
+
+    let hideBtn = null;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #gameBoardToggleBtn {
+            position:fixed !important;
+            z-index:10060 !important;
+            width:92px !important;
+            height:42px !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            font-size:14px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
+        }
+
+        #activeGameStage.game-board-hidden {
+            height:0 !important;
+            min-height:0 !important;
+            max-height:0 !important;
+            padding:0 !important;
+            border-width:0 !important;
+            overflow:hidden !important;
+            opacity:0 !important;
+            pointer-events:none !important;
+        }
+
+        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
+        #activeGameStage.game-board-hidden #coupHelpBtn {
+            display:none !important;
+        }
+
+        #coupHelpBtn {
+            position:absolute !important;
+            bottom:12px !important;
+            left:220px !important;
+            right:auto !important;
+            top:auto !important;
+            z-index:10020 !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    function placeHideButton() {
+        const stage = document.getElementById("activeGameStage");
+        if (!stage) return;
+
+        if (!hideBtn) {
+            hideBtn = document.createElement("button");
+            hideBtn.id = "gameBoardToggleBtn";
+            hideBtn.type = "button";
+            hideBtn.innerText = "Hide ▾";
+            document.body.appendChild(hideBtn);
+
+            hideBtn.addEventListener("click", () => {
+                const hidden = stage.classList.toggle("game-board-hidden");
+                hideBtn.innerText = hidden ? "Show ▴" : "Hide ▾";
+            });
+        }
+
+        if (!stage.classList.contains("open")) {
+            hideBtn.style.display = "none";
+            stage.classList.remove("game-board-hidden");
+            hideBtn.innerText = "Hide ▾";
+            return;
+        }
+
+        hideBtn.style.display = "block";
+
+        const rect = stage.getBoundingClientRect();
+
+        hideBtn.style.left = (rect.right - 104) + "px";
+        hideBtn.style.top = (rect.bottom - 54) + "px";
+    }
+
+    setInterval(placeHideButton, 250);
+})();
+</script>
+    
 <script src="./games.js?v=36"></script>
 <script src="./games/yahtzee.js"></script>
     <script src="./games/scrabble.js?v=1"></script>
