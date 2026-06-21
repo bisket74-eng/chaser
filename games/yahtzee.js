@@ -490,17 +490,6 @@ window.startYahtzeeFromLobby = function () {
     if (window.chaserGame) window.chaserGame.activeGame = "Yahtzee";
     renderYahtzee();
 };
-        if (payload && payload.yahtzee && payload.state) {
-            window.yahtzeeState = payload.state;
-            if (window.chaserGame) window.chaserGame.activeGame = "Yahtzee";
-            renderYahtzee();
-            return;
-        }
-
-        if (typeof oldReceiveTriviaSync === "function") {
-            oldReceiveTriviaSync(payload)
-        }
-    };
 
     const oldShutdown = window.shutdownActiveGame;
     const oldMasterExit = window.chaserMasterExitSequence;
