@@ -6089,20 +6089,17 @@ window.initHangmanGame = function () {
     `;
     document.head.appendChild(style);
 })();
-
-/* COUP HELP FIX v2 — blue Help button + clean cheat sheet */
+/* COUP HELP FIX v3 — blue Help button + simple no-flash cheat sheet */
 (function () {
-    if (window.__coupHelpBlueCleanFixV2) return;
-    window.__coupHelpBlueCleanFixV2 = true;
+    if (window.__coupHelpCleanNoFlashV3) return;
+    window.__coupHelpCleanNoFlashV3 = true;
 
     const style = document.createElement("style");
     style.innerHTML = `
-        /* Hide the old bottom Coup help button, if it still exists */
         #coupHelpBtn {
             display:none !important;
         }
 
-        /* Blue Help button beside YOUR CARDS */
         #coupInlineHelpBtn,
         .coup-cards-header-row button {
             background:#1d4ed8 !important;
@@ -6125,11 +6122,28 @@ window.initHangmanGame = function () {
             box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
         }
 
-        /* Floating close X for the cheat sheet */
+        #gameCanvasContainer {
+            position:relative !important;
+        }
+
+        #coupHelpOverlay {
+            position:absolute !important;
+            left:0 !important;
+            right:0 !important;
+            top:0 !important;
+            bottom:58px !important;
+            background:rgba(0,0,0,.72) !important;
+            z-index:10080 !important;
+            border-radius:22px 22px 0 0 !important;
+            padding:14px !important;
+            box-sizing:border-box !important;
+            overflow-y:auto !important;
+        }
+
         #coupHelpCloseBtn {
-            position:fixed !important;
-            top:92px !important;
-            right:18px !important;
+            position:absolute !important;
+            top:10px !important;
+            right:10px !important;
             width:44px !important;
             height:44px !important;
             border-radius:999px !important;
@@ -6142,8 +6156,46 @@ window.initHangmanGame = function () {
             display:flex !important;
             align-items:center !important;
             justify-content:center !important;
-            z-index:200000 !important;
+            z-index:10090 !important;
             box-shadow:0 4px 12px rgba(0,0,0,.55) !important;
+        }
+
+        .coup-help-list {
+            background:#eaf4df !important;
+            border:4px solid #ffd700 !important;
+            border-radius:18px !important;
+            padding:54px 10px 12px 10px !important;
+            box-sizing:border-box !important;
+        }
+
+        .coup-help-role {
+            background:#ffffff !important;
+            border:2px solid #1e4620 !important;
+            border-radius:12px !important;
+            margin:8px 0 !important;
+            padding:8px 6px !important;
+            color:#1e4620 !important;
+            text-align:center !important;
+            font-weight:900 !important;
+            box-sizing:border-box !important;
+        }
+
+        .coup-help-role-name {
+            font-size:24px !important;
+            line-height:1.1 !important;
+        }
+
+        .coup-help-role-action {
+            font-size:18px !important;
+            line-height:1.15 !important;
+            margin-top:3px !important;
+        }
+
+        .coup-help-role-block {
+            color:#a6002b !important;
+            font-size:18px !important;
+            line-height:1.15 !important;
+            margin-top:3px !important;
         }
     `;
     document.head.appendChild(style);
@@ -6151,91 +6203,81 @@ window.initHangmanGame = function () {
     function closeCoupHelp() {
         const overlay = document.getElementById("coupHelpOverlay");
         if (overlay) overlay.remove();
+    }
+
+    function openCoupHelp() {
+        closeCoupHelp();
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas) return;
+
+        const overlay = document.createElement("div");
+        overlay.id = "coupHelpOverlay";
+
+        overlay.innerHTML = `
+            <button id="coupHelpCloseBtn" type="button">×</button>
+
+            <div class="coup-help-list">
+                <div class="coup-help-role">
+                    <div class="coup-help-role-name">👑 Duke</div>
+                    <div class="coup-help-role-action">Tax: take 3 coins</div>
+                    <div class="coup-help-role-block">Blocks Foreign Aid</div>
+                </div>
+
+                <div class="coup-help-role">
+                    <div class="coup-help-role-name">🗡️ Assassin</div>
+                    <div class="coup-help-role-action">Pay 3 to assassinate</div>
+                    <div class="coup-help-role-block">Blocked by Contessa</div>
+                </div>
+
+                <div class="coup-help-role">
+                    <div class="coup-help-role-name">🏴‍☠️ Captain</div>
+                    <div class="coup-help-role-action">Steal 2 coins</div>
+                    <div class="coup-help-role-block">Blocked by Captain/Ambassador</div>
+                </div>
+
+                <div class="coup-help-role">
+                    <div class="coup-help-role-name">🔁 Ambassador</div>
+                    <div class="coup-help-role-action">Exchange cards</div>
+                    <div class="coup-help-role-block">Blocks stealing</div>
+                </div>
+
+                <div class="coup-help-role">
+                    <div class="coup-help-role-name">🛡️ Contessa</div>
+                    <div class="coup-help-role-action">No action</div>
+                    <div class="coup-help-role-block">Blocks Assassin</div>
+                </div>
+            </div>
+        `;
+
+        canvas.appendChild(overlay);
 
         const closeBtn = document.getElementById("coupHelpCloseBtn");
-        if (closeBtn) closeBtn.remove();
+        if (closeBtn) closeBtn.onclick = closeCoupHelp;
     }
 
-    function cleanCoupHelpOverlay() {
-        const overlay = document.getElementById("coupHelpOverlay");
-        if (!overlay) return;
-
-        Array.from(overlay.querySelectorAll("*")).forEach(el => {
-            const txt = el.textContent.trim();
-
-            if (txt === "Coup Cheat Sheet") {
-                el.style.setProperty("display", "none", "important");
-                el.style.setProperty("height", "0", "important");
-                el.style.setProperty("margin", "0", "important");
-                el.style.setProperty("padding", "0", "important");
-                el.style.setProperty("overflow", "hidden", "important");
-            }
-
-            if (txt.includes("You may claim any role")) {
-                el.style.setProperty("display", "none", "important");
-                el.style.setProperty("height", "0", "important");
-                el.style.setProperty("margin", "0", "important");
-                el.style.setProperty("padding", "0", "important");
-                el.style.setProperty("overflow", "hidden", "important");
-            }
-
-            if (el.tagName === "BUTTON" && txt === "Close") {
-                el.style.setProperty("display", "none", "important");
-            }
-        });
-    }
-
-    function addCloseButtonIfHelpOpen() {
-        const overlay = document.getElementById("coupHelpOverlay");
-        const existingClose = document.getElementById("coupHelpCloseBtn");
-
-        if (!overlay) {
-            if (existingClose) existingClose.remove();
-            return;
-        }
-
-        cleanCoupHelpOverlay();
-
-        if (existingClose) return;
-
-        const closeBtn = document.createElement("button");
-        closeBtn.id = "coupHelpCloseBtn";
-        closeBtn.type = "button";
-        closeBtn.textContent = "×";
-        closeBtn.onclick = closeCoupHelp;
-
-        document.body.appendChild(closeBtn);
-    }
-
-    function openOrCloseCoupHelp(e) {
+    function toggleCoupHelp(e) {
         if (e) e.stopPropagation();
 
-        const overlay = document.getElementById("coupHelpOverlay");
-
-        if (overlay) {
+        if (document.getElementById("coupHelpOverlay")) {
             closeCoupHelp();
-            return;
+        } else {
+            openCoupHelp();
         }
-
-        if (typeof window.showCoupHelpSheet === "function") {
-            window.showCoupHelpSheet();
-        }
-
-        setTimeout(addCloseButtonIfHelpOpen, 50);
-        setTimeout(cleanCoupHelpOverlay, 100);
     }
 
+    window.showCoupHelpSheet = openCoupHelp;
+    window.toggleCoupHelpSheet = toggleCoupHelp;
+
     function wireHelpButton() {
-        const inlineHelp =
+        const helpBtn =
             document.getElementById("coupInlineHelpBtn") ||
             document.querySelector(".coup-cards-header-row button");
 
-        if (inlineHelp && !inlineHelp.__coupBlueHelpWiredV2) {
-            inlineHelp.__coupBlueHelpWiredV2 = true;
-            inlineHelp.onclick = openOrCloseCoupHelp;
+        if (helpBtn) {
+            helpBtn.textContent = "Help";
+            helpBtn.onclick = toggleCoupHelp;
         }
-
-        addCloseButtonIfHelpOpen();
     }
 
     setInterval(wireHelpButton, 200);
