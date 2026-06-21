@@ -1267,7 +1267,7 @@
 
         <div class="canvas-exit-anchor-box" onclick="chaserMasterExitSequence()">
             <span class="canvas-exit-x-glyph">✕</span>
-            <span class="canvas-exit-label-str">exit game</span>
+            <span class="canvas-exit-label-str">Exit Game</span>
         </div>
     </div>
 
@@ -2973,8 +2973,8 @@ if (chaserFollowBtn) {
         const r = lastRect || stage.getBoundingClientRect();
 
         toggle.style.display = "block";
-        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 104, r.right - 110)) + "px";
-        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 38, r.bottom - 44)) + "px";
+        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 104, r.right - 108)) + "px";
+        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 38, r.bottom - 42)) + "px";
     }
 
     setInterval(ensureFooter, 300);
