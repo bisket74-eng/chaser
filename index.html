@@ -1694,6 +1694,13 @@
            .on('broadcast', { event:'coup-sync-state' }, ({ payload }) => {
                if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
             })
+            .on('broadcast', { event:'yahtzee-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
+})
+
+.on('broadcast', { event:'scrabble-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingScrabbleSync) window.handleIncomingScrabbleSync(payload);
+})
             .on('broadcast', { event:'chaser-game-lobby-open' }, ({ payload }) => {
                 if (window.handleIncomingChaserGameLobby) window.handleIncomingChaserGameLobby(payload);
             })
