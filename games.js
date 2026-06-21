@@ -5264,24 +5264,37 @@ window.initHangmanGame = function () {
         return window.chaserGame && String(window.chaserGame.activeGame || "").toLowerCase() === "coup";
     }
 
-    function placeCoupHelpButton() {
-        const stage = document.getElementById("activeGameStage");
-        if (!stage || !isCoupOpen()) return;
+   function placeCoupHelpButton() {
+    const stage = document.getElementById("activeGameStage");
+    const oldBtn = document.getElementById("coupHelpBtn");
+    const canvas = document.getElementById("gameCanvasContainer");
 
-        let btn = document.getElementById("coupHelpBtn");
-
-        if (!btn) {
-            btn = document.createElement("button");
-            btn.id = "coupHelpBtn";
-            btn.type = "button";
-            btn.textContent = "Help";
-            btn.onclick = window.showCoupHelpSheet;
-        }
-
-        if (btn.parentElement !== stage) {
-            stage.appendChild(btn);
-        }
+    if (!stage || !isCoupOpen()) {
+        if (oldBtn) oldBtn.remove();
+        return;
     }
+
+    const showingChooseAction = canvas && canvas.innerText.includes("Choose Action");
+
+    if (!showingChooseAction) {
+        if (oldBtn) oldBtn.remove();
+        return;
+    }
+
+    let btn = oldBtn;
+
+    if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "coupHelpBtn";
+        btn.type = "button";
+        btn.textContent = "Help";
+        btn.onclick = window.showCoupHelpSheet;
+    }
+
+    if (btn.parentElement !== stage) {
+        stage.appendChild(btn);
+    }
+}
 
     window.showCoupHelpSheet = function () {
         const canvas = document.getElementById("gameCanvasContainer");
