@@ -2758,10 +2758,10 @@ if (chaserFollowBtn) {
     
 <script>
      
-/* CHASER PATCH — clean game footer row v2 */
+/* CHASER PATCH — clean game footer row v3 */
 (function () {
-    if (window.__chaserCleanGameFooterV2Installed) return;
-    window.__chaserCleanGameFooterV2Installed = true;
+    if (window.__chaserCleanGameFooterV3Installed) return;
+    window.__chaserCleanGameFooterV3Installed = true;
 
     const style = document.createElement("style");
     style.innerHTML = `
@@ -2776,34 +2776,40 @@ if (chaserFollowBtn) {
         }
 
         #activeGameStage.open {
+            position:fixed !important;
+            left:50% !important;
+            right:auto !important;
+            top:170px !important;
+            transform:translateX(-50%) !important;
+            width:calc(100vw - 28px) !important;
+            max-width:760px !important;
+            height:68vh !important;
+            min-height:360px !important;
+            max-height:calc(100dvh - 235px) !important;
             padding-bottom:52px !important;
-            position:relative !important;
+            box-sizing:border-box !important;
+            overflow:hidden !important;
         }
 
-        #chaserGameFooterRow {
-            position:absolute !important;
-            left:0 !important;
-            right:0 !important;
-            bottom:0 !important;
-            height:50px !important;
-            z-index:10030 !important;
-            display:grid !important;
-            grid-template-columns:112px 1fr 112px !important;
-            align-items:center !important;
-            gap:6px !important;
-            padding:6px 10px !important;
+        #gameCanvasContainer {
+            width:100% !important;
+            height:100% !important;
+            max-height:100% !important;
+            overflow:auto !important;
             box-sizing:border-box !important;
-            pointer-events:none !important;
+            padding-bottom:54px !important;
         }
 
         .canvas-exit-anchor-box {
-            position:static !important;
-            width:112px !important;
-            min-width:112px !important;
-            max-width:112px !important;
-            height:36px !important;
-            min-height:36px !important;
-            max-height:36px !important;
+            position:absolute !important;
+            left:14px !important;
+            bottom:10px !important;
+            width:110px !important;
+            min-width:110px !important;
+            max-width:110px !important;
+            height:34px !important;
+            min-height:34px !important;
+            max-height:34px !important;
             padding:0 !important;
             margin:0 !important;
             box-sizing:border-box !important;
@@ -2817,6 +2823,7 @@ if (chaserFollowBtn) {
             box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
             pointer-events:auto !important;
             transform:none !important;
+            z-index:10040 !important;
         }
 
         .canvas-exit-x-glyph,
@@ -2829,27 +2836,31 @@ if (chaserFollowBtn) {
         }
 
         #chaserFooterGameTitle {
+            position:absolute !important;
+            left:132px !important;
+            right:132px !important;
+            bottom:15px !important;
             text-align:center !important;
             color:#ffd700 !important;
             font-family:"Trebuchet MS","Arial Black",sans-serif !important;
-            font-size:19px !important;
+            font-size:20px !important;
             font-weight:900 !important;
             text-shadow:0 2px 5px rgba(0,0,0,.75) !important;
             pointer-events:none !important;
             white-space:nowrap !important;
             overflow:hidden !important;
             text-overflow:ellipsis !important;
-            padding:0 4px !important;
-            min-width:0 !important;
+            z-index:10039 !important;
         }
 
         #gameBoardToggleBtn {
-            width:112px !important;
-            min-width:112px !important;
-            max-width:112px !important;
-            height:36px !important;
-            min-height:36px !important;
-            max-height:36px !important;
+            position:fixed !important;
+            width:110px !important;
+            min-width:110px !important;
+            max-width:110px !important;
+            height:34px !important;
+            min-height:34px !important;
+            max-height:34px !important;
             padding:0 !important;
             margin:0 !important;
             box-sizing:border-box !important;
@@ -2861,27 +2872,54 @@ if (chaserFollowBtn) {
             font-weight:900 !important;
             box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
             pointer-events:auto !important;
+            z-index:10060 !important;
         }
 
         #gameBoardToggleBtn .arrow {
-            font-size:18px !important;
+            font-size:17px !important;
             line-height:1 !important;
         }
 
-        #activeGameStage.game-board-hidden #gameCanvasContainer {
+        #activeGameStage.game-board-hidden {
+            height:0 !important;
+            min-height:0 !important;
+            max-height:0 !important;
+            padding:0 !important;
+            border-width:0 !important;
+            overflow:hidden !important;
+            opacity:0 !important;
+            pointer-events:none !important;
+        }
+
+        #activeGameStage.game-board-hidden #gameCanvasContainer,
+        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
+        #activeGameStage.game-board-hidden #chaserFooterGameTitle,
+        #activeGameStage.game-board-hidden #coupHelpBtn {
             display:none !important;
         }
 
-        #activeGameStage.game-board-hidden {
-            height:58px !important;
-            min-height:58px !important;
-            max-height:58px !important;
+        @media (max-height:750px) {
+            #activeGameStage.open {
+                top:150px !important;
+                height:66vh !important;
+            }
         }
     `;
     document.head.appendChild(style);
 
+    let footerTitle = null;
+    let toggle = null;
+    let lastRect = null;
+
     function gameName() {
         return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
+    }
+
+    function setToggleText(hidden) {
+        if (!toggle) return;
+        toggle.innerHTML = hidden
+            ? 'Show Board <span class="arrow">▲</span>'
+            : 'Hide Board <span class="arrow">▼</span>';
     }
 
     function ensureFooter() {
@@ -2889,50 +2927,65 @@ if (chaserFollowBtn) {
         const exitBtn = document.querySelector(".canvas-exit-anchor-box");
         if (!stage || !exitBtn) return;
 
-        let row = document.getElementById("chaserGameFooterRow");
-        let title = document.getElementById("chaserFooterGameTitle");
-        let toggle = document.getElementById("gameBoardToggleBtn");
+        const isOpen = stage.classList.contains("open");
+        const hidden = stage.classList.contains("game-board-hidden");
 
-        if (!row) {
-            row = document.createElement("div");
-            row.id = "chaserGameFooterRow";
+        if (!footerTitle) {
+            footerTitle = document.createElement("div");
+            footerTitle.id = "chaserFooterGameTitle";
+            stage.appendChild(footerTitle);
+        }
 
-            title = document.createElement("div");
-            title.id = "chaserFooterGameTitle";
-
+        if (!toggle) {
             toggle = document.createElement("button");
             toggle.id = "gameBoardToggleBtn";
             toggle.type = "button";
-            toggle.innerHTML = 'Hide Board <span class="arrow">▼</span>';
+            setToggleText(false);
+            document.body.appendChild(toggle);
 
             toggle.onclick = () => {
-                const hidden = stage.classList.toggle("game-board-hidden");
-                toggle.innerHTML = hidden
-                    ? 'Show Board <span class="arrow">▲</span>'
-                    : 'Hide Board <span class="arrow">▼</span>';
-            };
+                const nowHidden = stage.classList.toggle("game-board-hidden");
+                setToggleText(nowHidden);
 
-            row.appendChild(exitBtn);
-            row.appendChild(title);
-            row.appendChild(toggle);
-            stage.appendChild(row);
+                if (!nowHidden) {
+                    setTimeout(ensureFooter, 50);
+                }
+            };
         }
 
-        title.innerText = gameName();
-        row.style.display = stage.classList.contains("open") ? "grid" : "none";
+        if (!isOpen) {
+            toggle.style.display = "none";
+            stage.classList.remove("game-board-hidden");
+            setToggleText(false);
+            return;
+        }
+
+        if (footerTitle.parentElement !== stage) {
+            stage.appendChild(footerTitle);
+        }
+
+        footerTitle.innerText = gameName();
+
+        if (!hidden) {
+            lastRect = stage.getBoundingClientRect();
+        }
+
+        const r = lastRect || stage.getBoundingClientRect();
+
+        toggle.style.display = "block";
+        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 118, r.right - 124)) + "px";
+        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 42, r.bottom - 44)) + "px";
     }
 
     setInterval(ensureFooter, 300);
 })();
-       
 </script>
-
-
+    
     
 <script src="./games.js?v=36"></script>
 <script src="./games/yahtzee.js"></script>
     <script src="./games/scrabble.js?v=1"></script>
-    
+</script>
 
 
 </body>
