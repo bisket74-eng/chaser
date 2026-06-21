@@ -677,18 +677,17 @@
             overflow:auto;
         }
 
-        .canvas-exit-anchor-box {
-            position:absolute;
-            bottom:8px;
-            left:10px;
-            display:flex;
-            align-items:center;
-            gap:5px;
-            z-index:9999;
-            cursor:pointer;
-            pointer-events:auto;
-            text-shadow:0 1px 3px rgba(0,0,0,0.8);
-        }
+       .canvas-exit-anchor-box {
+    position:absolute !important;
+    bottom:8px !important;
+    left:10px !important;
+    display:flex !important;
+    align-items:center !important;
+    gap:5px !important;
+    z-index:9999 !important;
+    cursor:pointer !important;
+    pointer-events:auto !important;
+}
 
         .canvas-exit-x-glyph {
             color:#dc3545;
@@ -2887,37 +2886,6 @@ if (chaserFollowBtn) {
 <script src="./games/yahtzee.js"></script>
     <script src="./games/scrabble.js?v=1"></script>
     <script>
-/* CHASER FINAL OVERRIDE — lock Exit Game inside board footer */
-(function () {
-    function lockExitButton() {
-        const stage = document.getElementById("activeGameStage");
-        const exitBtn = document.querySelector(".canvas-exit-anchor-box");
-        const namePill = document.getElementById("chaserGameNamePill");
-
-        if (!stage || !exitBtn || !stage.classList.contains("open")) return;
-
-        stage.style.setProperty("position", "relative", "important");
-        stage.style.setProperty("padding-bottom", "56px", "important");
-
-        exitBtn.style.setProperty("position", "absolute", "important");
-        exitBtn.style.setProperty("left", "14px", "important");
-        exitBtn.style.setProperty("bottom", "12px", "important");
-        exitBtn.style.setProperty("z-index", "10050", "important");
-        exitBtn.style.setProperty("display", "flex", "important");
-
-        if (namePill) {
-            if (namePill.parentElement !== stage) stage.appendChild(namePill);
-
-            namePill.style.setProperty("position", "absolute", "important");
-            namePill.style.setProperty("left", "128px", "important");
-            namePill.style.setProperty("bottom", "12px", "important");
-            namePill.style.setProperty("z-index", "10049", "important");
-        }
-    }
-
-    setInterval(lockExitButton, 150);
-})();
-</script>
 
 
 </body>
