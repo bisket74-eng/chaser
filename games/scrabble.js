@@ -748,7 +748,7 @@ function renderScrabble() {
             .sc-wrap {
                 height:100%;
                 overflow:hidden;
-                padding:4px 8px 58px;
+                padding:2px 0 44px;
                 box-sizing:border-box;
                 color:#e2f0d9;
                 font-family:Arial,sans-serif;
@@ -801,7 +801,7 @@ function renderScrabble() {
                 flex:1 1 auto;
                 min-height:0;
                 display:flex;
-                align-items:center;
+                align-items:flex-end;
                 justify-content:center;
                 width:100%;
                 margin:0 auto;
