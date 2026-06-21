@@ -474,6 +474,7 @@
     }
 
    function receiveLobbyStart(payload) {
+      alert("LOBBY START RECEIVED: " + payload.gameName);
     if (!payload) return;
 
     const incomingRoomGameId = payload.roomGameId || window.chaserGame.activeGameId;
