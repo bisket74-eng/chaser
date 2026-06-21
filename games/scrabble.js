@@ -724,11 +724,20 @@ function renderScrabble() {
     }).join("")
 ).join("");
 
-    const rackHtml = me.rack.map((l, i) => `
-        <button class="sc-tile ${s.selectedRack === i ? "selected" : ""}" onclick="pickScrabbleTile(${i})" type="button">
-            <b>${l}</b><small>${VALUES[l] || 0}</small>
-        </button>
-    `).join("");
+   const rackHtml = me.rack.map((l, i) => {
+    return (
+        "<button class=\"sc-tile " +
+        (s.selectedRack === i ? "selected" : "") +
+        "\" onclick=\"pickScrabbleTile(" +
+        i +
+        ")\" type=\"button\">" +
+        "<b>" +
+        l +
+        "</b><small>" +
+        (VALUES[l] || 0) +
+        "</small></button>"
+    );
+}).join("");
 
     const canExchange = myTurn && !s.pending.length && s.selectedRack !== null && s.selectedRack !== undefined;
     const messageText = s.message || s.lastMessage || "&nbsp;";
@@ -1017,6 +1026,5 @@ function renderScrabble() {
 
     setupBoardView();
 }
-```
 
 })();
