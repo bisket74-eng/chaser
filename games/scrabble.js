@@ -693,12 +693,14 @@
         `;
     }
 })();
-/* SCRABBLE BOARD FIX v1 — stop shrinking + phone pinch zoom */
+/* SCRABBLE BOARD FIX v2 — stable board + phone pan/pinch zoom */
 (function () {
-    if (window.__scrabbleBoardZoomFixV1) return;
-    window.__scrabbleBoardZoomFixV1 = true;
+    if (window.__scrabbleBoardPanZoomFixV2) return;
+    window.__scrabbleBoardPanZoomFixV2 = true;
 
-    let scrabbleBoardScale = 1;
+    let boardScale = 1;
+    let lastScrollLeft = null;
+    let lastScrollTop = null;
 
     const style = document.createElement("style");
     style.innerHTML = `
@@ -708,27 +710,48 @@
             margin:0 auto !important;
             overflow:auto !important;
             -webkit-overflow-scrolling:touch !important;
-            touch-action:none !important;
+            touch-action:pan-x pan-y !important;
             box-sizing:border-box !important;
+            border:3px solid #ffd700 !important;
             border-radius:8px !important;
+            background:#0b2410 !important;
         }
 
-        .sc-board {
-            width:520px !important;
-            min-width:520px !important;
-            max-width:none !important;
-            grid-template-columns:repeat(15, minmax(0, 1fr)) !important;
-            flex-shrink:0 !important;
-            box-sizing:border-box !important;
+        .sc-board-scale-shell {
+            position:relative !important;
+            width:500px !important;
+            height:500px !important;
+            min-width:500px !important;
+            min-height:500px !important;
             transform-origin:top left !important;
         }
 
-        .sc-cell {
-            min-width:0 !important;
-            width:auto !important;
-            aspect-ratio:1 / 1 !important;
+        .sc-board {
+            width:500px !important;
+            height:500px !important;
+            min-width:500px !important;
+            min-height:500px !important;
+            max-width:none !important;
+            margin:0 !important;
+            border:0 !important;
+            border-radius:0 !important;
+            display:grid !important;
+            grid-template-columns:repeat(15, 1fr) !important;
+            grid-template-rows:repeat(15, 1fr) !important;
+            gap:1px !important;
             box-sizing:border-box !important;
-            overflow:hidden !important;
+            transform-origin:top left !important;
+            flex-shrink:0 !important;
+        }
+
+        .sc-cell {
+            width:auto !important;
+            height:auto !important;
+            min-width:0 !important;
+            min-height:0 !important;
+            aspect-ratio:auto !important;
+            box-sizing:border-box !important;
+            touch-action:manipulation !important;
         }
 
         .sc-cell b {
@@ -742,9 +765,18 @@
         }
 
         @media (max-width:430px) {
+            .sc-board-scale-shell {
+                width:480px !important;
+                height:480px !important;
+                min-width:480px !important;
+                min-height:480px !important;
+            }
+
             .sc-board {
-                width:500px !important;
-                min-width:500px !important;
+                width:480px !important;
+                height:480px !important;
+                min-width:480px !important;
+                min-height:480px !important;
             }
         }
     `;
@@ -755,14 +787,38 @@
             String(window.chaserGame.activeGame || "").toLowerCase() === "scrabble";
     }
 
+    function getBaseSize() {
+        return window.innerWidth <= 430 ? 480 : 500;
+    }
+
     function distance(t1, t2) {
         const dx = t1.clientX - t2.clientX;
         const dy = t1.clientY - t2.clientY;
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    function applyBoardScale(board) {
-        board.style.setProperty("zoom", scrabbleBoardScale);
+    function applyBoardScale(board, shell) {
+        const base = getBaseSize();
+        const scaled = base * boardScale;
+
+        shell.style.width = scaled + "px";
+        shell.style.height = scaled + "px";
+        shell.style.minWidth = scaled + "px";
+        shell.style.minHeight = scaled + "px";
+
+        board.style.transform = "scale(" + boardScale + ")";
+    }
+
+    function centerBoardIfNeeded(wrap) {
+        requestAnimationFrame(() => {
+            if (lastScrollLeft === null) {
+                wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
+                wrap.scrollTop = 0;
+            } else {
+                wrap.scrollLeft = lastScrollLeft;
+                wrap.scrollTop = lastScrollTop || 0;
+            }
+        });
     }
 
     function setupScrabbleBoardZoom() {
@@ -774,27 +830,42 @@
         const board = canvas.querySelector(".sc-board");
         if (!board) return;
 
-        let wrap = board.parentElement;
+        let wrap = board.closest(".sc-board-zoom-wrap");
+        let shell = board.closest(".sc-board-scale-shell");
 
-        if (!wrap || !wrap.classList.contains("sc-board-zoom-wrap")) {
+        if (!wrap || !shell) {
+            const originalParent = board.parentElement;
+
             wrap = document.createElement("div");
             wrap.className = "sc-board-zoom-wrap";
-            board.parentElement.insertBefore(wrap, board);
-            wrap.appendChild(board);
+
+            shell = document.createElement("div");
+            shell.className = "sc-board-scale-shell";
+
+            originalParent.insertBefore(wrap, board);
+            wrap.appendChild(shell);
+            shell.appendChild(board);
+
+            centerBoardIfNeeded(wrap);
         }
 
-        applyBoardScale(board);
+        applyBoardScale(board, shell);
 
-        if (wrap.__scrabbleZoomWired) return;
-        wrap.__scrabbleZoomWired = true;
+        if (wrap.__scrabbleZoomWiredV2) return;
+        wrap.__scrabbleZoomWiredV2 = true;
+
+        wrap.addEventListener("scroll", function () {
+            lastScrollLeft = wrap.scrollLeft;
+            lastScrollTop = wrap.scrollTop;
+        }, { passive:true });
 
         let startDistance = 0;
-        let startScale = scrabbleBoardScale;
+        let startScale = boardScale;
 
         wrap.addEventListener("touchstart", function (e) {
             if (e.touches.length === 2) {
                 startDistance = distance(e.touches[0], e.touches[1]);
-                startScale = scrabbleBoardScale;
+                startScale = boardScale;
             }
         }, { passive:false });
 
@@ -806,16 +877,19 @@
                 if (!startDistance) return;
 
                 let nextScale = startScale * (newDistance / startDistance);
-                nextScale = Math.max(1, Math.min(2.4, nextScale));
+                nextScale = Math.max(0.85, Math.min(2.2, nextScale));
 
-                scrabbleBoardScale = nextScale;
-                applyBoardScale(board);
+                boardScale = nextScale;
+                applyBoardScale(board, shell);
             }
         }, { passive:false });
 
         wrap.addEventListener("dblclick", function () {
-            scrabbleBoardScale = 1;
-            applyBoardScale(board);
+            boardScale = 1;
+            lastScrollLeft = null;
+            lastScrollTop = null;
+            applyBoardScale(board, shell);
+            centerBoardIfNeeded(wrap);
         });
     }
 
