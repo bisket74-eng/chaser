@@ -411,6 +411,7 @@
 
         sendGameEvent("chaser-game-lobby-start", {
             gameName: lobby.gameName,
+            roomGameId: window.chaserGame.activeGameId,
             expectedPlayers: window.chaserGame.expectedPlayers,
             players: window.chaserGame.players,
             hostId: window.chaserGame.hostId
