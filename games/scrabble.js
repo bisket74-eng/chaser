@@ -701,18 +701,28 @@ function renderScrabble() {
     const me = s.players.find(x => x.id === getMyId()) || s.players[0];
     const myTurn = isMyTurn();
 
-    const boardHtml = s.board.map((row, r) =>
-        row.map((cell, c) => {
-            const premium = premiumAt(r, c);
-            const premiumClass = premium === "★" ? "center" : premium.toLowerCase();
+   const boardHtml = s.board.map((row, r) =>
+    row.map((cell, c) => {
+        const premium = premiumAt(r, c);
+        const premiumClass = premium === "★" ? "center" : premium.toLowerCase();
 
-            return `
-                <button class="sc-cell ${premiumClass} ${cell?.pending ? "pending" : ""}" onclick="placeScrabbleTile(${r},${c})" type="button">
-                    ${cell ? `<b>${cell.letter}</b><small>${VALUES[cell.letter] || 0}</small>` : `<span>${premium}</span>`}
-                </button>
-            `;
-        }).join("")
-    ).join("");
+        let cellInner = "";
+
+        if (cell) {
+            cellInner =
+                "<b>" + cell.letter + "</b>" +
+                "<small>" + (VALUES[cell.letter] || 0) + "</small>";
+        } else {
+            cellInner = "<span>" + premium + "</span>";
+        }
+
+        return (
+            '<button class="sc-cell ' + premiumClass + (cell && cell.pending ? ' pending' : '') + '" onclick="placeScrabbleTile(' + r + ',' + c + ')" type="button">' +
+                cellInner +
+            '</button>'
+        );
+    }).join("")
+).join("");
 
     const rackHtml = me.rack.map((l, i) => `
         <button class="sc-tile ${s.selectedRack === i ? "selected" : ""}" onclick="pickScrabbleTile(${i})" type="button">
