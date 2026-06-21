@@ -2757,128 +2757,11 @@ if (chaserFollowBtn) {
 </script>
     
 <script>
-/* CHASER PATCH — final hide/show board controls */
+     
+/* CHASER PATCH — clean game footer row v2 */
 (function () {
-    if (window.__chaserHideBoardFinal) return;
-    window.__chaserHideBoardFinal = true;
-
-    let toggleBtn = null;
-    let gameNameText = null;
-    let lastRect = null;
-    let draggedPos = null;
-    let dragging = false;
-    let moved = false;
-    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
-
-    const style = document.createElement("style");
-    style.innerHTML = `
-        #roomDisplayCode {
-            text-indent:-9999px !important;
-        }
-        #roomDisplayCode::after {
-            content:"Chat Room";
-            text-indent:0;
-            float:left;
-        }
-
-        .canvas-exit-anchor-box {
-            position:absolute !important;
-            left:10px !important;
-            bottom:8px !important;
-            min-width:96px !important;
-            height:40px !important;
-            background:#dc3545 !important;
-            border:2px solid #ffffff !important;
-            border-radius:999px !important;
-            display:flex !important;
-            align-items:center !important;
-            justify-content:center !important;
-            gap:4px !important;
-            z-index:10020 !important;
-            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
-        }
-
-        .canvas-exit-x-glyph,
-        .canvas-exit-label-str {
-            color:#ffffff !important;
-            font-size:13px !important;
-            font-weight:900 !important;
-            text-shadow:none !important;
-        }
-
-        #gameBoardToggleBtn {
-            position:fixed !important;
-            z-index:10060 !important;
-            min-width:96px !important;
-            height:40px !important;
-            border-radius:999px !important;
-            border:2px solid #ffffff !important;
-            background:#ffd700 !important;
-            color:#1e4620 !important;
-            font-size:13px !important;
-            font-weight:900 !important;
-            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
-            touch-action:none !important;
-        }
-
-        #gameBoardToggleBtn .gb-arrow {
-            font-size:18px !important;
-            line-height:1 !important;
-        }
-
-        #chaserGameNameText {
-            position:absolute !important;
-            left:118px !important;
-            bottom:15px !important;
-            z-index:10019 !important;
-            color:#ffd700 !important;
-            font-family:"Trebuchet MS","Arial Black",sans-serif !important;
-            font-size:17px !important;
-            font-weight:900 !important;
-            text-shadow:0 2px 4px rgba(0,0,0,.75) !important;
-            pointer-events:none !important;
-            white-space:nowrap !important;
-        }
-
-        #activeGameStage.game-board-hidden {
-            height:0 !important;
-            min-height:0 !important;
-            max-height:0 !important;
-            padding:0 !important;
-            border-width:0 !important;
-            overflow:hidden !important;
-            opacity:0 !important;
-            pointer-events:none !important;
-        }
-
-        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
-        #activeGameStage.game-board-hidden #chaserGameNameText,
-        #activeGameStage.game-board-hidden #coupHelpBtn {
-            display:none !important;
-        }
-    `;
-    document.head.appendChild(style);
-
-    function gameName() {
-        return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
-    }
-
-    function setBtnText(hidden) {
-        toggleBtn.innerHTML = hidden
-            ? 'Show <span class="gb-arrow">▴</span>'
-            : 'Hide <span class="gb-arrow">▾</span>';
-    }
-
-    function placeControls() {
-        const stage = document.getElementById("activeGameStage");
-        if (!stage) return;
-
-    </script>
-    <script>
-/* CHASER PATCH — clean game footer row */
-(function () {
-    if (window.__chaserCleanGameFooterInstalled) return;
-    window.__chaserCleanGameFooterInstalled = true;
+    if (window.__chaserCleanGameFooterV2Installed) return;
+    window.__chaserCleanGameFooterV2Installed = true;
 
     const style = document.createElement("style");
     style.innerHTML = `
@@ -2893,7 +2776,8 @@ if (chaserFollowBtn) {
         }
 
         #activeGameStage.open {
-            padding-bottom:54px !important;
+            padding-bottom:52px !important;
+            position:relative !important;
         }
 
         #chaserGameFooterRow {
@@ -2901,11 +2785,12 @@ if (chaserFollowBtn) {
             left:0 !important;
             right:0 !important;
             bottom:0 !important;
-            height:52px !important;
+            height:50px !important;
             z-index:10030 !important;
-            display:flex !important;
+            display:grid !important;
+            grid-template-columns:112px 1fr 112px !important;
             align-items:center !important;
-            justify-content:space-between !important;
+            gap:6px !important;
             padding:6px 10px !important;
             box-sizing:border-box !important;
             pointer-events:none !important;
@@ -2913,8 +2798,15 @@ if (chaserFollowBtn) {
 
         .canvas-exit-anchor-box {
             position:static !important;
-            width:104px !important;
-            height:38px !important;
+            width:112px !important;
+            min-width:112px !important;
+            max-width:112px !important;
+            height:36px !important;
+            min-height:36px !important;
+            max-height:36px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
             background:#dc3545 !important;
             border:2px solid #ffffff !important;
             border-radius:999px !important;
@@ -2922,48 +2814,58 @@ if (chaserFollowBtn) {
             align-items:center !important;
             justify-content:center !important;
             gap:4px !important;
-            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
             pointer-events:auto !important;
+            transform:none !important;
         }
 
         .canvas-exit-x-glyph,
         .canvas-exit-label-str {
             color:#ffffff !important;
-            font-size:13px !important;
+            font-size:12px !important;
             font-weight:900 !important;
             text-shadow:none !important;
+            line-height:1 !important;
         }
 
         #chaserFooterGameTitle {
-            flex:1 !important;
             text-align:center !important;
             color:#ffd700 !important;
             font-family:"Trebuchet MS","Arial Black",sans-serif !important;
-            font-size:20px !important;
+            font-size:19px !important;
             font-weight:900 !important;
             text-shadow:0 2px 5px rgba(0,0,0,.75) !important;
             pointer-events:none !important;
             white-space:nowrap !important;
             overflow:hidden !important;
             text-overflow:ellipsis !important;
-            padding:0 8px !important;
+            padding:0 4px !important;
+            min-width:0 !important;
         }
 
         #gameBoardToggleBtn {
-            width:104px !important;
-            height:38px !important;
+            width:112px !important;
+            min-width:112px !important;
+            max-width:112px !important;
+            height:36px !important;
+            min-height:36px !important;
+            max-height:36px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
             border-radius:999px !important;
             border:2px solid #ffffff !important;
             background:#ffd700 !important;
             color:#1e4620 !important;
-            font-size:13px !important;
+            font-size:12px !important;
             font-weight:900 !important;
-            box-shadow:0 3px 10px rgba(0,0,0,.45) !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
             pointer-events:auto !important;
         }
 
         #gameBoardToggleBtn .arrow {
             font-size:18px !important;
+            line-height:1 !important;
         }
 
         #activeGameStage.game-board-hidden #gameCanvasContainer {
@@ -3001,13 +2903,13 @@ if (chaserFollowBtn) {
             toggle = document.createElement("button");
             toggle.id = "gameBoardToggleBtn";
             toggle.type = "button";
-            toggle.innerHTML = 'Hide <span class="arrow">▾</span>';
+            toggle.innerHTML = 'Hide Board <span class="arrow">▼</span>';
 
             toggle.onclick = () => {
                 const hidden = stage.classList.toggle("game-board-hidden");
                 toggle.innerHTML = hidden
-                    ? 'Show <span class="arrow">▴</span>'
-                    : 'Hide <span class="arrow">▾</span>';
+                    ? 'Show Board <span class="arrow">▲</span>'
+                    : 'Hide Board <span class="arrow">▼</span>';
             };
 
             row.appendChild(exitBtn);
@@ -3017,11 +2919,12 @@ if (chaserFollowBtn) {
         }
 
         title.innerText = gameName();
-        row.style.display = stage.classList.contains("open") ? "flex" : "none";
+        row.style.display = stage.classList.contains("open") ? "grid" : "none";
     }
 
     setInterval(ensureFooter, 300);
 })();
+       
 </script>
 
 
