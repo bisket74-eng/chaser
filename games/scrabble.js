@@ -693,55 +693,63 @@
         `;
     }
 })();
-/* SCRABBLE BOARD FIX v2 — stable board + phone pan/pinch zoom */
+/* SCRABBLE BOARD FIX v3 — fit board first, stable zoom/pan, exchange button */
 (function () {
-    if (window.__scrabbleBoardPanZoomFixV2) return;
-    window.__scrabbleBoardPanZoomFixV2 = true;
+    if (window.__scrabbleBoardFitZoomV3) return;
+    window.__scrabbleBoardFitZoomV3 = true;
 
     let boardScale = 1;
-    let lastScrollLeft = null;
-    let lastScrollTop = null;
+    let savedScrollLeft = 0;
+    let savedScrollTop = 0;
+    let hasUserZoomed = false;
 
     const style = document.createElement("style");
     style.innerHTML = `
-        .sc-board-zoom-wrap {
+        .sc-wrap {
+            height:100% !important;
+            overflow:hidden !important;
+            padding:8px 8px 58px !important;
+            box-sizing:border-box !important;
+            display:flex !important;
+            flex-direction:column !important;
+        }
+
+        .sc-score {
+            flex:0 0 auto !important;
+            margin:0 auto 6px auto !important;
+        }
+
+        .sc-board-viewport {
             width:100% !important;
             max-width:520px !important;
             margin:0 auto !important;
-            overflow:auto !important;
+            overflow:hidden !important;
             -webkit-overflow-scrolling:touch !important;
-            touch-action:pan-x pan-y !important;
+            touch-action:none !important;
             box-sizing:border-box !important;
             border:3px solid #ffd700 !important;
             border-radius:8px !important;
             background:#0b2410 !important;
+            flex:0 0 auto !important;
         }
 
         .sc-board-scale-shell {
             position:relative !important;
-            width:500px !important;
-            height:500px !important;
-            min-width:500px !important;
-            min-height:500px !important;
             transform-origin:top left !important;
         }
 
         .sc-board {
-            width:500px !important;
-            height:500px !important;
-            min-width:500px !important;
-            min-height:500px !important;
-            max-width:none !important;
             margin:0 !important;
+            max-width:none !important;
             border:0 !important;
             border-radius:0 !important;
+            padding:3px !important;
             display:grid !important;
             grid-template-columns:repeat(15, 1fr) !important;
             grid-template-rows:repeat(15, 1fr) !important;
             gap:1px !important;
             box-sizing:border-box !important;
             transform-origin:top left !important;
-            flex-shrink:0 !important;
         }
 
         .sc-cell {
@@ -751,33 +759,34 @@
             min-height:0 !important;
             aspect-ratio:auto !important;
             box-sizing:border-box !important;
-            touch-action:manipulation !important;
+            overflow:hidden !important;
         }
 
-        .sc-cell b {
-            font-size:15px !important;
-            line-height:1 !important;
+        .sc-rack {
+            flex:0 0 auto !important;
+            margin:7px auto 6px auto !important;
         }
 
-        .sc-cell span {
-            font-size:8px !important;
-            line-height:1 !important;
+        .sc-msg {
+            flex:0 0 auto !important;
+            margin:3px auto 5px auto !important;
         }
 
-        @media (max-width:430px) {
-            .sc-board-scale-shell {
-                width:480px !important;
-                height:480px !important;
-                min-width:480px !important;
-                min-height:480px !important;
-            }
+        .sc-actions {
+            flex:0 0 auto !important;
+            margin:0 auto 4px auto !important;
+            gap:6px !important;
+            flex-wrap:wrap !important;
+        }
 
-            .sc-board {
-                width:480px !important;
-                height:480px !important;
-                min-width:480px !important;
-                min-height:480px !important;
-            }
+        .sc-actions button {
+            padding:8px 10px !important;
+            font-size:13px !important;
+        }
+
+        .sc-exchange-btn {
+            background:#1d4ed8 !important;
+            color:#ffffff !important;
         }
     `;
     document.head.appendChild(style);
@@ -787,111 +796,228 @@
             String(window.chaserGame.activeGame || "").toLowerCase() === "scrabble";
     }
 
-    function getBaseSize() {
-        return window.innerWidth <= 430 ? 480 : 500;
-    }
-
     function distance(t1, t2) {
         const dx = t1.clientX - t2.clientX;
         const dy = t1.clientY - t2.clientY;
         return Math.sqrt(dx * dx + dy * dy);
     }
 
-    function applyBoardScale(board, shell) {
-        const base = getBaseSize();
-        const scaled = base * boardScale;
+    function calculateBoardSize(wrap, viewport) {
+        const score = wrap.querySelector(".sc-score");
+        const rack = wrap.querySelector(".sc-rack");
+        const actions = wrap.querySelector(".sc-actions");
+        const msg = wrap.querySelector(".sc-msg");
+
+        const used =
+            (score ? score.offsetHeight : 0) +
+            (rack ? rack.offsetHeight : 0) +
+            (actions ? actions.offsetHeight : 0) +
+            (msg ? msg.offsetHeight : 0) +
+            34;
+
+        const availableHeight = Math.max(230, wrap.clientHeight - used);
+        const availableWidth = Math.max(260, wrap.clientWidth);
+
+        return Math.floor(Math.min(availableWidth, availableHeight, 520));
+    }
+
+    function applyBoardSizeAndScale(wrap, viewport, shell, board) {
+        const base = calculateBoardSize(wrap, viewport);
+        const scaled = Math.floor(base * boardScale);
+
+        viewport.style.width = base + "px";
+        viewport.style.height = base + "px";
 
         shell.style.width = scaled + "px";
         shell.style.height = scaled + "px";
         shell.style.minWidth = scaled + "px";
         shell.style.minHeight = scaled + "px";
 
+        board.style.width = base + "px";
+        board.style.height = base + "px";
+        board.style.minWidth = base + "px";
+        board.style.minHeight = base + "px";
         board.style.transform = "scale(" + boardScale + ")";
-    }
 
-    function centerBoardIfNeeded(wrap) {
+        viewport.style.overflow = boardScale > 1.02 ? "auto" : "hidden";
+
         requestAnimationFrame(() => {
-            if (lastScrollLeft === null) {
-                wrap.scrollLeft = Math.max(0, (wrap.scrollWidth - wrap.clientWidth) / 2);
-                wrap.scrollTop = 0;
-            } else {
-                wrap.scrollLeft = lastScrollLeft;
-                wrap.scrollTop = lastScrollTop || 0;
-            }
+            viewport.scrollLeft = savedScrollLeft;
+            viewport.scrollTop = savedScrollTop;
         });
     }
 
-    function setupScrabbleBoardZoom() {
+    function wrapBoardIfNeeded() {
         if (!isScrabbleOpen()) return;
 
         const canvas = document.getElementById("gameCanvasContainer");
         if (!canvas) return;
 
+        const wrap = canvas.querySelector(".sc-wrap");
         const board = canvas.querySelector(".sc-board");
-        if (!board) return;
+        if (!wrap || !board) return;
 
-        let wrap = board.closest(".sc-board-zoom-wrap");
+        let viewport = board.closest(".sc-board-viewport");
         let shell = board.closest(".sc-board-scale-shell");
 
-        if (!wrap || !shell) {
-            const originalParent = board.parentElement;
+        if (!viewport || !shell) {
+            const oldParent = board.parentElement;
 
-            wrap = document.createElement("div");
-            wrap.className = "sc-board-zoom-wrap";
+            viewport = document.createElement("div");
+            viewport.className = "sc-board-viewport";
 
             shell = document.createElement("div");
             shell.className = "sc-board-scale-shell";
 
-            originalParent.insertBefore(wrap, board);
-            wrap.appendChild(shell);
+            oldParent.insertBefore(viewport, board);
+            viewport.appendChild(shell);
             shell.appendChild(board);
-
-            centerBoardIfNeeded(wrap);
         }
 
-        applyBoardScale(board, shell);
+        applyBoardSizeAndScale(wrap, viewport, shell, board);
 
-        if (wrap.__scrabbleZoomWiredV2) return;
-        wrap.__scrabbleZoomWiredV2 = true;
+        if (viewport.__scrabbleFitZoomWiredV3) return;
+        viewport.__scrabbleFitZoomWiredV3 = true;
 
-        wrap.addEventListener("scroll", function () {
-            lastScrollLeft = wrap.scrollLeft;
-            lastScrollTop = wrap.scrollTop;
+        viewport.addEventListener("scroll", function () {
+            savedScrollLeft = viewport.scrollLeft;
+            savedScrollTop = viewport.scrollTop;
         }, { passive:true });
 
         let startDistance = 0;
         let startScale = boardScale;
+        let oneFingerStartX = 0;
+        let oneFingerStartY = 0;
+        let startScrollLeft = 0;
+        let startScrollTop = 0;
 
-        wrap.addEventListener("touchstart", function (e) {
+        viewport.addEventListener("touchstart", function (e) {
             if (e.touches.length === 2) {
                 startDistance = distance(e.touches[0], e.touches[1]);
                 startScale = boardScale;
             }
+
+            if (e.touches.length === 1 && boardScale > 1.02) {
+                oneFingerStartX = e.touches[0].clientX;
+                oneFingerStartY = e.touches[0].clientY;
+                startScrollLeft = viewport.scrollLeft;
+                startScrollTop = viewport.scrollTop;
+            }
         }, { passive:false });
 
-        wrap.addEventListener("touchmove", function (e) {
+        viewport.addEventListener("touchmove", function (e) {
             if (e.touches.length === 2) {
                 e.preventDefault();
 
                 const newDistance = distance(e.touches[0], e.touches[1]);
                 if (!startDistance) return;
 
+                const oldScale = boardScale;
                 let nextScale = startScale * (newDistance / startDistance);
-                nextScale = Math.max(0.85, Math.min(2.2, nextScale));
+                nextScale = Math.max(1, Math.min(2.4, nextScale));
 
                 boardScale = nextScale;
-                applyBoardScale(board, shell);
+                hasUserZoomed = boardScale > 1.02;
+
+                applyBoardSizeAndScale(wrap, viewport, shell, board);
+
+                if (oldScale === 1 && boardScale > 1.02) {
+                    viewport.scrollLeft = Math.max(0, (viewport.scrollWidth - viewport.clientWidth) / 2);
+                    viewport.scrollTop = Math.max(0, (viewport.scrollHeight - viewport.clientHeight) / 2);
+                    savedScrollLeft = viewport.scrollLeft;
+                    savedScrollTop = viewport.scrollTop;
+                }
+            }
+
+            if (e.touches.length === 1 && boardScale > 1.02) {
+                e.preventDefault();
+
+                const dx = e.touches[0].clientX - oneFingerStartX;
+                const dy = e.touches[0].clientY - oneFingerStartY;
+
+                viewport.scrollLeft = startScrollLeft - dx;
+                viewport.scrollTop = startScrollTop - dy;
+
+                savedScrollLeft = viewport.scrollLeft;
+                savedScrollTop = viewport.scrollTop;
             }
         }, { passive:false });
 
-        wrap.addEventListener("dblclick", function () {
+        viewport.addEventListener("dblclick", function () {
             boardScale = 1;
-            lastScrollLeft = null;
-            lastScrollTop = null;
-            applyBoardScale(board, shell);
-            centerBoardIfNeeded(wrap);
+            hasUserZoomed = false;
+            savedScrollLeft = 0;
+            savedScrollTop = 0;
+            applyBoardSizeAndScale(wrap, viewport, shell, board);
         });
     }
 
-    setInterval(setupScrabbleBoardZoom, 150);
+    window.exchangeScrabbleSelectedTile = function () {
+        const s = window.scrabbleState;
+        if (!s) return;
+
+        const p = s.players[s.turn];
+        if (!p || p.id !== (typeof window.myId === "function" ? window.myId() : (localStorage.getItem("rider_id") || "local-player"))) return;
+        if (s.pending && s.pending.length) {
+            s.message = "Undo placed tiles before exchanging.";
+            if (typeof renderScrabble === "function") renderScrabble();
+            return;
+        }
+
+        if (s.selectedRack === null || s.selectedRack === undefined) {
+            s.message = "Select a tile to exchange.";
+            if (typeof renderScrabble === "function") renderScrabble();
+            return;
+        }
+
+        if (!s.bag || !s.bag.length) {
+            s.message = "No tiles left to exchange.";
+            if (typeof renderScrabble === "function") renderScrabble();
+            return;
+        }
+
+        const oldTile = p.rack.splice(s.selectedRack, 1)[0];
+        s.bag.unshift(oldTile);
+        s.bag.sort(() => Math.random() - 0.5);
+
+        while (p.rack.length < 7 && s.bag.length) {
+            p.rack.push(s.bag.pop());
+        }
+
+        s.selectedRack = null;
+        s.turn = (s.turn + 1) % s.players.length;
+        s.lastMessage = p.name + " exchanged a tile.";
+        s.message = "";
+
+        if (typeof renderScrabble === "function") renderScrabble();
+        if (typeof syncScrabble === "function") syncScrabble();
+    };
+
+    function addExchangeButton() {
+        if (!isScrabbleOpen()) return;
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas) return;
+
+        const actions = canvas.querySelector(".sc-actions");
+        if (!actions || actions.querySelector(".sc-exchange-btn")) return;
+
+        const s = window.scrabbleState;
+        const myTurn = s && s.players[s.turn] && s.players[s.turn].id === (typeof window.myId === "function" ? window.myId() : (localStorage.getItem("rider_id") || "local-player"));
+        const canExchange = !!(myTurn && s && !s.pending.length && s.selectedRack !== null && s.selectedRack !== undefined);
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "sc-exchange-btn";
+        btn.textContent = "Exchange";
+        btn.disabled = !canExchange;
+        btn.onclick = window.exchangeScrabbleSelectedTile;
+
+        actions.appendChild(btn);
+    }
+
+    setInterval(function () {
+        wrapBoardIfNeeded();
+        addExchangeButton();
+    }, 150);
 })();
