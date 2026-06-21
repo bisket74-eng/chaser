@@ -5288,7 +5288,7 @@ window.initHangmanGame = function () {
         btn.id = "coupHelpBtn";
         btn.type = "button";
         btn.textContent = "Help";
-        btn.onclick = window.showCoupHelpSheet;
+        btn.onclick = window.toggleCoupHelpSheet;
     }
 
     if (btn.parentElement !== stage) {
@@ -5296,7 +5296,13 @@ window.initHangmanGame = function () {
     }
 }
 
-    window.showCoupHelpSheet = function () {
+    window.toggleCoupHelpSheet = function () {
+       const existing =
+          document.getElementById("coupHelpOverlay");
+       if (existing) {
+          existing.remove();
+          return;
+       }
         const canvas = document.getElementById("gameCanvasContainer");
         if (!canvas || document.getElementById("coupHelpOverlay")) return;
 
@@ -5325,17 +5331,7 @@ window.initHangmanGame = function () {
                     box-sizing:border-box;
                     font-weight:900;
                 ">
-                    <button onclick="document.getElementById('coupHelpOverlay').remove()" style="
-                        position:absolute;
-                        top:6px;
-                        right:8px;
-                        background:none;
-                        border:none;
-                        color:#dc3545;
-                        font-size:26px;
-                        font-weight:900;
-                        line-height:1;
-                    ">✕</button>
+                   
 
                     <div style="font-family:Impact,sans-serif;font-size:27px;text-align:center;margin-bottom:8px;color:#ffd700;">
                         Coup Help
