@@ -26,8 +26,9 @@
 
     const boardView = {
         scale: 1,
-        scrollLeft: 0,
-        scrollTop: 0
+        x: 0,
+        y: 0,
+       base: 0
     };
 
     function getMyId() {
