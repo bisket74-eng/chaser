@@ -5914,11 +5914,17 @@ window.initHangmanGame = function () {
                 `).join("")}
 
                 ${me ? `
-                    <div style="color:#ffd700;font-size:22px;font-weight:900;text-align:center;margin-top:8px;">YOUR CARDS</div>
-                    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;">
-                        ${me.cards.map(cardHtml).join("")}
-                    </div>
-                ` : ""}
+    <div class="coup-cards-header-row">
+        <div class="coup-cards-title">YOUR CARDS</div>
+        <button id="coupInlineHelpBtn" type="button" onclick="window.toggleCoupHelpSheet ? window.toggleCoupHelpSheet() : window.showCoupHelpSheet()">
+            Help
+        </button>
+    </div>
+
+    <div class="coup-player-cards-row">
+        ${me.cards.map(cardHtml).join("")}
+    </div>
+` : ""}
 
                 ${s.pending ? pendingPanel(me) : ""}
                 ${!s.pending && isMyTurn && me && me.alive && s.phase !== "ended" ? actionPanel(me) : ""}
@@ -5998,4 +6004,88 @@ window.initHangmanGame = function () {
             });
         }
     }, 4000);
+})();
+/* COUP STYLE FIX — supports the new YOUR CARDS + Help row */
+(function () {
+    if (window.__coupInlineHelpStyleFix) return;
+    window.__coupInlineHelpStyleFix = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #coupHelpBtn {
+            display:none !important;
+        }
+
+        .coup-cards-header-row {
+            width:100% !important;
+            max-width:520px !important;
+            margin:6px auto 8px auto !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:space-between !important;
+            gap:10px !important;
+            box-sizing:border-box !important;
+        }
+
+        .coup-cards-title {
+            color:#ffd700 !important;
+            font-family:Impact,"Arial Black",sans-serif !important;
+            font-size:25px !important;
+            font-weight:900 !important;
+            letter-spacing:1px !important;
+            text-align:left !important;
+            white-space:nowrap !important;
+            line-height:1 !important;
+        }
+
+        #coupInlineHelpBtn {
+            width:78px !important;
+            min-width:78px !important;
+            height:30px !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            font-size:13px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+        }
+
+        .coup-player-cards-row {
+            display:grid !important;
+            grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            gap:8px !important;
+            width:100% !important;
+            max-width:520px !important;
+            margin:0 auto 12px auto !important;
+            box-sizing:border-box !important;
+        }
+
+        .coup-player-cards-row > div {
+            width:100% !important;
+            max-width:none !important;
+            min-width:0 !important;
+            box-sizing:border-box !important;
+            padding-left:4px !important;
+            padding-right:4px !important;
+        }
+
+        @media (max-width:430px), (max-height:740px) {
+            .coup-cards-title {
+                font-size:23px !important;
+            }
+
+            #coupInlineHelpBtn {
+                width:72px !important;
+                min-width:72px !important;
+                height:28px !important;
+                font-size:12px !important;
+            }
+
+            .coup-player-cards-row {
+                gap:7px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
 })();
