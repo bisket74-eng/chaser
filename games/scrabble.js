@@ -4,7 +4,6 @@ Bigger board + stable pinch zoom + pan + exchange tile + online word check
 (function () {
 "use strict";
 
-```
 const LETTERS = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUUDDDDGGGBBCCMMPPFFHHVVWWYYKJXQZ".split("");
 
 const VALUES = {
