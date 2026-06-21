@@ -475,9 +475,21 @@ window.startYahtzeeFromLobby = function () {
     setHeader();
     window.initYahtzeeGame();
 };
-    const oldReceiveTriviaSync = window.receiveTriviaSync;
+   window.handleIncomingYahtzeeSync = function (payload) {
+    if (!payload || !payload.state) return;
 
-    window.receiveTriviaSync = function (payload) {
+    if (
+        payload.roomGameId &&
+        window.chaserGame?.activeGameId &&
+        payload.roomGameId !== window.chaserGame.activeGameId
+    ) {
+        return;
+    }
+
+    window.yahtzeeState = payload.state;
+    if (window.chaserGame) window.chaserGame.activeGame = "Yahtzee";
+    renderYahtzee();
+};
         if (payload && payload.yahtzee && payload.state) {
             window.yahtzeeState = payload.state;
             if (window.chaserGame) window.chaserGame.activeGame = "Yahtzee";
