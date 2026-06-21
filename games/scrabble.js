@@ -693,3 +693,131 @@
         `;
     }
 })();
+/* SCRABBLE BOARD FIX v1 — stop shrinking + phone pinch zoom */
+(function () {
+    if (window.__scrabbleBoardZoomFixV1) return;
+    window.__scrabbleBoardZoomFixV1 = true;
+
+    let scrabbleBoardScale = 1;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        .sc-board-zoom-wrap {
+            width:100% !important;
+            max-width:520px !important;
+            margin:0 auto !important;
+            overflow:auto !important;
+            -webkit-overflow-scrolling:touch !important;
+            touch-action:none !important;
+            box-sizing:border-box !important;
+            border-radius:8px !important;
+        }
+
+        .sc-board {
+            width:520px !important;
+            min-width:520px !important;
+            max-width:none !important;
+            grid-template-columns:repeat(15, minmax(0, 1fr)) !important;
+            flex-shrink:0 !important;
+            box-sizing:border-box !important;
+            transform-origin:top left !important;
+        }
+
+        .sc-cell {
+            min-width:0 !important;
+            width:auto !important;
+            aspect-ratio:1 / 1 !important;
+            box-sizing:border-box !important;
+            overflow:hidden !important;
+        }
+
+        .sc-cell b {
+            font-size:15px !important;
+            line-height:1 !important;
+        }
+
+        .sc-cell span {
+            font-size:8px !important;
+            line-height:1 !important;
+        }
+
+        @media (max-width:430px) {
+            .sc-board {
+                width:500px !important;
+                min-width:500px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    function isScrabbleOpen() {
+        return window.chaserGame &&
+            String(window.chaserGame.activeGame || "").toLowerCase() === "scrabble";
+    }
+
+    function distance(t1, t2) {
+        const dx = t1.clientX - t2.clientX;
+        const dy = t1.clientY - t2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function applyBoardScale(board) {
+        board.style.setProperty("zoom", scrabbleBoardScale);
+    }
+
+    function setupScrabbleBoardZoom() {
+        if (!isScrabbleOpen()) return;
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas) return;
+
+        const board = canvas.querySelector(".sc-board");
+        if (!board) return;
+
+        let wrap = board.parentElement;
+
+        if (!wrap || !wrap.classList.contains("sc-board-zoom-wrap")) {
+            wrap = document.createElement("div");
+            wrap.className = "sc-board-zoom-wrap";
+            board.parentElement.insertBefore(wrap, board);
+            wrap.appendChild(board);
+        }
+
+        applyBoardScale(board);
+
+        if (wrap.__scrabbleZoomWired) return;
+        wrap.__scrabbleZoomWired = true;
+
+        let startDistance = 0;
+        let startScale = scrabbleBoardScale;
+
+        wrap.addEventListener("touchstart", function (e) {
+            if (e.touches.length === 2) {
+                startDistance = distance(e.touches[0], e.touches[1]);
+                startScale = scrabbleBoardScale;
+            }
+        }, { passive:false });
+
+        wrap.addEventListener("touchmove", function (e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const newDistance = distance(e.touches[0], e.touches[1]);
+                if (!startDistance) return;
+
+                let nextScale = startScale * (newDistance / startDistance);
+                nextScale = Math.max(1, Math.min(2.4, nextScale));
+
+                scrabbleBoardScale = nextScale;
+                applyBoardScale(board);
+            }
+        }, { passive:false });
+
+        wrap.addEventListener("dblclick", function () {
+            scrabbleBoardScale = 1;
+            applyBoardScale(board);
+        });
+    }
+
+    setInterval(setupScrabbleBoardZoom, 150);
+})();
