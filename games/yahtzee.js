@@ -75,7 +75,7 @@
         if (typeof channel !== "undefined" && channel && window.yahtzeeState) {
             channel.send({
                 type: "broadcast",
-                event: "trivia-sync-state",
+                event: "yahtzee-sync-state",
                 payload: {
                     yahtzee: true,
                     state: window.yahtzeeState,
