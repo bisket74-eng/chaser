@@ -248,7 +248,7 @@
                 if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
             }
         },
-       TexasHoldem: {
+       "TexasHoldem": {
 icon: "♠️",
 displayName: "Texas Hold'em",
 minPlayers: 1,
