@@ -411,7 +411,7 @@ function maybeComputerMove() {
         fireAt(current.id, target.id, shot.r, shot.c);
         renderBattleship();
         syncBattleship();
-    }, 750);
+    }, 5000);
 }
 
 window.initBattleshipGame = function () {
