@@ -248,7 +248,21 @@
                 if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
             }
         },
-        "Hangman": {
+       "Texas Hold'em": {
+icon: "♠️",
+displayName: "Texas Hold'em",
+minPlayers: 1,
+maxPlayers: 6,
+multiplayer: true,
+init: () => {
+if (typeof window.initTexasHoldemGame === "function") {
+window.initTexasHoldemGame();
+} else {
+alert("Texas Hold'em file did not load. Check /games/texasholdem.js and the script tag in index.html.");
+}
+}
+},
+   "Hangman": {
             icon: "🪓",
             minPlayers: 1,
             maxPlayers: 1,
