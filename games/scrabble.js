@@ -926,7 +926,7 @@ function renderScrabble() {
             ".sc-cell.pending{background:#ffd700!important;color:#1e4620!important;}",
             ".sc-cell b{font-size:15px;display:block;line-height:1;}",
             ".sc-cell small{position:absolute;right:2px;bottom:1px;font-size:4px;}"
-            ".sc-tile small{position:absolute;right:4px;bottom:2px;font-size:12px;font-weight:900;}"
+            
 
             ".sc-rack{flex:0 0 auto;display:flex;justify-content:center;gap:2px;margin:4px auto 3px;flex-wrap:nowrap;width:100%;max-width:100%;overflow:visible;padding:0 2px;box-sizing:border-box;}",
             ".sc-tile{position:relative;width:clamp(32px,12vw,43px);height:clamp(36px,13vw,47px);border-radius:8px;border:2px solid #1e4620;background:#fff3c4;color:#1e4620;font-size:20px;font-weight:900;box-shadow:0 2px 5px rgba(0,0,0,.35);flex:0 0 auto;}",
