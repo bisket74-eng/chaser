@@ -1712,6 +1712,10 @@
             .on('broadcast', { event:'chaser-game-lobby-start' }, ({ payload }) => {
                 if (window.handleIncomingChaserGameLobbyStart) window.handleIncomingChaserGameLobbyStart(payload);
             })
+            .on('broadcast', { event:'battleship-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingBattleshipSync) window.handleIncomingBattleshipSync(payload);
+})
+            
 
             .on('broadcast', { event:'youtube-sync-video' }, ({ payload }) => {
                 if (payload.videoId) loadDirectYoutubeVideoId(payload.videoId);
@@ -2989,7 +2993,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 <script src="./games.js?v=36"></script>
 <script src="./games/yahtzee.js"></script>
     <script src="./games/scrabble.js?v=9"></script>
-
+<script src="./games/battleship.js?v=1"></script>
 
 </body>
 </html>
