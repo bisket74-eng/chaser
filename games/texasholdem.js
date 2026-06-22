@@ -958,9 +958,9 @@ window.texasResetTable = function () {
     syncTexas();
 };
 
-window.initTexasHoldemGame = function () {
+window.inittexasHoldemGame = function () {
     window.chaserGame = window.chaserGame || {};
-    window.chaserGame.activeGame = "TexasHoldem";
+    window.chaserGame.activeGame = "texasHoldem";
 
     openStage();
     setHeader();
@@ -975,7 +975,7 @@ window.initTexasHoldemGame = function () {
     renderTexas();
 };
 
-window.handleIncomingTexasHoldemSync = function (payload) {
+window.handleIncomingtexasHoldemSync = function (payload) {
     if (!payload || !payload.state) return;
 
     if (
@@ -989,7 +989,7 @@ window.handleIncomingTexasHoldemSync = function (payload) {
 
     window.texasHoldemState = payload.state;
 
-    if (window.chaserGame) window.chaserGame.activeGame = "TexasHoldem";
+    if (window.chaserGame) window.chaserGame.activeGame = "texasHoldem";
 
     renderTexas();
 };
