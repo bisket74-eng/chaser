@@ -733,121 +733,145 @@ function buildShipStatus(player) {
 }
 
 function renderBattleship() {
-    const el = canvas();
-    const st = window.battleshipState;
+const el = canvas();
+const st = window.battleshipState;
 
-    if (!el || !st) return;
 
-    updatePlayerHits();
+if (!el || !st) return;
 
-    const me = myPlayer();
-    const enemy = me ? opponentFor(me.id) : null;
-    const myTurn = isMyTurn();
-    const setup = st.phase === "setup";
-    const battle = st.phase === "battle";
-    const gameOver = st.phase === "gameover";
+const oldWrap = el.querySelector(".bs-wrap");
+const savedScrollTop = oldWrap ? oldWrap.scrollTop : 0;
 
-    const hasComputer = st.players.some(function (p) {
-        return p.isComputer;
-    });
+updatePlayerHits();
 
-    const current = currentPlayer();
-    const canFire = battle && myTurn && enemy && current && !current.isComputer;
+const me = myPlayer();
+const enemy = me ? opponentFor(me.id) : null;
+const myTurn = isMyTurn();
+const setup = st.phase === "setup";
+const battle = st.phase === "battle";
+const gameOver = st.phase === "gameover";
 
-    let mainMessage = st.message || "";
+const hasComputer = st.players.some(function (p) {
+    return p.isComputer;
+});
 
-    if (battle && myTurn) {
-        mainMessage = "Your turn. Fire at the enemy board.";
-    }
+const current = currentPlayer();
+const canFire = battle && myTurn && enemy && current && !current.isComputer;
 
-    if (battle && !myTurn && current) {
-        mainMessage = "Waiting for " + current.name + ".";
-    }
+let mainMessage = st.message || "";
 
-    if (gameOver) {
-        const winner = st.players.find(function (p) {
-            return p.id === st.winnerId;
-        });
-
-        mainMessage = (winner ? winner.name : "Someone") + " wins!";
-    }
-
-    const nextShip = setup && me ? nextShipToPlace(me) : null;
-    const directionText = me && (me.placementDirection || "H") === "H" ? "Horizontal" : "Vertical";
-
-    const placeText = setup && me && !me.ready
-        ? (nextShip ? "Place: " + nextShip.name + " (" + nextShip.size + ") - " + directionText : "Fleet placed. Tap Ready.")
-        : "";
-
-    const setupButtons = setup ? (
-        "<div class=\"bs-place-note\">" + escapeHtml(placeText) + "</div>" +
-        "<div class=\"bs-actions\">" +
-            "<button onclick=\"rotateBattleshipPlacement()\" type=\"button\">Direction: " + directionText + "</button>" +
-            "<button onclick=\"randomizeBattleshipFleet()\" type=\"button\">Random Fleet</button>" +
-            "<button onclick=\"clearBattleshipFleet()\" type=\"button\">Clear</button>" +
-            "<button onclick=\"readyBattleshipFleet()\" type=\"button\">Ready</button>" +
-            (!hasComputer && st.players.length < 2 ? "<button onclick=\"playBattleshipComputer()\" class=\"bs-blue\" type=\"button\">Play Computer</button>" : "") +
-            "<button onclick=\"newBattleshipGame()\" type=\"button\">New</button>" +
-        "</div>"
-    ) : "";
-
-    const gameButtons = !setup ? (
-        "<div class=\"bs-actions\">" +
-            "<button onclick=\"newBattleshipGame()\" type=\"button\">New Game</button>" +
-        "</div>"
-    ) : "";
-
-    el.innerHTML = [
-        "<style>",
-            ".bs-wrap{height:100%;overflow:auto;padding:4px 8px 70px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;}",
-            ".bs-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%;max-width:560px;margin:0 auto 4px;}",
-            ".bs-player{background:#e2f0d9;color:#1e4620;border:3px solid #e2f0d9;border-radius:9px;padding:6px 8px;text-align:center;font-weight:900;box-sizing:border-box;min-width:0;}",
-            ".bs-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
-            ".bs-player-name{font-size:16px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-            ".bs-player-info{font-size:13px;line-height:1.05;margin-top:2px;}",
-            ".bs-msg{text-align:center;color:#ffd700;font-weight:900;font-size:14px;line-height:1.15;margin:7px auto 5px;max-width:560px;}",
-            ".bs-last{text-align:center;color:#e2f0d9;font-size:12px;font-weight:900;margin:0 auto 5px;max-width:560px;}",
-            ".bs-place-note{text-align:center;color:#ffffff;font-size:13px;font-weight:900;margin:5px auto 6px;max-width:560px;}",
-            ".bs-section-title{text-align:center;color:#ffd700;font-size:17px;font-weight:900;margin:4px auto 4px;}",
-            ".bs-boards{display:grid;grid-template-columns:1fr;gap:6px;max-width:560px;margin:0 auto;}",
-            ".bs-board{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;background:#0b2410;border:3px solid #ffd700;border-radius:10px;padding:4px;box-sizing:border-box;touch-action:manipulation;}",
-            ".bs-cell{aspect-ratio:1/1;border:1px solid rgba(255,255,255,.28);border-radius:4px;background:#8fc5e8;color:#082f49;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;box-sizing:border-box;}",
-            ".bs-cell.ship{background:#78909c;color:#ffffff;}",
-            ".bs-cell.hit{background:#dc3545!important;color:#ffffff!important;}",
-            ".bs-cell.miss{background:#e2f0d9!important;color:#1e4620!important;}",
-            ".bs-cell.sunk{background:#111827!important;color:#ffd700!important;border:2px solid #ffd700!important;font-size:18px!important;box-shadow:inset 0 0 0 2px #000000;}",
-            ".bs-cell:disabled{opacity:1;}",
-            ".bs-empty-note{text-align:center;background:rgba(0,0,0,.25);border:2px dashed #ffd700;border-radius:10px;padding:16px;font-weight:900;color:#ffd700;}",
-            ".bs-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:6px auto 8px;max-width:560px;}",
-            ".bs-actions button{border:none;border-radius:10px;padding:9px 11px;font-weight:900;background:#ffd700;color:#1e4620;}",
-            ".bs-actions button.bs-blue{background:#1d4ed8;color:#ffffff;}",
-            ".bs-status{font-size:12px;line-height:1.2;text-align:center;max-width:560px;margin:4px auto;color:#e2f0d9;font-weight:900;}",
-            "@media(min-width:700px){.bs-boards{grid-template-columns:1fr 1fr;max-width:920px;}}",
-            "@media(max-height:760px){.bs-wrap{padding-top:2px;}.bs-msg{font-size:13px;margin:5px auto 4px;}.bs-section-title{font-size:15px;margin:3px auto 2px;}.bs-actions button{padding:7px 9px;font-size:12px;}}",
-        "</style>",
-        "<div class=\"bs-wrap\">",
-            "<div class=\"bs-score\">", buildScoreHtml(st), "</div>",
-            "<div class=\"bs-boards\">",
-                "<div>",
-                    "<div class=\"bs-section-title\">Enemy Waters</div>",
-                    "<div class=\"bs-board\">", buildTargetBoard(enemy, !canFire), "</div>",
-                    enemy ? "<div class=\"bs-status\">" + escapeHtml(buildShipStatus(enemy)) + "</div>" : "",
-                "</div>",
-                "<div>",
-                    "<div class=\"bs-section-title\">Your Fleet</div>",
-                    "<div class=\"bs-board\">", buildOwnBoard(me), "</div>",
-                    me ? "<div class=\"bs-status\">" + escapeHtml(buildShipStatus(me)) + "</div>" : "",
-                "</div>",
-            "</div>",
-            "<div class=\"bs-msg\">", escapeHtml(mainMessage), "</div>",
-            st.lastShot ? "<div class=\"bs-last\">" + escapeHtml(st.lastShot) + "</div>" : "",
-            setupButtons,
-            gameButtons,
-        "</div>"
-    ].join("");
-
-    maybeComputerMove();
+if (battle && myTurn) {
+    mainMessage = "Your turn. Fire at the enemy board.";
 }
 
+if (battle && !myTurn && current) {
+    mainMessage = "Waiting for " + current.name + ".";
+}
+
+if (gameOver) {
+    const winner = st.players.find(function (p) {
+        return p.id === st.winnerId;
+    });
+
+    mainMessage = (winner ? winner.name : "Someone") + " wins!";
+}
+
+const nextShip = setup && me ? nextShipToPlace(me) : null;
+const directionText = me && (me.placementDirection || "H") === "H" ? "Horizontal" : "Vertical";
+
+const placeText = setup && me && !me.ready
+    ? (nextShip ? "Place: " + nextShip.name + " (" + nextShip.size + ") - " + directionText : "Fleet placed. Tap Ready.")
+    : "";
+
+const setupButtons = setup ? (
+    "<div class=\"bs-place-note\">" + escapeHtml(placeText) + "</div>" +
+
+    "<div class=\"bs-actions bs-actions-top\">" +
+        "<button onclick=\"rotateBattleshipPlacement()\" type=\"button\">Direction: " + directionText + "</button>" +
+        "<button onclick=\"randomizeBattleshipFleet()\" type=\"button\">Random Fleet</button>" +
+        (!hasComputer && st.players.length < 2 ? "<button onclick=\"playBattleshipComputer()\" class=\"bs-blue\" type=\"button\">Play Computer</button>" : "") +
+    "</div>" +
+
+    "<div class=\"bs-actions bs-actions-bottom\">" +
+        "<button onclick=\"clearBattleshipFleet()\" type=\"button\">Clear</button>" +
+        "<button onclick=\"newBattleshipGame()\" type=\"button\">New</button>" +
+        "<button onclick=\"readyBattleshipFleet()\" type=\"button\">Ready</button>" +
+    "</div>"
+) : "";
+
+const gameButtons = !setup ? (
+    "<div class=\"bs-actions bs-actions-bottom\">" +
+        "<button onclick=\"newBattleshipGame()\" type=\"button\">New Game</button>" +
+    "</div>"
+) : "";
+
+el.innerHTML = [
+    "<style>",
+        ".bs-wrap{height:100%;overflow:auto;padding:4px 8px 70px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;}",
+        ".bs-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%;max-width:560px;margin:0 auto 4px;}",
+        ".bs-player{background:#e2f0d9;color:#1e4620;border:3px solid #e2f0d9;border-radius:9px;padding:6px 8px;text-align:center;font-weight:900;box-sizing:border-box;min-width:0;}",
+        ".bs-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
+        ".bs-player-name{font-size:16px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+        ".bs-player-info{font-size:13px;line-height:1.05;margin-top:2px;}",
+        ".bs-msg{text-align:center;color:#ffd700;font-weight:900;font-size:14px;line-height:1.15;margin:7px auto 5px;max-width:560px;}",
+        ".bs-last{text-align:center;color:#e2f0d9;font-size:12px;font-weight:900;margin:0 auto 5px;max-width:560px;}",
+        ".bs-place-note{text-align:center;color:#ffffff;font-size:13px;font-weight:900;margin:5px auto 6px;max-width:560px;}",
+        ".bs-section-title{text-align:center;color:#ffd700;font-size:17px;font-weight:900;margin:4px auto 4px;}",
+        ".bs-boards{display:grid;grid-template-columns:1fr;gap:6px;max-width:560px;margin:0 auto;}",
+        ".bs-board{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;background:#0b2410;border:3px solid #ffd700;border-radius:10px;padding:4px;box-sizing:border-box;touch-action:manipulation;}",
+        ".bs-cell{aspect-ratio:1/1;border:1px solid rgba(255,255,255,.28);border-radius:4px;background:#8fc5e8;color:#082f49;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;box-sizing:border-box;}",
+        ".bs-cell.ship{background:#78909c;color:#ffffff;}",
+        ".bs-cell.hit{background:#dc3545!important;color:#ffffff!important;}",
+        ".bs-cell.miss{background:#e2f0d9!important;color:#1e4620!important;}",
+        ".bs-cell.sunk{background:#111827!important;color:#ffd700!important;border:2px solid #ffd700!important;font-size:18px!important;box-shadow:inset 0 0 0 2px #000000;}",
+        ".bs-cell:disabled{opacity:1;}",
+        ".bs-empty-note{text-align:center;background:rgba(0,0,0,.25);border:2px dashed #ffd700;border-radius:10px;padding:16px;font-weight:900;color:#ffd700;}",
+
+        ".bs-actions{max-width:560px;margin:6px auto 8px;}",
+        ".bs-actions button{border:none;border-radius:10px;padding:9px 11px;font-weight:900;background:#ffd700;color:#1e4620;}",
+        ".bs-actions button.bs-blue{background:#1d4ed8;color:#ffffff;}",
+        ".bs-actions-top{display:grid;grid-template-columns:1fr 1fr;gap:7px;}",
+        ".bs-actions-top .bs-blue{grid-column:1 / -1;}",
+        ".bs-actions-bottom{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;}",
+        ".bs-status{font-size:12px;line-height:1.2;text-align:center;max-width:560px;margin:4px auto;color:#e2f0d9;font-weight:900;}",
+
+        "@media(min-width:700px){.bs-boards{grid-template-columns:1fr 1fr;max-width:920px;}}",
+        "@media(max-height:760px){.bs-wrap{padding-top:2px;}.bs-msg{font-size:13px;margin:5px auto 4px;}.bs-section-title{font-size:15px;margin:3px auto 2px;}.bs-actions button{padding:7px 9px;font-size:12px;}}",
+    "</style>",
+    "<div class=\"bs-wrap\">",
+        "<div class=\"bs-score\">", buildScoreHtml(st), "</div>",
+        "<div class=\"bs-boards\">",
+            "<div>",
+                "<div class=\"bs-section-title\">Enemy Waters</div>",
+                "<div class=\"bs-board\">", buildTargetBoard(enemy, !canFire), "</div>",
+                enemy ? "<div class=\"bs-status\">" + escapeHtml(buildShipStatus(enemy)) + "</div>" : "",
+            "</div>",
+            "<div>",
+                "<div class=\"bs-section-title\">Your Fleet</div>",
+                "<div class=\"bs-board\">", buildOwnBoard(me), "</div>",
+                me ? "<div class=\"bs-status\">" + escapeHtml(buildShipStatus(me)) + "</div>" : "",
+            "</div>",
+        "</div>",
+        "<div class=\"bs-msg\">", escapeHtml(mainMessage), "</div>",
+        st.lastShot ? "<div class=\"bs-last\">" + escapeHtml(st.lastShot) + "</div>" : "",
+        setupButtons,
+        gameButtons,
+    "</div>"
+].join("");
+
+const newWrap = el.querySelector(".bs-wrap");
+
+if (newWrap && savedScrollTop > 0) {
+    newWrap.scrollTop = savedScrollTop;
+
+    requestAnimationFrame(function () {
+        newWrap.scrollTop = savedScrollTop;
+    });
+}
+
+maybeComputerMove();
+
+
+}
 
 })();
