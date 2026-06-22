@@ -940,7 +940,7 @@ function renderTexas() {
             "</div>",
             actionButtons,
             dealButton,
-            "<div class=\"th-rules\">Fake chips only. Texas Hold'em uses two private cards plus five community cards. Best five-card hand wins the pot.</div>",
+            "<div class=\"th-rules\">Fake chips only. Texas Holdem uses two private cards plus five community cards. Best five-card hand wins the pot.</div>",
         "</div>"
     ].join("");
 
