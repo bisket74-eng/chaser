@@ -1,9 +1,8 @@
 /* CHASER SCRABBLE - SEPARATE GAME FILE
-Bigger board + stable pinch zoom + pan + exchange tile + online word check
+Bigger board + stable pinch zoom + pan + multi-tile exchange + one-tile undo + online word check
 */
 (function () {
 "use strict";
-
 
 const LETTERS = "EEEEEEEEEEEEAAAAAAAAAIIIIIIIIIOOOOOOOONNNNNNRRRRRRTTTTTTLLLLSSSSUUUUDDDDGGGBBCCMMPPFFHHVVWWYYKJXQZ".split("");
 
@@ -111,7 +110,7 @@ function createState() {
             };
         }),
         turn: 0,
-        selectedRack: null,
+        selectedRack: [],
         pending: [],
         message: "",
         lastMessage: ""
@@ -132,6 +131,32 @@ function currentPlayer() {
 function isMyTurn() {
     const p = currentPlayer();
     return p && p.id === getMyId();
+}
+
+function selectedRackIndexes(s) {
+    if (!s) return [];
+
+    if (Array.isArray(s.selectedRack)) {
+        return s.selectedRack
+            .filter(function (n) {
+                return typeof n === "number" && n >= 0;
+            })
+            .sort(function (a, b) {
+                return a - b;
+            });
+    }
+
+    if (s.selectedRack !== null && s.selectedRack !== undefined) {
+        return [s.selectedRack];
+    }
+
+    return [];
+}
+
+function setSelectedRackIndexes(s, indexes) {
+    s.selectedRack = indexes.slice().sort(function (a, b) {
+        return a - b;
+    });
 }
 
 const TW = new Set(["0,0","0,7","0,14","7,0","7,14","14,0","14,7","14,14"]);
@@ -596,7 +621,27 @@ window.pickScrabbleTile = function (idx) {
     const s = window.scrabbleState;
     if (!s || !isMyTurn()) return;
 
-    s.selectedRack = idx;
+    const selected = selectedRackIndexes(s);
+    const alreadySelected = selected.indexOf(idx) !== -1;
+
+    let nextSelected;
+
+    if (alreadySelected) {
+        nextSelected = selected.filter(function (n) {
+            return n !== idx;
+        });
+    } else {
+        nextSelected = selected.concat(idx);
+    }
+
+    setSelectedRackIndexes(s, nextSelected);
+
+    if (nextSelected.length > 1) {
+        s.message = "Exchange selected tiles or tap a tile again to unselect it.";
+    } else {
+        s.message = "";
+    }
+
     renderScrabble();
 };
 
@@ -606,15 +651,27 @@ window.placeScrabbleTile = function (r, c) {
 
     if (!s || !p || !isMyTurn()) return;
     if (s.board[r][c]) return;
-    if (s.selectedRack === null) return;
 
-    const letter = p.rack[s.selectedRack];
+    const selected = selectedRackIndexes(s);
+
+    if (selected.length === 0) return;
+
+    if (selected.length > 1) {
+        s.message = "You selected multiple tiles. Tap Exchange to swap them.";
+        renderScrabble();
+        return;
+    }
+
+    const rackIndex = selected[0];
+    const letter = p.rack[rackIndex];
+
     if (!letter) return;
 
     s.board[r][c] = { letter: letter, pending: true, owner: p.id };
     s.pending.push({ r: r, c: c, letter: letter });
-    p.rack.splice(s.selectedRack, 1);
-    s.selectedRack = null;
+    p.rack.splice(rackIndex, 1);
+
+    setSelectedRackIndexes(s, []);
     s.message = "";
 
     renderScrabble();
@@ -627,13 +684,14 @@ window.undoScrabbleMove = function () {
 
     if (!s || !p || !isMyTurn()) return;
 
-    s.pending.forEach(function (t) {
-        p.rack.push(t.letter);
-        s.board[t.r][t.c] = null;
-    });
+    const lastTile = s.pending.pop();
 
-    s.pending = [];
-    s.selectedRack = null;
+    if (!lastTile) return;
+
+    p.rack.push(lastTile.letter);
+    s.board[lastTile.r][lastTile.c] = null;
+
+    setSelectedRackIndexes(s, []);
     s.message = "";
 
     renderScrabble();
@@ -667,7 +725,7 @@ window.submitScrabbleMove = async function () {
     s.pending = [];
     drawTiles(s, p);
     s.turn = (s.turn + 1) % s.players.length;
-    s.selectedRack = null;
+    setSelectedRackIndexes(s, []);
     s.lastMessage = p.name + ": " + result.message;
     s.message = "";
 
@@ -687,7 +745,7 @@ window.passScrabbleTurn = function () {
     });
 
     s.pending = [];
-    s.selectedRack = null;
+    setSelectedRackIndexes(s, []);
     s.turn = (s.turn + 1) % s.players.length;
     s.lastMessage = p.name + " passed.";
     s.message = "";
@@ -708,27 +766,43 @@ window.exchangeScrabbleSelectedTile = function () {
         return;
     }
 
-    if (s.selectedRack === null || s.selectedRack === undefined) {
-        s.message = "Select a tile to exchange.";
+    const selected = selectedRackIndexes(s);
+
+    if (!selected.length) {
+        s.message = "Select one or more tiles to exchange.";
         renderScrabble();
         return;
     }
 
-    if (!s.bag.length) {
-        s.message = "No tiles left to exchange.";
+    if (s.bag.length < selected.length) {
+        s.message = "Not enough tiles left to exchange that many.";
         renderScrabble();
         return;
     }
 
-    const oldTile = p.rack.splice(s.selectedRack, 1)[0];
+    const oldTiles = [];
 
-    s.bag.unshift(oldTile);
+    selected
+        .slice()
+        .sort(function (a, b) {
+            return b - a;
+        })
+        .forEach(function (idx) {
+            if (idx >= 0 && idx < p.rack.length) {
+                oldTiles.push(p.rack.splice(idx, 1)[0]);
+            }
+        });
+
+    oldTiles.forEach(function (tile) {
+        s.bag.unshift(tile);
+    });
+
     shuffle(s.bag);
     drawTiles(s, p);
 
-    s.selectedRack = null;
+    setSelectedRackIndexes(s, []);
     s.turn = (s.turn + 1) % s.players.length;
-    s.lastMessage = p.name + " exchanged a tile.";
+    s.lastMessage = p.name + " exchanged " + oldTiles.length + " tile" + (oldTiles.length === 1 ? "." : "s.");
     s.message = "";
 
     renderScrabble();
@@ -764,6 +838,8 @@ function renderScrabble() {
     }) || s.players[0];
 
     const myTurn = isMyTurn();
+    const selectedRack = selectedRackIndexes(s);
+    const multipleSelected = selectedRack.length > 1;
 
     const boardHtml = s.board.map(function (row, r) {
         return row.map(function (cell, c) {
@@ -797,7 +873,7 @@ function renderScrabble() {
     const rackHtml = me.rack.map(function (l, i) {
         return (
             "<button class=\"sc-tile " +
-            (s.selectedRack === i ? "selected" : "") +
+            (selectedRack.indexOf(i) !== -1 ? "selected" : "") +
             "\" onclick=\"pickScrabbleTile(" +
             i +
             ")\" type=\"button\">" +
@@ -818,7 +894,11 @@ function renderScrabble() {
         );
     }).join("");
 
-    const canExchange = myTurn && !s.pending.length && s.selectedRack !== null && s.selectedRack !== undefined;
+    const canSubmit = myTurn && s.pending.length && !multipleSelected;
+    const canUndo = myTurn && s.pending.length;
+    const canExchange = myTurn && !s.pending.length && selectedRack.length > 0;
+    const canPass = myTurn && !multipleSelected;
+
     const messageText = s.message || s.lastMessage || "";
     const messageClass = s.message ? " error" : "";
 
@@ -858,6 +938,7 @@ function renderScrabble() {
             ".sc-actions button{border:none;border-radius:10px;padding:8px 10px;font-size:13px;font-weight:900;background:#ffd700;color:#1e4620;}",
             ".sc-actions button:disabled{background:#777;color:#222;}",
             ".sc-exchange-btn{background:#1d4ed8!important;color:#ffffff!important;}",
+            ".sc-exchange-btn.ready{box-shadow:0 0 0 3px #ffffff,0 0 12px #1d4ed8;}",
 
             "@media(max-width:390px),(max-height:735px){",
                 ".sc-player{padding:3px 6px;}",
@@ -884,16 +965,15 @@ function renderScrabble() {
             "<div class=\"sc-msg", messageClass, "\">", messageText ? escapeHtml(messageText) : "&nbsp;", "</div>",
 
             "<div class=\"sc-actions\">",
-                "<button onclick=\"submitScrabbleMove()\" ", myTurn && s.pending.length ? "" : "disabled", " type=\"button\">Submit</button>",
-                "<button onclick=\"undoScrabbleMove()\" ", myTurn && s.pending.length ? "" : "disabled", " type=\"button\">Undo</button>",
-                "<button onclick=\"exchangeScrabbleSelectedTile()\" ", canExchange ? "" : "disabled", " class=\"sc-exchange-btn\" type=\"button\">Exchange</button>",
-                "<button onclick=\"passScrabbleTurn()\" ", myTurn ? "" : "disabled", " type=\"button\">Pass</button>",
+                "<button onclick=\"submitScrabbleMove()\" ", canSubmit ? "" : "disabled", " type=\"button\">Submit</button>",
+                "<button onclick=\"undoScrabbleMove()\" ", canUndo ? "" : "disabled", " type=\"button\">Undo</button>",
+                "<button onclick=\"exchangeScrabbleSelectedTile()\" ", canExchange ? "" : "disabled", " class=\"sc-exchange-btn ", canExchange ? "ready" : "", "\" type=\"button\">Exchange</button>",
+                "<button onclick=\"passScrabbleTurn()\" ", canPass ? "" : "disabled", " type=\"button\">Pass</button>",
             "</div>",
         "</div>"
     ].join("");
 
     setupBoardView();
 }
-
 
 })();
