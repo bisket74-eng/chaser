@@ -5,7 +5,6 @@ Manual ship placement + sunk ship markers + controls below boards
 (function () {
 "use strict";
 
-
 const BOARD_SIZE = 10;
 const COMPUTER_ID = "battleship-computer";
 
