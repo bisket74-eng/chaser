@@ -1,6 +1,6 @@
 /* CHASER BATTLESHIP - SEPARATE GAME FILE
 Two-player synced Battleship + optional computer opponent
-Manual ship placement + random fleet + sunk ships disappear from lists
+Manual ship placement + sunk ship markers + controls below boards
 */
 (function () {
 "use strict";
@@ -92,6 +92,7 @@ function makePlayers() {
             isComputer: false,
             ready: false,
             hits: 0,
+            placementDirection: "H",
             board: emptyBoard(),
             ships: []
         };
@@ -105,8 +106,7 @@ function createState() {
         turn: 0,
         winnerId: null,
         message: "Place your fleet or use Random Fleet.",
-        lastShot: "",
-        placementDirection: "H"
+        lastShot: ""
     };
 }
 
@@ -457,8 +457,8 @@ window.rotateBattleshipPlacement = function () {
 
     if (!st || !me || st.phase !== "setup" || me.ready) return;
 
-    st.placementDirection = st.placementDirection === "V" ? "H" : "V";
-    st.message = "Direction changed to " + (st.placementDirection === "H" ? "horizontal." : "vertical.");
+    me.placementDirection = me.placementDirection === "V" ? "H" : "V";
+    st.message = "Direction changed to " + (me.placementDirection === "H" ? "horizontal." : "vertical.");
 
     renderBattleship();
     syncBattleship();
@@ -493,7 +493,7 @@ window.placeBattleshipShip = function (row, col) {
         return;
     }
 
-    const horizontal = (st.placementDirection || "H") === "H";
+    const horizontal = (me.placementDirection || "H") === "H";
 
     if (!canPlaceShip(me.board, row, col, ship.size, horizontal)) {
         st.message = ship.name + " will not fit there. Try another square or rotate.";
@@ -574,6 +574,7 @@ window.playBattleshipComputer = function () {
         isComputer: true,
         ready: true,
         hits: 0,
+        placementDirection: "H",
         board: fleet.board,
         ships: fleet.ships
     });
@@ -635,8 +636,21 @@ function buildTargetBoard(enemy, disabled) {
     for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
             const cell = enemy.board[r][c];
-            const cls = cell.shot ? (cell.ship ? "hit" : "miss") : "";
-            const label = cell.shot ? (cell.ship ? "✹" : "•") : "";
+            const sunk = cell.ship && shipIsSunk(enemy, cell.ship);
+
+            let cls = "";
+            let label = "";
+
+            if (cell.shot && cell.ship && sunk) {
+                cls = "sunk";
+                label = "☠";
+            } else if (cell.shot && cell.ship) {
+                cls = "hit";
+                label = "✹";
+            } else if (cell.shot && !cell.ship) {
+                cls = "miss";
+                label = "•";
+            }
 
             html += (
                 "<button class=\"bs-cell " + cls + "\" " +
@@ -664,21 +678,24 @@ function buildOwnBoard(player) {
     for (let r = 0; r < BOARD_SIZE; r++) {
         for (let c = 0; c < BOARD_SIZE; c++) {
             const cell = player.board[r][c];
+            const sunk = cell.ship && shipIsSunk(player, cell.ship);
+
             let cls = "";
             let label = "";
 
             if (cell.ship) {
-                cls += " ship";
+                cls = "ship";
                 label = "■";
             }
 
-            if (cell.shot && cell.ship) {
-                cls += " hit";
+            if (cell.shot && cell.ship && sunk) {
+                cls = "sunk";
+                label = "☠";
+            } else if (cell.shot && cell.ship) {
+                cls = "hit";
                 label = "✹";
-            }
-
-            if (cell.shot && !cell.ship) {
-                cls += " miss";
+            } else if (cell.shot && !cell.ship) {
+                cls = "miss";
                 label = "•";
             }
 
@@ -756,7 +773,7 @@ function renderBattleship() {
     }
 
     const nextShip = setup && me ? nextShipToPlace(me) : null;
-    const directionText = (st.placementDirection || "H") === "H" ? "Horizontal" : "Vertical";
+    const directionText = me && (me.placementDirection || "H") === "H" ? "Horizontal" : "Vertical";
 
     const placeText = setup && me && !me.ready
         ? (nextShip ? "Place: " + nextShip.name + " (" + nextShip.size + ") - " + directionText : "Fleet placed. Tap Ready.")
@@ -782,36 +799,34 @@ function renderBattleship() {
 
     el.innerHTML = [
         "<style>",
-            ".bs-wrap{height:100%;overflow:auto;padding:8px 8px 70px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;}",
-            ".bs-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%;max-width:560px;margin:0 auto 8px;}",
+            ".bs-wrap{height:100%;overflow:auto;padding:4px 8px 70px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;}",
+            ".bs-score{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:100%;max-width:560px;margin:0 auto 4px;}",
             ".bs-player{background:#e2f0d9;color:#1e4620;border:3px solid #e2f0d9;border-radius:9px;padding:6px 8px;text-align:center;font-weight:900;box-sizing:border-box;min-width:0;}",
             ".bs-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
             ".bs-player-name{font-size:16px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
             ".bs-player-info{font-size:13px;line-height:1.05;margin-top:2px;}",
-            ".bs-msg{text-align:center;color:#ffd700;font-weight:900;font-size:14px;line-height:1.15;margin:4px auto 8px;max-width:560px;}",
-            ".bs-last{text-align:center;color:#e2f0d9;font-size:12px;font-weight:900;margin:-2px auto 6px;max-width:560px;}",
-            ".bs-place-note{text-align:center;color:#ffffff;font-size:13px;font-weight:900;margin:2px auto 6px;max-width:560px;}",
-            ".bs-section-title{text-align:center;color:#ffd700;font-size:17px;font-weight:900;margin:8px auto 5px;}",
-            ".bs-boards{display:grid;grid-template-columns:1fr;gap:8px;max-width:560px;margin:0 auto;}",
+            ".bs-msg{text-align:center;color:#ffd700;font-weight:900;font-size:14px;line-height:1.15;margin:7px auto 5px;max-width:560px;}",
+            ".bs-last{text-align:center;color:#e2f0d9;font-size:12px;font-weight:900;margin:0 auto 5px;max-width:560px;}",
+            ".bs-place-note{text-align:center;color:#ffffff;font-size:13px;font-weight:900;margin:5px auto 6px;max-width:560px;}",
+            ".bs-section-title{text-align:center;color:#ffd700;font-size:17px;font-weight:900;margin:4px auto 4px;}",
+            ".bs-boards{display:grid;grid-template-columns:1fr;gap:6px;max-width:560px;margin:0 auto;}",
             ".bs-board{display:grid;grid-template-columns:repeat(10,1fr);gap:2px;background:#0b2410;border:3px solid #ffd700;border-radius:10px;padding:4px;box-sizing:border-box;touch-action:manipulation;}",
             ".bs-cell{aspect-ratio:1/1;border:1px solid rgba(255,255,255,.28);border-radius:4px;background:#8fc5e8;color:#082f49;font-size:15px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;box-sizing:border-box;}",
             ".bs-cell.ship{background:#78909c;color:#ffffff;}",
             ".bs-cell.hit{background:#dc3545!important;color:#ffffff!important;}",
             ".bs-cell.miss{background:#e2f0d9!important;color:#1e4620!important;}",
+            ".bs-cell.sunk{background:#111827!important;color:#ffd700!important;border:2px solid #ffd700!important;font-size:18px!important;box-shadow:inset 0 0 0 2px #000000;}",
             ".bs-cell:disabled{opacity:1;}",
             ".bs-empty-note{text-align:center;background:rgba(0,0,0,.25);border:2px dashed #ffd700;border-radius:10px;padding:16px;font-weight:900;color:#ffd700;}",
-            ".bs-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:8px auto 10px;max-width:560px;}",
+            ".bs-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:6px auto 8px;max-width:560px;}",
             ".bs-actions button{border:none;border-radius:10px;padding:9px 11px;font-weight:900;background:#ffd700;color:#1e4620;}",
             ".bs-actions button.bs-blue{background:#1d4ed8;color:#ffffff;}",
-            ".bs-status{font-size:12px;line-height:1.2;text-align:center;max-width:560px;margin:5px auto;color:#e2f0d9;font-weight:900;}",
+            ".bs-status{font-size:12px;line-height:1.2;text-align:center;max-width:560px;margin:4px auto;color:#e2f0d9;font-weight:900;}",
             "@media(min-width:700px){.bs-boards{grid-template-columns:1fr 1fr;max-width:920px;}}",
-            "@media(max-height:760px){.bs-wrap{padding-top:4px;}.bs-msg{font-size:13px;margin:3px auto 5px;}.bs-section-title{font-size:15px;margin:5px auto 3px;}.bs-actions button{padding:7px 9px;font-size:12px;}}",
+            "@media(max-height:760px){.bs-wrap{padding-top:2px;}.bs-msg{font-size:13px;margin:5px auto 4px;}.bs-section-title{font-size:15px;margin:3px auto 2px;}.bs-actions button{padding:7px 9px;font-size:12px;}}",
         "</style>",
         "<div class=\"bs-wrap\">",
             "<div class=\"bs-score\">", buildScoreHtml(st), "</div>",
-            "<div class=\"bs-msg\">", escapeHtml(mainMessage), "</div>",
-            st.lastShot ? "<div class=\"bs-last\">" + escapeHtml(st.lastShot) + "</div>" : "",
-            setupButtons,
             "<div class=\"bs-boards\">",
                 "<div>",
                     "<div class=\"bs-section-title\">Enemy Waters</div>",
@@ -824,6 +839,9 @@ function renderBattleship() {
                     me ? "<div class=\"bs-status\">" + escapeHtml(buildShipStatus(me)) + "</div>" : "",
                 "</div>",
             "</div>",
+            "<div class=\"bs-msg\">", escapeHtml(mainMessage), "</div>",
+            st.lastShot ? "<div class=\"bs-last\">" + escapeHtml(st.lastShot) + "</div>" : "",
+            setupButtons,
             gameButtons,
         "</div>"
     ].join("");
