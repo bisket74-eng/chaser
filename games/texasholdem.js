@@ -994,5 +994,5 @@ window.handleIncomingTexasHoldemSync = function (payload) {
     renderTexas();
 };
 
-
+if (typeof initTexasHoldemGame === "function") {     window.initTexasHoldemGame = initTexasHoldemGame;     window.startTexasHoldemFromLobby = initTexasHoldemGame;     window.startTexasHoldemGame = initTexasHoldemGame;     window.initTexasHoldem = initTexasHoldemGame; }
 })();
