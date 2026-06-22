@@ -248,15 +248,15 @@
                 if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
             }
         },
-       "TexasHoldem": {
+       "texasHoldem": {
 icon: "♠️",
 displayName: "Texas Hold'em",
 minPlayers: 1,
 maxPlayers: 6,
 multiplayer: true,
 init: () => {
-if (typeof window.initTexasHoldemGame === "function") {
-window.initTexasHoldemGame();
+if (typeof window.inittexasHoldemGame === "function") {
+window.inittexasHoldemGame();
 } else {
 alert("Texas Hold'em file did not load. Check /games/texasholdem.js and the script tag in index.html.");
 }
