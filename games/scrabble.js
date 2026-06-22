@@ -1,5 +1,5 @@
 /* CHASER SCRABBLE - SEPARATE GAME FILE
-Bigger board + stable pinch zoom + pan + multi-tile exchange + one-tile undo + online word check
+Bigger board + stable pinch zoom + pan + multi-tile exchange + one-tile undo + scrollable controls + online word check
 */
 (function () {
 "use strict";
@@ -904,7 +904,7 @@ function renderScrabble() {
 
     el.innerHTML = [
         "<style>",
-            ".sc-wrap{height:100%;overflow:hidden;padding:0 0 58px;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;display:flex;flex-direction:column;}",
+            ".sc-wrap{height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:0 0 90px;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;display:flex;flex-direction:column;}",
             ".sc-score{flex:0 0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:7px;width:calc(100% - 12px);max-width:540px;margin:2px auto 4px;}",
             ".sc-player{background:#e2f0d9;color:#1e4620;border:3px solid #e2f0d9;border-radius:9px;padding:4px 8px;font-weight:900;text-align:center;box-sizing:border-box;min-width:0;}",
             ".sc-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
@@ -927,8 +927,8 @@ function renderScrabble() {
             ".sc-cell b{font-size:15px;display:block;line-height:1;}",
             ".sc-cell small,.sc-tile small{position:absolute;right:2px;bottom:1px;font-size:8px;}",
 
-            ".sc-rack{flex:0 0 auto;display:flex;justify-content:center;gap:4px;margin:6px auto 4px;flex-wrap:nowrap;width:100%;max-width:100%;overflow:visible;}",
-            ".sc-tile{position:relative;width:clamp(34px,12.5vw,44px);height:clamp(38px,13.5vw,48px);border-radius:8px;border:2px solid #1e4620;background:#fff3c4;color:#1e4620;font-size:20px;font-weight:900;box-shadow:0 2px 5px rgba(0,0,0,.35);flex:0 0 auto;}",
+            ".sc-rack{flex:0 0 auto;display:flex;justify-content:center;gap:2px;margin:4px auto 3px;flex-wrap:nowrap;width:100%;max-width:100%;overflow:visible;padding:0 2px;box-sizing:border-box;}",
+            ".sc-tile{position:relative;width:clamp(32px,12vw,43px);height:clamp(36px,13vw,47px);border-radius:8px;border:2px solid #1e4620;background:#fff3c4;color:#1e4620;font-size:20px;font-weight:900;box-shadow:0 2px 5px rgba(0,0,0,.35);flex:0 0 auto;}",
             ".sc-tile.selected{border:4px solid #ff0000;transform:translateY(-4px);}",
 
             ".sc-msg{flex:0 0 auto;text-align:center;color:#ffd700;font-weight:900;margin:1px auto 4px;max-width:500px;min-height:16px;font-size:13px;line-height:1.1;}",
@@ -944,7 +944,7 @@ function renderScrabble() {
                 ".sc-player{padding:3px 6px;}",
                 ".sc-player-name{font-size:14px;}",
                 ".sc-player-score{font-size:12px;}",
-                ".sc-rack{gap:3px;margin:5px auto 3px;}",
+                ".sc-rack{gap:1px;margin:3px auto 2px;}",
                 ".sc-actions{gap:4px;}",
                 ".sc-actions button{padding:7px 8px;font-size:12px;}",
             "}",
@@ -965,10 +965,10 @@ function renderScrabble() {
             "<div class=\"sc-msg", messageClass, "\">", messageText ? escapeHtml(messageText) : "&nbsp;", "</div>",
 
             "<div class=\"sc-actions\">",
-                "<button onclick=\"submitScrabbleMove()\" ", canSubmit ? "" : "disabled", " type=\"button\">Submit</button>",
+                "<button onclick=\"passScrabbleTurn()\" ", canPass ? "" : "disabled", " type=\"button\">Pass</button>",
                 "<button onclick=\"undoScrabbleMove()\" ", canUndo ? "" : "disabled", " type=\"button\">Undo</button>",
                 "<button onclick=\"exchangeScrabbleSelectedTile()\" ", canExchange ? "" : "disabled", " class=\"sc-exchange-btn ", canExchange ? "ready" : "", "\" type=\"button\">Exchange</button>",
-                "<button onclick=\"passScrabbleTurn()\" ", canPass ? "" : "disabled", " type=\"button\">Pass</button>",
+                "<button onclick=\"submitScrabbleMove()\" ", canSubmit ? "" : "disabled", " type=\"button\">Submit</button>",
             "</div>",
         "</div>"
     ].join("");
