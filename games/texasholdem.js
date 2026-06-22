@@ -958,7 +958,7 @@ window.texasResetTable = function () {
     syncTexas();
 };
 
-window.inittexasHoldemGame = function () {
+window.initTexasHoldemGame = function () {
     window.chaserGame = window.chaserGame || {};
     window.chaserGame.activeGame = "texasHoldem";
 
@@ -967,15 +967,15 @@ window.inittexasHoldemGame = function () {
 
     const amHost = window.chaserGame && window.chaserGame.hostId === getMyId();
 
-    if (amHost || !window.texasHoldemState) {
-        window.texasHoldemState = createState();
+    if (amHost || !window.TexasHoldemState) {
+        window.TexasHoldemState = createState();
         syncTexas();
     }
 
     renderTexas();
 };
 
-window.handleIncomingtexasHoldemSync = function (payload) {
+window.handleIncomingTexasHoldemSync = function (payload) {
     if (!payload || !payload.state) return;
 
     if (
@@ -987,9 +987,9 @@ window.handleIncomingtexasHoldemSync = function (payload) {
         return;
     }
 
-    window.texasHoldemState = payload.state;
+    window.TexasHoldemState = payload.state;
 
-    if (window.chaserGame) window.chaserGame.activeGame = "texasHoldem";
+    if (window.chaserGame) window.chaserGame.activeGame = "TexasHoldem";
 
     renderTexas();
 };
