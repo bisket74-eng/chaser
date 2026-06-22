@@ -637,7 +637,7 @@ window.pickScrabbleTile = function (idx) {
     setSelectedRackIndexes(s, nextSelected);
 
     if (nextSelected.length > 1) {
-        s.message = "Exchange selected tiles or tap a tile again to unselect it.";
+        s.message = "Exchange tiles or tap a tile again to unselect it.";
     } else {
         s.message = "";
     }
