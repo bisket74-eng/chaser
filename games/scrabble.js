@@ -894,6 +894,6 @@ function renderScrabble() {
 
     setupBoardView();
 }
-```
+
 
 })();
