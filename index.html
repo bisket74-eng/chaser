@@ -1701,6 +1701,10 @@
             .on('broadcast', { event:'yahtzee-sync-state' }, ({ payload }) => {
     if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
 })
+ .on('broadcast', { event:'texasholdem-sync-state' }, ({ payload }) => {
+if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
+})
+           
 
 .on('broadcast', { event:'scrabble-sync-state' }, ({ payload }) => {
     if (window.handleIncomingScrabbleSync) window.handleIncomingScrabbleSync(payload);
