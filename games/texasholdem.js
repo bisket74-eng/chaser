@@ -960,7 +960,7 @@ window.texasResetTable = function () {
 
 window.initTexasHoldemGame = function () {
     window.chaserGame = window.chaserGame || {};
-    window.chaserGame.activeGame = "Texas Hold'em";
+    window.chaserGame.activeGame = "TexasHoldem";
 
     openStage();
     setHeader();
@@ -989,7 +989,7 @@ window.handleIncomingTexasHoldemSync = function (payload) {
 
     window.texasHoldemState = payload.state;
 
-    if (window.chaserGame) window.chaserGame.activeGame = "Texas Hold'em";
+    if (window.chaserGame) window.chaserGame.activeGame = "TexasHoldem";
 
     renderTexas();
 };
