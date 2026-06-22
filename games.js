@@ -172,6 +172,19 @@
                 if (typeof window.initSequenceGame === "function") window.initSequenceGame();
             }
         },
+       "Battleship": {
+        icon: "🚢",
+        displayName: "Battleship",
+        minPlayers: 1,
+        maxPlayers: 2,
+        multiplayer: true,
+        init: () => {
+        if (typeof window.initBattleshipGame === "function") 
+            window.initBattleshipGame();
+        
+    }
+},
+       
         "Battle Uno": {
             icon: "🃏",
             displayName: "Uno",
