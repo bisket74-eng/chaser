@@ -960,7 +960,7 @@ window.texasResetTable = function () {
 
 window.initTexasHoldemGame = function () {
     window.chaserGame = window.chaserGame || {};
-    window.chaserGame.activeGame = "texasHoldem";
+    window.chaserGame.activeGame = "TexasHoldem";
 
     openStage();
     setHeader();
