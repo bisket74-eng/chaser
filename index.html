@@ -2822,6 +2822,556 @@ if (chaserFollowBtn) {
     `;
     document.head.appendChild(style);
 })();
+ /* CHASER PATCH — smart map follow + fit-all riders + EV chargers */
+(function () {
+if (window.__chaserSmartMapAndEvPatchInstalled) return;
+window.__chaserSmartMapAndEvPatchInstalled = true;
+
+
+let chaserAutoMapMode = true;
+let chaserBuddyFocusMode = false;
+let chaserUserMovedMap = false;
+let chaserProgrammaticMapMove = false;
+let chaserBuddyCycleIndex = 0;
+
+let chaserEvLayer = null;
+let chaserEvVisible = false;
+let chaserEvLoading = false;
+let chaserEvLongPressTimer = null;
+let chaserEvLongPressed = false;
+
+function chaserIsMeName(name) {
+    return String(name || "").includes("(You)");
+}
+
+function chaserValidRiderEntry(entry) {
+    const r = entry[1];
+
+    return !!(
+        r &&
+        r.lat &&
+        r.lng &&
+        r.marker &&
+        !r.isGhost
+    );
+}
+
+function chaserGetVisibleRiders() {
+    return Object.entries(incomingRidersCache)
+        .filter(chaserValidRiderEntry);
+}
+
+function chaserGetVisibleBuddiesOnly() {
+    return chaserGetVisibleRiders()
+        .filter(([name]) => !chaserIsMeName(name));
+}
+
+function chaserRemoveOutOfRangeBuddies() {
+    if (!isRadiusFilterActive || !lastLat || !lastLng) return;
+
+    Object.keys(incomingRidersCache).forEach(name => {
+        if (chaserIsMeName(name)) return;
+
+        const r = incomingRidersCache[name];
+        if (!r || !r.lat || !r.lng) return;
+
+        const distMi = map.distance([lastLat, lastLng], [r.lat, r.lng]) / 1609.34;
+
+        if (distMi > 50) {
+            removeRider(name);
+        }
+    });
+
+    updateLiveRiderCounter();
+}
+
+function chaserSetMapView(callback) {
+    chaserProgrammaticMapMove = true;
+
+    try {
+        callback();
+    } finally {
+        setTimeout(() => {
+            chaserProgrammaticMapMove = false;
+        }, 900);
+    }
+}
+
+function chaserSmartFrameMap(animate = true) {
+    if (!isSharing || !lastLat || !lastLng) return;
+    if (!chaserAutoMapMode) return;
+    if (chaserBuddyFocusMode) return;
+    if (chaserUserMovedMap) return;
+
+    chaserRemoveOutOfRangeBuddies();
+
+    const riders = chaserGetVisibleRiders();
+    const positions = riders.map(([name, r]) => [r.lat, r.lng]);
+    const hasMe = riders.some(([name]) => chaserIsMeName(name));
+
+    if (!hasMe) {
+        positions.push([lastLat, lastLng]);
+    }
+
+    chaserSetMapView(() => {
+        if (positions.length <= 1) {
+            map.setView([lastLat, lastLng], Math.max(map.getZoom(), 16), { animate });
+        } else {
+            map.fitBounds(L.latLngBounds(positions), {
+                paddingTopLeft:[40, 180],
+                paddingBottomRight:[40, 180],
+                animate,
+                maxZoom:16
+            });
+        }
+    });
+}
+
+window.chaserEnableFollowMe = function () {
+    chaserAutoMapMode = true;
+    chaserBuddyFocusMode = false;
+    chaserUserMovedMap = false;
+    chaserSmartFrameMap(true);
+};
+
+window.chaserFollowMeOnGpsUpdate = function () {
+    chaserSmartFrameMap(true);
+};
+
+map.on("dragstart zoomstart", () => {
+    if (chaserProgrammaticMapMove) return;
+
+    chaserUserMovedMap = true;
+    chaserBuddyFocusMode = false;
+});
+
+function chaserFocusBuddy(name, rider) {
+    if (!rider || !rider.lat || !rider.lng) return;
+
+    chaserAutoMapMode = true;
+    chaserBuddyFocusMode = true;
+    chaserUserMovedMap = false;
+
+    Object.values(incomingRidersCache).forEach(r => {
+        if (r && r.marker) r.marker.setZIndexOffset(0);
+    });
+
+    if (rider.marker) {
+        rider.marker.setZIndexOffset(10000);
+    }
+
+    chaserSetMapView(() => {
+        map.setView([rider.lat, rider.lng], Math.max(map.getZoom(), 16), {
+            animate:true
+        });
+    });
+}
+
+function chaserReturnToAllRiders() {
+    Object.values(incomingRidersCache).forEach(r => {
+        if (r && r.marker) {
+            r.marker.setZIndexOffset(0);
+            r.marker.__chaserFocused = false;
+        }
+    });
+
+    chaserAutoMapMode = true;
+    chaserBuddyFocusMode = false;
+    chaserUserMovedMap = false;
+
+    chaserSmartFrameMap(true);
+}
+
+function chaserCycleBuddyOrAll() {
+    const buddies = chaserGetVisibleBuddiesOnly();
+
+    if (!buddies.length) {
+        chaserReturnToAllRiders();
+        return;
+    }
+
+    const totalSteps = buddies.length + 1;
+    const step = chaserBuddyCycleIndex % totalSteps;
+    chaserBuddyCycleIndex++;
+
+    if (step === buddies.length) {
+        chaserReturnToAllRiders();
+        return;
+    }
+
+    const [name, rider] = buddies[step];
+    chaserFocusBuddy(name, rider);
+}
+
+function chaserRewireMarkerClicks() {
+    Object.entries(incomingRidersCache).forEach(([name, rider]) => {
+        if (!rider || !rider.marker || rider.marker.__chaserSmartClickWired) return;
+
+        rider.marker.__chaserSmartClickWired = true;
+        rider.marker.__chaserFocused = false;
+
+        rider.marker.off("click");
+
+        rider.marker.on("click", e => {
+            L.DomEvent.stopPropagation(e);
+
+            if (!rider.marker.__chaserFocused) {
+                Object.values(incomingRidersCache).forEach(r => {
+                    if (r && r.marker) r.marker.__chaserFocused = false;
+                });
+
+                rider.marker.__chaserFocused = true;
+                chaserFocusBuddy(name, rider);
+            } else {
+                rider.marker.__chaserFocused = false;
+                chaserReturnToAllRiders();
+            }
+        });
+    });
+}
+
+const buddyCycleBtn = document.getElementById("riderCounterWidget");
+
+if (buddyCycleBtn) {
+    buddyCycleBtn.style.pointerEvents = "auto";
+    buddyCycleBtn.style.cursor = "pointer";
+
+    buddyCycleBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        chaserCycleBuddyOrAll();
+    }, true);
+
+    let longPressTimer = null;
+
+    buddyCycleBtn.addEventListener("touchstart", () => {
+        longPressTimer = setTimeout(() => {
+            window.chaserEnableFollowMe();
+        }, 700);
+    }, { passive:true, capture:true });
+
+    buddyCycleBtn.addEventListener("touchend", () => {
+        clearTimeout(longPressTimer);
+    }, { passive:true, capture:true });
+
+    buddyCycleBtn.addEventListener("touchcancel", () => {
+        clearTimeout(longPressTimer);
+    }, { passive:true, capture:true });
+}
+
+const oldFitAllRiders = fitAllRiders;
+
+fitAllRiders = function (animate = true) {
+    chaserAutoMapMode = true;
+    chaserBuddyFocusMode = false;
+    chaserUserMovedMap = false;
+    chaserSmartFrameMap(animate);
+};
+
+window.fitAllRiders = fitAllRiders;
+
+const oldProcessIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+
+processIncomingCoordinateUpdate = function () {
+    oldProcessIncomingCoordinateUpdate.apply(this, arguments);
+
+    setTimeout(() => {
+        chaserRemoveOutOfRangeBuddies();
+        chaserRewireMarkerClicks();
+        chaserSmartFrameMap(true);
+    }, 80);
+};
+
+window.processIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+
+const oldBroadcastCurrentState = broadcastCurrentState;
+
+broadcastCurrentState = function () {
+    oldBroadcastCurrentState.apply(this, arguments);
+
+    setTimeout(() => {
+        chaserRemoveOutOfRangeBuddies();
+        chaserRewireMarkerClicks();
+        chaserSmartFrameMap(true);
+    }, 80);
+};
+
+window.broadcastCurrentState = broadcastCurrentState;
+
+function chaserEvSafeText(value) {
+    return String(value || "")
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&" + "#039;");
+}
+
+function chaserEvButtonSetState(text, active) {
+    const btn = document.getElementById("chaserEvChargerBtn");
+    if (!btn) return;
+
+    btn.innerHTML = text;
+    btn.classList.toggle("active", !!active);
+}
+
+function chaserHideEvChargers() {
+    if (chaserEvLayer) {
+        chaserEvLayer.clearLayers();
+    }
+
+    chaserEvVisible = false;
+    chaserEvLoading = false;
+    chaserEvButtonSetState("⚡ EV", false);
+}
+
+function chaserEvChargerIcon() {
+    return L.divIcon({
+        className:"",
+        html:
+            "<div style=\"" +
+                "width:30px;height:30px;border-radius:50%;" +
+                "background:#ffd700;color:#1e4620;" +
+                "border:3px solid #ffffff;" +
+                "display:flex;align-items:center;justify-content:center;" +
+                "font-size:17px;font-weight:900;" +
+                "box-shadow:0 4px 12px rgba(0,0,0,.45);" +
+                "font-family:Arial,sans-serif;" +
+            "\">⚡</div>",
+        iconSize:[30, 30],
+        iconAnchor:[15, 15]
+    });
+}
+
+function chaserEvBuildTooltip(tags) {
+    const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+    const operator = tags.operator || tags.brand || "";
+    const access = tags.access || "";
+    const capacity = tags.capacity || "";
+    const sockets = tags.socket || tags["socket:type2"] || tags["socket:chademo"] || tags["socket:tesla_supercharger"] || "";
+    const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+    let lines = [
+        "<b>" + chaserEvSafeText(name) + "</b>"
+    ];
+
+    if (operator && operator !== name) lines.push("Network: " + chaserEvSafeText(operator));
+    if (access) lines.push("Access: " + chaserEvSafeText(access));
+    if (capacity) lines.push("Stalls: " + chaserEvSafeText(capacity));
+    if (sockets) lines.push("Plug: " + chaserEvSafeText(sockets));
+    if (output) lines.push("Power: " + chaserEvSafeText(output));
+
+    return lines.join("<br>");
+}
+
+async function chaserLoadEvChargersInView() {
+    if (chaserEvLoading) return;
+
+    if (!chaserEvLayer) {
+        chaserEvLayer = L.layerGroup().addTo(map);
+    }
+
+    chaserEvLoading = true;
+    chaserEvVisible = true;
+    chaserEvButtonSetState("⚡ ...", true);
+
+    const b = map.getBounds();
+    const south = b.getSouth();
+    const west = b.getWest();
+    const north = b.getNorth();
+    const east = b.getEast();
+
+    const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          node["amenity"="charging_station"](${south},${west},${north},${east});
+          way["amenity"="charging_station"](${south},${west},${north},${east});
+          relation["amenity"="charging_station"](${south},${west},${north},${east});
+        );
+        out center tags;
+    `;
+
+    try {
+        const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+        const response = await fetch(url);
+
+        if (!response.ok) throw new Error("Charging station lookup failed.");
+
+        const data = await response.json();
+
+        chaserEvLayer.clearLayers();
+
+        let count = 0;
+
+        (data.elements || []).forEach(item => {
+            const tags = item.tags || {};
+            const access = String(tags.access || "").toLowerCase();
+
+            if (access.includes("private") || access === "no") return;
+
+            const lat = item.lat || (item.center && item.center.lat);
+            const lon = item.lon || (item.center && item.center.lon);
+
+            if (!lat || !lon) return;
+
+            const marker = L.marker([lat, lon], {
+                icon:chaserEvChargerIcon(),
+                zIndexOffset:7000
+            }).addTo(chaserEvLayer);
+
+            marker.bindTooltip(chaserEvBuildTooltip(tags), {
+                direction:"top",
+                offset:[0, -18],
+                opacity:0.96,
+                sticky:true
+            });
+
+            marker.on("click", () => {
+                marker.openTooltip();
+            });
+
+            count++;
+        });
+
+        chaserEvButtonSetState(count ? "⚡ " + count : "⚡ 0", true);
+    } catch (err) {
+        chaserEvButtonSetState("⚡ !", true);
+
+        setTimeout(() => {
+            chaserEvButtonSetState("⚡ EV", chaserEvVisible);
+        }, 1800);
+    } finally {
+        chaserEvLoading = false;
+    }
+}
+
+const EvControl = L.Control.extend({
+    options:{ position:"topright" },
+
+    onAdd:function () {
+        const box = L.DomUtil.create("div", "leaflet-bar leaflet-control chaser-ev-control");
+
+        box.innerHTML =
+            "<button id=\"chaserEvChargerBtn\" type=\"button\" title=\"Show EV chargers in this map area\">" +
+                "⚡ EV" +
+            "</button>";
+
+        L.DomEvent.disableClickPropagation(box);
+        L.DomEvent.disableScrollPropagation(box);
+
+        return box;
+    }
+});
+
+map.addControl(new EvControl());
+
+const evStyle = document.createElement("style");
+evStyle.innerHTML = `
+    .chaser-ev-control {
+        background:transparent !important;
+        border:none !important;
+        box-shadow:none !important;
+        margin-top:8px !important;
+    }
+
+    #chaserEvChargerBtn {
+        height:44px !important;
+        min-width:72px !important;
+        padding:0 12px !important;
+        border-radius:999px !important;
+        border:3px solid #e2f0d9 !important;
+        background:#1e4620 !important;
+        color:#ffd700 !important;
+        font-size:15px !important;
+        font-weight:900 !important;
+        font-family:Arial,sans-serif !important;
+        box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+        cursor:pointer !important;
+        box-sizing:border-box !important;
+    }
+
+    #chaserEvChargerBtn.active {
+        background:#ffd700 !important;
+        color:#1e4620 !important;
+        border-color:#ffffff !important;
+    }
+
+    .leaflet-tooltip {
+        background:#e2f0d9 !important;
+        color:#1e4620 !important;
+        border:2px solid #1e4620 !important;
+        border-radius:10px !important;
+        font-size:12px !important;
+        font-weight:800 !important;
+        box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+        padding:7px 9px !important;
+    }
+`;
+document.head.appendChild(evStyle);
+
+setTimeout(() => {
+    const evBtn = document.getElementById("chaserEvChargerBtn");
+
+    if (!evBtn) return;
+
+    evBtn.addEventListener("click", e => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (chaserEvLongPressed) {
+            chaserEvLongPressed = false;
+            return;
+        }
+
+        chaserLoadEvChargersInView();
+    });
+
+    evBtn.addEventListener("touchstart", () => {
+        chaserEvLongPressed = false;
+
+        chaserEvLongPressTimer = setTimeout(() => {
+            chaserEvLongPressed = true;
+            chaserHideEvChargers();
+        }, 700);
+    }, { passive:true });
+
+    evBtn.addEventListener("touchend", () => {
+        clearTimeout(chaserEvLongPressTimer);
+    }, { passive:true });
+
+    evBtn.addEventListener("touchcancel", () => {
+        clearTimeout(chaserEvLongPressTimer);
+    }, { passive:true });
+
+    evBtn.addEventListener("mousedown", () => {
+        chaserEvLongPressed = false;
+
+        chaserEvLongPressTimer = setTimeout(() => {
+            chaserEvLongPressed = true;
+            chaserHideEvChargers();
+        }, 700);
+    });
+
+    evBtn.addEventListener("mouseup", () => {
+        clearTimeout(chaserEvLongPressTimer);
+    });
+
+    evBtn.addEventListener("mouseleave", () => {
+        clearTimeout(chaserEvLongPressTimer);
+    });
+}, 300);
+
+setInterval(() => {
+    if (!isSharing) return;
+
+    chaserRemoveOutOfRangeBuddies();
+    chaserRewireMarkerClicks();
+    chaserSmartFrameMap(true);
+}, 3500);
+
+
+})();
+   
 </script>
     
 <script>
