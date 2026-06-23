@@ -3604,5 +3604,784 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     setInterval(cleanupChatHeaderUi, 500);
 })();
 </script>
+    <script>
+/* CHASER PATCH — FINAL combined map follow + buddies + EV reliable toggle
+   Put this at the very bottom, right before </body>.
+
+   EV:
+   - Tap lightning once = show EV chargers in current map view
+   - Tap lightning again = hide immediately
+   - Cancels/ignores old slow EV requests
+   - No EV text, no count
+
+   Map:
+   - While sharing, follows/framing you and visible buddies
+   - Removes buddies outside 50 miles
+   - Buddies Online cycles through buddies at normal zoom
+   - After cycling buddies, Buddies Online returns to everyone
+   - Tap buddy marker once = close zoom
+   - Tap same buddy again = zoom back out to everyone
+   - Does not override your original fitAllRiders function
+*/
+(function () {
+    if (window.__chaserFinalCombinedMapEvPatchInstalled) return;
+    window.__chaserFinalCombinedMapEvPatchInstalled = true;
+
+    const NORMAL_ZOOM = 13;
+    const CLOSE_ZOOM = 18;
+
+    const EV_SVG =
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+            '<path fill="currentColor" d="M13.2 1.8 4.3 13.6h6.1l-1.5 8.6 10.8-13.4h-6.4l-.1-7z"></path>' +
+        '</svg>';
+
+    let buddyCycleIndex = 0;
+    let focusedBuddyName = null;
+    let mapMode = "auto"; // auto, browse, focused, manual
+    let programmaticMove = false;
+
+    let evLayer = null;
+    let evVisible = false;
+    let evLoading = false;
+    let evRequestId = 0;
+    let evAbortController = null;
+
+    if (map && map.doubleClickZoom) {
+        map.doubleClickZoom.disable();
+    }
+
+    function safeText(value) {
+        return String(value || "")
+            .replace(/&/g, "&" + "amp;")
+            .replace(/</g, "&" + "lt;")
+            .replace(/>/g, "&" + "gt;")
+            .replace(/"/g, "&" + "quot;")
+            .replace(/'/g, "&" + "#039;");
+    }
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function validRider(name, rider) {
+        return !!(
+            rider &&
+            rider.marker &&
+            rider.lat &&
+            rider.lng &&
+            !rider.isGhost
+        );
+    }
+
+    function visibleRiders() {
+        return Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => validRider(name, rider));
+    }
+
+    function visibleBuddiesOnly() {
+        return visibleRiders().filter(([name]) => !isMeName(name));
+    }
+
+    function beginProgrammaticMove() {
+        programmaticMove = true;
+
+        setTimeout(() => {
+            programmaticMove = false;
+        }, 900);
+    }
+
+    function setMapView(lat, lng, zoom) {
+        beginProgrammaticMove();
+
+        map.setView([lat, lng], zoom, {
+            animate:true
+        });
+    }
+
+    function removeOutOfRangeBuddies() {
+        if (!isRadiusFilterActive || !lastLat || !lastLng) return;
+
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (isMeName(name)) return;
+
+            const rider = incomingRidersCache[name];
+            if (!rider || !rider.lat || !rider.lng) return;
+
+            const distMi = map.distance([lastLat, lastLng], [rider.lat, rider.lng]) / 1609.34;
+
+            if (distMi > 50) {
+                removeRider(name);
+            }
+        });
+
+        updateLiveRiderCounter();
+    }
+
+    function clearBuddyFocus() {
+        focusedBuddyName = null;
+
+        Object.values(incomingRidersCache).forEach(rider => {
+            if (rider && rider.marker) {
+                rider.marker.__chaserCombinedFocused = false;
+                rider.marker.setZIndexOffset(0);
+            }
+        });
+    }
+
+    function frameEveryoneAndResumeAuto() {
+        mapMode = "auto";
+        clearBuddyFocus();
+        removeOutOfRangeBuddies();
+
+        const riders = visibleRiders();
+        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
+        const hasMe = riders.some(([name]) => isMeName(name));
+
+        if (!hasMe && lastLat && lastLng) {
+            positions.push([lastLat, lastLng]);
+        }
+
+        if (!positions.length && lastLat && lastLng) {
+            setMapView(lastLat, lastLng, NORMAL_ZOOM);
+            return;
+        }
+
+        if (positions.length === 1) {
+            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
+            return;
+        }
+
+        beginProgrammaticMove();
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:NORMAL_ZOOM
+        });
+    }
+
+    function autoFrameIfAllowed() {
+        if (!isSharing) return;
+        if (!lastLat || !lastLng) return;
+        if (mapMode !== "auto") return;
+
+        removeOutOfRangeBuddies();
+
+        const riders = visibleRiders();
+        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
+        const hasMe = riders.some(([name]) => isMeName(name));
+
+        if (!hasMe) {
+            positions.push([lastLat, lastLng]);
+        }
+
+        if (!positions.length) {
+            setMapView(lastLat, lastLng, NORMAL_ZOOM);
+            return;
+        }
+
+        if (positions.length === 1) {
+            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
+            return;
+        }
+
+        beginProgrammaticMove();
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:NORMAL_ZOOM
+        });
+    }
+
+    function normalViewOnBuddy(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        mapMode = "browse";
+        clearBuddyFocus();
+
+        rider.marker.setZIndexOffset(10000);
+        setMapView(rider.lat, rider.lng, NORMAL_ZOOM);
+    }
+
+    function closeViewOnBuddy(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        mapMode = "focused";
+        clearBuddyFocus();
+
+        focusedBuddyName = name;
+        rider.marker.__chaserCombinedFocused = true;
+        rider.marker.setZIndexOffset(10000);
+
+        setMapView(rider.lat, rider.lng, CLOSE_ZOOM);
+    }
+
+    function toggleBuddyMarker(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        const now = Date.now();
+
+        if (rider.marker.__chaserCombinedLastTap && now - rider.marker.__chaserCombinedLastTap < 350) {
+            return;
+        }
+
+        rider.marker.__chaserCombinedLastTap = now;
+
+        if (focusedBuddyName === name || rider.marker.__chaserCombinedFocused) {
+            frameEveryoneAndResumeAuto();
+        } else {
+            closeViewOnBuddy(name, rider);
+        }
+    }
+
+    function cycleBuddiesButton() {
+        const buddies = visibleBuddiesOnly();
+
+        if (!buddies.length) {
+            frameEveryoneAndResumeAuto();
+            return;
+        }
+
+        const totalSteps = buddies.length + 1;
+        const step = buddyCycleIndex % totalSteps;
+        buddyCycleIndex++;
+
+        if (step === buddies.length) {
+            frameEveryoneAndResumeAuto();
+            return;
+        }
+
+        const [name, rider] = buddies[step];
+        normalViewOnBuddy(name, rider);
+    }
+
+    function rewireBuddyMarkers() {
+        Object.entries(incomingRidersCache).forEach(([name, rider]) => {
+            if (!validRider(name, rider)) return;
+
+            rider.marker.__chaserFinalCleanupWired = true;
+            rider.marker.__chaserFinalBuddyZoomWired = true;
+            rider.marker.__chaserFinalCleanFollowWired = true;
+            rider.marker.__chaserCombinedMapWired = true;
+
+            rider.marker.off("click");
+            rider.marker.off("dblclick");
+
+            rider.marker.on("click", e => {
+                if (e && e.originalEvent) {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                }
+
+                L.DomEvent.stopPropagation(e);
+                toggleBuddyMarker(name, rider);
+            });
+
+            rider.marker.on("dblclick", e => {
+                if (e && e.originalEvent) {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                }
+
+                L.DomEvent.stopPropagation(e);
+                toggleBuddyMarker(name, rider);
+            });
+        });
+    }
+
+    function wireBuddiesOnlineButton() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter) return;
+
+        if (oldCounter.__chaserCombinedCounterWired) return;
+
+        const newCounter = oldCounter.cloneNode(true);
+
+        newCounter.__chaserCombinedCounterWired = true;
+        newCounter.__chaserFinalCleanupCounterWired = true;
+        newCounter.__chaserFinalCleanFollowCounter = true;
+
+        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
+
+        newCounter.style.pointerEvents = "auto";
+        newCounter.style.cursor = "pointer";
+
+        newCounter.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            cycleBuddiesButton();
+        }, true);
+
+        let pressTimer = null;
+
+        newCounter.addEventListener("touchstart", () => {
+            pressTimer = setTimeout(() => {
+                frameEveryoneAndResumeAuto();
+            }, 650);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchend", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchcancel", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+    }
+
+    map.on("dragstart zoomstart", () => {
+        if (programmaticMove) return;
+        mapMode = "manual";
+    });
+
+    window.chaserFollowMapNow = frameEveryoneAndResumeAuto;
+    window.chaserEnableFollowMe = frameEveryoneAndResumeAuto;
+    window.chaserFollowMeOnGpsUpdate = autoFrameIfAllowed;
+
+    if (typeof broadcastCurrentState === "function" && !broadcastCurrentState.__chaserCombinedFollowWrapped) {
+        const oldBroadcastCurrentState = broadcastCurrentState;
+
+        broadcastCurrentState = function () {
+            const result = oldBroadcastCurrentState.apply(this, arguments);
+
+            setTimeout(() => {
+                rewireBuddyMarkers();
+                autoFrameIfAllowed();
+            }, 80);
+
+            return result;
+        };
+
+        broadcastCurrentState.__chaserCombinedFollowWrapped = true;
+        window.broadcastCurrentState = broadcastCurrentState;
+    }
+
+    if (typeof processIncomingCoordinateUpdate === "function" && !processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped) {
+        const oldProcessIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+
+        processIncomingCoordinateUpdate = function () {
+            const result = oldProcessIncomingCoordinateUpdate.apply(this, arguments);
+
+            setTimeout(() => {
+                rewireBuddyMarkers();
+                autoFrameIfAllowed();
+            }, 80);
+
+            return result;
+        };
+
+        processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped = true;
+        window.processIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+    }
+
+    function installEvStyles() {
+        let style = document.getElementById("chaser-combined-ev-style");
+
+        if (style) return;
+
+        style = document.createElement("style");
+        style.id = "chaser-combined-ev-style";
+        style.innerHTML = `
+            #chaserEvChargerBtn,
+            #chaserSimpleEvBtn,
+            #chaserLightningEvBtn,
+            #chaserCenteredEvBtn,
+            #chaserFinalEvSvgBtn,
+            .chaser-ev-control,
+            .chaser-simple-ev-control,
+            .chaser-lightning-ev-control {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserCombinedEvBtn {
+                position:fixed !important;
+                width:38px !important;
+                height:38px !important;
+                min-width:38px !important;
+                min-height:38px !important;
+                max-width:38px !important;
+                max-height:38px !important;
+                padding:0 !important;
+                border-radius:50% !important;
+                border:3px solid #e2f0d9 !important;
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+                cursor:pointer !important;
+                box-sizing:border-box !important;
+                z-index:12 !important;
+                -webkit-tap-highlight-color:transparent !important;
+                user-select:none !important;
+            }
+
+            #chaserCombinedEvBtn svg {
+                width:23px !important;
+                height:23px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            #chaserCombinedEvBtn.active {
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border-color:#ffffff !important;
+            }
+
+            #chatOverlay.open ~ #chaserCombinedEvBtn,
+            body:has(#chatOverlay.open) #chaserCombinedEvBtn {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+            }
+
+            .chaser-combined-ev-marker {
+                width:28px !important;
+                height:28px !important;
+                border-radius:50% !important;
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border:3px solid #ffffff !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 12px rgba(0,0,0,.45) !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-combined-ev-marker svg {
+                width:18px !important;
+                height:18px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            .leaflet-tooltip {
+                background:#e2f0d9 !important;
+                color:#1e4620 !important;
+                border:2px solid #1e4620 !important;
+                border-radius:10px !important;
+                font-size:12px !important;
+                font-weight:800 !important;
+                box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+                padding:7px 9px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function removeOldEvControls() {
+        document.querySelectorAll(
+            ".chaser-ev-control, .chaser-simple-ev-control, .chaser-lightning-ev-control"
+        ).forEach(node => {
+            const parentControl = node.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else node.remove();
+        });
+
+        [
+            "chaserEvChargerBtn",
+            "chaserSimpleEvBtn",
+            "chaserLightningEvBtn",
+            "chaserCenteredEvBtn",
+            "chaserFinalEvSvgBtn"
+        ].forEach(id => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const parentControl = btn.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else btn.remove();
+        });
+    }
+
+    function removeOldEvMarkers() {
+        map.eachLayer(layer => {
+            if (!(layer instanceof L.Marker)) return;
+
+            const icon = layer.options && layer.options.icon;
+            const html = icon && icon.options ? String(icon.options.html || "") : "";
+
+            const oldEv =
+                html.includes("⚡") ||
+                html.includes("chaser-simple-ev-marker") ||
+                html.includes("chaser-lightning-ev-marker") ||
+                html.includes("chaser-centered-ev-marker") ||
+                html.includes("chaser-final-ev-marker");
+
+            if (oldEv) {
+                map.removeLayer(layer);
+            }
+        });
+    }
+
+    function setEvButtonActive(active) {
+        const btn = document.getElementById("chaserCombinedEvBtn");
+        if (!btn) return;
+
+        btn.classList.toggle("active", !!active);
+        btn.innerHTML = EV_SVG;
+    }
+
+    function positionEvButton() {
+        const btn = document.getElementById("chaserCombinedEvBtn");
+        if (!btn) return;
+
+        const chat = document.getElementById("chatOverlay");
+
+        if (chat && chat.classList.contains("open")) {
+            btn.style.display = "none";
+            btn.style.pointerEvents = "none";
+            btn.style.opacity = "0";
+            return;
+        }
+
+        btn.style.display = "flex";
+        btn.style.pointerEvents = "auto";
+        btn.style.opacity = "1";
+
+        const zoomControl = document.querySelector(".leaflet-control-zoom");
+        const radiusControl = document.querySelector(".radius-toggle-container");
+
+        const size = 38;
+
+        if (!zoomControl || !radiusControl) {
+            btn.style.top = "82px";
+            btn.style.left = "50%";
+            btn.style.transform = "translateX(-50%)";
+            return;
+        }
+
+        const z = zoomControl.getBoundingClientRect();
+        const r = radiusControl.getBoundingClientRect();
+
+        const centerX = (z.right + r.left) / 2;
+        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+
+        let left = centerX - (size / 2);
+        let top = centerY - (size / 2);
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+        btn.style.transform = "none";
+    }
+
+    function evIcon() {
+        return L.divIcon({
+            className:"",
+            html:
+                '<div class="chaser-combined-ev-marker">' +
+                    EV_SVG +
+                '</div>',
+            iconSize:[28, 28],
+            iconAnchor:[14, 14]
+        });
+    }
+
+    function buildEvTooltip(tags) {
+        const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+        const operator = tags.operator || tags.brand || "";
+        const access = tags.access || "";
+        const capacity = tags.capacity || "";
+        const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+        const lines = ["<b>" + safeText(name) + "</b>"];
+
+        if (operator && operator !== name) lines.push("Network: " + safeText(operator));
+        if (access) lines.push("Access: " + safeText(access));
+        if (capacity) lines.push("Stalls: " + safeText(capacity));
+        if (output) lines.push("Power: " + safeText(output));
+
+        return lines.join("<br>");
+    }
+
+    function hideEvChargers() {
+        evRequestId++;
+
+        if (evAbortController) {
+            try { evAbortController.abort(); } catch(e) {}
+            evAbortController = null;
+        }
+
+        if (evLayer) {
+            evLayer.clearLayers();
+        }
+
+        evVisible = false;
+        evLoading = false;
+        setEvButtonActive(false);
+    }
+
+    async function showEvChargersInCurrentMapView() {
+        if (evLoading) {
+            hideEvChargers();
+            return;
+        }
+
+        const thisRequest = ++evRequestId;
+
+        evVisible = true;
+        evLoading = true;
+        setEvButtonActive(true);
+
+        if (!evLayer) {
+            evLayer = L.layerGroup().addTo(map);
+        }
+
+        evLayer.clearLayers();
+        removeOldEvMarkers();
+
+        evAbortController = new AbortController();
+
+        const timeoutId = setTimeout(() => {
+            if (evAbortController) {
+                try { evAbortController.abort(); } catch(e) {}
+            }
+        }, 10000);
+
+        const b = map.getBounds();
+        const south = b.getSouth();
+        const west = b.getWest();
+        const north = b.getNorth();
+        const east = b.getEast();
+
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
+        try {
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+
+            const response = await fetch(url, {
+                signal:evAbortController.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error("EV lookup failed");
+
+            const data = await response.json();
+
+            if (thisRequest !== evRequestId || !evVisible) return;
+
+            evLayer.clearLayers();
+
+            (data.elements || []).forEach(item => {
+                const tags = item.tags || {};
+                const access = String(tags.access || "").toLowerCase();
+
+                if (access === "private" || access === "no") return;
+
+                const lat = item.lat || (item.center && item.center.lat);
+                const lon = item.lon || (item.center && item.center.lon);
+
+                if (!lat || !lon) return;
+
+                const marker = L.marker([lat, lon], {
+                    icon:evIcon(),
+                    zIndexOffset:7000
+                }).addTo(evLayer);
+
+                marker.bindTooltip(buildEvTooltip(tags), {
+                    direction:"top",
+                    offset:[0, -18],
+                    opacity:0.96,
+                    sticky:true
+                });
+
+                marker.on("click", () => marker.openTooltip());
+            });
+
+            setEvButtonActive(true);
+        } catch (err) {
+            if (thisRequest === evRequestId && evVisible) {
+                hideEvChargers();
+            }
+        } finally {
+            clearTimeout(timeoutId);
+
+            if (thisRequest === evRequestId) {
+                evLoading = false;
+                evAbortController = null;
+            }
+        }
+    }
+
+    function installEvButton() {
+        installEvStyles();
+        removeOldEvControls();
+
+        let btn = document.getElementById("chaserCombinedEvBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserCombinedEvBtn";
+            btn.type = "button";
+            btn.title = "Show EV chargers in this map area";
+            btn.innerHTML = EV_SVG;
+            document.body.appendChild(btn);
+        }
+
+        btn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (evVisible || evLoading) {
+                hideEvChargers();
+            } else {
+                showEvChargersInCurrentMapView();
+            }
+        };
+
+        setEvButtonActive(evVisible);
+        positionEvButton();
+    }
+
+    installEvButton();
+    wireBuddiesOnlineButton();
+    rewireBuddyMarkers();
+
+    window.addEventListener("resize", positionEvButton);
+    window.addEventListener("orientationchange", () => {
+        setTimeout(positionEvButton, 500);
+    });
+
+    map.on("moveend zoomend", positionEvButton);
+
+    setInterval(() => {
+        installEvStyles();
+        removeOldEvControls();
+        positionEvButton();
+
+        wireBuddiesOnlineButton();
+        rewireBuddyMarkers();
+
+        if (mapMode === "auto") {
+            autoFrameIfAllowed();
+        }
+    }, 1200);
+})();
+</script>
 </body>
 </html>
