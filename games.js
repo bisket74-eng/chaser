@@ -6822,3 +6822,51 @@ if (typeof window.launchGameEngine === "function" && !window.__unoLaunchWrappedF
 }
 
 })();
+
+/* CHASER PATCH — Force Battle Uno first screen to use final Uno layout */
+(function () {
+function forceUnoFirstRenderAgain() {
+setTimeout(function () {
+if (window.unoState && typeof window.renderUnoLayout === "function") {
+window.renderUnoLayout();
+}
+}, 0);
+
+    setTimeout(function () {
+        if (window.unoState && typeof window.renderUnoLayout === "function") {
+            window.renderUnoLayout();
+        }
+    }, 150);
+
+    setTimeout(function () {
+        if (window.unoState && typeof window.renderUnoLayout === "function") {
+            window.renderUnoLayout();
+        }
+    }, 350);
+}
+
+if (typeof window.initChaserUnoGame === "function" && !window.__finalUnoInitChaserWrapped) {
+    window.__finalUnoInitChaserWrapped = true;
+
+    const oldInitChaserUnoGame = window.initChaserUnoGame;
+
+    window.initChaserUnoGame = function () {
+        const result = oldInitChaserUnoGame.apply(this, arguments);
+        forceUnoFirstRenderAgain();
+        return result;
+    };
+}
+
+if (typeof window.startChaserLobbyGame === "function" && !window.__finalUnoLobbyStartWrapped) {
+    window.__finalUnoLobbyStartWrapped = true;
+
+    const oldStartChaserLobbyGame = window.startChaserLobbyGame;
+
+    window.startChaserLobbyGame = function () {
+        const result = oldStartChaserLobbyGame.apply(this, arguments);
+        forceUnoFirstRenderAgain();
+        return result;
+    };
+}
+
+})();
