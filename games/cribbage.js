@@ -1,16 +1,6 @@
-/* CHASER CRIBBAGE - CLEAN SIMPLE VERSION
-1-player vs computer or 2-player synced through Chaser.
-Simplified screen:
-
-- Stage text only
-- Short score tiles
-- Pegboard-style board
-- Your cards only
-- Buttons: Send to Crib, Cut Card, Go
-- Counting / next round advances automatically
-  */
-  ;(function () {
-  "use strict";
+/* CHASER CRIBBAGE - CLEAN SIMPLE VERSION */
+;(function () {
+"use strict";
 
 const WIN_SCORE = 121;
 const BOT_ID = "cribbage-computer-player";
@@ -212,7 +202,7 @@ for (let i = 0; i < 6; i++) {
     s.hands[1].push(s.deck.pop());
 }
 
-addLog(s, "Round " + s.round + " started. " + s.players[s.dealerIndex].name + " has the crib.");
+addLog(s, "Round " + s.round + " started.");
 s.message = "Choose 2 cards for the crib.";
 
 }
@@ -665,21 +655,18 @@ const cribScore = scoreCribbageHand(s.crib, s.cutCard, true);
 
 s.countStages = [
     {
-        title: s.players[nonDealer].name + "'s hand",
         shortTitle: "Pone hand",
         playerIndex: nonDealer,
         score: poneHand.total,
         applied: false
     },
     {
-        title: s.players[dealer].name + "'s hand",
         shortTitle: "Dealer hand",
         playerIndex: dealer,
         score: dealerHand.total,
         applied: false
     },
     {
-        title: s.players[dealer].name + "'s crib",
         shortTitle: "Crib",
         playerIndex: dealer,
         score: cribScore.total,
@@ -719,8 +706,8 @@ if (!stage.applied) {
     s.players[stage.playerIndex].score += stage.score;
     stage.applied = true;
 
-    addLog(s, stage.shortTitle + ": " + s.players[stage.playerIndex].name + " scores " + stage.score + ".");
-    s.message = s.players[stage.playerIndex].name + " scores " + stage.score + " for " + stage.shortTitle + ".";
+    addLog(s, s.players[stage.playerIndex].name + " scores " + stage.score + ".");
+    s.message = s.players[stage.playerIndex].name + " scores " + stage.score + ".";
 
     if (checkForWinner(s)) {
         renderCribbage();
@@ -807,7 +794,6 @@ return unique[unique.length - 1] - unique[0] === unique.length - 1;
 function scoreCribbageHand(hand, cutCard, isCrib) {
 const allCards = hand.concat([cutCard]);
 let total = 0;
-const lines = [];
 
 for (let size = 2; size <= allCards.length; size++) {
     combinations(allCards, size).forEach(function (combo) {
@@ -817,7 +803,6 @@ for (let size = 2; size <= allCards.length; size++) {
 
         if (sum === 15) {
             total += 2;
-            lines.push(cardListText(combo) + " = 15 for 2");
         }
     });
 }
@@ -825,7 +810,6 @@ for (let size = 2; size <= allCards.length; size++) {
 combinations(allCards, 2).forEach(function (combo) {
     if (combo[0].rank === combo[1].rank) {
         total += 2;
-        lines.push(cardListText(combo) + " pair for 2");
     }
 });
 
@@ -874,8 +858,7 @@ hand.forEach(function (card) {
 });
 
 return {
-    total: total,
-    lines: lines
+    total: total
 };
 
 }
@@ -1011,16 +994,16 @@ window.initCribbageGame();
 
 function cardButton(card, onClick, selected, disabled) {
 const red = card.suit === "♥" || card.suit === "♦";
-const clickAttr = disabled ? "disabled" : "onclick="" + onClick + """;
+const clickAttr = disabled ? "disabled" : 'onclick="' + onClick + '"';
 
 return (
-    "<button class=\"crib-card " +
+    '<button class="crib-card ' +
     (red ? "red" : "black") +
     (selected ? " selected" : "") +
-    "\" " + clickAttr + " type=\"button\">" +
-        "<span class=\"rank\">" + escapeHtml(card.rank) + "</span>" +
-        "<span class=\"suit\">" + escapeHtml(card.suit) + "</span>" +
-    "</button>"
+    '" ' + clickAttr + ' type="button">' +
+        '<span class="rank">' + escapeHtml(card.rank) + '</span>' +
+        '<span class="suit">' + escapeHtml(card.suit) + '</span>' +
+    '</button>'
 );
 
 }
@@ -1031,14 +1014,14 @@ return Math.max(0, Math.min(100, (Number(score || 0) / WIN_SCORE) * 100));
 
 function renderPegTrack(player, index) {
 return (
-"<div class="crib-track-row">" +
-"<div class="crib-track-label">" + escapeHtml(player.name) + ": " + Number(player.score || 0) + "</div>" +
-"<div class="crib-track">" +
-"<div class="crib-track-fill"></div>" +
-"<div class="crib-peg p" + index + "" style="left:" + pegPercent(player.score) + "%"></div>" +
-"<div class="crib-track-num finish">121</div>" +
-"</div>" +
-"</div>"
+'<div class="crib-track-row">' +
+'<div class="crib-track-label">' + escapeHtml(player.name) + ': ' + Number(player.score || 0) + '</div>' +
+'<div class="crib-track">' +
+'<div class="crib-track-fill"></div>' +
+'<div class="crib-peg p' + index + '" style="left:' + pegPercent(player.score) + '%"></div>' +
+'<div class="crib-track-num finish">121</div>' +
+'</div>' +
+'</div>'
 );
 }
 
@@ -1078,22 +1061,18 @@ if (s.phase === "discard") {
 }
 
 if (!myHandHtml) {
-    myHandHtml = "<div class=\"crib-empty-hand\">No cards left.</div>";
+    myHandHtml = '<div class="crib-empty-hand">No cards left.</div>';
 }
 
 const playedHtml = s.peggingStack.length
     ? s.peggingStack.map(function (entry) {
-        return (
-            "<div class=\"crib-played-card\">" +
-                escapeHtml(cardLabel(entry.card)) +
-            "</div>"
-        );
+        return '<div class="crib-played-card">' + escapeHtml(cardLabel(entry.card)) + '</div>';
     }).join("")
-    : "<div class=\"crib-empty-play\">Pegging cards will show here.</div>";
+    : '<div class="crib-empty-play">Pegging cards will show here.</div>';
 
 const cutHtml = s.cutCard
-    ? "<div class=\"crib-cut-card " + ((s.cutCard.suit === "♥" || s.cutCard.suit === "♦") ? "red" : "") + "\">" + escapeHtml(cardLabel(s.cutCard)) + "</div>"
-    : "<div class=\"crib-cut-card empty\">?</div>";
+    ? '<div class="crib-cut-card ' + ((s.cutCard.suit === "♥" || s.cutCard.suit === "♦") ? "red" : "") + '">' + escapeHtml(cardLabel(s.cutCard)) + '</div>'
+    : '<div class="crib-cut-card empty">?</div>';
 
 const dealerName = s.players[s.dealerIndex] ? s.players[s.dealerIndex].name : "Dealer";
 const turnName = s.players[s.turnIndex] ? s.players[s.turnIndex].name : "";
@@ -1115,117 +1094,107 @@ if (s.phase === "discard") {
 }
 
 el.innerHTML = [
-    "<style>",
-        ".crib-wrap{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:8px 8px 86px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;}",
-        ".crib-stage{color:#e2f0d9;font-size:14px;font-weight:900;text-transform:uppercase;margin:0 auto 6px;letter-spacing:.5px;}",
-        ".crib-small-status{color:#ffd700;font-size:13px;font-weight:900;margin:0 auto 7px;min-height:16px;}",
-        ".crib-score-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 auto 8px;max-width:560px;}",
-        ".crib-player{background:#e2f0d9;color:#1e4620;border:2px solid transparent;border-radius:10px;padding:4px 5px;box-sizing:border-box;font-weight:900;min-height:48px;display:flex;flex-direction:column;justify-content:center;}",
-        ".crib-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
-        ".crib-player.dealer{outline:2px solid #ffd700;}",
-        ".crib-player-name{font-size:14px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-        ".crib-player-score{font-size:20px;line-height:1;margin-top:2px;}",
-        ".crib-mini{font-size:10px;margin-top:1px;color:#2d6a30;text-transform:uppercase;}",
-        ".crib-board{background:#3b2210;border:3px solid #c9893d;border-radius:18px;box-shadow:0 8px 20px rgba(0,0,0,.45);max-width:560px;margin:0 auto 8px;overflow:hidden;padding:9px 9px 5px;box-sizing:border-box;}",
-        ".crib-track-row{margin:0 auto 9px;text-align:left;}",
-        ".crib-track-label{font-size:12px;font-weight:900;color:#ffd700;margin:0 0 4px 2px;}",
-        ".crib-track{height:30px;background:#4b2b13;border:2px solid #e6b65c;border-radius:999px;position:relative;box-sizing:border-box;overflow:hidden;box-shadow:inset 0 3px 7px rgba(0,0,0,.65);}",
-        ".crib-track-fill{position:absolute;left:0;top:0;bottom:0;width:100%;background-image:radial-gradient(circle,#111 0 3px,transparent 3.8px),radial-gradient(circle,#111 0 3px,transparent 3.8px);background-size:15px 15px;background-position:5px 5px,12px 20px;opacity:.9;}",
-        ".crib-peg{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid #ffffff;box-shadow:0 0 9px rgba(0,0,0,.8);z-index:2;}",
-        ".crib-peg.p0{background:#ff0000;}",
-        ".crib-peg.p1{background:#3d85c6;}",
-        ".crib-track-num{position:absolute;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;color:#e2f0d9;opacity:.8;z-index:1;}",
-        ".crib-track-num.finish{right:8px;}",
-        ".crib-table{background:#123d18;border:2px solid #e2f0d9;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,.35);max-width:560px;margin:0 auto 8px;overflow:hidden;}",
-        ".crib-table-head{display:grid;grid-template-columns:1fr 86px 1fr;gap:6px;align-items:center;background:#0b2410;border-bottom:2px solid #ffd700;padding:7px;}",
-        ".crib-count-box{background:#ffd700;color:#1e4620;border-radius:11px;padding:5px 4px;font-weight:900;}",
-        ".crib-count-number{font-size:24px;line-height:1;}",
-        ".crib-count-label{font-size:9px;text-transform:uppercase;}",
-        ".crib-cut-label{font-size:10px;font-weight:900;color:#e2f0d9;text-transform:uppercase;}",
-        ".crib-cut-card{width:46px;height:58px;margin:2px auto 0;background:#ffffff;color:#111;border-radius:8px;border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;box-sizing:border-box;}",
-        ".crib-cut-card.red{color:#dc3545;}",
-        ".crib-cut-card.empty{background:#234b25;color:#ffd700;}",
-        ".crib-play-area{padding:7px;}",
-        ".crib-section-title{font-size:13px;font-weight:900;color:#ffd700;text-transform:uppercase;margin:8px 0 5px;}",
-        ".crib-played-row{display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;min-height:38px;}",
-        ".crib-played-card{background:#ffffff;color:#111;border:2px solid #ffd700;border-radius:8px;min-width:42px;padding:5px 4px;font-weight:900;box-sizing:border-box;}",
-        ".crib-empty-play,.crib-empty-hand{color:#ffd700;font-size:13px;font-weight:900;padding:7px;}",
-        ".crib-hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 auto 8px;max-width:560px;}",
-        ".crib-card{position:relative;width:48px;height:66px;border-radius:8px;border:2px solid #ffffff;background:#ffffff;color:#111;font-weight:900;box-shadow:0 3px 7px rgba(0,0,0,.35);box-sizing:border-box;}",
-        ".crib-card .rank{position:absolute;top:5px;left:6px;font-size:17px;}",
-        ".crib-card .suit{position:absolute;bottom:5px;right:7px;font-size:22px;}",
-        ".crib-card.red{color:#dc3545;}",
-        ".crib-card.black{color:#111111;}",
-        ".crib-card.selected{border:4px solid #ff0000;transform:translateY(-5px);}",
-        ".crib-card:disabled{opacity:.9;transform:none;}",
-        ".crib-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:8px auto 8px;max-width:560px;}",
-        ".crib-actions button{border:none;border-radius:999px;padding:9px 13px;font-size:13px;font-weight:900;background:#ffd700;color:#1e4620;box-shadow:0 3px 9px rgba(0,0,0,.35);}",
-        ".crib-actions button:disabled{background:#777!important;color:#222!important;box-shadow:none!important;}",
-        "@media(max-width:390px),(max-height:735px){",
-            ".crib-wrap{padding:7px 6px 88px;}",
-            ".crib-stage{font-size:13px;}",
-            ".crib-player{min-height:44px;padding:3px 5px;}",
-            ".crib-player-score{font-size:19px;}",
-            ".crib-card{width:44px;height:62px;}",
-            ".crib-card .rank{font-size:15px;}",
-            ".crib-card .suit{font-size:20px;}",
-            ".crib-table-head{grid-template-columns:1fr 78px 1fr;}",
-            ".crib-actions button{padding:8px 11px;font-size:12px;}",
-        "}",
-    "</style>",
+    '<style>',
+        '.crib-wrap{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:8px 8px 86px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;}',
+        '.crib-stage{color:#e2f0d9;font-size:14px;font-weight:900;text-transform:uppercase;margin:0 auto 6px;letter-spacing:.5px;}',
+        '.crib-small-status{color:#ffd700;font-size:13px;font-weight:900;margin:0 auto 7px;min-height:16px;}',
+        '.crib-score-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 auto 8px;max-width:560px;}',
+        '.crib-player{background:#e2f0d9;color:#1e4620;border:2px solid transparent;border-radius:10px;padding:4px 5px;box-sizing:border-box;font-weight:900;min-height:48px;display:flex;flex-direction:column;justify-content:center;}',
+        '.crib-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}',
+        '.crib-player.dealer{outline:2px solid #ffd700;}',
+        '.crib-player-name{font-size:14px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+        '.crib-player-score{font-size:20px;line-height:1;margin-top:2px;}',
+        '.crib-mini{font-size:10px;margin-top:1px;color:#2d6a30;text-transform:uppercase;}',
+        '.crib-board{background:#3b2210;border:3px solid #c9893d;border-radius:18px;box-shadow:0 8px 20px rgba(0,0,0,.45);max-width:560px;margin:0 auto 8px;overflow:hidden;padding:9px 9px 5px;box-sizing:border-box;}',
+        '.crib-track-row{margin:0 auto 9px;text-align:left;}',
+        '.crib-track-label{font-size:12px;font-weight:900;color:#ffd700;margin:0 0 4px 2px;}',
+        '.crib-track{height:30px;background:#4b2b13;border:2px solid #e6b65c;border-radius:999px;position:relative;box-sizing:border-box;overflow:hidden;box-shadow:inset 0 3px 7px rgba(0,0,0,.65);}',
+        '.crib-track-fill{position:absolute;left:0;top:0;bottom:0;width:100%;background-image:radial-gradient(circle,#111 0 3px,transparent 3.8px),radial-gradient(circle,#111 0 3px,transparent 3.8px);background-size:15px 15px;background-position:5px 5px,12px 20px;opacity:.9;}',
+        '.crib-peg{position:absolute;top:50%;width:18px;height:18px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid #ffffff;box-shadow:0 0 9px rgba(0,0,0,.8);z-index:2;}',
+        '.crib-peg.p0{background:#ff0000;}',
+        '.crib-peg.p1{background:#3d85c6;}',
+        '.crib-track-num{position:absolute;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;color:#e2f0d9;opacity:.8;z-index:1;}',
+        '.crib-track-num.finish{right:8px;}',
+        '.crib-table{background:#123d18;border:2px solid #e2f0d9;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,.35);max-width:560px;margin:0 auto 8px;overflow:hidden;}',
+        '.crib-table-head{display:grid;grid-template-columns:1fr 86px 1fr;gap:6px;align-items:center;background:#0b2410;border-bottom:2px solid #ffd700;padding:7px;}',
+        '.crib-count-box{background:#ffd700;color:#1e4620;border-radius:11px;padding:5px 4px;font-weight:900;}',
+        '.crib-count-number{font-size:24px;line-height:1;}',
+        '.crib-count-label{font-size:9px;text-transform:uppercase;}',
+        '.crib-cut-label{font-size:10px;font-weight:900;color:#e2f0d9;text-transform:uppercase;}',
+        '.crib-cut-card{width:46px;height:58px;margin:2px auto 0;background:#ffffff;color:#111;border-radius:8px;border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;box-sizing:border-box;}',
+        '.crib-cut-card.red{color:#dc3545;}',
+        '.crib-cut-card.empty{background:#234b25;color:#ffd700;}',
+        '.crib-play-area{padding:7px;}',
+        '.crib-section-title{font-size:13px;font-weight:900;color:#ffd700;text-transform:uppercase;margin:8px 0 5px;}',
+        '.crib-played-row{display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;min-height:38px;}',
+        '.crib-played-card{background:#ffffff;color:#111;border:2px solid #ffd700;border-radius:8px;min-width:42px;padding:5px 4px;font-weight:900;box-sizing:border-box;}',
+        '.crib-empty-play,.crib-empty-hand{color:#ffd700;font-size:13px;font-weight:900;padding:7px;}',
+        '.crib-hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 auto 8px;max-width:560px;}',
+        '.crib-card{position:relative;width:48px;height:66px;border-radius:8px;border:2px solid #ffffff;background:#ffffff;color:#111;font-weight:900;box-shadow:0 3px 7px rgba(0,0,0,.35);box-sizing:border-box;}',
+        '.crib-card .rank{position:absolute;top:5px;left:6px;font-size:17px;}',
+        '.crib-card .suit{position:absolute;bottom:5px;right:7px;font-size:22px;}',
+        '.crib-card.red{color:#dc3545;}',
+        '.crib-card.black{color:#111111;}',
+        '.crib-card.selected{border:4px solid #ff0000;transform:translateY(-5px);}',
+        '.crib-card:disabled{opacity:.9;transform:none;}',
+        '.crib-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:8px auto 8px;max-width:560px;}',
+        '.crib-actions button{border:none;border-radius:999px;padding:9px 13px;font-size:13px;font-weight:900;background:#ffd700;color:#1e4620;box-shadow:0 3px 9px rgba(0,0,0,.35);}',
+        '.crib-actions button:disabled{background:#777!important;color:#222!important;box-shadow:none!important;}',
+        '@media(max-width:390px),(max-height:735px){.crib-wrap{padding:7px 6px 88px;}.crib-stage{font-size:13px;}.crib-player{min-height:44px;padding:3px 5px;}.crib-player-score{font-size:19px;}.crib-card{width:44px;height:62px;}.crib-card .rank{font-size:15px;}.crib-card .suit{font-size:20px;}.crib-table-head{grid-template-columns:1fr 78px 1fr;}.crib-actions button{padding:8px 11px;font-size:12px;}}',
+    '</style>',
 
-    "<div class=\"crib-wrap\">",
-        "<div class=\"crib-stage\">", escapeHtml(phaseLabel(s)), "</div>",
-        "<div class=\"crib-small-status\">", escapeHtml(smallStatus), "</div>",
+    '<div class="crib-wrap">',
+        '<div class="crib-stage">', escapeHtml(phaseLabel(s)), '</div>',
+        '<div class="crib-small-status">', escapeHtml(smallStatus), '</div>',
 
-        "<div class=\"crib-score-row\">",
-            "<div class=\"crib-player ", s.turnIndex === meIndex ? "turn " : "", s.dealerIndex === meIndex ? "dealer" : "", "\">",
-                "<div class=\"crib-player-name\">", escapeHtml(me.name), "</div>",
-                "<div class=\"crib-player-score\">", Number(me.score || 0), "</div>",
-                "<div class=\"crib-mini\">", s.dealerIndex === meIndex ? "Dealer / Crib" : "Pone", "</div>",
-            "</div>",
-            "<div class=\"crib-player ", s.turnIndex === opponentIndex ? "turn " : "", s.dealerIndex === opponentIndex ? "dealer" : "", "\">",
-                "<div class=\"crib-player-name\">", escapeHtml(opponent.name), "</div>",
-                "<div class=\"crib-player-score\">", Number(opponent.score || 0), "</div>",
-                "<div class=\"crib-mini\">", s.dealerIndex === opponentIndex ? "Dealer / Crib" : "Pone", "</div>",
-            "</div>",
-        "</div>",
+        '<div class="crib-score-row">',
+            '<div class="crib-player ', s.turnIndex === meIndex ? "turn " : "", s.dealerIndex === meIndex ? "dealer" : "", '">',
+                '<div class="crib-player-name">', escapeHtml(me.name), '</div>',
+                '<div class="crib-player-score">', Number(me.score || 0), '</div>',
+                '<div class="crib-mini">', s.dealerIndex === meIndex ? "Dealer / Crib" : "Pone", '</div>',
+            '</div>',
+            '<div class="crib-player ', s.turnIndex === opponentIndex ? "turn " : "", s.dealerIndex === opponentIndex ? "dealer" : "", '">',
+                '<div class="crib-player-name">', escapeHtml(opponent.name), '</div>',
+                '<div class="crib-player-score">', Number(opponent.score || 0), '</div>',
+                '<div class="crib-mini">', s.dealerIndex === opponentIndex ? "Dealer / Crib" : "Pone", '</div>',
+            '</div>',
+        '</div>',
 
-        "<div class=\"crib-board\">",
+        '<div class="crib-board">',
             renderPegTrack(s.players[0], 0),
             renderPegTrack(s.players[1], 1),
-        "</div>",
+        '</div>',
 
-        "<div class=\"crib-table\">",
-            "<div class=\"crib-table-head\">",
-                "<div>",
-                    "<div class=\"crib-cut-label\">Cut</div>",
+        '<div class="crib-table">',
+            '<div class="crib-table-head">',
+                '<div>',
+                    '<div class="crib-cut-label">Cut</div>',
                     cutHtml,
-                "</div>",
-                "<div class=\"crib-count-box\">",
-                    "<div class=\"crib-count-number\">", Number(s.peggingTotal || 0), "</div>",
-                    "<div class=\"crib-count-label\">Count</div>",
-                "</div>",
-                "<div>",
-                    "<div class=\"crib-cut-label\">Crib</div>",
-                    "<div class=\"crib-cut-card empty\" style=\"font-size:12px;padding:4px;line-height:1.1;\">", escapeHtml(dealerName), "</div>",
-                "</div>",
-            "</div>",
-            "<div class=\"crib-play-area\">",
-                "<div class=\"crib-section-title\">Pegging Row</div>",
-                "<div class=\"crib-played-row\">", playedHtml, "</div>",
-            "</div>",
-        "</div>",
+                '</div>',
+                '<div class="crib-count-box">',
+                    '<div class="crib-count-number">', Number(s.peggingTotal || 0), '</div>',
+                    '<div class="crib-count-label">Count</div>',
+                '</div>',
+                '<div>',
+                    '<div class="crib-cut-label">Crib</div>',
+                    '<div class="crib-cut-card empty" style="font-size:12px;padding:4px;line-height:1.1;">', escapeHtml(dealerName), '</div>',
+                '</div>',
+            '</div>',
+            '<div class="crib-play-area">',
+                '<div class="crib-section-title">Pegging Row</div>',
+                '<div class="crib-played-row">', playedHtml, '</div>',
+            '</div>',
+        '</div>',
 
-        "<div class=\"crib-section-title\">Your Cards</div>",
-        "<div class=\"crib-hand\">", myHandHtml, "</div>",
+        '<div class="crib-section-title">Your Cards</div>',
+        '<div class="crib-hand">', myHandHtml, '</div>',
 
-        "<div class=\"crib-actions\">",
-            "<button onclick=\"confirmCribbageDiscards()\" ", myDiscardReady ? "" : "disabled", " type=\"button\">Send to Crib</button>",
-            "<button onclick=\"cutCribbageDeck()\" ", canCut ? "" : "disabled", " type=\"button\">Cut Card</button>",
-            "<button onclick=\"cribbageGo()\" ", canSayGo ? "" : "disabled", " type=\"button\">Go</button>",
-        "</div>",
-    "</div>"
+        '<div class="crib-actions">',
+            '<button onclick="confirmCribbageDiscards()" ', myDiscardReady ? "" : "disabled", ' type="button">Send to Crib</button>',
+            '<button onclick="cutCribbageDeck()" ', canCut ? "" : "disabled", ' type="button">Cut Card</button>',
+            '<button onclick="cribbageGo()" ', canSayGo ? "" : "disabled", ' type="button">Go</button>',
+        '</div>',
+    '</div>'
 ].join("");
 
 if (window.__cribbageAutoProgressTimer) {
