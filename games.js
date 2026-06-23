@@ -238,6 +238,20 @@
     }
 },
        
+       Cribbage: {
+    icon:"🃏",
+    displayName:"Cribbage",
+    minPlayers:1,
+    maxPlayers:2,
+    multiplayer:true,
+    init:()=>{
+        if (typeof window.initCribbageGame === "function") {
+            window.initCribbageGame();
+        } else {
+            alert("Cribbage file did not load. Check /games/cribbage.js and the script tag in index.html.");
+        }
+    }
+},
         "Solitaire": {
             icon: "🃏",
             minPlayers: 1,
