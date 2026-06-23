@@ -2608,38 +2608,7 @@ if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(p
    
 }
 
-/* PASTE NEW CODE HERE */
-/* CHASER PATCH — tap Buddies Online to cycle riders */
-let buddyCycleIndex = 0;
 
-const buddyCycleBtn = document.getElementById("riderCounterWidget");
-
-if (buddyCycleBtn) {
-    buddyCycleBtn.style.pointerEvents = "auto";
-    buddyCycleBtn.style.cursor = "pointer";
-
-    buddyCycleBtn.addEventListener("click", () => {
-        const riders = Object.entries(incomingRidersCache)
-            .filter(([name, r]) => r && r.marker && r.lat && r.lng);
-
-        if (!riders.length) return;
-
-        riders.forEach(([name, r]) => {
-            if (r.marker) r.marker.setZIndexOffset(0);
-        });
-
-        buddyCycleIndex = buddyCycleIndex % riders.length;
-
-        const [name, rider] = riders[buddyCycleIndex];
-        buddyCycleIndex++;
-
-        rider.marker.setZIndexOffset(10000);
-
-        map.setView([rider.lat, rider.lng], Math.max(map.getZoom(), 16), {
-            animate: true
-        });
-    });
-}
    /* CHASER PATCH — remove ghost duplicate of yourself */
 function chaserCleanMyGhostCopies() {
     const mySavedId = window.myId || localStorage.getItem("rider_id");
@@ -2669,68 +2638,7 @@ function chaserCleanMyGhostCopies() {
     updateLiveRiderCounter();
 }
 
-setInterval(chaserCleanMyGhostCopies, 4000); /* CHASER PATCH — smart Follow Me mode */
-/* CHASER PATCH — Follow Me v3, tied directly to GPS updates */
-let chaserFollowMeMode = true;
-let chaserProgrammaticMapMove = false;
-
-function chaserMapMoveToMe(zoom = null) {
-    if (!isSharing || !lastLat || !lastLng) return;
-
-    chaserProgrammaticMapMove = true;
-
-    if (zoom !== null) {
-        map.setView([lastLat, lastLng], zoom, { animate:true });
-    } else {
-        map.panTo([lastLat, lastLng], { animate:true });
-    }
-
-    setTimeout(() => {
-        chaserProgrammaticMapMove = false;
-    }, 900);
-}
-
-map.on("dragstart zoomstart", () => {
-    if (chaserProgrammaticMapMove) return;
-    chaserFollowMeMode = false;
-});
-
-window.chaserEnableFollowMe = function () {
-    chaserFollowMeMode = true;
-    chaserMapMoveToMe(Math.max(map.getZoom(), 16));
-};
-
-window.chaserFollowMeOnGpsUpdate = function () {
-    if (!chaserFollowMeMode) return;
-    if (!isSharing || !lastLat || !lastLng) return;
-
-    const center = map.getCenter();
-    const distanceFromMe = map.distance(center, [lastLat, lastLng]);
-
-    if (distanceFromMe > 40) {
-        chaserMapMoveToMe();
-    }
-};
-
-const chaserFollowBtn = document.getElementById("riderCounterWidget");
-
-if (chaserFollowBtn) {
-    let chaserFollowPressTimer = null;
-
-    chaserFollowBtn.addEventListener("touchstart", () => {
-        chaserFollowPressTimer = setTimeout(() => {
-            window.chaserEnableFollowMe();
-        }, 700);
-    }, { passive:true });
-
-    chaserFollowBtn.addEventListener("touchend", () => {
-        clearTimeout(chaserFollowPressTimer);
-    }, { passive:true });
-
-    chaserFollowBtn.addEventListener("touchcancel", () => {
-        clearTimeout(chaserFollowPressTimer);
-    }, { passive:true });
-}
+setInterval(chaserCleanMyGhostCopies, 4000); 
     
     /* CHASER PATCH — reliable chat history request for late joiners */
 (function () {
