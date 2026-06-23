@@ -3371,6 +3371,292 @@ setInterval(() => {
 
 
 })();
+    /* CHASER PATCH — EV button simple toggle override
+Tap once = show EV chargers in current map view.
+Tap again = hide EV chargers.
+Places EV button to the left of the 50 Mi Only control.
+*/
+(function () {
+if (window.__chaserSimpleEvToggleOverrideInstalled) return;
+window.__chaserSimpleEvToggleOverrideInstalled = true;
+
+let evLayer = null;
+let evVisible = false;
+let evLoading = false;
+
+function safeText(value) {
+    return String(value || "")
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&" + "#039;");
+}
+
+function removeOldEvButton() {
+    document.querySelectorAll(".chaser-ev-control").forEach(node => {
+        node.remove();
+    });
+
+    const oldBtn = document.getElementById("chaserEvChargerBtn");
+    if (oldBtn && oldBtn.closest(".leaflet-control")) {
+        oldBtn.closest(".leaflet-control").remove();
+    }
+}
+
+function removeOldEvMarkers() {
+    map.eachLayer(layer => {
+        if (!(layer instanceof L.Marker)) return;
+
+        const icon = layer.options && layer.options.icon;
+        const html = icon && icon.options ? String(icon.options.html || "") : "";
+
+        const isOldEv =
+            html.includes("⚡") &&
+            (
+                html.includes("background:#ffd700") ||
+                html.includes("chaser-simple-ev-marker")
+            );
+
+        if (isOldEv) {
+            map.removeLayer(layer);
+        }
+    });
+}
+
+function setButtonActive(active, label) {
+    const btn = document.getElementById("chaserSimpleEvBtn");
+    if (!btn) return;
+
+    btn.innerHTML = label || "⚡ EV";
+    btn.classList.toggle("active", !!active);
+}
+
+function hideEvChargers() {
+    if (evLayer) {
+        evLayer.clearLayers();
+    }
+
+    removeOldEvMarkers();
+
+    evVisible = false;
+    evLoading = false;
+    setButtonActive(false, "⚡ EV");
+}
+
+function evIcon() {
+    return L.divIcon({
+        className:"",
+        html:
+            "<div class=\"chaser-simple-ev-marker\" style=\"" +
+                "width:30px;height:30px;border-radius:50%;" +
+                "background:#ffd700;color:#1e4620;" +
+                "border:3px solid #ffffff;" +
+                "display:flex;align-items:center;justify-content:center;" +
+                "font-size:17px;font-weight:900;" +
+                "box-shadow:0 4px 12px rgba(0,0,0,.45);" +
+                "font-family:Arial,sans-serif;" +
+            "\">⚡</div>",
+        iconSize:[30, 30],
+        iconAnchor:[15, 15]
+    });
+}
+
+function buildTooltip(tags) {
+    const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+    const operator = tags.operator || tags.brand || "";
+    const access = tags.access || "";
+    const capacity = tags.capacity || "";
+    const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+    const lines = ["<b>" + safeText(name) + "</b>"];
+
+    if (operator && operator !== name) lines.push("Network: " + safeText(operator));
+    if (access) lines.push("Access: " + safeText(access));
+    if (capacity) lines.push("Stalls: " + safeText(capacity));
+    if (output) lines.push("Power: " + safeText(output));
+
+    return lines.join("<br>");
+}
+
+async function showEvChargersInCurrentMapView() {
+    if (evLoading) return;
+
+    evLoading = true;
+    evVisible = true;
+    setButtonActive(true, "⚡ ...");
+
+    if (!evLayer) {
+        evLayer = L.layerGroup().addTo(map);
+    }
+
+    evLayer.clearLayers();
+    removeOldEvMarkers();
+
+    const b = map.getBounds();
+    const south = b.getSouth();
+    const west = b.getWest();
+    const north = b.getNorth();
+    const east = b.getEast();
+
+    const overpassQuery = `
+        [out:json][timeout:25];
+        (
+          node["amenity"="charging_station"](${south},${west},${north},${east});
+          way["amenity"="charging_station"](${south},${west},${north},${east});
+          relation["amenity"="charging_station"](${south},${west},${north},${east});
+        );
+        out center tags;
+    `;
+
+    try {
+        const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+        const response = await fetch(url);
+
+        if (!response.ok) throw new Error("EV lookup failed");
+
+        const data = await response.json();
+        let count = 0;
+
+        (data.elements || []).forEach(item => {
+            const tags = item.tags || {};
+            const access = String(tags.access || "").toLowerCase();
+
+            if (access === "private" || access === "no") return;
+
+            const lat = item.lat || (item.center && item.center.lat);
+            const lon = item.lon || (item.center && item.center.lon);
+
+            if (!lat || !lon) return;
+
+            const marker = L.marker([lat, lon], {
+                icon:evIcon(),
+                zIndexOffset:7000
+            }).addTo(evLayer);
+
+            marker.bindTooltip(buildTooltip(tags), {
+                direction:"top",
+                offset:[0, -18],
+                opacity:0.96,
+                sticky:true
+            });
+
+            marker.on("click", () => marker.openTooltip());
+
+            count++;
+        });
+
+        setButtonActive(true, count ? "⚡ " + count : "⚡ 0");
+    } catch (err) {
+        setButtonActive(true, "⚡ !");
+        setTimeout(() => {
+            if (evVisible) setButtonActive(true, "⚡ EV");
+        }, 1500);
+    } finally {
+        evLoading = false;
+    }
+}
+
+function installSimpleEvButton() {
+    removeOldEvButton();
+
+    const SimpleEvControl = L.Control.extend({
+        options:{ position:"topright" },
+
+        onAdd:function () {
+            const box = L.DomUtil.create("div", "leaflet-bar leaflet-control chaser-simple-ev-control");
+
+            box.innerHTML =
+                "<button id=\"chaserSimpleEvBtn\" type=\"button\" title=\"Show EV chargers in this map area\">" +
+                    "⚡ EV" +
+                "</button>";
+
+            L.DomEvent.disableClickPropagation(box);
+            L.DomEvent.disableScrollPropagation(box);
+
+            return box;
+        }
+    });
+
+    map.addControl(new SimpleEvControl());
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        .leaflet-top.leaflet-right {
+            display:flex !important;
+            flex-direction:row-reverse !important;
+            align-items:flex-start !important;
+            gap:8px !important;
+            padding-top:10px !important;
+            padding-right:10px !important;
+            box-sizing:border-box !important;
+        }
+
+        .leaflet-top.leaflet-right .leaflet-control {
+            margin:0 !important;
+        }
+
+        .chaser-simple-ev-control {
+            background:transparent !important;
+            border:none !important;
+            box-shadow:none !important;
+        }
+
+        #chaserSimpleEvBtn {
+            height:44px !important;
+            min-width:72px !important;
+            padding:0 12px !important;
+            border-radius:999px !important;
+            border:3px solid #e2f0d9 !important;
+            background:#1e4620 !important;
+            color:#ffd700 !important;
+            font-size:15px !important;
+            font-weight:900 !important;
+            font-family:Arial,sans-serif !important;
+            box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+            cursor:pointer !important;
+            box-sizing:border-box !important;
+        }
+
+        #chaserSimpleEvBtn.active {
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            border-color:#ffffff !important;
+        }
+
+        .leaflet-tooltip {
+            background:#e2f0d9 !important;
+            color:#1e4620 !important;
+            border:2px solid #1e4620 !important;
+            border-radius:10px !important;
+            font-size:12px !important;
+            font-weight:800 !important;
+            box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+            padding:7px 9px !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    setTimeout(() => {
+        const btn = document.getElementById("chaserSimpleEvBtn");
+        if (!btn) return;
+
+        btn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (evVisible || evLoading) {
+                hideEvChargers();
+            } else {
+                showEvChargersInCurrentMapView();
+            }
+        };
+    }, 200);
+}
+
+setTimeout(installSimpleEvButton, 500);
+
+})();
    
 </script>
     
