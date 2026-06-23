@@ -2,7 +2,7 @@
 1-player vs computer or 2-player synced through Chaser.
 Staged flow: discard -> cut -> pegging -> count hands -> count crib -> next round.
 */
-(function () {
+;(function () {
 "use strict";
 
 ```
