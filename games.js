@@ -6870,3 +6870,327 @@ if (typeof window.startChaserLobbyGame === "function" && !window.__finalUnoLobby
 }
 
 })();
+
+/* CHASER PATCH — Global game session cleanup guard
+Put at the very bottom of games.js.
+
+Fixes:
+
+- Old games repainting over new games
+- Trivia popping back up after closing
+- Uno staying stuck over other games
+- Old game timers firing after a different game opens
+  */
+  (function () {
+  if (window.__chaserGlobalGameSessionGuardInstalled) return;
+  window.__chaserGlobalGameSessionGuardInstalled = true;
+
+const nativeSetTimeout = window.setTimeout.bind(window);
+const nativeSetInterval = window.setInterval.bind(window);
+const nativeClearTimeout = window.clearTimeout.bind(window);
+const nativeClearInterval = window.clearInterval.bind(window);
+
+let currentSessionId = 0;
+let currentGameName = "";
+let launchDepth = 0;
+
+const sessionTimers = new Map();
+
+function getStage() {
+    return document.getElementById("activeGameStage");
+}
+
+function gameStageIsOpen() {
+    const stage = getStage();
+    return !!(stage && stage.classList.contains("open"));
+}
+
+function cleanGameName(name) {
+    return String(name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function getActiveGameName() {
+    const fromChaser =
+        window.chaserGame &&
+        (window.chaserGame.activeGame || window.chaserGame.activeGameName);
+
+    const fromTitle =
+        window.activeGameLabelTitle &&
+        window.activeGameLabelTitle.innerText;
+
+    return String(fromChaser || fromTitle || currentGameName || "");
+}
+
+function trackTimer(type, id, sessionId) {
+    if (!sessionTimers.has(sessionId)) {
+        sessionTimers.set(sessionId, {
+            timeouts:new Set(),
+            intervals:new Set()
+        });
+    }
+
+    const bucket = sessionTimers.get(sessionId);
+
+    if (type === "timeout") {
+        bucket.timeouts.add(id);
+    } else {
+        bucket.intervals.add(id);
+    }
+}
+
+function untrackTimer(type, id, sessionId) {
+    const bucket = sessionTimers.get(sessionId);
+    if (!bucket) return;
+
+    if (type === "timeout") {
+        bucket.timeouts.delete(id);
+    } else {
+        bucket.intervals.delete(id);
+    }
+}
+
+function clearSessionTimers(sessionId) {
+    const bucket = sessionTimers.get(sessionId);
+    if (!bucket) return;
+
+    bucket.timeouts.forEach(id => nativeClearTimeout(id));
+    bucket.intervals.forEach(id => nativeClearInterval(id));
+
+    bucket.timeouts.clear();
+    bucket.intervals.clear();
+
+    sessionTimers.delete(sessionId);
+}
+
+function clearOldSessionsExcept(sessionIdToKeep) {
+    Array.from(sessionTimers.keys()).forEach(sessionId => {
+        if (sessionId !== sessionIdToKeep) {
+            clearSessionTimers(sessionId);
+        }
+    });
+}
+
+function clearAllGameSessions() {
+    Array.from(sessionTimers.keys()).forEach(sessionId => {
+        clearSessionTimers(sessionId);
+    });
+}
+
+function beginGameSession(gameName) {
+    currentSessionId++;
+    currentGameName = String(gameName || "");
+
+    window.__chaserCurrentGameSessionId = currentSessionId;
+    window.__chaserCurrentGameName = currentGameName;
+
+    clearOldSessionsExcept(currentSessionId);
+}
+
+function endGameSession() {
+    currentSessionId++;
+    currentGameName = "";
+
+    window.__chaserCurrentGameSessionId = currentSessionId;
+    window.__chaserCurrentGameName = "";
+
+    clearAllGameSessions();
+}
+
+window.__chaserBeginGameSession = beginGameSession;
+window.__chaserEndGameSession = endGameSession;
+
+window.setTimeout = function (fn, delay, ...args) {
+    const sessionAtCreate = currentSessionId;
+    const shouldTrack =
+        sessionAtCreate > 0 &&
+        (launchDepth > 0 || gameStageIsOpen());
+
+    let id = null;
+
+    const wrapped = function (...callbackArgs) {
+        if (shouldTrack) {
+            untrackTimer("timeout", id, sessionAtCreate);
+
+            if (sessionAtCreate !== currentSessionId) {
+                return;
+            }
+        }
+
+        if (typeof fn === "function") {
+            return fn.apply(this, callbackArgs);
+        }
+    };
+
+    id = nativeSetTimeout(wrapped, delay, ...args);
+
+    if (shouldTrack) {
+        trackTimer("timeout", id, sessionAtCreate);
+    }
+
+    return id;
+};
+
+window.setInterval = function (fn, delay, ...args) {
+    const sessionAtCreate = currentSessionId;
+    const shouldTrack =
+        sessionAtCreate > 0 &&
+        (launchDepth > 0 || gameStageIsOpen());
+
+    let id = null;
+
+    const wrapped = function (...callbackArgs) {
+        if (shouldTrack && sessionAtCreate !== currentSessionId) {
+            nativeClearInterval(id);
+            untrackTimer("interval", id, sessionAtCreate);
+            return;
+        }
+
+        if (typeof fn === "function") {
+            return fn.apply(this, callbackArgs);
+        }
+    };
+
+    id = nativeSetInterval(wrapped, delay, ...args);
+
+    if (shouldTrack) {
+        trackTimer("interval", id, sessionAtCreate);
+    }
+
+    return id;
+};
+
+window.clearTimeout = function (id) {
+    sessionTimers.forEach((bucket, sessionId) => {
+        bucket.timeouts.delete(id);
+    });
+
+    return nativeClearTimeout(id);
+};
+
+window.clearInterval = function (id) {
+    sessionTimers.forEach((bucket, sessionId) => {
+        bucket.intervals.delete(id);
+    });
+
+    return nativeClearInterval(id);
+};
+
+function wrapLaunchGameEngine() {
+    if (typeof window.launchGameEngine !== "function") return;
+    if (window.launchGameEngine.__chaserSessionGuarded) return;
+
+    const oldLaunchGameEngine = window.launchGameEngine;
+
+    window.launchGameEngine = function (gameName, icon) {
+        beginGameSession(gameName);
+
+        launchDepth++;
+
+        try {
+            return oldLaunchGameEngine.apply(this, arguments);
+        } finally {
+            launchDepth--;
+            clearOldSessionsExcept(currentSessionId);
+        }
+    };
+
+    window.launchGameEngine.__chaserSessionGuarded = true;
+}
+
+function wrapCleanupRunningGameEngine() {
+    if (typeof window.cleanupRunningGameEngine !== "function") return;
+    if (window.cleanupRunningGameEngine.__chaserSessionGuarded) return;
+
+    const oldCleanupRunningGameEngine = window.cleanupRunningGameEngine;
+
+    window.cleanupRunningGameEngine = function () {
+        if (launchDepth === 0) {
+            endGameSession();
+        } else {
+            clearOldSessionsExcept(currentSessionId);
+        }
+
+        return oldCleanupRunningGameEngine.apply(this, arguments);
+    };
+
+    window.cleanupRunningGameEngine.__chaserSessionGuarded = true;
+}
+
+function wrapMasterExit() {
+    if (typeof window.chaserMasterExitSequence !== "function") return;
+    if (window.chaserMasterExitSequence.__chaserSessionGuarded) return;
+
+    const oldExit = window.chaserMasterExitSequence;
+
+    window.chaserMasterExitSequence = function () {
+        endGameSession();
+        return oldExit.apply(this, arguments);
+    };
+
+    window.chaserMasterExitSequence.__chaserSessionGuarded = true;
+}
+
+function gameMatchesActiveGame(gameKey) {
+    const active = cleanGameName(getActiveGameName());
+    const key = cleanGameName(gameKey);
+
+    if (!active || !key) return false;
+
+    if (key === "uno") return active.includes("uno");
+    if (key === "trivia") return active.includes("trivia");
+    if (key === "battleship") return active.includes("battleship");
+    if (key === "checkers") return active.includes("checkers");
+    if (key === "sequence") return active.includes("sequence");
+    if (key === "coup") return active.includes("coup");
+    if (key === "yahtzee") return active.includes("yahtzee");
+    if (key === "scrabble") return active.includes("scrabble");
+    if (key === "cribbage") return active.includes("cribbage");
+    if (key === "texasholdem") return active.includes("texasholdem") || active.includes("holdem");
+
+    return active.includes(key);
+}
+
+function wrapSyncHandler(functionName, gameKey) {
+    const fn = window[functionName];
+
+    if (typeof fn !== "function") return;
+    if (fn.__chaserSessionGuarded) return;
+
+    window[functionName] = function () {
+        if (!gameStageIsOpen()) return;
+
+        if (!gameMatchesActiveGame(gameKey)) {
+            return;
+        }
+
+        return fn.apply(this, arguments);
+    };
+
+    window[functionName].__chaserSessionGuarded = true;
+}
+
+function wrapKnownGameSyncHandlers() {
+    wrapSyncHandler("handleIncomingUnoSync", "uno");
+    wrapSyncHandler("handleIncomingTriviaSync", "trivia");
+    wrapSyncHandler("handleIncomingBattleshipSync", "battleship");
+    wrapSyncHandler("handleIncomingCheckersSync", "checkers");
+    wrapSyncHandler("handleIncomingSequenceSync", "sequence");
+    wrapSyncHandler("handleIncomingCoupSync", "coup");
+    wrapSyncHandler("handleIncomingYahtzeeSync", "yahtzee");
+    wrapSyncHandler("handleIncomingScrabbleSync", "scrabble");
+    wrapSyncHandler("handleIncomingCribbageSync", "cribbage");
+    wrapSyncHandler("handleIncomingTexasHoldemSync", "texasholdem");
+}
+
+function installGuards() {
+    wrapLaunchGameEngine();
+    wrapCleanupRunningGameEngine();
+    wrapMasterExit();
+    wrapKnownGameSyncHandlers();
+}
+
+installGuards();
+
+nativeSetInterval(installGuards, 700);
+
+})();
