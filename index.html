@@ -3452,6 +3452,157 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 })();
 </script>
+<script>
+/* CHASER PATCH — chat header cleanup + hide EV over chat + hide Wheels */
+(function () {
+    if (window.__chaserChatHeaderCleanupFinalInstalled) return;
+    window.__chaserChatHeaderCleanupFinalInstalled = true;
 
+    const style = document.createElement("style");
+    style.innerHTML = `
+        /* Hide the EV charger button whenever chat is open */
+        #chatOverlay.open ~ #chaserFinalEvSvgBtn,
+        body:has(#chatOverlay.open) #chaserFinalEvSvgBtn {
+            display:none !important;
+            pointer-events:none !important;
+            opacity:0 !important;
+        }
+
+        /* Keep EV button behind chat even if another patch gives it a huge z-index */
+        #chaserFinalEvSvgBtn {
+            z-index:12 !important;
+        }
+
+        /* Remove Wheels button from chat header */
+        #wheelsTriggerBtn {
+            display:none !important;
+            pointer-events:none !important;
+            opacity:0 !important;
+            width:0 !important;
+            min-width:0 !important;
+            max-width:0 !important;
+            padding:0 !important;
+            margin:0 !important;
+            overflow:hidden !important;
+        }
+
+        /* Chat header layout after Wheels is gone */
+        #chatHeader {
+            justify-content:flex-start !important;
+            gap:8px !important;
+            padding-left:14px !important;
+            padding-right:10px !important;
+            box-sizing:border-box !important;
+        }
+
+        /* Softer Chat Room text, nudged slightly right */
+        #roomDisplayCode.chat-room-title {
+            margin-left:8px !important;
+            padding-left:4px !important;
+            font-family:"Brush Script MT","Comic Sans MS",cursive !important;
+            font-size:27px !important;
+            font-weight:900 !important;
+            letter-spacing:0.5px !important;
+            color:#ffd700 !important;
+            text-transform:none !important;
+            max-width:125px !important;
+            flex:0 0 auto !important;
+            line-height:1 !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            white-space:nowrap !important;
+        }
+
+        /* Center the Games button in the open space */
+        #headerActionButtonsContainer {
+            display:flex !important;
+            flex:1 1 auto !important;
+            justify-content:center !important;
+            align-items:center !important;
+            gap:0 !important;
+        }
+
+        #chatGamesTriggerBtn {
+            margin:0 auto !important;
+        }
+
+        #closeChatBtn {
+            margin-left:0 !important;
+            flex:0 0 auto !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    function cleanupChatHeaderUi() {
+        const chat = document.getElementById("chatOverlay");
+        const evBtn = document.getElementById("chaserFinalEvSvgBtn");
+        const wheelsBtn = document.getElementById("wheelsTriggerBtn");
+        const gamesBtn = document.getElementById("chatGamesTriggerBtn");
+        const headerBtns = document.getElementById("headerActionButtonsContainer");
+        const roomTitle = document.getElementById("roomDisplayCode");
+
+        if (wheelsBtn) {
+            wheelsBtn.style.display = "none";
+            wheelsBtn.style.pointerEvents = "none";
+            wheelsBtn.style.opacity = "0";
+            wheelsBtn.style.width = "0";
+            wheelsBtn.style.minWidth = "0";
+            wheelsBtn.style.maxWidth = "0";
+            wheelsBtn.style.padding = "0";
+            wheelsBtn.style.margin = "0";
+            wheelsBtn.style.overflow = "hidden";
+        }
+
+        if (headerBtns) {
+            headerBtns.style.display = "flex";
+            headerBtns.style.flex = "1 1 auto";
+            headerBtns.style.justifyContent = "center";
+            headerBtns.style.alignItems = "center";
+            headerBtns.style.gap = "0";
+        }
+
+        if (gamesBtn) {
+            gamesBtn.style.margin = "0 auto";
+        }
+
+        if (roomTitle && !roomTitle.classList.contains("youtube-pill-title")) {
+            roomTitle.style.marginLeft = "8px";
+            roomTitle.style.paddingLeft = "4px";
+            roomTitle.style.fontFamily = '"Brush Script MT","Comic Sans MS",cursive';
+            roomTitle.style.fontSize = "27px";
+            roomTitle.style.fontWeight = "900";
+            roomTitle.style.letterSpacing = "0.5px";
+            roomTitle.style.textTransform = "none";
+            roomTitle.style.maxWidth = "125px";
+            roomTitle.style.lineHeight = "1";
+        }
+
+        if (evBtn) {
+            const chatOpen = chat && chat.classList.contains("open");
+
+            if (chatOpen) {
+                evBtn.style.display = "none";
+                evBtn.style.pointerEvents = "none";
+                evBtn.style.opacity = "0";
+            } else {
+                evBtn.style.display = "flex";
+                evBtn.style.pointerEvents = "auto";
+                evBtn.style.opacity = "1";
+            }
+
+            evBtn.style.zIndex = "12";
+        }
+    }
+
+    cleanupChatHeaderUi();
+
+    document.addEventListener("click", () => {
+        setTimeout(cleanupChatHeaderUi, 50);
+        setTimeout(cleanupChatHeaderUi, 250);
+    }, true);
+
+    setInterval(cleanupChatHeaderUi, 500);
+})();
+</script>
 </body>
 </html>
