@@ -4332,53 +4332,97 @@ window.initHangmanGame = function () {
     }
 
     window.renderUnoCard = function(card, onclick, mode = "normal", faded = false) {
-        if (!card) return "";
+if (!card) return "";
 
-        let width, height, fontSize;
-        if (mode === "large") { width = 86; height = 126; fontSize = 48; } // Discard pile (Big)
-        else if (mode === "draw") { width = 60; height = 88; fontSize = 22; } // Draw pile (Medium)
-        else if (mode === "small") { width = 50; height = 75; fontSize = 22; } // Hand (Small)
-        else { width = 60; height = 90; fontSize = 28; }
+function esc(v) {
+    return String(v ?? "")
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&" + "#039;");
+}
 
-        let bg, content, border = "3px solid #fff";
+let width = 60;
+let height = 90;
+let fontSize = 28;
 
-        if (card.color === "Back") {
-            bg = "#111"; // Black back
-            content = `<div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
-                font-size:${fontSize}px;text-align:center;line-height:1;">UNO</div>`;
-        } else if (card.color === "Wild") {
-            // New 4-Quadrant Wild Look
-            bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
-            content = `
-                <div style="position:absolute;width:65%;height:45%;background:#111;border-radius:8px;z-index:1;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>
-                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
-                    font-size:${mode === 'small' ? 15 : 22}px;text-align:center;line-height:1.1;text-shadow:1px 1px 2px #000;">
-                    ${card.value === '+4' ? 'Wild<br>+4' : 'Wild'}
-                </div>
-            `;
-        } else {
-            bg = window.unoColorHex(card.color);
-            let displayVal = safeHtml(card.value);
-            if (displayVal === "Reverse") displayVal = "↺";
-            if (displayVal === "Skip") displayVal = "⊘";
-            content = `
-                <div style="position:absolute;width:130%;height:42%;background:rgba(255,255,255,0.16);border-radius:50%;transform:rotate(-25deg);"></div>
-                <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;
-                    font-size:${fontSize}px;text-shadow:2px 2px 4px rgba(0,0,0,0.45);text-align:center;line-height:1;">
-                    ${displayVal}
-                </div>
-            `;
-        }
+if (mode === "large" || mode === "draw") {
+    width = 86;
+    height = 126;
+    fontSize = 48;
+} else if (mode === "small") {
+    width = 50;
+    height = 75;
+    fontSize = 22;
+}
 
-        return `
-            <div ${onclick ? `onclick="${onclick}"` : ""}
-                style="flex-shrink:0;width:${width}px;height:${height}px;border-radius:8px;
-                background:${bg};border:${border};box-shadow:0 4px 8px rgba(0,0,0,0.4);
-                display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
-                cursor:${onclick && !faded ? 'pointer' : 'default'};opacity:${faded ? 0.45 : 1};box-sizing:border-box;">
-                ${content}
-            </div>`;
-    };
+let bg = "#202020";
+let content = "";
+let extraClass = "";
+const clickAttr = onclick ? "onclick=\"" + onclick + "\"" : "";
+const fadedStyle = faded ? "opacity:.45;filter:saturate(.65);" : "";
+
+if (card.color === "Back") {
+    bg = "#111111";
+    extraClass = " uno-back-card";
+
+    const backFont = mode === "large" || mode === "draw" ? 29 : 20;
+
+    content =
+        "<div class=\"uno-back-word\" style=\"font-size:" + backFont + "px;letter-spacing:-2px;max-width:100%;overflow:hidden;white-space:nowrap;\">" +
+            "UNO" +
+        "</div>";
+} else if (card.color === "Wild") {
+    bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
+
+    content =
+        "<div style=\"font-size:" + Math.max(14, Math.floor(fontSize * .45)) + "px;line-height:1.05;text-shadow:0 2px 5px rgba(0,0,0,.7);\">" +
+            (card.value === "+4" ? "Wild<br>+4" : "Wild") +
+        "</div>";
+} else {
+    bg = window.unoColorHex(card.color);
+
+    let displayVal = esc(card.value);
+    if (displayVal === "Reverse") displayVal = "↺";
+    if (displayVal === "Skip") displayVal = "⊘";
+
+    content =
+        "<div style=\"font-size:" + fontSize + "px;line-height:1;font-weight:900;text-shadow:0 3px 6px rgba(0,0,0,.35);\">" +
+            displayVal +
+        "</div>";
+}
+
+return (
+    "<div class=\"uno-card uno-card-" + esc(mode) + extraClass + "\" " + clickAttr + " style=\"" +
+        "width:" + width + "px;" +
+        "height:" + height + "px;" +
+        "min-width:" + width + "px;" +
+        "border-radius:10px;" +
+        "border:3px solid #ffffff;" +
+        "background:" + bg + ";" +
+        "color:#ffffff;" +
+        "display:flex;" +
+        "align-items:center;" +
+        "justify-content:center;" +
+        "font-family:Arial,sans-serif;" +
+        "font-weight:900;" +
+        "box-shadow:0 4px 9px rgba(0,0,0,.35);" +
+        "position:relative;" +
+        "box-sizing:border-box;" +
+        "overflow:hidden;" +
+        "text-align:center;" +
+        "flex:0 0 auto;" +
+        fadedStyle +
+    "\">" +
+        "<div style=\"position:absolute;left:-12%;top:18%;width:124%;height:47%;border-radius:50%;background:rgba(255,255,255,.13);transform:rotate(-9deg);\"></div>" +
+        "<div style=\"position:relative;z-index:2;max-width:100%;box-sizing:border-box;padding:0 4px;\">" +
+            content +
+        "</div>" +
+    "</div>"
+);
+
+};
 
     window.renderUnoLayout = function() {
         const s = window.unoState;
@@ -6347,4 +6391,40 @@ window.initHangmanGame = function () {
     }
 
     setInterval(wireHelpButton, 200);
+})();
+/* CHASER PATCH — Uno hand overlap + consistent hand spacing */
+(function () {
+if (document.getElementById("uno-hand-overlap-fix-style")) return;
+
+const style = document.createElement("style");
+style.id = "uno-hand-overlap-fix-style";
+style.innerHTML = `
+    #uno-hand-container,
+    .uno-top-scroll {
+        gap:0 !important;
+        padding-left:22px !important;
+        padding-right:18px !important;
+        box-sizing:border-box !important;
+    }
+
+    #uno-hand-container .uno-card,
+    .uno-top-scroll .uno-card {
+        flex:0 0 auto !important;
+    }
+
+    #uno-hand-container .uno-card + .uno-card,
+    .uno-top-scroll .uno-card + .uno-card {
+        margin-left:-10px !important;
+    }
+
+    @media(max-width:390px) {
+        #uno-hand-container .uno-card + .uno-card,
+        .uno-top-scroll .uno-card + .uno-card {
+            margin-left:-12px !important;
+        }
+    }
+`;
+
+document.head.appendChild(style);
+
 })();
