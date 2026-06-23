@@ -33,12 +33,13 @@ base: 0
 
 function escapeHtml(value) {
 return String(value || "")
-.replace(/&/g, "&")
-.replace(/</g, "<")
-.replace(/>/g, ">")
-.replace(/"/g, """)
-.replace(/'/g, "'");
+.replace(/&/g, "&" + "amp;")
+.replace(/</g, "&" + "lt;")
+.replace(/>/g, "&" + "gt;")
+.replace(/"/g, "&" + "quot;")
+.replace(/'/g, "&" + "#039;");
 }
+
 
 function getMyId() {
 if (typeof window.myId === "function") return window.myId();
