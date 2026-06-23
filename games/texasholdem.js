@@ -2,7 +2,7 @@
 Fake-chip Texas Hold'em
 1-6 players, synced rooms, solo vs computer Dealer
 */
-(function () {
+;(function () {
 "use strict";
 
 
