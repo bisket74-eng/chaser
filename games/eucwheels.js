@@ -590,7 +590,8 @@ function installGlobalStyle() {
     const style = document.createElement("style");
     style.id = "chaserEucWheelsGlobalStyle";
     style.innerHTML = [
-        "#wheelsTriggerBtn{width:auto!important;height:34px!important;padding:0 14px!important;border-radius:999px!important;background:#ffd700!important;color:#1e4620!important;border:2px solid #ffffff!important;font-size:14px!important;font-weight:900!important;font-family:Arial,sans-serif!important;text-transform:uppercase!important;box-sizing:border-box!important;}",
+       "#wheelsTriggerBtn{width:auto!important;height:34px!important;padding:0 10px!important;border-radius:999px!important;background:#ffd700!important;color:#1e4620!important;border:2px solid #ffffff!important;font-size:13px!important;font-weight:900!important;font-family:Arial,sans-serif!important;text-transform:uppercase!important;box-sizing:border-box!important;}",
+
         "#wheelsTriggerBtn:active{transform:scale(.94);}"
     ].join("");
 
