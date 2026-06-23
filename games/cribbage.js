@@ -1196,7 +1196,24 @@ el.innerHTML = [
         '</div>',
     '</div>'
 ].join("");
+    
+const newWrap = el.querySelector(".crib-wrap");
 
+if (newWrap) {
+    newWrap.scrollTop = oldWrapScroll;
+}
+
+el.scrollTop = oldContainerScroll;
+
+setTimeout(function () {
+    const wrapAgain = el.querySelector(".crib-wrap");
+
+    if (wrapAgain) {
+        wrapAgain.scrollTop = oldWrapScroll;
+    }
+
+    el.scrollTop = oldContainerScroll;
+}, 0);
 if (window.__cribbageAutoProgressTimer) {
     clearTimeout(window.__cribbageAutoProgressTimer);
     window.__cribbageAutoProgressTimer = null;
