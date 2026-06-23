@@ -5,7 +5,7 @@ Staged flow: discard -> cut -> pegging -> count hands -> count crib -> next roun
 ;(function () {
 "use strict";
 
-```
+
 const WIN_SCORE = 121;
 const BOT_ID = "cribbage-computer-player";
 const BOT_DELAY = 1900;
@@ -1313,6 +1313,6 @@ function renderCribbage() {
 }
 
 window.renderCribbage = renderCribbage;
-```
+
 
 })();
