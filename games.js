@@ -4343,47 +4343,48 @@ function esc(v) {
         .replace(/'/g, "&" + "#039;");
 }
 
-let width = 60;
-let height = 90;
-let fontSize = 28;
+let width = 54;
+let height = 80;
+let fontSize = 29;
 
-if (mode === "large" || mode === "draw") {
-    width = 86;
-    height = 126;
-    fontSize = 48;
+if (mode === "large" || mode === "draw" || mode === "pile") {
+    width = 104;
+    height = 150;
+    fontSize = 58;
 } else if (mode === "small") {
-    width = 50;
-    height = 75;
-    fontSize = 22;
+    width = 52;
+    height = 78;
+    fontSize = 29;
 }
 
 let bg = "#202020";
 let content = "";
 let extraClass = "";
 const clickAttr = onclick ? "onclick=\"" + onclick + "\"" : "";
-const fadedStyle = faded ? "opacity:.45;filter:saturate(.65);" : "";
+const fadedStyle = faded ? "opacity:.48;filter:saturate(.65);" : "";
 
 if (card.color === "Back") {
     bg = "#111111";
     extraClass = " uno-back-card";
 
-    const backFont = mode === "large" || mode === "draw" ? 29 : 20;
+    const backFont = mode === "large" || mode === "draw" || mode === "pile" ? 33 : 21;
 
     content =
-        "<div class=\"uno-back-word\" style=\"font-size:" + backFont + "px;letter-spacing:-2px;max-width:100%;overflow:hidden;white-space:nowrap;\">" +
+        "<div class=\"uno-back-word\" style=\"font-size:" + backFont + "px;letter-spacing:-2px;max-width:100%;overflow:hidden;white-space:nowrap;line-height:1;\">" +
             "UNO" +
         "</div>";
 } else if (card.color === "Wild") {
     bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
 
     content =
-        "<div style=\"font-size:" + Math.max(14, Math.floor(fontSize * .45)) + "px;line-height:1.05;text-shadow:0 2px 5px rgba(0,0,0,.7);\">" +
+        "<div style=\"font-size:" + Math.max(15, Math.floor(fontSize * .44)) + "px;line-height:1.02;text-shadow:0 2px 5px rgba(0,0,0,.7);\">" +
             (card.value === "+4" ? "Wild<br>+4" : "Wild") +
         "</div>";
 } else {
     bg = window.unoColorHex(card.color);
 
     let displayVal = esc(card.value);
+
     if (displayVal === "Reverse") displayVal = "↺";
     if (displayVal === "Skip") displayVal = "⊘";
 
@@ -4398,7 +4399,7 @@ return (
         "width:" + width + "px;" +
         "height:" + height + "px;" +
         "min-width:" + width + "px;" +
-        "border-radius:10px;" +
+        "border-radius:11px;" +
         "border:3px solid #ffffff;" +
         "background:" + bg + ";" +
         "color:#ffffff;" +
@@ -4423,91 +4424,121 @@ return (
 );
 
 };
-
     window.renderUnoLayout = function() {
-        const s = window.unoState;
-        if (!s) return;
+const s = window.unoState;
+if (!s) return;
 
-        const mySeat = window.chaserGame.mySeat ?? 0;
-        const hand = s.hands[mySeat] || [];
-        const discard = s.discard || { color: "Red", value: "0" };
-        const myTurn = s.turn === mySeat && !s.winner;
-        const activeName = s.players[s.turn]?.name || `Player ${s.turn + 1}`;
+function esc(v) {
+    return String(v ?? "")
+        .replace(/&/g, "&" + "amp;")
+        .replace(/</g, "&" + "lt;")
+        .replace(/>/g, "&" + "gt;")
+        .replace(/"/g, "&" + "quot;")
+        .replace(/'/g, "&" + "#039;");
+}
 
-        let opponents = s.players.map((p, idx) => {
-            if (idx === mySeat) return "";
-            return `
-                <div style="background:${idx === s.turn ? '#ffd700' : 'rgba(226,240,217,0.16)'};color:${idx === s.turn ? '#1e4620' : '#e2f0d9'};
-                    border-radius:8px;padding:6px 10px;font-size:13px;font-weight:900;">
-                    ${safeHtml(p.name)}: ${s.hands[idx]?.length || 0}
-                </div>`;
-        }).join("");
+const mySeat = window.chaserGame.mySeat ?? 0;
+const hand = s.hands[mySeat] || [];
+const discard = s.discard || { color: "Red", value: "0" };
+const myTurn = s.turn === mySeat && !s.winner;
+const activeName = s.players[s.turn]?.name || "Player " + (s.turn + 1);
 
-        let html = `
-            <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;box-sizing:border-box;user-select:none;overflow:hidden;">
-                
-                <!-- CLEAN HEADER -->
-                <div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;">
-                    <div style="font-size:22px;color:${myTurn ? '#00b050' : '#a3cfbb'};font-weight:900;font-family:Impact,sans-serif;letter-spacing:1px;">
-                        ${s.winner ? safeHtml(s.winner.name) + " WINS!" : myTurn ? "YOUR TURN" : "TURN: " + safeHtml(activeName).toUpperCase()}
-                    </div>
-                </div>
+const opponents = s.players.map((p, idx) => {
+    if (idx === mySeat) return "";
 
-                <div style="width:100%;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:30px;">
-                    ${opponents}
-                </div>
+    return (
+        "<div class=\"uno-opponent-pill\">" +
+            esc(p.name) + ": " + ((s.hands[idx] || []).length) +
+        "</div>"
+    );
+}).join("");
 
-                <div style="font-size:15px;color:#ffd700;font-weight:bold;min-height:18px;text-align:center;">
-                    ${safeHtml(s.message || "")}
-                </div>
+let handHtml = "";
 
-                <!-- PILES -->
-                <div style="display:flex;align-items:flex-end;justify-content:center;gap:24px;margin-top:10px;">
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                        <div style="font-size:12px;color:#a3cfbb;font-weight:900;">DRAW</div>
-                        ${window.renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "draw", !myTurn)}
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-                        <div style="font-size:12px;color:#a3cfbb;font-weight:900;">PLAY</div>
-                        ${window.renderUnoCard(discard, "", "large")}
-                    </div>
-                </div>
-        `;
+hand.forEach((card, idx) => {
+    const playable = myTurn && (
+        card.color === discard.color ||
+        card.value === discard.value ||
+        card.color === "Wild" ||
+        discard.color === "Wild"
+    );
 
-        // Color Picker
-        if (s.wildChoosingSeat === mySeat) {
-            html += `
-                <div style="display:grid;grid-template-columns:repeat(4,50px);gap:8px;margin-top:10px;">
-                    ${["Red","Yellow","Green","Blue"].map(c => `
-                        <button onclick="window.unoPickWildColor('${c}')"
-                            style="height:44px;border-radius:8px;border:3px solid #fff;background:${window.unoColorHex(c)};
-                            cursor:pointer;box-shadow:0 3px 8px rgba(0,0,0,0.35);"></button>
-                    `).join("")}
-                </div>`;
-        }
+    handHtml += window.renderUnoCard(card, "window.unoPlayCard(" + idx + ")", "small", !playable);
+});
 
-        // HAND
-        html += `
-                <div style="width:100%;display:flex;overflow-x:auto;gap:6px;padding:15px 10px;box-sizing:border-box;-webkit-overflow-scrolling:touch;margin-top:auto;justify-content:flex-start;">
-        `;
+let colorPickerHtml = "";
 
-        hand.forEach((card, idx) => {
-            const playable = myTurn && (
-                card.color === discard.color ||
-                card.value === discard.value ||
-                card.color === "Wild" ||
-                discard.color === "Wild" 
-            );
-            html += window.renderUnoCard(card, `window.unoPlayCard(${idx})`, "small", !playable);
-        });
+if (s.wildChoosingSeat === mySeat) {
+    colorPickerHtml =
+        "<div class=\"uno-color-picker\">" +
+            ["Red", "Yellow", "Green", "Blue"].map(c => {
+                return "<button onclick=\"window.unoPickWildColor('" + c + "')\" style=\"background:" + window.unoColorHex(c) + ";\" type=\"button\">" + c + "</button>";
+            }).join("") +
+        "</div>";
+}
 
-        html += `
-                </div>
-            </div>`;
+let html = [
+    "<style>",
+        ".uno-wrap{height:100%;overflow:hidden;padding:10px 12px 84px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;background:#06260d;display:flex;flex-direction:column;align-items:center;}",
+        ".uno-turn-title{font-size:34px;font-weight:900;letter-spacing:6px;color:#00b050;margin:0 0 14px;text-align:center;text-transform:uppercase;line-height:1.05;}",
+        ".uno-opponents{min-height:20px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 auto 6px;}",
+        ".uno-opponent-pill{background:#e2f0d9;color:#1e4620;border-radius:999px;padding:3px 9px;font-size:12px;font-weight:900;}",
+        ".uno-message{color:#ffd700;font-size:21px;font-weight:900;text-align:center;min-height:28px;margin:0 auto 8px;line-height:1.15;}",
+        ".uno-pile-row{display:flex;align-items:flex-start;justify-content:center;gap:38px;margin:2px auto 22px;width:100%;}",
+        ".uno-pile-box{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;}",
+        ".uno-pile-label{color:#b7d8c0;font-size:18px;font-weight:900;letter-spacing:1px;margin-bottom:6px;text-transform:uppercase;}",
+        ".uno-color-picker{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:-8px auto 8px;}",
+        ".uno-color-picker button{border:2px solid #ffffff;border-radius:999px;color:#ffffff;font-size:12px;font-weight:900;padding:7px 10px;text-shadow:0 2px 4px rgba(0,0,0,.45);}",
+        ".uno-hand-zone{width:100%;margin-top:10px;}",
+        "#uno-hand-container{display:flex;gap:7px!important;justify-content:flex-start;align-items:center;overflow-x:auto;overflow-y:hidden;width:100%;padding:0 9px 10px!important;box-sizing:border-box;scrollbar-width:thin;}",
+        "#uno-hand-container .uno-card{margin-left:0!important;}",
+        "#uno-hand-container .uno-card + .uno-card{margin-left:0!important;}",
+        "#uno-hand-container::-webkit-scrollbar{height:9px;}",
+        "#uno-hand-container::-webkit-scrollbar-track{background:rgba(0,0,0,.35);border-radius:999px;}",
+        "#uno-hand-container::-webkit-scrollbar-thumb{background:#ffd700;border-radius:999px;}",
+        "@media(max-width:390px){",
+            ".uno-wrap{padding:8px 10px 84px;}",
+            ".uno-turn-title{font-size:30px;margin-bottom:12px;}",
+            ".uno-message{font-size:20px;margin-bottom:7px;}",
+            ".uno-pile-row{gap:28px;margin-bottom:19px;}",
+            ".uno-pile-label{font-size:17px;}",
+            "#uno-hand-container{gap:6px!important;padding-left:8px!important;padding-right:8px!important;}",
+        "}",
+    "</style>",
 
-        const canvas = document.getElementById("gameCanvasContainer");
-        if (canvas) canvas.innerHTML = html;
-    };
+    "<div class=\"uno-wrap\">",
+        "<div class=\"uno-turn-title\">",
+            s.winner ? esc(s.winner.name) + " WINS!" : myTurn ? "YOUR TURN" : "TURN: " + esc(activeName).toUpperCase(),
+        "</div>",
+
+        "<div class=\"uno-opponents\">", opponents, "</div>",
+        "<div class=\"uno-message\">", esc(s.message || ""), "</div>",
+
+        "<div class=\"uno-pile-row\">",
+            "<div class=\"uno-pile-box\">",
+                "<div class=\"uno-pile-label\">Draw</div>",
+                window.renderUnoCard({ color: "Back", value: "UNO" }, "window.unoDrawCard()", "pile", !myTurn),
+            "</div>",
+            "<div class=\"uno-pile-box\">",
+                "<div class=\"uno-pile-label\">Play</div>",
+                window.renderUnoCard(discard, "", "pile"),
+            "</div>",
+        "</div>",
+
+        colorPickerHtml,
+
+        "<div class=\"uno-hand-zone\">",
+            "<div id=\"uno-hand-container\" class=\"uno-top-scroll\">",
+                handHtml,
+            "</div>",
+        "</div>",
+    "</div>"
+].join("");
+
+const canvas = document.getElementById("gameCanvasContainer");
+if (canvas) canvas.innerHTML = html;
+
+};
 
     window.unoPlayCard = function(idx) {
         const s = window.unoState;
