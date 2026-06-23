@@ -4383,5 +4383,154 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }, 1200);
 })();
 </script>
+    <script>
+/* CHASER PATCH — Buddies Online cycle includes active, dormant, and you last */
+(function () {
+    if (window.__chaserBuddyCycleIncludesDormantAndMeInstalled) return;
+    window.__chaserBuddyCycleIncludesDormantAndMeInstalled = true;
+
+    const CYCLE_ZOOM = 13;
+
+    let cycleIndex = 0;
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function hasLocation(name, rider) {
+        return !!(
+            rider &&
+            rider.marker &&
+            rider.lat &&
+            rider.lng
+        );
+    }
+
+    function getCycleList() {
+        const entries = Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => hasLocation(name, rider));
+
+        const activeBuddies = entries.filter(([name, rider]) => !isMeName(name) && !rider.isGhost);
+        const dormantBuddies = entries.filter(([name, rider]) => !isMeName(name) && rider.isGhost);
+        const me = entries.filter(([name]) => isMeName(name));
+
+        return activeBuddies.concat(dormantBuddies).concat(me);
+    }
+
+    function clearZIndexes() {
+        Object.values(incomingRidersCache).forEach(rider => {
+            if (rider && rider.marker) {
+                rider.marker.setZIndexOffset(0);
+            }
+        });
+    }
+
+    function zoomToPerson(name, rider) {
+        if (!hasLocation(name, rider)) return;
+
+        clearZIndexes();
+
+        rider.marker.setZIndexOffset(10000);
+
+        map.setView([rider.lat, rider.lng], CYCLE_ZOOM, {
+            animate:true
+        });
+    }
+
+    function zoomOutToEveryone() {
+        clearZIndexes();
+
+        const entries = Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => hasLocation(name, rider));
+
+        const positions = entries.map(([name, rider]) => [rider.lat, rider.lng]);
+
+        if (!positions.length && lastLat && lastLng) {
+            map.setView([lastLat, lastLng], CYCLE_ZOOM, { animate:true });
+            return;
+        }
+
+        if (positions.length === 1) {
+            map.setView(positions[0], CYCLE_ZOOM, { animate:true });
+            return;
+        }
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:CYCLE_ZOOM
+        });
+    }
+
+    function cycleNext() {
+        const list = getCycleList();
+
+        if (!list.length) {
+            zoomOutToEveryone();
+            return;
+        }
+
+        const totalSteps = list.length + 1;
+        const step = cycleIndex % totalSteps;
+        cycleIndex++;
+
+        if (step === list.length) {
+            zoomOutToEveryone();
+            return;
+        }
+
+        const [name, rider] = list[step];
+        zoomToPerson(name, rider);
+    }
+
+    function installCycleButton() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter || oldCounter.__chaserCycleDormantMeButton) return;
+
+        const newCounter = oldCounter.cloneNode(true);
+
+        newCounter.__chaserCycleDormantMeButton = true;
+
+        /* These flags stop the older map patches from re-cloning this button. */
+        newCounter.__chaserCombinedCounterWired = true;
+        newCounter.__chaserFinalCleanFollowCounter = true;
+        newCounter.__chaserFinalCleanupCounterWired = true;
+
+        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
+
+        newCounter.style.pointerEvents = "auto";
+        newCounter.style.cursor = "pointer";
+
+        newCounter.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            cycleNext();
+        }, true);
+
+        let pressTimer = null;
+
+        newCounter.addEventListener("touchstart", () => {
+            pressTimer = setTimeout(() => {
+                zoomOutToEveryone();
+            }, 650);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchend", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchcancel", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+    }
+
+    installCycleButton();
+
+    setInterval(installCycleButton, 1000);
+})();
+</script>
 </body>
 </html>
