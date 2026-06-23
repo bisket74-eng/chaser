@@ -1705,8 +1705,8 @@
             .on('broadcast', { event:'yahtzee-sync-state' }, ({ payload }) => {
     if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
 })
- .on('broadcast', { event:'texasHoldem-sync-state' }, ({ payload }) => {
-if (window.handleIncomingtexasHoldemSync) window.handleIncomingtexasHoldemSync(payload);
+ .on('broadcast', { event:'TexasHoldem-sync-state' }, ({ payload }) => {
+if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
 })
            
 
