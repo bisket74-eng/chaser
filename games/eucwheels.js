@@ -5,240 +5,444 @@ Adds a Wheels button next to Games and opens an EUC info board.
 "use strict";
 
 const EUC_DB = {
-    "InMotion": [
-        {
-            model: "V10",
-            topSpeed: "Approx. 25 mph",
-            battery: "Approx. 650 Wh",
-            voltage: "84 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 45 lb",
-            imageUrl: ""
-        },
-        {
-            model: "V10F",
-            topSpeed: "Approx. 25 mph",
-            battery: "Approx. 960 Wh",
-            voltage: "84 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 45 lb",
-            imageUrl: ""
-        },
-        {
-            model: "V11",
-            topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1500 Wh",
-            voltage: "84 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 59 lb",
-            imageUrl: ""
-        },
-        {
-            model: "V12",
-            topSpeed: "Approx. 37-43 mph",
-            battery: "Approx. 1750 Wh",
-            voltage: "100 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 64 lb",
-            imageUrl: ""
-        },
-        {
-            model: "V13 Challenger",
-            topSpeed: "Approx. 56 mph",
-            battery: "Approx. 3024 Wh",
-            voltage: "126 V",
-            wheelSize: "22 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 110 lb",
-            imageUrl: ""
-        },
-        {
-            model: "V14 Adventure",
-            topSpeed: "Approx. 43 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 86 lb",
-            imageUrl: ""
-        }
-    ],
+"InMotion": [
+{
+model: "V8",
+topSpeed: "Approx. 19 mph",
+battery: "Approx. 480 Wh",
+voltage: "84 V",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Approx. 31 lb",
+imageUrl: ""
+},
+{
+model: "V10",
+topSpeed: "Approx. 25 mph",
+battery: "Approx. 650 Wh",
+voltage: "84 V",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Approx. 45 lb",
+imageUrl: ""
+},
+{
+model: "V10F",
+topSpeed: "Approx. 25 mph",
+battery: "Approx. 960 Wh",
+voltage: "84 V",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Approx. 45 lb",
+imageUrl: ""
+},
+{
+model: "V11",
+topSpeed: "Approx. 31 mph",
+battery: "Approx. 1500 Wh",
+voltage: "84 V",
+wheelSize: "18 inch",
+maxCharging: "Verify",
+weight: "Approx. 59 lb",
+imageUrl: ""
+},
+{
+model: "V11Y",
+topSpeed: "Verify",
+battery: "Verify",
+voltage: "Verify",
+wheelSize: "18 inch",
+maxCharging: "Verify",
+weight: "Verify",
+imageUrl: ""
+},
+{
+model: "V12",
+topSpeed: "Approx. 37-43 mph",
+battery: "Approx. 1750 Wh",
+voltage: "100 V",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Approx. 64 lb",
+imageUrl: ""
+},
+{
+model: "V12 Pro",
+topSpeed: "Verify",
+battery: "Verify",
+voltage: "Verify",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Verify",
+imageUrl: ""
+},
+{
+model: "V13 Challenger",
+topSpeed: "Approx. 56 mph",
+battery: "Approx. 3024 Wh",
+voltage: "126 V",
+wheelSize: "22 inch",
+maxCharging: "Verify",
+weight: "Approx. 110 lb",
+imageUrl: ""
+},
+{
+model: "V14 Adventure",
+topSpeed: "Approx. 43 mph",
+battery: "Approx. 2400 Wh",
+voltage: "134 V",
+wheelSize: "16 inch",
+maxCharging: "Verify",
+weight: "Approx. 86 lb",
+imageUrl: ""
+},
+{
+model: "P6",
+topSpeed: "Verify",
+battery: "Verify",
+voltage: "Verify",
+wheelSize: "Verify",
+maxCharging: "Verify",
+weight: "Verify",
+imageUrl: ""
+},
+{
+model: "E25",
+topSpeed: "Verify",
+battery: "Verify",
+voltage: "Verify",
+wheelSize: "Verify",
+maxCharging: "Verify",
+weight: "Verify",
+imageUrl: ""
+}
+],
 
-    "KingSong": [
-        {
-            model: "16X",
-            topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1554 Wh",
-            voltage: "84 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 54 lb",
-            imageUrl: ""
-        },
-        {
-            model: "S18",
-            topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1110 Wh",
-            voltage: "84 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 55 lb",
-            imageUrl: ""
-        },
-        {
-            model: "S19",
-            topSpeed: "Approx. 37 mph",
-            battery: "Approx. 1776 Wh",
-            voltage: "126 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 68 lb",
-            imageUrl: ""
-        },
-        {
-            model: "S22",
-            topSpeed: "Approx. 43 mph",
-            battery: "Approx. 2220 Wh",
-            voltage: "126 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 77 lb",
-            imageUrl: ""
-        }
-    ],
+"KingSong": [
+    {
+        model: "16X",
+        topSpeed: "Approx. 31 mph",
+        battery: "Approx. 1554 Wh",
+        voltage: "84 V",
+        wheelSize: "16 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 54 lb",
+        imageUrl: ""
+    },
+    {
+        model: "S18",
+        topSpeed: "Approx. 31 mph",
+        battery: "Approx. 1110 Wh",
+        voltage: "84 V",
+        wheelSize: "18 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 55 lb",
+        imageUrl: ""
+    },
+    {
+        model: "S19",
+        topSpeed: "Approx. 37 mph",
+        battery: "Approx. 1776 Wh",
+        voltage: "126 V",
+        wheelSize: "18 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 68 lb",
+        imageUrl: ""
+    },
+    {
+        model: "S22",
+        topSpeed: "Approx. 43 mph",
+        battery: "Approx. 2220 Wh",
+        voltage: "126 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 77 lb",
+        imageUrl: ""
+    },
+    {
+        model: "S22 Pro",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "126 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "F22",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    }
+],
 
-    "Begode": [
-        {
-            model: "T4",
-            topSpeed: "Approx. 37 mph",
-            battery: "Approx. 1800 Wh",
-            voltage: "100 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 66 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Master",
-            topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 88 lb",
-            imageUrl: ""
-        },
-        {
-            model: "EX30",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 101 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Extreme",
-            topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 91 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Blitz",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 79 lb",
-            imageUrl: ""
-        }
-    ],
+"Begode": [
+    {
+        model: "T4",
+        topSpeed: "Approx. 37 mph",
+        battery: "Approx. 1800 Wh",
+        voltage: "100 V",
+        wheelSize: "16 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 66 lb",
+        imageUrl: ""
+    },
+    {
+        model: "T4 Pro",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "16 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Falcon",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "14 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Master",
+        topSpeed: "Approx. 50 mph",
+        battery: "Approx. 2400 Wh",
+        voltage: "134 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 88 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Master Pro",
+        topSpeed: "Verify",
+        battery: "Approx. 4800 Wh",
+        voltage: "134 V",
+        wheelSize: "22 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "EX30",
+        topSpeed: "Approx. 55 mph",
+        battery: "Approx. 3600 Wh",
+        voltage: "134 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 101 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Extreme",
+        topSpeed: "Approx. 50 mph",
+        battery: "Approx. 2400 Wh",
+        voltage: "134 V",
+        wheelSize: "18 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 91 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Blitz",
+        topSpeed: "Approx. 55 mph",
+        battery: "Approx. 2400 Wh",
+        voltage: "134 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 79 lb",
+        imageUrl: ""
+    },
+    {
+        model: "ET Max",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "X-Way",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Race",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Panther",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Mten4",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "11 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Mten5",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    }
+],
 
-    "LeaperKim / Veteran": [
-        {
-            model: "Sherman",
-            topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3200 Wh",
-            voltage: "100 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 77 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Sherman S",
-            topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "100 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 97 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Patton",
-            topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2220 Wh",
-            voltage: "126 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 89 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Lynx",
-            topSpeed: "Approx. 56 mph",
-            battery: "Approx. 2700 Wh",
-            voltage: "151 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 88 lb",
-            imageUrl: ""
-        }
-    ],
+"LeaperKim / Veteran": [
+    {
+        model: "Sherman",
+        topSpeed: "Approx. 45 mph",
+        battery: "Approx. 3200 Wh",
+        voltage: "100 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 77 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Sherman S",
+        topSpeed: "Approx. 45 mph",
+        battery: "Approx. 3600 Wh",
+        voltage: "100 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 97 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Patton",
+        topSpeed: "Approx. 50 mph",
+        battery: "Approx. 2220 Wh",
+        voltage: "126 V",
+        wheelSize: "18 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 89 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Lynx",
+        topSpeed: "Approx. 56 mph",
+        battery: "Approx. 2700 Wh",
+        voltage: "151 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 88 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Sherman L",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    }
+],
 
-    "Extreme Bull": [
-        {
-            model: "Commander",
-            topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "100 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 80+ lb",
-            imageUrl: ""
-        },
-        {
-            model: "Commander Pro",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 104 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Commander Mini",
-            topSpeed: "Approx. 45 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify charger limit",
-            weight: "Approx. 88 lb",
-            imageUrl: ""
-        }
-    ]
+"Extreme Bull": [
+    {
+        model: "Commander",
+        topSpeed: "Approx. 45 mph",
+        battery: "Approx. 3600 Wh",
+        voltage: "100 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 80+ lb",
+        imageUrl: ""
+    },
+    {
+        model: "Commander Pro",
+        topSpeed: "Approx. 55 mph",
+        battery: "Approx. 3600 Wh",
+        voltage: "134 V",
+        wheelSize: "20 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 104 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Commander Mini",
+        topSpeed: "Approx. 45 mph",
+        battery: "Approx. 2400 Wh",
+        voltage: "134 V",
+        wheelSize: "16 inch",
+        maxCharging: "Verify",
+        weight: "Approx. 88 lb",
+        imageUrl: ""
+    },
+    {
+        model: "Griffin",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    }
+],
+
+"Nosfet": [
+    {
+        model: "Apex",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    },
+    {
+        model: "Apex Lite",
+        topSpeed: "Verify",
+        battery: "Verify",
+        voltage: "Verify",
+        wheelSize: "Verify",
+        maxCharging: "Verify",
+        weight: "Verify",
+        imageUrl: ""
+    }
+]
+
 };
 
 function byId(id) {
