@@ -415,168 +415,185 @@ async function validateMove(s) {
 }
 
 function setupBoardView() {
-    const root = canvas();
-    if (!root) return;
+const root = canvas();
+if (!root) return;
 
-    const wrap = root.querySelector(".sc-wrap");
-    const viewport = root.querySelector(".sc-board-viewport");
-    const shell = root.querySelector(".sc-board-shell");
-    const board = root.querySelector(".sc-board");
+const wrap = root.querySelector(".sc-wrap");
+const viewport = root.querySelector(".sc-board-viewport");
+const shell = root.querySelector(".sc-board-shell");
+const board = root.querySelector(".sc-board");
 
-    if (!wrap || !viewport || !shell || !board) return;
+if (!wrap || !viewport || !shell || !board) return;
 
-    const score = root.querySelector(".sc-score");
-    const rack = root.querySelector(".sc-rack");
-    const msg = root.querySelector(".sc-msg");
-    const actions = root.querySelector(".sc-actions");
+const score = root.querySelector(".sc-score");
+const rack = root.querySelector(".sc-rack");
+const msg = root.querySelector(".sc-msg");
+const actions = root.querySelector(".sc-actions");
 
-    const scoreH = score ? score.offsetHeight : 0;
-    const rackH = rack ? rack.offsetHeight : 0;
-    const msgH = msg ? msg.offsetHeight : 0;
-    const actionsH = actions ? actions.offsetHeight : 0;
+const scoreH = score ? score.offsetHeight : 0;
+const rackH = rack ? rack.offsetHeight : 0;
+const msgH = msg ? msg.offsetHeight : 0;
+const actionsH = actions ? actions.offsetHeight : 0;
 
-    const reservedHeight = scoreH + rackH + msgH + actionsH + 6;
-    const availableHeight = Math.max(220, wrap.clientHeight - reservedHeight);
-    const availableWidth = Math.max(280, wrap.clientWidth - 8);
-    const calculatedBase = Math.floor(Math.min(availableWidth, availableHeight, 760));
+const reservedHeight = scoreH + rackH + msgH + actionsH + 6;
+const availableHeight = Math.max(220, wrap.clientHeight - reservedHeight);
+const availableWidth = Math.max(280, wrap.clientWidth - 8);
+const calculatedBase = Math.floor(Math.min(availableWidth, availableHeight, 760));
 
-    if (!boardView.base || calculatedBase > boardView.base) {
-        boardView.base = calculatedBase;
+if (!boardView.base || calculatedBase > boardView.base) {
+    boardView.base = calculatedBase;
+}
+
+const base = boardView.base;
+
+viewport.style.width = base + "px";
+viewport.style.height = base + "px";
+viewport.style.overflow = "hidden";
+viewport.style.touchAction = "none";
+
+shell.style.width = base + "px";
+shell.style.height = base + "px";
+shell.style.minWidth = base + "px";
+shell.style.minHeight = base + "px";
+shell.style.overflow = "hidden";
+shell.style.position = "relative";
+
+board.style.width = base + "px";
+board.style.height = base + "px";
+board.style.minWidth = base + "px";
+board.style.minHeight = base + "px";
+board.style.willChange = "transform";
+
+function clampView() {
+    const scaled = base * boardView.scale;
+
+    if (boardView.scale <= 1.01) {
+        boardView.scale = 1;
+        boardView.x = 0;
+        boardView.y = 0;
+        return;
     }
 
-    const base = boardView.base;
+    const minX = Math.min(0, base - scaled);
+    const minY = Math.min(0, base - scaled);
 
-    viewport.style.width = base + "px";
-    viewport.style.height = base + "px";
-    viewport.style.overflow = "hidden";
+    boardView.x = Math.max(minX, Math.min(0, boardView.x));
+    boardView.y = Math.max(minY, Math.min(0, boardView.y));
+}
 
-    shell.style.width = base + "px";
-    shell.style.height = base + "px";
-    shell.style.minWidth = base + "px";
-    shell.style.minHeight = base + "px";
-    shell.style.overflow = "hidden";
-    shell.style.position = "relative";
+function applyView() {
+    clampView();
 
-    board.style.width = base + "px";
-    board.style.height = base + "px";
-    board.style.minWidth = base + "px";
-    board.style.minHeight = base + "px";
+    board.style.transformOrigin = "top left";
+    board.style.transform =
+        "translate3d(" + boardView.x + "px, " + boardView.y + "px, 0) scale(" + boardView.scale + ")";
+}
 
-    function clampView() {
-        const scaled = base * boardView.scale;
+applyView();
 
-        if (boardView.scale <= 1.02) {
-            boardView.scale = 1;
-            boardView.x = 0;
-            boardView.y = 0;
+if (viewport.__scrabbleTransformZoomWired) return;
+viewport.__scrabbleTransformZoomWired = true;
+
+let lastPinchDistance = 0;
+let startFingerX = 0;
+let startFingerY = 0;
+let startX = 0;
+let startY = 0;
+let moved = false;
+let lastTap = 0;
+
+function touchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function touchMidpoint(e) {
+    const rect = viewport.getBoundingClientRect();
+
+    return {
+        x: ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left,
+        y: ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top
+    };
+}
+
+viewport.addEventListener("touchstart", function (e) {
+    moved = false;
+
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        lastPinchDistance = touchDistance(e.touches[0], e.touches[1]);
+        return;
+    }
+
+    if (e.touches.length === 1) {
+        startFingerX = e.touches[0].clientX;
+        startFingerY = e.touches[0].clientY;
+        startX = boardView.x;
+        startY = boardView.y;
+    }
+}, { passive:false });
+
+viewport.addEventListener("touchmove", function (e) {
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        moved = true;
+
+        const newDistance = touchDistance(e.touches[0], e.touches[1]);
+
+        if (!lastPinchDistance) {
+            lastPinchDistance = newDistance;
             return;
         }
 
-        const minX = Math.min(0, base - scaled);
-        const minY = Math.min(0, base - scaled);
+        const mid = touchMidpoint(e);
 
-        boardView.x = Math.max(minX, Math.min(0, boardView.x));
-        boardView.y = Math.max(minY, Math.min(0, boardView.y));
+        const boardPointX = (mid.x - boardView.x) / boardView.scale;
+        const boardPointY = (mid.y - boardView.y) / boardView.scale;
+
+        let nextScale = boardView.scale * (newDistance / lastPinchDistance);
+        nextScale = Math.max(1, Math.min(3.0, nextScale));
+
+        boardView.scale = nextScale;
+        boardView.x = mid.x - boardPointX * boardView.scale;
+        boardView.y = mid.y - boardPointY * boardView.scale;
+
+        lastPinchDistance = newDistance;
+
+        applyView();
+        return;
     }
 
-    function applyView() {
-        clampView();
+    if (e.touches.length === 1 && boardView.scale > 1.01) {
+        e.preventDefault();
 
-        board.style.transformOrigin = "top left";
-        board.style.transform =
-            "translate(" + boardView.x + "px, " + boardView.y + "px) scale(" + boardView.scale + ")";
-    }
+        const dx = e.touches[0].clientX - startFingerX;
+        const dy = e.touches[0].clientY - startFingerY;
 
-    applyView();
-
-    if (viewport.__scrabbleTransformZoomWired) return;
-    viewport.__scrabbleTransformZoomWired = true;
-
-    let startDistance = 0;
-    let startScale = 1;
-    let startX = 0;
-    let startY = 0;
-    let pinchBoardX = 0;
-    let pinchBoardY = 0;
-    let pinchMidX = 0;
-    let pinchMidY = 0;
-    let startFingerX = 0;
-    let startFingerY = 0;
-    let moved = false;
-    let lastTap = 0;
-
-    function touchDistance(t1, t2) {
-        const dx = t1.clientX - t2.clientX;
-        const dy = t1.clientY - t2.clientY;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-
-    viewport.addEventListener("touchstart", function (e) {
-        moved = false;
-
-        if (e.touches.length === 2) {
-            const rect = viewport.getBoundingClientRect();
-
-            startDistance = touchDistance(e.touches[0], e.touches[1]);
-            startScale = boardView.scale;
-            startX = boardView.x;
-            startY = boardView.y;
-
-            pinchMidX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
-            pinchMidY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
-
-            pinchBoardX = (pinchMidX - startX) / startScale;
-            pinchBoardY = (pinchMidY - startY) / startScale;
-        }
-
-        if (e.touches.length === 1) {
-            startFingerX = e.touches[0].clientX;
-            startFingerY = e.touches[0].clientY;
-            startX = boardView.x;
-            startY = boardView.y;
-        }
-    }, { passive:false });
-
-    viewport.addEventListener("touchmove", function (e) {
-        if (e.touches.length === 2) {
-            e.preventDefault();
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
             moved = true;
-
-            const newDistance = touchDistance(e.touches[0], e.touches[1]);
-            if (!startDistance) return;
-
-            const rect = viewport.getBoundingClientRect();
-            const currentMidX = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
-            const currentMidY = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
-
-            let nextScale = startScale * (newDistance / startDistance);
-            nextScale = Math.max(1, Math.min(3.0, nextScale));
-
-            boardView.scale = nextScale;
-            boardView.x = currentMidX - pinchBoardX * boardView.scale;
-            boardView.y = currentMidY - pinchBoardY * boardView.scale;
-
-            applyView();
         }
 
-        if (e.touches.length === 1 && boardView.scale > 1.02) {
-            e.preventDefault();
+        boardView.x = startX + dx;
+        boardView.y = startY + dy;
 
-            const dx = e.touches[0].clientX - startFingerX;
-            const dy = e.touches[0].clientY - startFingerY;
+        applyView();
+    }
+}, { passive:false });
 
-            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-                moved = true;
-            }
+viewport.addEventListener("touchend", function (e) {
+    if (e.touches.length === 1) {
+        startFingerX = e.touches[0].clientX;
+        startFingerY = e.touches[0].clientY;
+        startX = boardView.x;
+        startY = boardView.y;
+        lastPinchDistance = 0;
+        return;
+    }
 
-            boardView.x = startX + dx;
-            boardView.y = startY + dy;
+    if (e.touches.length === 0) {
+        lastPinchDistance = 0;
 
-            applyView();
-        }
-    }, { passive:false });
-
-    viewport.addEventListener("touchend", function () {
         const now = Date.now();
 
         if (!moved && now - lastTap < 300) {
@@ -589,8 +606,11 @@ function setupBoardView() {
         if (!moved) {
             lastTap = now;
         }
-    }, { passive:true });
+    }
+}, { passive:false });
+
 }
+
 
 window.initScrabbleGame = function () {
     window.chaserGame = window.chaserGame || {};
