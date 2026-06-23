@@ -4973,5 +4973,209 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }, 1200);
 })();
 </script>
+    <script>
+/* CHASER PATCH — FINAL buddy zoom toggle + zoom-out fix
+   Fixes:
+   - Stops double-tap from endlessly zooming in
+   - Tap buddy marker once = zoom to buddy
+   - Tap same buddy again = zoom back out to all riders
+   - Tap Buddies Online while focused on a buddy = zoom back out to all riders
+   - Tap Buddies Online normally = cycle buddies, then all riders
+*/
+(function () {
+    if (window.__chaserFinalBuddyZoomToggleInstalled) return;
+    window.__chaserFinalBuddyZoomToggleInstalled = true;
+
+    let focusedBuddyName = null;
+    let buddyCycleIndex = 0;
+
+    if (map && map.doubleClickZoom) {
+        map.doubleClickZoom.disable();
+    }
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function validRider(name, rider) {
+        return !!(
+            rider &&
+            rider.marker &&
+            rider.lat &&
+            rider.lng
+        );
+    }
+
+    function allVisibleRiders() {
+        return Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => validRider(name, rider));
+    }
+
+    function visibleBuddiesOnly() {
+        return allVisibleRiders()
+            .filter(([name]) => !isMeName(name));
+    }
+
+    function clearFocusedMarkers() {
+        Object.values(incomingRidersCache).forEach(rider => {
+            if (rider && rider.marker) {
+                rider.marker.__chaserFinalFocused = false;
+                rider.marker.setZIndexOffset(0);
+            }
+        });
+
+        focusedBuddyName = null;
+    }
+
+    function zoomOutToAllRiders() {
+        clearFocusedMarkers();
+
+        if (typeof window.chaserEnableFollowMe === "function") {
+            window.chaserEnableFollowMe();
+            return;
+        }
+
+        const riders = allVisibleRiders();
+        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
+
+        const hasMe = riders.some(([name]) => isMeName(name));
+
+        if (!hasMe && lastLat && lastLng) {
+            positions.push([lastLat, lastLng]);
+        }
+
+        if (!positions.length && lastLat && lastLng) {
+            map.setView([lastLat, lastLng], Math.max(map.getZoom(), 16), { animate:true });
+            return;
+        }
+
+        if (positions.length === 1) {
+            map.setView(positions[0], 16, { animate:true });
+        } else {
+            map.fitBounds(L.latLngBounds(positions), {
+                paddingTopLeft:[40, 180],
+                paddingBottomRight:[40, 180],
+                animate:true,
+                maxZoom:16
+            });
+        }
+    }
+
+    function focusBuddy(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        clearFocusedMarkers();
+
+        focusedBuddyName = name;
+        rider.marker.__chaserFinalFocused = true;
+        rider.marker.setZIndexOffset(10000);
+
+        map.setView([rider.lat, rider.lng], 17, {
+            animate:true
+        });
+    }
+
+    function toggleBuddyFocus(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        if (focusedBuddyName === name || rider.marker.__chaserFinalFocused) {
+            zoomOutToAllRiders();
+        } else {
+            focusBuddy(name, rider);
+        }
+    }
+
+    function cycleBuddyOrZoomOut() {
+        if (focusedBuddyName) {
+            zoomOutToAllRiders();
+            return;
+        }
+
+        const buddies = visibleBuddiesOnly();
+
+        if (!buddies.length) {
+            zoomOutToAllRiders();
+            return;
+        }
+
+        const totalSteps = buddies.length + 1;
+        const step = buddyCycleIndex % totalSteps;
+        buddyCycleIndex++;
+
+        if (step === buddies.length) {
+            zoomOutToAllRiders();
+            return;
+        }
+
+        const [name, rider] = buddies[step];
+        focusBuddy(name, rider);
+    }
+
+    function rewireBuddyMarkers() {
+        Object.entries(incomingRidersCache).forEach(([name, rider]) => {
+            if (!validRider(name, rider)) return;
+            if (rider.marker.__chaserFinalBuddyZoomWired) return;
+
+            rider.marker.__chaserFinalBuddyZoomWired = true;
+
+            rider.marker.off("click");
+            rider.marker.off("dblclick");
+
+            rider.marker.on("click", e => {
+                L.DomEvent.stop(e);
+                toggleBuddyFocus(name, rider);
+            });
+
+            rider.marker.on("dblclick", e => {
+                L.DomEvent.stop(e);
+                toggleBuddyFocus(name, rider);
+            });
+        });
+    }
+
+    function replaceBuddyCounterListeners() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter || oldCounter.__chaserFinalCounterReplaced) return;
+
+        const newCounter = oldCounter.cloneNode(true);
+        newCounter.__chaserFinalCounterReplaced = true;
+
+        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
+
+        newCounter.style.pointerEvents = "auto";
+        newCounter.style.cursor = "pointer";
+
+        newCounter.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            cycleBuddyOrZoomOut();
+        });
+
+        let pressTimer = null;
+
+        newCounter.addEventListener("touchstart", () => {
+            pressTimer = setTimeout(() => {
+                zoomOutToAllRiders();
+            }, 650);
+        }, { passive:true });
+
+        newCounter.addEventListener("touchend", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true });
+
+        newCounter.addEventListener("touchcancel", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true });
+    }
+
+    replaceBuddyCounterListeners();
+    rewireBuddyMarkers();
+
+    setInterval(() => {
+        replaceBuddyCounterListeners();
+        rewireBuddyMarkers();
+    }, 1200);
+})();
+</script>
 </body>
 </html>
