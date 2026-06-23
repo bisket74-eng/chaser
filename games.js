@@ -1370,13 +1370,14 @@ window.handleSequenceCellTap = function (idx) {
         bg = "#111"; 
         content = `<div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;font-size:${fontSize}px;text-align:center;line-height:1;">UNO</div>`;
     } else if (card.color === "Wild") {
-        bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
-        content = `
-            <div style="position:absolute;width:65%;height:45%;background:#111;border-radius:8px;z-index:1;box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>
-            <div style="z-index:2;color:#fff;font-family:Impact,sans-serif;font-weight:900;font-size:${mode === 'small' ? 15 : 22}px;text-align:center;line-height:1.1;text-shadow:1px 1px 2px #000;">
-                ${card.value === '+4' ? 'Wild<br>+4' : 'Wild'}
-            </div>
-        `;
+bg = "conic-gradient(#e63946 0deg 90deg, #ffb703 90deg 180deg, #00b0ff 180deg 270deg, #00b050 270deg 360deg)";
+
+const wildFont = (mode === "large" || mode === "draw" || mode === "pile") ? 20 : 13;
+
+content =
+    "<div style=\"font-size:" + wildFont + "px;line-height:1.02;text-shadow:0 2px 5px rgba(0,0,0,.7);\">" +
+        (card.value === "+4" ? "Wild<br>+4" : "Wild") +
+    "</div>";
     } else {
         const colors = { Red: "#e63946", Yellow: "#ffb703", Green: "#00b050", Blue: "#00b0ff" };
         bg = colors[card.color] || "#202020";
