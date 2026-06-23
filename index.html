@@ -4570,6 +4570,408 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     <script src="./games/texasholdem.js?v=4"></script>
     <script src="./games/eucwheels.js?v=2"></script>
     <script src="./games/cribbage.js?v=4"></script>
+    
+<script>
+/* CHASER PATCH — FINAL EV SVG TOGGLE OVERRIDE
+   Runs last. Hides/removes all older EV buttons and markers.
+   Button:
+   - Small round green button with gold lightning
+   - Tap once: show EV chargers in current map view
+   - Tap again: hide EV chargers
+   - Active: gold button with green lightning
+*/
+(function () {
+    if (window.__chaserFinalEvSvgToggleOverrideInstalled) return;
+    window.__chaserFinalEvSvgToggleOverrideInstalled = true;
 
+    const EV_SVG =
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+            '<path fill="currentColor" d="M13.2 1.8 4.3 13.6h6.1l-1.5 8.6 10.8-13.4h-6.4l-.1-7z"></path>' +
+        '</svg>';
+
+    let evLayer = null;
+    let evVisible = false;
+    let evLoading = false;
+    let evRequestId = 0;
+
+    function safeText(value) {
+        return String(value || "")
+            .replace(/&/g, "&" + "amp;")
+            .replace(/</g, "&" + "lt;")
+            .replace(/>/g, "&" + "gt;")
+            .replace(/"/g, "&" + "quot;")
+            .replace(/'/g, "&" + "#039;");
+    }
+
+    function installFinalEvStyles() {
+        let style = document.getElementById("chaser-final-ev-svg-style");
+
+        if (style) return;
+
+        style = document.createElement("style");
+        style.id = "chaser-final-ev-svg-style";
+        style.innerHTML = `
+            #chaserEvChargerBtn,
+            #chaserSimpleEvBtn,
+            #chaserLightningEvBtn,
+            #chaserCenteredEvBtn,
+            .chaser-ev-control,
+            .chaser-simple-ev-control,
+            .chaser-lightning-ev-control {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserFinalEvSvgBtn {
+                position:fixed !important;
+                width:38px !important;
+                height:38px !important;
+                min-width:38px !important;
+                min-height:38px !important;
+                max-width:38px !important;
+                max-height:38px !important;
+                padding:0 !important;
+                border-radius:50% !important;
+                border:3px solid #e2f0d9 !important;
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+                cursor:pointer !important;
+                box-sizing:border-box !important;
+                z-index:50000 !important;
+                -webkit-tap-highlight-color:transparent !important;
+                user-select:none !important;
+            }
+
+            #chaserFinalEvSvgBtn svg {
+                width:23px !important;
+                height:23px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            #chaserFinalEvSvgBtn.active {
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border-color:#ffffff !important;
+            }
+
+            .chaser-final-ev-marker {
+                width:28px !important;
+                height:28px !important;
+                border-radius:50% !important;
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border:3px solid #ffffff !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 12px rgba(0,0,0,.45) !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-final-ev-marker svg {
+                width:18px !important;
+                height:18px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            .leaflet-tooltip {
+                background:#e2f0d9 !important;
+                color:#1e4620 !important;
+                border:2px solid #1e4620 !important;
+                border-radius:10px !important;
+                font-size:12px !important;
+                font-weight:800 !important;
+                box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+                padding:7px 9px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function removeOlderEvControls() {
+        document.querySelectorAll(
+            ".chaser-ev-control, .chaser-simple-ev-control, .chaser-lightning-ev-control"
+        ).forEach(node => {
+            const parentControl = node.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else node.remove();
+        });
+
+        [
+            "chaserEvChargerBtn",
+            "chaserSimpleEvBtn",
+            "chaserLightningEvBtn",
+            "chaserCenteredEvBtn"
+        ].forEach(id => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const parentControl = btn.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else btn.remove();
+        });
+    }
+
+    function removeOlderEvMarkers() {
+        map.eachLayer(layer => {
+            if (!(layer instanceof L.Marker)) return;
+
+            const icon = layer.options && layer.options.icon;
+            const html = icon && icon.options ? String(icon.options.html || "") : "";
+
+            const isOldEvMarker =
+                html.includes("⚡") ||
+                html.includes("chaser-simple-ev-marker") ||
+                html.includes("chaser-lightning-ev-marker") ||
+                html.includes("chaser-centered-ev-marker");
+
+            if (isOldEvMarker) {
+                map.removeLayer(layer);
+            }
+        });
+    }
+
+    function setButtonActive(active) {
+        const btn = document.getElementById("chaserFinalEvSvgBtn");
+        if (!btn) return;
+
+        btn.classList.toggle("active", !!active);
+        btn.innerHTML = EV_SVG;
+    }
+
+    function positionFinalButton() {
+        const btn = document.getElementById("chaserFinalEvSvgBtn");
+        if (!btn) return;
+
+        const zoomControl = document.querySelector(".leaflet-control-zoom");
+        const radiusControl = document.querySelector(".radius-toggle-container");
+
+        const size = 38;
+
+        if (!zoomControl || !radiusControl) {
+            btn.style.top = "82px";
+            btn.style.left = "50%";
+            btn.style.transform = "translateX(-50%)";
+            return;
+        }
+
+        const z = zoomControl.getBoundingClientRect();
+        const r = radiusControl.getBoundingClientRect();
+
+        const centerX = (z.right + r.left) / 2;
+        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+
+        let left = centerX - (size / 2);
+        let top = centerY - (size / 2);
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+        btn.style.transform = "none";
+    }
+
+    function hideEvChargers() {
+        evRequestId++;
+
+        if (evLayer) {
+            evLayer.clearLayers();
+        }
+
+        removeOlderEvMarkers();
+
+        evVisible = false;
+        evLoading = false;
+        setButtonActive(false);
+    }
+
+    function evIcon() {
+        return L.divIcon({
+            className:"",
+            html:
+                '<div class="chaser-final-ev-marker">' +
+                    EV_SVG +
+                '</div>',
+            iconSize:[28, 28],
+            iconAnchor:[14, 14]
+        });
+    }
+
+    function buildTooltip(tags) {
+        const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+        const operator = tags.operator || tags.brand || "";
+        const access = tags.access || "";
+        const capacity = tags.capacity || "";
+        const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+        const lines = ["<b>" + safeText(name) + "</b>"];
+
+        if (operator && operator !== name) lines.push("Network: " + safeText(operator));
+        if (access) lines.push("Access: " + safeText(access));
+        if (capacity) lines.push("Stalls: " + safeText(capacity));
+        if (output) lines.push("Power: " + safeText(output));
+
+        return lines.join("<br>");
+    }
+
+    async function showEvChargersInCurrentMapView() {
+        if (evLoading) return;
+
+        const thisRequest = ++evRequestId;
+
+        evVisible = true;
+        evLoading = true;
+        setButtonActive(true);
+
+        if (!evLayer) {
+            evLayer = L.layerGroup().addTo(map);
+        }
+
+        evLayer.clearLayers();
+        removeOlderEvMarkers();
+
+        const b = map.getBounds();
+        const south = b.getSouth();
+        const west = b.getWest();
+        const north = b.getNorth();
+        const east = b.getEast();
+
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
+        try {
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+            const response = await fetch(url);
+
+            if (!response.ok) throw new Error("EV lookup failed");
+
+            const data = await response.json();
+
+            if (thisRequest !== evRequestId || !evVisible) return;
+
+            evLayer.clearLayers();
+
+            (data.elements || []).forEach(item => {
+                const tags = item.tags || {};
+                const access = String(tags.access || "").toLowerCase();
+
+                if (access === "private" || access === "no") return;
+
+                const lat = item.lat || (item.center && item.center.lat);
+                const lon = item.lon || (item.center && item.center.lon);
+
+                if (!lat || !lon) return;
+
+                const marker = L.marker([lat, lon], {
+                    icon:evIcon(),
+                    zIndexOffset:7000
+                }).addTo(evLayer);
+
+                marker.bindTooltip(buildTooltip(tags), {
+                    direction:"top",
+                    offset:[0, -18],
+                    opacity:0.96,
+                    sticky:true
+                });
+
+                marker.on("click", () => marker.openTooltip());
+            });
+
+            setButtonActive(true);
+        } catch (err) {
+            hideEvChargers();
+        } finally {
+            evLoading = false;
+        }
+    }
+
+    function installFinalButton() {
+        installFinalEvStyles();
+        removeOlderEvControls();
+        removeOlderEvMarkers();
+
+        let btn = document.getElementById("chaserFinalEvSvgBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserFinalEvSvgBtn";
+            btn.type = "button";
+            btn.title = "Show EV chargers in this map area";
+            btn.innerHTML = EV_SVG;
+            document.body.appendChild(btn);
+        }
+
+        btn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (evVisible || evLoading) {
+                hideEvChargers();
+            } else {
+                showEvChargersInCurrentMapView();
+            }
+        };
+
+        setButtonActive(false);
+        positionFinalButton();
+    }
+
+    installFinalButton();
+
+    window.addEventListener("resize", positionFinalButton);
+    window.addEventListener("orientationchange", () => {
+        setTimeout(positionFinalButton, 500);
+    });
+
+    map.on("moveend zoomend", positionFinalButton);
+
+    let fastCleanupCount = 0;
+
+    const fastCleanup = setInterval(() => {
+        fastCleanupCount++;
+        installFinalEvStyles();
+        removeOlderEvControls();
+
+        if (!evVisible) {
+            removeOlderEvMarkers();
+        }
+
+        positionFinalButton();
+
+        if (fastCleanupCount > 60) {
+            clearInterval(fastCleanup);
+        }
+    }, 100);
+
+    setInterval(() => {
+        installFinalEvStyles();
+        removeOlderEvControls();
+
+        if (!evVisible) {
+            removeOlderEvMarkers();
+        }
+
+        positionFinalButton();
+    }, 1200);
+})();
+</script>
 </body>
 </html>
