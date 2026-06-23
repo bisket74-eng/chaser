@@ -4537,8 +4537,27 @@ let html = [
 ].join("");
 
 const canvas = document.getElementById("gameCanvasContainer");
-if (canvas) canvas.innerHTML = html;
 
+if (canvas) {
+canvas.innerHTML = html;
+
+function scrollUnoHandRight() {
+    const handContainer = document.getElementById("uno-hand-container");
+
+    if (!handContainer) return;
+
+    handContainer.scrollLeft = handContainer.scrollWidth;
+    handContainer.scrollTo({
+        left: handContainer.scrollWidth,
+        behavior: "auto"
+    });
+}
+
+setTimeout(scrollUnoHandRight, 0);
+setTimeout(scrollUnoHandRight, 80);
+setTimeout(scrollUnoHandRight, 180);
+
+}
 };
 
     window.unoPlayCard = function(idx) {
