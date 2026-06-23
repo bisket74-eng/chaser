@@ -7,6 +7,37 @@ Adds a Wheels button next to Games and opens an EUC info board.
 const EUC_DB = {
     "InMotion": [
         {
+            model: "E20",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "E25",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "P6",
+            topSpeed: "93 mph",
+            battery: "4,200 Wh",
+            voltage: "235 V",
+            wheelSize: "20 inch",
+            maxCharging: "Up to 20A",
+            weight: "112 lb",
+            imageUrl: "",
+            sourceNote: "Alien Rides lists 14A fast charging; user noted P6 can handle up to 20A."
+        },
+        {
             model: "V8",
             topSpeed: "Approx. 19 mph",
             battery: "Approx. 480 Wh",
@@ -14,6 +45,16 @@ const EUC_DB = {
             wheelSize: "16 inch",
             maxCharging: "Verify",
             weight: "Approx. 31 lb",
+            imageUrl: ""
+        },
+        {
+            model: "V9",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
             imageUrl: ""
         },
         {
@@ -39,7 +80,7 @@ const EUC_DB = {
         {
             model: "V11",
             topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1500 Wh",
+            battery: "Approx. 1,500 Wh",
             voltage: "84 V",
             wheelSize: "18 inch",
             maxCharging: "Verify",
@@ -59,7 +100,7 @@ const EUC_DB = {
         {
             model: "V12",
             topSpeed: "Approx. 37-43 mph",
-            battery: "Approx. 1750 Wh",
+            battery: "Approx. 1,750 Wh",
             voltage: "100 V",
             wheelSize: "16 inch",
             maxCharging: "Verify",
@@ -67,19 +108,19 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
-            model: "V12 Pro",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
+            model: "V12S",
+            topSpeed: "43.5 mph",
+            battery: "1,440 Wh",
+            voltage: "84 V",
             wheelSize: "16 inch",
-            maxCharging: "Verify",
-            weight: "Verify",
+            maxCharging: "10A / 84V charger",
+            weight: "77 lb",
             imageUrl: ""
         },
         {
             model: "V13 Challenger",
             topSpeed: "Approx. 56 mph",
-            battery: "Approx. 3024 Wh",
+            battery: "Approx. 3,024 Wh",
             voltage: "126 V",
             wheelSize: "22 inch",
             maxCharging: "Verify",
@@ -87,33 +128,13 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
-            model: "V14 Adventure",
-            topSpeed: "Approx. 43 mph",
-            battery: "Approx. 2400 Wh",
+            model: "V14 Adventure 50S",
+            topSpeed: "43 mph",
+            battery: "2,400 Wh",
             voltage: "134 V",
             wheelSize: "16 inch",
             maxCharging: "Verify",
-            weight: "Approx. 86 lb",
-            imageUrl: ""
-        },
-        {
-            model: "P6",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
-            imageUrl: ""
-        },
-        {
-            model: "E25",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
+            weight: "86 lb",
             imageUrl: ""
         }
     ],
@@ -122,7 +143,7 @@ const EUC_DB = {
         {
             model: "16X",
             topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1554 Wh",
+            battery: "Approx. 1,554 Wh",
             voltage: "84 V",
             wheelSize: "16 inch",
             maxCharging: "Verify",
@@ -130,9 +151,20 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
+            model: "F22 Pro",
+            topSpeed: "55+ mph GPS / 65 mph unverified",
+            battery: "3,108 Wh",
+            voltage: "176 V",
+            wheelSize: "18 inch",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: "",
+            sourceNote: "Alien Rides lists 65 mph as unverified and says they hit 55+ mph GPS verified."
+        },
+        {
             model: "S18",
             topSpeed: "Approx. 31 mph",
-            battery: "Approx. 1110 Wh",
+            battery: "Approx. 1,110 Wh",
             voltage: "84 V",
             wheelSize: "18 inch",
             maxCharging: "Verify",
@@ -142,7 +174,7 @@ const EUC_DB = {
         {
             model: "S19",
             topSpeed: "Approx. 37 mph",
-            battery: "Approx. 1776 Wh",
+            battery: "Approx. 1,776 Wh",
             voltage: "126 V",
             wheelSize: "18 inch",
             maxCharging: "Verify",
@@ -150,9 +182,19 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
+            model: "S19 Pro",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
             model: "S22",
             topSpeed: "Approx. 43 mph",
-            battery: "Approx. 2220 Wh",
+            battery: "Approx. 2,220 Wh",
             voltage: "126 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
@@ -168,9 +210,12 @@ const EUC_DB = {
             maxCharging: "Verify",
             weight: "Verify",
             imageUrl: ""
-        },
+        }
+    ],
+
+    "Begode": [
         {
-            model: "F22",
+            model: "A5",
             topSpeed: "Verify",
             battery: "Verify",
             voltage: "Verify",
@@ -178,28 +223,56 @@ const EUC_DB = {
             maxCharging: "Verify",
             weight: "Verify",
             imageUrl: ""
-        }
-    ],
-
-    "Begode": [
+        },
         {
-            model: "T4",
-            topSpeed: "Approx. 37 mph",
-            battery: "Approx. 1800 Wh",
-            voltage: "100 V",
-            wheelSize: "16 inch",
+            model: "Blitz",
+            topSpeed: "Approx. 55 mph",
+            battery: "Approx. 2,400 Wh",
+            voltage: "134 V",
+            wheelSize: "20 inch",
             maxCharging: "Verify",
-            weight: "Approx. 66 lb",
+            weight: "Approx. 79 lb",
             imageUrl: ""
         },
         {
-            model: "T4 Pro",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "16 inch",
+            model: "ET Max",
+            topSpeed: "112 mph no-load",
+            battery: "3,000 Wh",
+            voltage: "168 V",
+            wheelSize: "Verify",
             maxCharging: "Verify",
             weight: "Verify",
+            imageUrl: "",
+            sourceNote: "Alien Rides lists no-load speed, not confirmed riding top speed."
+        },
+        {
+            model: "EX30",
+            topSpeed: "Approx. 55 mph",
+            battery: "Approx. 3,600 Wh",
+            voltage: "134 V",
+            wheelSize: "20 inch",
+            maxCharging: "Verify",
+            weight: "Approx. 101 lb",
+            imageUrl: ""
+        },
+        {
+            model: "Extreme",
+            topSpeed: "50 mph",
+            battery: "2,400 Wh",
+            voltage: "134.4 V peak",
+            wheelSize: "16 inch",
+            maxCharging: "5A stock charger",
+            weight: "77 lb",
+            imageUrl: ""
+        },
+        {
+            model: "Extreme Ibex",
+            topSpeed: "50 mph",
+            battery: "2,400 Wh",
+            voltage: "134.4 V peak",
+            wheelSize: "16 inch",
+            maxCharging: "5A stock charger",
+            weight: "77 lb",
             imageUrl: ""
         },
         {
@@ -213,9 +286,19 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
+            model: "Future",
+            topSpeed: "14 mph cruise / up to 27 mph",
+            battery: "375 Wh",
+            voltage: "42 V",
+            wheelSize: "15 inch",
+            maxCharging: "1.5A charger",
+            weight: "37 lb",
+            imageUrl: ""
+        },
+        {
             model: "Master",
             topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2400 Wh",
+            battery: "Approx. 2,400 Wh",
             voltage: "134 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
@@ -225,7 +308,7 @@ const EUC_DB = {
         {
             model: "Master Pro",
             topSpeed: "Verify",
-            battery: "Approx. 4800 Wh",
+            battery: "Approx. 4,800 Wh",
             voltage: "134 V",
             wheelSize: "22 inch",
             maxCharging: "Verify",
@@ -233,67 +316,7 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
-            model: "EX30",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify",
-            weight: "Approx. 101 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Extreme",
-            topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "18 inch",
-            maxCharging: "Verify",
-            weight: "Approx. 91 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Blitz",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify",
-            weight: "Approx. 79 lb",
-            imageUrl: ""
-        },
-        {
-            model: "ET Max",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
-            imageUrl: ""
-        },
-        {
-            model: "X-Way",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
-            imageUrl: ""
-        },
-        {
-            model: "Race",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
-            imageUrl: ""
-        },
-        {
-            model: "Panther",
+            model: "Master V4 50S",
             topSpeed: "Verify",
             battery: "Verify",
             voltage: "Verify",
@@ -314,6 +337,56 @@ const EUC_DB = {
         },
         {
             model: "Mten5",
+            topSpeed: "25+ mph",
+            battery: "750 Wh",
+            voltage: "84 V",
+            wheelSize: "11 inch",
+            maxCharging: "1.5A charger",
+            weight: "41 lb",
+            imageUrl: ""
+        },
+        {
+            model: "Panther",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "Race",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "T4",
+            topSpeed: "Approx. 37 mph",
+            battery: "Approx. 1,800 Wh",
+            voltage: "100 V",
+            wheelSize: "16 inch",
+            maxCharging: "Verify",
+            weight: "Approx. 66 lb",
+            imageUrl: ""
+        },
+        {
+            model: "T4 Pro",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "16 inch",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "X-Way",
             topSpeed: "Verify",
             battery: "Verify",
             voltage: "Verify",
@@ -324,31 +397,104 @@ const EUC_DB = {
         }
     ],
 
-    "LeaperKim / Veteran": [
+    "Extreme Bull": [
         {
-            model: "Sherman",
+            model: "Commander",
             topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3200 Wh",
+            battery: "Approx. 3,600 Wh",
             voltage: "100 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
-            weight: "Approx. 77 lb",
+            weight: "Approx. 80+ lb",
             imageUrl: ""
         },
         {
-            model: "Sherman S",
+            model: "Commander GT",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "Commander GT Pro",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "Commander Mini",
             topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "100 V",
+            battery: "Approx. 2,400 Wh",
+            voltage: "134 V",
+            wheelSize: "16 inch",
+            maxCharging: "Verify",
+            weight: "Approx. 88 lb",
+            imageUrl: ""
+        },
+        {
+            model: "Commander Pro",
+            topSpeed: "50+ mph cruising",
+            battery: "3,600 Wh",
+            voltage: "134.4 V peak",
+            wheelSize: "20 inch",
+            maxCharging: "3A stock charger",
+            weight: "95 lb",
+            imageUrl: ""
+        },
+        {
+            model: "Griffin",
+            topSpeed: "Est. 56.7 mph",
+            battery: "2,700 Wh",
+            voltage: "151 V",
+            wheelSize: "18 inch",
+            maxCharging: "5A stock / 20A support verify",
+            weight: "92.6 lb",
+            imageUrl: ""
+        },
+        {
+            model: "K6",
+            topSpeed: "Verify",
+            battery: "Verify",
+            voltage: "Verify",
+            wheelSize: "Verify",
+            maxCharging: "Verify",
+            weight: "Verify",
+            imageUrl: ""
+        },
+        {
+            model: "Rocket 168V Mini",
+            topSpeed: "70 mph mode / 79 mph free-spin",
+            battery: "1,500 Wh",
+            voltage: "168 V",
+            wheelSize: "15 inch",
+            maxCharging: "Verify",
+            weight: "61.7 lb",
+            imageUrl: ""
+        }
+    ],
+
+    "LeaperKim / Veteran": [
+        {
+            model: "Lynx",
+            topSpeed: "Approx. 56 mph",
+            battery: "Approx. 2,700 Wh",
+            voltage: "151 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
-            weight: "Approx. 97 lb",
+            weight: "Approx. 88 lb",
             imageUrl: ""
         },
         {
             model: "Patton",
             topSpeed: "Approx. 50 mph",
-            battery: "Approx. 2220 Wh",
+            battery: "Approx. 2,220 Wh",
             voltage: "126 V",
             wheelSize: "18 inch",
             maxCharging: "Verify",
@@ -356,13 +502,13 @@ const EUC_DB = {
             imageUrl: ""
         },
         {
-            model: "Lynx",
-            topSpeed: "Approx. 56 mph",
-            battery: "Approx. 2700 Wh",
-            voltage: "151 V",
+            model: "Sherman",
+            topSpeed: "Approx. 45 mph",
+            battery: "Approx. 3,200 Wh",
+            voltage: "100 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
-            weight: "Approx. 88 lb",
+            weight: "Approx. 77 lb",
             imageUrl: ""
         },
         {
@@ -374,48 +520,15 @@ const EUC_DB = {
             maxCharging: "Verify",
             weight: "Verify",
             imageUrl: ""
-        }
-    ],
-
-    "Extreme Bull": [
+        },
         {
-            model: "Commander",
+            model: "Sherman S",
             topSpeed: "Approx. 45 mph",
-            battery: "Approx. 3600 Wh",
+            battery: "Approx. 3,600 Wh",
             voltage: "100 V",
             wheelSize: "20 inch",
             maxCharging: "Verify",
-            weight: "Approx. 80+ lb",
-            imageUrl: ""
-        },
-        {
-            model: "Commander Pro",
-            topSpeed: "Approx. 55 mph",
-            battery: "Approx. 3600 Wh",
-            voltage: "134 V",
-            wheelSize: "20 inch",
-            maxCharging: "Verify",
-            weight: "Approx. 104 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Commander Mini",
-            topSpeed: "Approx. 45 mph",
-            battery: "Approx. 2400 Wh",
-            voltage: "134 V",
-            wheelSize: "16 inch",
-            maxCharging: "Verify",
-            weight: "Approx. 88 lb",
-            imageUrl: ""
-        },
-        {
-            model: "Griffin",
-            topSpeed: "Verify",
-            battery: "Verify",
-            voltage: "Verify",
-            wheelSize: "Verify",
-            maxCharging: "Verify",
-            weight: "Verify",
+            weight: "Approx. 97 lb",
             imageUrl: ""
         }
     ],
@@ -487,7 +600,7 @@ function installGlobalStyle() {
 function buildBoardStyle() {
     return [
         "<style>",
-            ".euc-tool-wrap{width:100%;height:100%;min-height:100%;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;padding:6px 10px 82px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;text-align:center;}",
+            ".euc-tool-wrap{width:100%;height:100%;min-height:100%;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;padding:5px 10px 82px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;text-align:center;}",
             ".euc-subtitle{color:#e2f0d9;font-size:16px;font-weight:900;margin:0 auto 12px;max-width:520px;line-height:1.25;text-shadow:0 2px 5px rgba(0,0,0,.6);}",
 
             ".euc-select-row{display:grid;grid-template-columns:1fr;gap:9px;width:100%;max-width:540px;margin:0 auto 12px;position:relative;z-index:20;}",
@@ -522,6 +635,7 @@ function buildBoardStyle() {
             ".euc-placeholder-note{font-size:13px;color:#e2f0d9;margin-top:4px;font-weight:900;opacity:.85;}",
 
             ".euc-note{font-size:11px;color:#e2f0d9;opacity:.78;line-height:1.25;padding:9px 10px 12px;background:#0b2410;}",
+            ".euc-source-note{font-size:10px;color:#ffd700;opacity:.88;line-height:1.2;padding:0 10px 8px;background:#0b2410;font-weight:800;}",
             ".euc-empty{margin:28px auto;color:#ffd700;font-weight:900;font-size:19px;line-height:1.3;max-width:420px;text-shadow:0 2px 6px rgba(0,0,0,.65);}",
 
             "@media(max-width:420px){",
@@ -612,6 +726,10 @@ function renderEucTool() {
             ? "<img src=\"" + escapeHtml(selectedModel.imageUrl) + "\" alt=\"" + escapeHtml(selectedModel.model) + "\">"
             : placeholderImageText(selectedModel.model);
 
+        const sourceNote = selectedModel.sourceNote
+            ? "<div class=\"euc-source-note\">" + escapeHtml(selectedModel.sourceNote) + "</div>"
+            : "";
+
         cardHtml = [
             "<div class=\"euc-card\">",
                 "<div class=\"euc-card-head\">",
@@ -629,7 +747,8 @@ function renderEucTool() {
                 "</div>",
 
                 "<div class=\"euc-image-area\">", imgHtml, "</div>",
-                "<div class=\"euc-note\">Specs can vary by firmware, battery pack, tire, rider weight, and source. Use this as a quick reference and verify important numbers before buying or riding hard.</div>",
+                "<div class=\"euc-note\">Specs can vary by firmware, battery pack, tire, rider weight, and source. Use this as a quick reference and verify important numbers before buying or riding.</div>",
+                sourceNote,
             "</div>"
         ].join("");
     }
