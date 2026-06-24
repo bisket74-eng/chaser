@@ -484,23 +484,27 @@ function helpOverlayHtml() {
 
     return (
         '<div class="tk-help-overlay">' +
+            '<button class="tk-help-close-x" onclick="closeTinyKingdomsHelp()" type="button">✕</button>' +
             '<div class="tk-help-card">' +
                 '<div class="tk-help-title">How to Play</div>' +
+                '<p><b>Goal:</b> Earn the highest score at the end of 8 rounds.</p>' +
+                
+                '<h3 class="tk-help-section-title">1. Points Earned During Your Turn</h3>' +
+                '<p>Taking actions updates your score instantly:</p>' +
+                '<div class="tk-help-row"><b>🍞 Farm, 🪙 Trade, 📚 Study, ⚔️ Train:</b> Gives you <b>+1 point</b>.</div>' +
+                '<div class="tk-help-row"><b>🔥 Raid:</b> Compares your ⚔️ Army level against your opponent. <br>' +
+                '• <b>Win</b> (Your Army is higher): Steal 2 random resources and earn <b>+3 points</b>.<br>' +
+                '• <b>Fail</b> (Your Army is equal/lower): You steal nothing, but learn from it getting +1 Army level and <b>+1 point</b>.</div>' +
+                '<div class="tk-help-row"><b>✨ Wonder:</b> Costs <b>🍞2, 🪙2, and 📚1</b> to build. Gives a massive point boost equal to <b>6 points + the total number of Wonders you own</b>. (Your first is worth 7 points, your second is worth 8, etc.)</div>' +
 
-                '<p><b>Goal:</b> Most points after 8 rounds.</p>' +
-                '<p>Each turn, tap one action. Red border shows whose turn it is.</p>' +
-
-                '<div class="tk-help-row"><b>🍞 Farm:</b> +3 food, +1 point. Food helps build Wonders.</div>' +
-                '<div class="tk-help-row"><b>🪙 Trade:</b> +3 coins, +1 point. Coins help build Wonders.</div>' +
-                '<div class="tk-help-row"><b>📚 Study:</b> +2 study, +1 point. Study gives good end bonus.</div>' +
-                '<div class="tk-help-row"><b>⚔️ Train:</b> +2 army, +1 point. Army helps with Raid.</div>' +
-                '<div class="tk-help-row"><b>✨ Wonder:</b> Costs 🍞2 🪙2 📚1. Big points.</div>' +
-                '<div class="tk-help-row"><b>🔥 Raid:</b> If your army is higher, steal resources and get +3.</div>' +
-
-                '<p><b>End bonus:</b> Leftover resources add points.</p>' +
-                '<p><b>Zoom:</b> Pinch anywhere on the game. Drag to move. Double tap to reset.</p>' +
-
-                '<button class="tk-help-close" onclick="closeTinyKingdomsHelp()" type="button">Close Game Help ✕</button>' +
+                '<h3 class="tk-help-section-title">2. Ending Bonus Points (Round 8)</h3>' +
+                '<p>When the game ends, your hoarded resources are converted into extra points:</p>' +
+                '<div class="tk-help-row"><b>📚 Study:</b> Worth <b>2 points</b> each.</div>' +
+                '<div class="tk-help-row"><b>✨ Wonder:</b> Worth <b>3 points</b> each.</div>' +
+                '<div class="tk-help-row"><b>⚔️ Army:</b> Worth <b>1 point</b> per level.</div>' +
+                '<div class="tk-help-row"><b>🍞 Food & 🪙 Coins:</b> Worth <b>0.5 points</b> each (grouped into pairs; every 2 leftover food or 2 coins equals 1 point. Odd leftovers round down to 0).</div>' +
+                
+                '<p style="margin-top:20px; font-size:13px; opacity:0.8; text-align:center;">Pinch the game screen to zoom. Drag to move around. Double tap to reset view.</p>' +
             '</div>' +
         '</div>'
     );
@@ -720,7 +724,7 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-round small{display:block;font-size:12px;margin-top:3px;color:#366b3d;}',
             '.tk-help-btn{border:none;border-radius:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:20px;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
             '.tk-message{margin:0 auto 8px;color:#ffd700;font-size:19px;font-weight:900;line-height:1.15;min-height:22px;}',
-            '.tk-board{display:grid;grid-template-columns:1fr;gap:6px;margin:0 auto;}',
+            '.tk-board{display:grid;grid-template-columns:1fr;gap:12px;margin:0 auto;}',
             '.tk-player-card{background:#e2f0d9;color:#1e4620;border:3px solid transparent;border-radius:14px;padding:8px;box-sizing:border-box;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
             '.tk-player-card.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000,0 3px 8px rgba(0,0,0,.35);}',
             '.tk-player-card.winner{border-color:#ffd700;box-shadow:0 0 0 2px #ffd700,0 3px 8px rgba(0,0,0,.35);}',
@@ -745,13 +749,15 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-action:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
             '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
             '.tk-mini-log{background:rgba(0,0,0,.22);border:2px solid rgba(255,215,0,.35);border-radius:12px;padding:7px;color:#e2f0d9;font-size:13px;font-weight:900;line-height:1.2;margin-top:7px;min-height:18px;}',
+            /* FULL PAGE HELP STYLES WITH CORNER X */
             '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9;z-index:70000;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
-            '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:30px 24px 80px;box-sizing:border-box;color:#1e4620;font-size:17px;line-height:1.35;}',
-            '.tk-help-title{text-align:center;color:#1e4620;font-size:32px;font-weight:900;margin-bottom:16px;}',
-            '.tk-help-card p{margin:10px 0;}',
-            '.tk-help-row{background:#ffffff;border-radius:14px;padding:12px;margin:12px 0;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,.15);}',
-            '.tk-help-close{display:block;width:100%;border:none;border-radius:16px;background:#b00020;color:#ffffff;font-size:18px;font-weight:900;padding:16px;margin-top:30px;box-shadow:0 4px 12px rgba(0,0,0,.25);}',
-            '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 86px;}.tk-top{grid-template-columns:1fr 88px;gap:6px;margin-bottom:6px;}.tk-round{font-size:16px;padding:6px 4px;}.tk-round small{font-size:10px;}.tk-help-btn{font-size:15px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:14px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:18px;}.tk-resource-num{font-size:16px;}.tk-resource-label{font-size:8px;}.tk-actions{gap:4px;margin-top:6px;}.tk-action{min-height:54px;padding:5px 2px;}.tk-action span{font-size:20px;}.tk-action b{font-size:12px;}.tk-action small{font-size:8px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:20px 16px 80px;}.tk-help-title{font-size:24px;}}',
+            '.tk-help-close-x{position:fixed;top:12px;right:16px;border:none;background:#b00020;color:#ffffff;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:70001;}',
+            '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 60px;box-sizing:border-box;color:#1e4620;font-size:16px;line-height:1.4;}',
+            '.tk-help-title{text-align:center;color:#1e4620;font-size:28px;font-weight:900;margin-bottom:12px;}',
+            '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
+            '.tk-help-card p{margin:8px 0;}',
+            '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
+            '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 86px;}.tk-top{grid-template-columns:1fr 88px;gap:6px;margin-bottom:6px;}.tk-round{font-size:16px;padding:6px 4px;}.tk-round small{font-size:10px;}.tk-help-btn{font-size:15px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:14px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:18px;}.tk-resource-num{font-size:16px;}.tk-resource-label{font-size:8px;}.tk-actions{gap:4px;margin-top:6px;}.tk-action{min-height:54px;padding:5px 2px;}.tk-action span{font-size:20px;}.tk-action b{font-size:12px;}.tk-action small{font-size:8px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
         '</style>',
 
         '<div class="tk-wrap">',
