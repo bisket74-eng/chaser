@@ -1760,6 +1760,9 @@ margin-left:0 !important;
  .on('broadcast', { event:'texasholdem-sync-state' }, ({ payload }) => {
 if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
 })
+ .on('broadcast', { event:'tinykingdoms-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingTinyKingdomsSync) window.handleIncomingTinyKingdomsSync(payload);
+})           
            
 
 .on('broadcast', { event:'scrabble-sync-state' }, ({ payload }) => {
