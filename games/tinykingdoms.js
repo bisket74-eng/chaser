@@ -50,11 +50,10 @@ const roomDisplay = byId("roomDisplayCode");
 const headerBtns = byId("headerActionButtonsContainer");
 const chatHeader = byId("chatHeader");
 
-```
 if (roomDisplay) roomDisplay.innerText = "🏰 Tiny Kingdoms";
 if (headerBtns) headerBtns.style.display = "none";
 if (chatHeader) chatHeader.classList.add("game-active-mode");
-```
+
 
 }
 
@@ -76,7 +75,7 @@ const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.player
 ? window.chaserGame.players
 : [{ id: getMyId(), name: myName(), seat: 0 }];
 
-```
+
 const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
     return {
         id: p.id,
@@ -112,7 +111,7 @@ if (players.length === 1) {
 }
 
 return players;
-```
+
 
 }
 
@@ -139,11 +138,10 @@ function myPlayer() {
 const st = window.tinyKingdomsState;
 if (!st) return null;
 
-```
 return st.players.find(function (p) {
     return p.id === getMyId();
 }) || null;
-```
+
 
 }
 
@@ -162,7 +160,7 @@ function nextTurnIndex(fromIndex) {
 const st = window.tinyKingdomsState;
 if (!st || !st.players.length) return 0;
 
-```
+
 for (let i = 1; i <= st.players.length; i++) {
     const idx = (fromIndex + i) % st.players.length;
     const p = st.players[idx];
@@ -171,7 +169,7 @@ for (let i = 1; i <= st.players.length; i++) {
 }
 
 return fromIndex;
-```
+
 
 }
 
@@ -189,7 +187,7 @@ function strongestOpponent(player) {
 const st = window.tinyKingdomsState;
 if (!st) return null;
 
-```
+
 return st.players
     .filter(function (p) {
         return p.id !== player.id;
@@ -197,7 +195,7 @@ return st.players
     .sort(function (a, b) {
         return (b.coins + b.food + b.science + b.score) - (a.coins + a.food + a.science + a.score);
     })[0] || null;
-```
+
 
 }
 
@@ -208,7 +206,7 @@ toPlayer.coins += 1;
 return "coin";
 }
 
-```
+
 if (fromPlayer.food > 0) {
     fromPlayer.food -= 1;
     toPlayer.food += 1;
@@ -222,14 +220,14 @@ if (fromPlayer.science > 0) {
 }
 
 return "";
-```
+
 
 }
 
 function applyAction(st, p, action) {
 let text = "";
 
-```
+
 if (action === "farm") {
     p.food += 3;
     p.score += 1;
@@ -305,7 +303,7 @@ st.message = p.name + " " + text + ".";
 addLog(st, p.name + ": " + p.lastAction);
 
 return true;
-```
+
 
 }
 
@@ -316,7 +314,7 @@ finishGame(st);
 return;
 }
 
-```
+
     st.round += 1;
 
     st.players.forEach(function (p) {
@@ -331,7 +329,7 @@ return;
 
 st.turnIndex = nextTurnIndex(st.turnIndex);
 st.message = st.players[st.turnIndex].name + " to act.";
-```
+
 
 }
 
@@ -346,7 +344,7 @@ p.army +
 function finishGame(st) {
 st.phase = "gameover";
 
-```
+
 st.players.forEach(function (p) {
     p.endBonus = finalBonus(p);
     p.score += p.endBonus;
@@ -371,7 +369,7 @@ st.finalMessage = winners.map(function (p) {
 
 st.message = st.finalMessage;
 addLog(st, st.finalMessage);
-```
+
 
 }
 
@@ -379,7 +377,7 @@ window.tinyKingdomsAction = function (action) {
 const st = window.tinyKingdomsState;
 const p = myPlayer();
 
-```
+
 if (!st || !p || st.phase !== "playing") return;
 if (!isMyTurn()) return;
 if (p.acted) return;
@@ -394,14 +392,13 @@ advanceAfterAction(st);
 renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
-```
+
 
 };
 
 function computerPickAction(p) {
 const opponent = strongestOpponent(p);
 
-```
 if (canBuildWonder(p) && Math.random() < 0.55) return "wonder";
 
 if (opponent && p.army > opponent.army + 1 && Math.random() < 0.45) return "raid";
@@ -413,7 +410,7 @@ if (opponent && p.army <= opponent.army && Math.random() < 0.4) return "train";
 
 const choices = ["farm", "trade", "study", "train", "raid"];
 return choices[Math.floor(Math.random() * choices.length)];
-```
+
 
 }
 
@@ -421,7 +418,7 @@ function computerAction() {
 const st = window.tinyKingdomsState;
 const p = currentPlayer();
 
-```
+
 if (!st || st.phase !== "playing" || !p || !p.isComputer || p.acted) return;
 
 const action = computerPickAction(p);
@@ -434,14 +431,14 @@ if (ok) {
 renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
-```
+
 
 }
 
 function maybeComputerAction() {
 clearTimeout(botTimer);
 
-```
+
 const st = window.tinyKingdomsState;
 if (!st || st.phase !== "playing") return;
 
@@ -449,7 +446,7 @@ const p = currentPlayer();
 if (!p || !p.isComputer) return;
 
 botTimer = setTimeout(computerAction, BOT_DELAY);
-```
+
 
 }
 
@@ -468,7 +465,6 @@ const st = window.tinyKingdomsState;
 const turn = st.phase === "playing" && st.turnIndex === index;
 const winner = st.winners.indexOf(p.id) !== -1;
 
-```
 return (
     '<div class="tk-player-card ' + (turn ? "turn " : "") + (winner ? "winner " : "") + '">' +
         '<div class="tk-player-top">' +
@@ -493,7 +489,7 @@ return (
         (st.phase === "gameover" ? '<div class="tk-bonus">End bonus: +' + Number(p.endBonus || 0) + '</div>' : '') +
     '</div>'
 );
-```
+
 
 }
 
@@ -511,7 +507,7 @@ function renderTinyKingdoms() {
 const el = canvas();
 const st = window.tinyKingdomsState;
 
-```
+
 if (!el || !st) return;
 
 const me = myPlayer();
@@ -599,7 +595,7 @@ el.innerHTML = [
 ].join("");
 
 maybeComputerAction();
-```
+
 
 }
 
@@ -613,7 +609,7 @@ maybeComputerAction();
 window.handleIncomingTinyKingdomsSync = function (payload) {
 if (!payload || !payload.state) return;
 
-```
+
 if (
     payload.roomGameId &&
     window.chaserGame &&
@@ -631,7 +627,7 @@ if (window.chaserGame) {
 
 renderTinyKingdoms();
 maybeComputerAction();
-```
+
 
 };
 
@@ -639,7 +635,7 @@ window.initTinyKingdomsGame = function () {
 window.chaserGame = window.chaserGame || {};
 window.chaserGame.activeGame = "TinyKingdoms";
 
-```
+
 openStage();
 setHeader();
 
@@ -652,7 +648,7 @@ if (amHost || !window.tinyKingdomsState) {
 
 renderTinyKingdoms();
 maybeComputerAction();
-```
+
 
 };
 
