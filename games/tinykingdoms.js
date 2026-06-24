@@ -11,10 +11,12 @@ const BOT_ID = "tiny-kingdoms-computer";
 const BOT_DELAY = 6000;
 const ARMY_REVEAL_MS = 2800;
 const ACTION_FLASH_MS = 1500;
+const BONUS_STEP_MS = 2000;
 
 let botTimer = null;
 let armyRevealTimer = null;
 let actionFlashTimer = null;
+let bonusStepTimer = null;
 
 const zoomView = {
     scale: 1,
@@ -84,6 +86,11 @@ function syncTinyKingdoms() {
     }
 }
 
+function isTinyKingdomsHost() {
+    if (!window.chaserGame || !window.chaserGame.hostId) return true;
+    return window.chaserGame.hostId === getMyId();
+}
+
 function makePlayers() {
     const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.players) && window.chaserGame.players.length
         ? window.chaserGame.players
@@ -139,7 +146,10 @@ function createState() {
         winners: [],
         armyRevealUntil: 0,
         armyRevealIds: [],
-        actionFlash: null
+        actionFlash: null,
+        scoringQueue: [],
+        scoringIndex: 0,
+        activeScoring: null
     };
 }
 
@@ -244,7 +254,7 @@ function shouldHideArmy(p) {
     const me = myPlayer();
 
     if (!st || !p || !me) return false;
-    if (st.phase === "gameover") return false;
+    if (st.phase === "scoring" || st.phase === "gameover") return false;
     if (p.id === me.id) return false;
     if (isArmyRevealed(p.id)) return false;
 
@@ -273,7 +283,7 @@ function actionResource(action) {
 
 function actionFlashLabel(p, resourceName) {
     const st = window.tinyKingdomsState;
-    if (!st || !st.actionFlash || !st.actionFlash.until) return "";
+    if (!st || st.phase === "scoring" || !st.actionFlash || !st.actionFlash.until) return "";
     if (Date.now() > st.actionFlash.until) return "";
 
     const flash = st.actionFlash;
@@ -288,6 +298,15 @@ function actionFlashLabel(p, resourceName) {
 
     if (p.id !== flash.playerId) return "";
     return flash.label || "";
+}
+
+function scoringFlashLabel(p, resourceName) {
+    const st = window.tinyKingdomsState;
+    if (!st || st.phase !== "scoring" || !st.activeScoring || !st.activeScoring.until) return "";
+    if (Date.now() > st.activeScoring.until) return "";
+    if (st.activeScoring.playerId !== p.id) return "";
+    if (st.activeScoring.resource !== resourceName) return "";
+    return "+" + Number(st.activeScoring.points || 0) + " PT";
 }
 
 function scheduleArmyRevealHide() {
@@ -338,6 +357,160 @@ function scheduleActionFlashHide() {
             current.actionFlash = null;
             renderTinyKingdomsNoBot();
             syncTinyKingdoms();
+        }
+    }, wait + 50);
+}
+
+function bonusPointsFor(p, resource) {
+    if (resource === "food") return Math.floor(p.food / 2);
+    if (resource === "coins") return Math.floor(p.coins / 2);
+    if (resource === "science") return p.science * 2;
+    if (resource === "army") return p.army;
+    if (resource === "wonder") return p.wonder * 3;
+    return 0;
+}
+
+function resourceDisplayName(resource) {
+    if (resource === "food") return "Food";
+    if (resource === "coins") return "Coins";
+    if (resource === "science") return "Study";
+    if (resource === "army") return "Army";
+    if (resource === "wonder") return "Wonder";
+    return "Bonus";
+}
+
+function buildScoringQueue(st) {
+    const resources = ["food", "coins", "science", "army", "wonder"];
+    const queue = [];
+
+    st.players.forEach(function (p) {
+        resources.forEach(function (resource) {
+            const points = bonusPointsFor(p, resource);
+            if (points > 0) {
+                queue.push({
+                    playerId: p.id,
+                    resource: resource,
+                    points: points
+                });
+            }
+        });
+    });
+
+    return queue;
+}
+
+function finishGame(st) {
+    st.phase = "scoring";
+    st.armyRevealUntil = 0;
+    st.armyRevealIds = [];
+    st.actionFlash = null;
+    st.finalMessage = "";
+    st.winners = [];
+    st.scoringQueue = buildScoringQueue(st);
+    st.scoringIndex = 0;
+    st.activeScoring = null;
+
+    st.players.forEach(function (p) {
+        p.endBonus = 0;
+        p.acted = true;
+    });
+
+    st.message = "Counting bonus points...";
+    addLog(st, "Counting bonus points");
+    startNextScoringStep(st);
+}
+
+function startNextScoringStep(st) {
+    if (!st || st.phase !== "scoring") return;
+
+    if (!Array.isArray(st.scoringQueue)) st.scoringQueue = [];
+    if (typeof st.scoringIndex !== "number") st.scoringIndex = 0;
+
+    if (st.scoringIndex >= st.scoringQueue.length) {
+        completeScoring(st);
+        return;
+    }
+
+    const step = st.scoringQueue[st.scoringIndex];
+    st.scoringIndex += 1;
+
+    const p = st.players.find(function (player) {
+        return player.id === step.playerId;
+    });
+
+    if (!p) {
+        startNextScoringStep(st);
+        return;
+    }
+
+    const points = Number(step.points || 0);
+    p.score += points;
+    p.endBonus += points;
+
+    st.activeScoring = {
+        playerId: p.id,
+        resource: step.resource,
+        points: points,
+        until: Date.now() + BONUS_STEP_MS
+    };
+
+    st.message = p.name + ": " + resourceDisplayName(step.resource) + " +" + points;
+    addLog(st, p.name + " bonus +" + points);
+}
+
+function completeScoring(st) {
+    st.phase = "gameover";
+    st.activeScoring = null;
+    st.scoringQueue = [];
+    st.scoringIndex = 0;
+
+    const bestScore = Math.max.apply(null, st.players.map(function (p) {
+        return p.score;
+    }));
+
+    const winners = st.players.filter(function (p) {
+        return p.score === bestScore;
+    });
+
+    st.winners = winners.map(function (p) {
+        return p.id;
+    });
+
+    st.finalMessage = winners.map(function (p) {
+        return p.name;
+    }).join(" & ") + " win: " + bestScore;
+
+    st.message = st.finalMessage;
+    addLog(st, st.finalMessage);
+}
+
+function scheduleBonusScoring() {
+    clearTimeout(bonusStepTimer);
+
+    const st = window.tinyKingdomsState;
+    if (!st || st.phase !== "scoring" || !st.activeScoring || !st.activeScoring.until) return;
+
+    const wait = st.activeScoring.until - Date.now();
+
+    if (wait <= 0) {
+        if (isTinyKingdomsHost()) {
+            startNextScoringStep(st);
+            renderTinyKingdomsNoBot();
+            syncTinyKingdoms();
+        }
+        return;
+    }
+
+    bonusStepTimer = setTimeout(function () {
+        const current = window.tinyKingdomsState;
+        if (!current || current.phase !== "scoring") return;
+
+        if (Date.now() >= current.activeScoring.until && isTinyKingdomsHost()) {
+            startNextScoringStep(current);
+            renderTinyKingdomsNoBot();
+            syncTinyKingdoms();
+        } else {
+            renderTinyKingdomsNoBot();
         }
     }, wait + 50);
 }
@@ -448,46 +621,6 @@ function advanceAfterAction(st) {
     st.turnIndex = nextTurnIndex(st.turnIndex);
 }
 
-function finalBonus(p) {
-    return Math.floor(p.food / 2) +
-        Math.floor(p.coins / 2) +
-        (p.science * 2) +
-        p.army +
-        (p.wonder * 3);
-}
-
-function finishGame(st) {
-    st.phase = "gameover";
-    st.armyRevealUntil = 0;
-    st.armyRevealIds = [];
-    st.actionFlash = null;
-
-    st.players.forEach(function (p) {
-        p.endBonus = finalBonus(p);
-        p.score += p.endBonus;
-        p.acted = true;
-    });
-
-    const bestScore = Math.max.apply(null, st.players.map(function (p) {
-        return p.score;
-    }));
-
-    const winners = st.players.filter(function (p) {
-        return p.score === bestScore;
-    });
-
-    st.winners = winners.map(function (p) {
-        return p.id;
-    });
-
-    st.finalMessage = winners.map(function (p) {
-        return p.name;
-    }).join(" & ") + " win: " + bestScore;
-
-    st.message = st.finalMessage;
-    addLog(st, st.finalMessage);
-}
-
 window.tinyKingdomsAction = function (action) {
     const st = window.tinyKingdomsState;
     const p = myPlayer();
@@ -556,20 +689,22 @@ function maybeComputerAction() {
     botTimer = setTimeout(computerAction, BOT_DELAY);
 }
 
-function resourceTile(icon, label, value, hidden, flashLabel) {
+function resourceTile(icon, label, value, hidden, flashLabel, bonusLabel) {
     const amount = Number(value || 0);
     const hasValue = amount > 0 ? " has-value" : "";
     const hiddenClass = hidden ? " army-hidden" : "";
     const flashClass = flashLabel ? " action-flash" : "";
+    const bonusClass = bonusLabel ? " bonus-flash" : "";
     const shownIcon = hidden ? "☁️" : icon;
     const shownAmount = hidden ? "?" : amount;
+    const floatLabel = bonusLabel || flashLabel || "";
 
     return (
-        '<div class="tk-resource' + hasValue + hiddenClass + flashClass + '">' +
+        '<div class="tk-resource' + hasValue + hiddenClass + flashClass + bonusClass + '">' +
             '<div class="tk-resource-icon">' + shownIcon + '</div>' +
             '<div class="tk-resource-num">' + shownAmount + '</div>' +
             '<div class="tk-resource-label">' + label + '</div>' +
-            (flashLabel ? '<div class="tk-float">' + escapeHtml(flashLabel) + '</div>' : '') +
+            (floatLabel ? '<div class="tk-float">' + escapeHtml(floatLabel) + '</div>' : '') +
         '</div>'
     );
 }
@@ -588,13 +723,13 @@ function playerCard(p, index) {
                 '<div class="tk-score">' + Number(p.score || 0) + '</div>' +
             '</div>' +
             '<div class="tk-resource-grid">' +
-                resourceTile("🍞", "Food", p.food, false, actionFlashLabel(p, "food")) +
-                resourceTile("🪙", "Coins", p.coins, false, actionFlashLabel(p, "coins")) +
-                resourceTile("📚", "Study", p.science, false, actionFlashLabel(p, "science")) +
-                resourceTile("⚔️", "Army", p.army, hideArmy, actionFlashLabel(p, "army")) +
-                resourceTile("✨", "Wonder", p.wonder, false, actionFlashLabel(p, "wonder")) +
+                resourceTile("🍞", "Food", p.food, false, actionFlashLabel(p, "food"), scoringFlashLabel(p, "food")) +
+                resourceTile("🪙", "Coins", p.coins, false, actionFlashLabel(p, "coins"), scoringFlashLabel(p, "coins")) +
+                resourceTile("📚", "Study", p.science, false, actionFlashLabel(p, "science"), scoringFlashLabel(p, "science")) +
+                resourceTile("⚔️", "Army", p.army, hideArmy, actionFlashLabel(p, "army"), scoringFlashLabel(p, "army")) +
+                resourceTile("✨", "Wonder", p.wonder, false, actionFlashLabel(p, "wonder"), scoringFlashLabel(p, "wonder")) +
             '</div>' +
-            (st.phase === "gameover" ? '<div class="tk-bonus">Bonus +' + Number(p.endBonus || 0) + '</div>' : '') +
+            (st.phase === "scoring" || st.phase === "gameover" ? '<div class="tk-bonus">Bonus +' + Number(p.endBonus || 0) + '</div>' : '') +
         '</div>'
     );
 }
@@ -844,8 +979,10 @@ function renderTinyKingdoms(skipBotCheck) {
         return playerCard(item.p, item.index);
     }).join("");
 
-    const actionsHtml = st.phase === "playing"
-        ? (
+    let actionsHtml = "";
+
+    if (st.phase === "playing") {
+        actionsHtml = (
             '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
                 actionButton("farm", "🍞", "Farm", "+3 food", !canAct, "") +
                 actionButton("trade", "🪙", "Trade", "+3 coins", !canAct, "") +
@@ -854,12 +991,12 @@ function renderTinyKingdoms(skipBotCheck) {
                 actionButton("wonder", "✨", "Wonder", "big points", buildDisabled, "gold") +
                 actionButton("raid", "🔥", "Raid", "army test", !canAct, "red") +
             '</div>'
-        )
-        : (
-            '<div class="tk-actions">' +
-                '<button class="tk-new" onclick="resetTinyKingdomsGame()" type="button">New Kingdom</button>' +
-            '</div>'
         );
+    } else if (st.phase === "scoring") {
+        actionsHtml = '<div class="tk-actions tk-scoring-actions"><button class="tk-new" disabled type="button">Scoring...</button></div>';
+    } else {
+        actionsHtml = '<div class="tk-actions"><button class="tk-new" onclick="resetTinyKingdomsGame()" type="button">New Kingdom</button></div>';
+    }
 
     const messageText = st.message || "";
 
@@ -889,11 +1026,17 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-resource.army-hidden .tk-resource-icon{filter:drop-shadow(0 1px 2px rgba(0,0,0,.18));}',
             '.tk-resource.army-hidden .tk-resource-num{color:#1e4620;font-size:22px;}',
             '.tk-resource.action-flash{animation:tkPulseBox 1.5s ease-out;z-index:2;}',
-            '.tk-resource.action-flash .tk-resource-icon{animation:tkIconPop 1.5s ease-out;}',
+            '.tk-resource.bonus-flash{animation:tkBonusBox 2s ease-out;z-index:3;border-color:#ffd700;}',
+            '.tk-resource.action-flash .tk-resource-icon,.tk-resource.bonus-flash .tk-resource-icon{animation:tkIconPop 1.5s ease-out;}',
+            '.tk-resource.bonus-flash .tk-resource-num{animation:tkNumberPop 2s ease-out;}',
             '.tk-float{position:absolute;left:50%;top:-10px;transform:translateX(-50%);background:#ffd700;color:#1e4620;border:2px solid #ffffff;border-radius:999px;padding:2px 7px;font-size:13px;font-weight:900;line-height:1;box-shadow:0 2px 8px rgba(0,0,0,.35);animation:tkFloatUp 1.5s ease-out forwards;pointer-events:none;white-space:nowrap;}',
+            '.tk-resource.bonus-flash .tk-float{animation:tkFloatUpBonus 2s ease-out forwards;}',
             '@keyframes tkPulseBox{0%{transform:scale(1);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 0 rgba(255,215,0,0);}25%{transform:scale(1.08);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 16px rgba(255,215,0,.95);}100%{transform:scale(1);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 0 rgba(255,215,0,0);}}',
+            '@keyframes tkBonusBox{0%{transform:scale(1);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 0 rgba(255,215,0,0);}20%{transform:scale(1.1);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 20px rgba(255,215,0,1);}80%{transform:scale(1.04);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 12px rgba(255,215,0,.65);}100%{transform:scale(1);box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 0 rgba(255,215,0,0);}}',
             '@keyframes tkIconPop{0%{transform:translateY(0);}25%{transform:translateY(-4px) scale(1.2);}100%{transform:translateY(0) scale(1);}}',
+            '@keyframes tkNumberPop{0%{transform:scale(1);}20%{transform:scale(1.35);}100%{transform:scale(1);}}',
             '@keyframes tkFloatUp{0%{opacity:0;transform:translate(-50%,8px) scale(.8);}20%{opacity:1;}100%{opacity:0;transform:translate(-50%,-24px) scale(1.05);}}',
+            '@keyframes tkFloatUpBonus{0%{opacity:0;transform:translate(-50%,8px) scale(.8);}20%{opacity:1;}70%{opacity:1;}100%{opacity:0;transform:translate(-50%,-28px) scale(1.08);}}',
             '.tk-resource-icon{font-size:20px;line-height:1;}',
             '.tk-resource-num{font-size:18px;font-weight:900;line-height:1.05;margin-top:2px;color:#1e4620;}',
             '.tk-resource-label{font-size:9px;font-weight:900;text-transform:uppercase;color:#366b3d;}',
@@ -906,7 +1049,7 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-action small{display:block;font-size:10px;line-height:1.1;color:#3c6f41;}',
             '.tk-action.gold{background:#ffd700;}',
             '.tk-action.red{background:#ffc9c9;color:#7a1010;}',
-            '.tk-action:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
+            '.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
             '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
             '.tk-mini-log{background:rgba(0,0,0,.22);border:2px solid rgba(255,215,0,.35);border-radius:12px;padding:7px;color:#e2f0d9;font-size:13px;font-weight:900;line-height:1.2;margin-top:7px;min-height:18px;}',
             '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9;z-index:70000;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
@@ -941,6 +1084,7 @@ function renderTinyKingdoms(skipBotCheck) {
     setupWholeGameZoom();
     scheduleArmyRevealHide();
     scheduleActionFlashHide();
+    scheduleBonusScoring();
 
     if (!skipBotCheck) {
         maybeComputerAction();
@@ -950,6 +1094,7 @@ function renderTinyKingdoms(skipBotCheck) {
 window.resetTinyKingdomsGame = function () {
     clearTimeout(armyRevealTimer);
     clearTimeout(actionFlashTimer);
+    clearTimeout(bonusStepTimer);
     resetZoom();
     window.__tinyKingdomsHelpOpen = false;
     window.tinyKingdomsState = createState();
