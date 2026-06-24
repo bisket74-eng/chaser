@@ -269,8 +269,8 @@ minPlayers: 1,
 maxPlayers: 6,
 multiplayer: true,
 init: () => {
-if (typeof window.inittexasHoldemGame === "function") {
-window.inittexasHoldemGame();
+if (typeof window.initTexasHoldemGame === "function") {
+window.initTexasHoldemGame();
 } else {
 alert("Texas Hold'em file did not load. Check /games/texasholdem.js and the script tag in index.html.");
 }
