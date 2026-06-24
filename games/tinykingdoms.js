@@ -493,9 +493,14 @@ return (
 
 }
 
+/* FIXED: build the onclick attribute with real escaped double-quotes
+   around a real single-quoted JS string argument, e.g.
+   onclick="tinyKingdomsAction('farm')"
+   The previous version concatenated empty string literals ('' + action + '')
+   which produced onclick="tinyKingdomsActionfarm" - not a valid function call. */
 function actionButton(action, icon, title, sub, disabled, extraClass) {
 return (
-'<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction('' + action + '')" ' + (disabled ? "disabled" : "") + ' type="button">' +
+'<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction(&quot;' + action + '&quot;)" ' + (disabled ? "disabled" : "") + ' type="button">' +
 '<span>' + icon + '</span>' +
 '<b>' + title + '</b>' +
 '<small>' + sub + '</small>' +
@@ -658,4 +663,3 @@ window.initTinyKingdoms = window.initTinyKingdomsGame;
 window.renderTinyKingdoms = renderTinyKingdoms;
 
 })();
-
