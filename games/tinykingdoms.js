@@ -9,8 +9,10 @@ const MAX_ROUNDS = 8;
 const MAX_PLAYERS = 2;
 const BOT_ID = "tiny-kingdoms-computer";
 const BOT_DELAY = 6000;
+const ARMY_REVEAL_MS = 2800;
 
 let botTimer = null;
+let armyRevealTimer = null;
 
 const zoomView = {
     scale: 1,
@@ -132,7 +134,9 @@ function createState() {
         message: "Build your tiny kingdom.",
         log: [],
         finalMessage: "",
-        winners: []
+        winners: [],
+        armyRevealUntil: 0,
+        armyRevealIds: []
     };
 }
 
@@ -220,6 +224,57 @@ function stealOneResource(fromPlayer, toPlayer) {
     return "";
 }
 
+function revealRaidArmies(st, attacker, target) {
+    st.armyRevealUntil = Date.now() + ARMY_REVEAL_MS;
+    st.armyRevealIds = [attacker.id, target.id];
+}
+
+function isArmyRevealed(playerId) {
+    const st = window.tinyKingdomsState;
+    if (!st || !st.armyRevealUntil || !Array.isArray(st.armyRevealIds)) return false;
+    if (Date.now() > st.armyRevealUntil) return false;
+    return st.armyRevealIds.indexOf(playerId) !== -1;
+}
+
+function shouldHideArmy(p) {
+    const st = window.tinyKingdomsState;
+    const me = myPlayer();
+
+    if (!st || !p || !me) return false;
+    if (st.phase === "gameover") return false;
+    if (p.id === me.id) return false;
+    if (isArmyRevealed(p.id)) return false;
+
+    return true;
+}
+
+function scheduleArmyRevealHide() {
+    clearTimeout(armyRevealTimer);
+
+    const st = window.tinyKingdomsState;
+    if (!st || !st.armyRevealUntil) return;
+
+    const wait = st.armyRevealUntil - Date.now();
+
+    if (wait <= 0) {
+        st.armyRevealUntil = 0;
+        st.armyRevealIds = [];
+        return;
+    }
+
+    armyRevealTimer = setTimeout(function () {
+        const current = window.tinyKingdomsState;
+        if (!current || !current.armyRevealUntil) return;
+
+        if (Date.now() >= current.armyRevealUntil) {
+            current.armyRevealUntil = 0;
+            current.armyRevealIds = [];
+            renderTinyKingdomsNoBot();
+            syncTinyKingdoms();
+        }
+    }, wait + 50);
+}
+
 function applyAction(st, p, action) {
     let text = "";
 
@@ -274,6 +329,8 @@ function applyAction(st, p, action) {
             return false;
         }
 
+        revealRaidArmies(st, p, target);
+
         if (p.army > target.army) {
             stealOneResource(target, p);
             stealOneResource(target, p);
@@ -327,6 +384,8 @@ function finalBonus(p) {
 
 function finishGame(st) {
     st.phase = "gameover";
+    st.armyRevealUntil = 0;
+    st.armyRevealIds = [];
 
     st.players.forEach(function (p) {
         p.endBonus = finalBonus(p);
@@ -422,14 +481,17 @@ function maybeComputerAction() {
     botTimer = setTimeout(computerAction, BOT_DELAY);
 }
 
-function resourceTile(icon, label, value) {
+function resourceTile(icon, label, value, hidden) {
     const amount = Number(value || 0);
     const hasValue = amount > 0 ? " has-value" : "";
+    const hiddenClass = hidden ? " army-hidden" : "";
+    const shownIcon = hidden ? "☁️" : icon;
+    const shownAmount = hidden ? "?" : amount;
 
     return (
-        '<div class="tk-resource' + hasValue + '">' +
-            '<div class="tk-resource-icon">' + icon + '</div>' +
-            '<div class="tk-resource-num">' + amount + '</div>' +
+        '<div class="tk-resource' + hasValue + hiddenClass + '">' +
+            '<div class="tk-resource-icon">' + shownIcon + '</div>' +
+            '<div class="tk-resource-num">' + shownAmount + '</div>' +
             '<div class="tk-resource-label">' + label + '</div>' +
         '</div>'
     );
@@ -439,6 +501,7 @@ function playerCard(p, index) {
     const st = window.tinyKingdomsState;
     const turn = st.phase === "playing" && st.turnIndex === index;
     const winner = st.winners.indexOf(p.id) !== -1;
+    const hideArmy = shouldHideArmy(p);
 
     return (
         '<div class="tk-player-card ' + (turn ? "turn " : "") + (winner ? "winner " : "") + '">' +
@@ -448,11 +511,11 @@ function playerCard(p, index) {
                 '<div class="tk-score">' + Number(p.score || 0) + '</div>' +
             '</div>' +
             '<div class="tk-resource-grid">' +
-                resourceTile("🍞", "Food", p.food) +
-                resourceTile("🪙", "Coins", p.coins) +
-                resourceTile("📚", "Study", p.science) +
-                resourceTile("⚔️", "Army", p.army) +
-                resourceTile("✨", "Wonder", p.wonder) +
+                resourceTile("🍞", "Food", p.food, false) +
+                resourceTile("🪙", "Coins", p.coins, false) +
+                resourceTile("📚", "Study", p.science, false) +
+                resourceTile("⚔️", "Army", p.army, hideArmy) +
+                resourceTile("✨", "Wonder", p.wonder, false) +
             '</div>' +
             (st.phase === "gameover" ? '<div class="tk-bonus">Bonus +' + Number(p.endBonus || 0) + '</div>' : '') +
         '</div>'
@@ -691,8 +754,16 @@ function renderTinyKingdoms(skipBotCheck) {
     const canAct = st.phase === "playing" && isMyTurn() && me && !me.acted && !me.isComputer;
     const buildDisabled = !canAct || !canBuildWonder(me);
 
-    const playersHtml = st.players.map(function (p, index) {
-        return playerCard(p, index);
+    const displayPlayers = st.players.map(function (p, index) {
+        return { p: p, index: index };
+    }).sort(function (a, b) {
+        if (me && a.p.id === me.id && b.p.id !== me.id) return 1;
+        if (me && b.p.id === me.id && a.p.id !== me.id) return -1;
+        return a.index - b.index;
+    });
+
+    const playersHtml = displayPlayers.map(function (item) {
+        return playerCard(item.p, item.index);
     }).join("");
 
     const actionsHtml = st.phase === "playing"
@@ -735,6 +806,9 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-resource-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}',
             '.tk-resource{background:#ffffff;border:2px solid #cfe4c3;border-radius:10px;padding:4px 2px;box-sizing:border-box;min-width:0;box-shadow:inset 0 2px 4px rgba(0,0,0,.12);}',
             '.tk-resource.has-value{border-color:#ffd700;}',
+            '.tk-resource.army-hidden{background:linear-gradient(180deg,#ffffff,#e9f4ff);border-color:#dbe9ff;box-shadow:inset 0 2px 4px rgba(0,0,0,.12),0 0 10px rgba(255,255,255,.55);}',
+            '.tk-resource.army-hidden .tk-resource-icon{filter:drop-shadow(0 1px 2px rgba(0,0,0,.18));}',
+            '.tk-resource.army-hidden .tk-resource-num{color:#1e4620;font-size:22px;}',
             '.tk-resource-icon{font-size:20px;line-height:1;}',
             '.tk-resource-num{font-size:18px;font-weight:900;line-height:1.05;margin-top:2px;color:#1e4620;}',
             '.tk-resource-label{font-size:9px;font-weight:900;text-transform:uppercase;color:#366b3d;}',
@@ -757,7 +831,7 @@ function renderTinyKingdoms(skipBotCheck) {
             '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
             '.tk-help-card p{margin:8px 0;}',
             '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
-            '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 86px;}.tk-top{grid-template-columns:1fr 88px;gap:6px;margin-bottom:6px;}.tk-round{font-size:16px;padding:6px 4px;}.tk-round small{font-size:10px;}.tk-help-btn{font-size:15px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:14px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:18px;}.tk-resource-num{font-size:16px;}.tk-resource-label{font-size:8px;}.tk-actions{gap:4px;margin-top:6px;}.tk-action{min-height:54px;padding:5px 2px;}.tk-action span{font-size:20px;}.tk-action b{font-size:12px;}.tk-action small{font-size:8px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
+            '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 86px;}.tk-top{grid-template-columns:1fr 88px;gap:6px;margin-bottom:6px;}.tk-round{font-size:16px;padding:6px 4px;}.tk-round small{font-size:10px;}.tk-help-btn{font-size:15px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:14px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:18px;}.tk-resource-num{font-size:16px;}.tk-resource-label{font-size:8px;}.tk-resource.army-hidden .tk-resource-num{font-size:20px;}.tk-actions{gap:4px;margin-top:6px;}.tk-action{min-height:54px;padding:5px 2px;}.tk-action span{font-size:20px;}.tk-action b{font-size:12px;}.tk-action small{font-size:8px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
         '</style>',
 
         '<div class="tk-wrap">',
@@ -780,6 +854,7 @@ function renderTinyKingdoms(skipBotCheck) {
     ].join("");
 
     setupWholeGameZoom();
+    scheduleArmyRevealHide();
 
     if (!skipBotCheck) {
         maybeComputerAction();
@@ -787,6 +862,7 @@ function renderTinyKingdoms(skipBotCheck) {
 }
 
 window.resetTinyKingdomsGame = function () {
+    clearTimeout(armyRevealTimer);
     resetZoom();
     window.__tinyKingdomsHelpOpen = false;
     window.tinyKingdomsState = createState();
