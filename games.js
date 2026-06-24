@@ -185,6 +185,21 @@
     }
 },
        
+"Tiny Kingdoms": {
+    icon: "🏰",
+    displayName: "Tiny Kingdoms",
+    minPlayers: 1,
+    maxPlayers: 2,
+    multiplayer: true,
+    init: () => {
+        if (typeof window.initTinyKingdomsGame === "function") {
+            window.initTinyKingdomsGame();
+        } else {
+            alert("Tiny Kingdoms file did not load. Check /games/tinykingdoms.js and the script tag in index.html.");
+        }
+    }
+}
+       
         "Battle Uno": {
             icon: "🃏",
             displayName: "Uno",
