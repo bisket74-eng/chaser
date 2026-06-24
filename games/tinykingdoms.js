@@ -909,7 +909,7 @@ function helpOverlayHtml() {
                 '<div class="tk-help-row"><b>🛡️ Fortify Walls:</b> Guard gives +2 shield.</div>' +
 
                 '<h3 class="tk-help-section-title">3. Secret Goals</h3>' +
-                '<p>Each player has a secret end-game goal worth <b>+5 points</b>. During the game, you can see yours, but opponents see question marks. At scoring time, everyone\\'s goals reveal.</p>' +
+                '<p>Each player has a secret end-game goal worth <b>+5 points</b>. During the game, you can see yours, but opponents see question marks. At scoring time, everyone&apos;s goals reveal.</p>' +
 
                 '<h3 class="tk-help-section-title">4. Ending Bonus Points</h3>' +
                 '<div class="tk-help-row"><b>📚 Study:</b> Worth 2 points each.</div>' +
