@@ -8,9 +8,15 @@ Small-screen strategy kingdom game.
 const MAX_ROUNDS = 8;
 const MAX_PLAYERS = 2;
 const BOT_ID = "tiny-kingdoms-computer";
-const BOT_DELAY = 900;
+const BOT_DELAY = 6000;
 
 let botTimer = null;
+
+const boardView = {
+scale: 1,
+x: 0,
+y: 0
+};
 
 function byId(id) {
 return document.getElementById(id);
@@ -54,7 +60,6 @@ if (roomDisplay) roomDisplay.innerText = "🏰 Tiny Kingdoms";
 if (headerBtns) headerBtns.style.display = "none";
 if (chatHeader) chatHeader.classList.add("game-active-mode");
 
-
 }
 
 function syncTinyKingdoms() {
@@ -74,7 +79,6 @@ function makePlayers() {
 const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.players) && window.chaserGame.players.length
 ? window.chaserGame.players
 : [{ id: getMyId(), name: myName(), seat: 0 }];
-
 
 const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
     return {
@@ -112,7 +116,6 @@ if (players.length === 1) {
 
 return players;
 
-
 }
 
 function createState() {
@@ -142,7 +145,6 @@ return st.players.find(function (p) {
     return p.id === getMyId();
 }) || null;
 
-
 }
 
 function currentPlayer() {
@@ -160,7 +162,6 @@ function nextTurnIndex(fromIndex) {
 const st = window.tinyKingdomsState;
 if (!st || !st.players.length) return 0;
 
-
 for (let i = 1; i <= st.players.length; i++) {
     const idx = (fromIndex + i) % st.players.length;
     const p = st.players[idx];
@@ -169,7 +170,6 @@ for (let i = 1; i <= st.players.length; i++) {
 }
 
 return fromIndex;
-
 
 }
 
@@ -187,7 +187,6 @@ function strongestOpponent(player) {
 const st = window.tinyKingdomsState;
 if (!st) return null;
 
-
 return st.players
     .filter(function (p) {
         return p.id !== player.id;
@@ -195,7 +194,6 @@ return st.players
     .sort(function (a, b) {
         return (b.coins + b.food + b.science + b.score) - (a.coins + a.food + a.science + a.score);
     })[0] || null;
-
 
 }
 
@@ -206,7 +204,6 @@ toPlayer.coins += 1;
 return "coin";
 }
 
-
 if (fromPlayer.food > 0) {
     fromPlayer.food -= 1;
     toPlayer.food += 1;
@@ -216,17 +213,15 @@ if (fromPlayer.food > 0) {
 if (fromPlayer.science > 0) {
     fromPlayer.science -= 1;
     toPlayer.science += 1;
-    return "science";
+    return "study";
 }
 
 return "";
-
 
 }
 
 function applyAction(st, p, action) {
 let text = "";
-
 
 if (action === "farm") {
     p.food += 3;
@@ -280,16 +275,11 @@ if (action === "raid") {
     }
 
     if (p.army > target.army) {
-        const stolenA = stealOneResource(target, p);
-        const stolenB = stealOneResource(target, p);
+        stealOneResource(target, p);
+        stealOneResource(target, p);
         p.score += 3;
         text = "raided " + target.name;
-
-        if (stolenA || stolenB) {
-            p.lastAction = "🔥 Raid +3";
-        } else {
-            p.lastAction = "🔥 Raid +3";
-        }
+        p.lastAction = "🔥 Raid +3";
     } else {
         p.army += 1;
         p.score += 1;
@@ -304,7 +294,6 @@ addLog(st, p.name + ": " + p.lastAction);
 
 return true;
 
-
 }
 
 function advanceAfterAction(st) {
@@ -313,7 +302,6 @@ if (st.round >= st.maxRounds) {
 finishGame(st);
 return;
 }
-
 
     st.round += 1;
 
@@ -330,7 +318,6 @@ return;
 st.turnIndex = nextTurnIndex(st.turnIndex);
 st.message = st.players[st.turnIndex].name + " to act.";
 
-
 }
 
 function finalBonus(p) {
@@ -343,7 +330,6 @@ p.army +
 
 function finishGame(st) {
 st.phase = "gameover";
-
 
 st.players.forEach(function (p) {
     p.endBonus = finalBonus(p);
@@ -370,19 +356,18 @@ st.finalMessage = winners.map(function (p) {
 st.message = st.finalMessage;
 addLog(st, st.finalMessage);
 
-
 }
 
 window.tinyKingdomsAction = function (action) {
 const st = window.tinyKingdomsState;
 const p = myPlayer();
 
-
 if (!st || !p || st.phase !== "playing") return;
 if (!isMyTurn()) return;
 if (p.acted) return;
 
 const ok = applyAction(st, p, action);
+
 if (!ok) {
     renderTinyKingdoms();
     return;
@@ -393,16 +378,13 @@ renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
 
-
 };
 
 function computerPickAction(p) {
 const opponent = strongestOpponent(p);
 
 if (canBuildWonder(p) && Math.random() < 0.55) return "wonder";
-
 if (opponent && p.army > opponent.army + 1 && Math.random() < 0.45) return "raid";
-
 if (p.food < 2) return "farm";
 if (p.coins < 2) return "trade";
 if (p.science < 1) return "study";
@@ -411,13 +393,11 @@ if (opponent && p.army <= opponent.army && Math.random() < 0.4) return "train";
 const choices = ["farm", "trade", "study", "train", "raid"];
 return choices[Math.floor(Math.random() * choices.length)];
 
-
 }
 
 function computerAction() {
 const st = window.tinyKingdomsState;
 const p = currentPlayer();
-
 
 if (!st || st.phase !== "playing" || !p || !p.isComputer || p.acted) return;
 
@@ -432,12 +412,10 @@ renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
 
-
 }
 
 function maybeComputerAction() {
 clearTimeout(botTimer);
-
 
 const st = window.tinyKingdomsState;
 if (!st || st.phase !== "playing") return;
@@ -445,8 +423,10 @@ if (!st || st.phase !== "playing") return;
 const p = currentPlayer();
 if (!p || !p.isComputer) return;
 
-botTimer = setTimeout(computerAction, BOT_DELAY);
+st.message = "Computer is thinking...";
+renderTinyKingdomsNoBot();
 
+botTimer = setTimeout(computerAction, BOT_DELAY);
 
 }
 
@@ -490,17 +470,11 @@ return (
     '</div>'
 );
 
-
 }
 
-/* FIXED: build the onclick attribute with real escaped double-quotes
-   around a real single-quoted JS string argument, e.g.
-   onclick="tinyKingdomsAction('farm')"
-   The previous version concatenated empty string literals ('' + action + '')
-   which produced onclick="tinyKingdomsActionfarm" - not a valid function call. */
 function actionButton(action, icon, title, sub, disabled, extraClass) {
 return (
-'<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction(&quot;' + action + '&quot;)" ' + (disabled ? "disabled" : "") + ' type="button">' +
+'<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction('' + action + '')" ' + (disabled ? "disabled" : "") + ' type="button">' +
 '<span>' + icon + '</span>' +
 '<b>' + title + '</b>' +
 '<small>' + sub + '</small>' +
@@ -508,14 +482,217 @@ return (
 );
 }
 
-function renderTinyKingdoms() {
+window.openTinyKingdomsHelp = function () {
+window.__tinyKingdomsHelpOpen = true;
+renderTinyKingdomsNoBot();
+};
+
+window.closeTinyKingdomsHelp = function () {
+window.__tinyKingdomsHelpOpen = false;
+renderTinyKingdomsNoBot();
+};
+
+function helpOverlayHtml() {
+if (!window.__tinyKingdomsHelpOpen) return "";
+
+return (
+    '<div class="tk-help-overlay">' +
+        '<div class="tk-help-card">' +
+            '<div class="tk-help-title">How to Play</div>' +
+
+            '<p><b>Goal:</b> Have the most points after 8 rounds.</p>' +
+            '<p>Each turn, tap one action. Your kingdom grows through food, coins, study, army, wonders, and raids.</p>' +
+
+            '<div class="tk-help-row"><b>🍞 Farm:</b> Gain 3 food and 1 point. Use this when food is low or you want to build wonders.</div>' +
+            '<div class="tk-help-row"><b>🪙 Trade:</b> Gain 3 coins and 1 point. Coins help build wonders.</div>' +
+            '<div class="tk-help-row"><b>📚 Study:</b> Gain 2 study and 1 point. Study gives a strong end-game bonus and helps build wonders.</div>' +
+            '<div class="tk-help-row"><b>⚔️ Train:</b> Gain 2 army and 1 point. Army helps protect you and makes raids stronger.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Spend 2 food, 2 coins, and 1 study for a big point boost.</div>' +
+            '<div class="tk-help-row"><b>🔥 Raid:</b> If your army is higher, steal resources and gain 3 points. If not, you still gain a little army and 1 point.</div>' +
+
+            '<p><b>End bonus:</b> Leftover resources become extra points. Study, army, and wonders are especially valuable at the end.</p>' +
+            '<button class="tk-help-close" onclick="closeTinyKingdomsHelp()" type="button">Close ✕</button>' +
+        '</div>' +
+    '</div>'
+);
+
+}
+
+function setupKingdomZoom() {
+const root = canvas();
+if (!root) return;
+
+const viewport = root.querySelector(".tk-board-viewport");
+const shell = root.querySelector(".tk-board-shell");
+const board = root.querySelector(".tk-board");
+
+if (!viewport || !shell || !board) return;
+
+function clampView() {
+    const viewportW = viewport.clientWidth || 1;
+    const viewportH = viewport.clientHeight || 1;
+    const shellW = shell.offsetWidth || viewportW;
+    const shellH = shell.offsetHeight || viewportH;
+
+    const scaledW = shellW * boardView.scale;
+    const scaledH = shellH * boardView.scale;
+
+    if (boardView.scale <= 1.01) {
+        boardView.scale = 1;
+        boardView.x = 0;
+        boardView.y = 0;
+        return;
+    }
+
+    const minX = Math.min(0, viewportW - scaledW);
+    const minY = Math.min(0, viewportH - scaledH);
+
+    boardView.x = Math.max(minX, Math.min(0, boardView.x));
+    boardView.y = Math.max(minY, Math.min(0, boardView.y));
+}
+
+function applyView() {
+    clampView();
+
+    board.style.transformOrigin = "top left";
+    board.style.transform =
+        "translate3d(" + boardView.x + "px, " + boardView.y + "px, 0) scale(" + boardView.scale + ")";
+}
+
+applyView();
+
+if (viewport.__tinyKingdomsZoomWired) return;
+viewport.__tinyKingdomsZoomWired = true;
+
+let lastPinchDistance = 0;
+let startFingerX = 0;
+let startFingerY = 0;
+let startX = 0;
+let startY = 0;
+let moved = false;
+let lastTap = 0;
+
+function touchDistance(t1, t2) {
+    const dx = t1.clientX - t2.clientX;
+    const dy = t1.clientY - t2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function touchMidpoint(e) {
+    const rect = viewport.getBoundingClientRect();
+
+    return {
+        x: ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left,
+        y: ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top
+    };
+}
+
+viewport.addEventListener("touchstart", function (e) {
+    moved = false;
+
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        lastPinchDistance = touchDistance(e.touches[0], e.touches[1]);
+        return;
+    }
+
+    if (e.touches.length === 1) {
+        startFingerX = e.touches[0].clientX;
+        startFingerY = e.touches[0].clientY;
+        startX = boardView.x;
+        startY = boardView.y;
+    }
+}, { passive:false });
+
+viewport.addEventListener("touchmove", function (e) {
+    if (e.touches.length === 2) {
+        e.preventDefault();
+        moved = true;
+
+        const newDistance = touchDistance(e.touches[0], e.touches[1]);
+
+        if (!lastPinchDistance) {
+            lastPinchDistance = newDistance;
+            return;
+        }
+
+        const mid = touchMidpoint(e);
+
+        const boardPointX = (mid.x - boardView.x) / boardView.scale;
+        const boardPointY = (mid.y - boardView.y) / boardView.scale;
+
+        let nextScale = boardView.scale * (newDistance / lastPinchDistance);
+        nextScale = Math.max(1, Math.min(2.8, nextScale));
+
+        boardView.scale = nextScale;
+        boardView.x = mid.x - boardPointX * boardView.scale;
+        boardView.y = mid.y - boardPointY * boardView.scale;
+
+        lastPinchDistance = newDistance;
+
+        applyView();
+        return;
+    }
+
+    if (e.touches.length === 1 && boardView.scale > 1.01) {
+        e.preventDefault();
+
+        const dx = e.touches[0].clientX - startFingerX;
+        const dy = e.touches[0].clientY - startFingerY;
+
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+            moved = true;
+        }
+
+        boardView.x = startX + dx;
+        boardView.y = startY + dy;
+
+        applyView();
+    }
+}, { passive:false });
+
+viewport.addEventListener("touchend", function (e) {
+    if (e.touches.length === 1) {
+        startFingerX = e.touches[0].clientX;
+        startFingerY = e.touches[0].clientY;
+        startX = boardView.x;
+        startY = boardView.y;
+        lastPinchDistance = 0;
+        return;
+    }
+
+    if (e.touches.length === 0) {
+        lastPinchDistance = 0;
+
+        const now = Date.now();
+
+        if (!moved && now - lastTap < 300) {
+            boardView.scale = 1;
+            boardView.x = 0;
+            boardView.y = 0;
+            applyView();
+        }
+
+        if (!moved) {
+            lastTap = now;
+        }
+    }
+}, { passive:false });
+
+}
+
+function renderTinyKingdomsNoBot() {
+renderTinyKingdoms(true);
+}
+
+function renderTinyKingdoms(skipBotCheck) {
 const el = canvas();
 const st = window.tinyKingdomsState;
-
 
 if (!el || !st) return;
 
 const me = myPlayer();
+const active = currentPlayer();
 const canAct = st.phase === "playing" && isMyTurn() && me && !me.acted && !me.isComputer;
 const buildDisabled = !canAct || !canBuildWonder(me);
 
@@ -530,7 +707,7 @@ const actionsHtml = st.phase === "playing"
             actionButton("trade", "🪙", "Trade", "+3 coins", !canAct, "") +
             actionButton("study", "📚", "Study", "+2 study", !canAct, "") +
             actionButton("train", "⚔️", "Train", "+2 army", !canAct, "") +
-            actionButton("wonder", "✨", "Wonder", "costs resources", buildDisabled, "gold") +
+            actionButton("wonder", "✨", "Wonder", "big points", buildDisabled, "gold") +
             actionButton("raid", "🔥", "Raid", "army test", !canAct, "red") +
         '</div>'
     )
@@ -548,63 +725,86 @@ const logHtml = st.log.length
 
 el.innerHTML = [
     '<style>',
-        '.tk-wrap{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:8px 8px 84px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;background:linear-gradient(180deg,#092a12,#031906);}',
-        '.tk-title{color:#ffd700;font-size:22px;font-weight:900;margin:2px auto 4px;text-shadow:0 2px 5px rgba(0,0,0,.5);}',
-        '.tk-top{max-width:620px;margin:0 auto 7px;display:grid;grid-template-columns:1fr 1fr;gap:7px;}',
-        '.tk-pill{background:#e2f0d9;color:#1e4620;border-radius:13px;padding:7px 6px;font-weight:900;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
-        '.tk-pill small{display:block;font-size:11px;margin-top:1px;}',
-        '.tk-message{max-width:620px;margin:0 auto 8px;color:#ffd700;font-size:14px;font-weight:900;line-height:1.2;min-height:18px;}',
-        '.tk-board{max-width:720px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;}',
-        '.tk-player-card{background:#e2f0d9;color:#1e4620;border:3px solid transparent;border-radius:16px;padding:8px;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.35);}',
+        '.tk-wrap{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:8px 8px 86px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;background:linear-gradient(180deg,#092a12,#031906);}',
+        '.tk-top{max-width:680px;margin:0 auto 8px;display:grid;grid-template-columns:1fr 112px;gap:8px;align-items:stretch;}',
+        '.tk-pill{background:#e2f0d9;color:#1e4620;border-radius:14px;padding:8px 8px;font-weight:900;box-shadow:0 3px 8px rgba(0,0,0,.35);font-size:17px;}',
+        '.tk-pill small{display:block;font-size:12px;margin-top:1px;}',
+        '.tk-help-btn{border:none;border-radius:14px;background:#ffd700;color:#1e4620;font-weight:900;font-size:18px;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
+        '.tk-message{max-width:680px;margin:0 auto 8px;color:#ffd700;font-size:16px;font-weight:900;line-height:1.2;min-height:20px;}',
+        '.tk-board-viewport{max-width:760px;margin:0 auto;overflow:hidden;touch-action:none;border-radius:18px;}',
+        '.tk-board-shell{position:relative;overflow:hidden;width:100%;}',
+        '.tk-board{max-width:760px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:9px;transform-origin:top left;will-change:transform;}',
+        '.tk-player-card{background:#e2f0d9;color:#1e4620;border:3px solid transparent;border-radius:17px;padding:9px;box-sizing:border-box;box-shadow:0 4px 12px rgba(0,0,0,.35);}',
         '.tk-player-card.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000,0 4px 12px rgba(0,0,0,.35);}',
         '.tk-player-card.winner{border-color:#ffd700;box-shadow:0 0 0 2px #ffd700,0 4px 12px rgba(0,0,0,.35);}',
         '.tk-player-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}',
-        '.tk-player-name{font-size:15px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}',
-        '.tk-score{background:#1e4620;color:#ffd700;border-radius:999px;min-width:36px;padding:5px 7px;font-size:17px;font-weight:900;}',
-        '.tk-last{height:17px;font-size:11px;font-weight:900;color:#7a1b1b;margin:3px 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-        '.tk-resource-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}',
-        '.tk-resource{background:#ffffff;border:2px solid #cfe4c3;border-radius:10px;padding:4px 2px;box-sizing:border-box;min-width:0;}',
-        '.tk-resource-icon{font-size:18px;line-height:1;}',
-        '.tk-resource-num{font-size:17px;font-weight:900;line-height:1.05;margin-top:1px;}',
-        '.tk-resource-label{font-size:8px;font-weight:900;text-transform:uppercase;color:#366b3d;}',
-        '.tk-map-row{display:flex;justify-content:center;gap:4px;margin-top:7px;flex-wrap:wrap;}',
-        '.tk-building{background:#123d18;color:#ffd700;border:2px solid #ffd700;border-radius:9px;width:30px;height:28px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:inset 0 2px 5px rgba(0,0,0,.35);}',
-        '.tk-bonus{font-size:11px;font-weight:900;color:#1e4620;margin-top:5px;}',
-        '.tk-actions{max-width:620px;margin:9px auto 6px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}',
-        '.tk-action,.tk-new{border:none;border-radius:13px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 8px rgba(0,0,0,.35);padding:7px 5px;min-height:64px;}',
-        '.tk-action span{display:block;font-size:20px;line-height:1;}',
-        '.tk-action b{display:block;font-size:13px;margin-top:2px;}',
-        '.tk-action small{display:block;font-size:9px;line-height:1.1;color:#3c6f41;}',
+        '.tk-player-name{font-size:17px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}',
+        '.tk-score{background:#1e4620;color:#ffd700;border-radius:999px;min-width:40px;padding:6px 8px;font-size:20px;font-weight:900;}',
+        '.tk-last{height:20px;font-size:13px;font-weight:900;color:#7a1b1b;margin:4px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+        '.tk-resource-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}',
+        '.tk-resource{background:#ffffff;border:2px solid #cfe4c3;border-radius:11px;padding:5px 2px;box-sizing:border-box;min-width:0;}',
+        '.tk-resource-icon{font-size:23px;line-height:1;}',
+        '.tk-resource-num{font-size:20px;font-weight:900;line-height:1.05;margin-top:2px;}',
+        '.tk-resource-label{font-size:9px;font-weight:900;text-transform:uppercase;color:#366b3d;}',
+        '.tk-map-row{display:flex;justify-content:center;gap:5px;margin-top:8px;flex-wrap:wrap;}',
+        '.tk-building{background:#123d18;color:#ffd700;border:2px solid #ffd700;border-radius:10px;width:34px;height:31px;display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:inset 0 2px 5px rgba(0,0,0,.35);}',
+        '.tk-bonus{font-size:13px;font-weight:900;color:#1e4620;margin-top:5px;}',
+        '.tk-actions{max-width:680px;margin:10px auto 7px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}',
+        '.tk-action,.tk-new{border:none;border-radius:14px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 8px rgba(0,0,0,.35);padding:8px 5px;min-height:72px;}',
+        '.tk-action span{display:block;font-size:25px;line-height:1;}',
+        '.tk-action b{display:block;font-size:15px;margin-top:3px;}',
+        '.tk-action small{display:block;font-size:10px;line-height:1.1;color:#3c6f41;}',
         '.tk-action.gold{background:#ffd700;}',
         '.tk-action.red{background:#ffc9c9;color:#7a1010;}',
         '.tk-action:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
-        '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:18px;min-height:48px;}',
-        '.tk-log{max-width:620px;margin:7px auto 0;background:rgba(0,0,0,.22);border:2px solid rgba(255,215,0,.35);border-radius:12px;padding:6px;color:#e2f0d9;font-size:11px;font-weight:900;line-height:1.25;}',
+        '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:19px;min-height:50px;}',
+        '.tk-log{max-width:680px;margin:7px auto 0;background:rgba(0,0,0,.22);border:2px solid rgba(255,215,0,.35);border-radius:12px;padding:7px;color:#e2f0d9;font-size:12px;font-weight:900;line-height:1.25;}',
         '.tk-log-line{padding:1px 0;}',
-        '.tk-help{max-width:620px;margin:6px auto 0;color:#e2f0d9;font-size:10px;line-height:1.2;opacity:.85;}',
-        '@media(max-width:430px){.tk-wrap{padding:7px 6px 88px;}.tk-title{font-size:19px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:14px;}.tk-player-name{font-size:13px;}.tk-score{font-size:15px;min-width:30px;padding:4px 5px;}.tk-resource-grid{gap:3px;}.tk-resource{padding:3px 1px;border-radius:8px;}.tk-resource-icon{font-size:15px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-building{width:25px;height:24px;font-size:14px;}.tk-actions{gap:6px;}.tk-action{min-height:58px;padding:6px 3px;}.tk-action span{font-size:18px;}.tk-action b{font-size:12px;}.tk-action small{font-size:8px;}}',
+        '.tk-help-note{max-width:680px;margin:6px auto 0;color:#e2f0d9;font-size:11px;line-height:1.2;opacity:.85;}',
+        '.tk-help-overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:70000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;}',
+        '.tk-help-card{position:relative;background:#e2f0d9;color:#1e4620;border:4px solid #ffd700;border-radius:18px;max-width:560px;width:100%;max-height:82vh;overflow-y:auto;text-align:left;padding:16px 16px 66px;box-sizing:border-box;box-shadow:0 8px 24px rgba(0,0,0,.55);font-size:15px;line-height:1.25;}',
+        '.tk-help-title{text-align:center;color:#1e4620;font-size:24px;font-weight:900;margin-bottom:8px;}',
+        '.tk-help-card p{margin:7px 0;}',
+        '.tk-help-row{background:#ffffff;border-radius:10px;padding:7px 8px;margin:6px 0;font-weight:700;}',
+        '.tk-help-close{position:absolute;right:12px;bottom:12px;border:none;border-radius:999px;background:#b00020;color:#ffffff;font-size:16px;font-weight:900;padding:10px 15px;}',
+        '@media(max-width:430px){.tk-wrap{padding:7px 6px 88px;}.tk-top{grid-template-columns:1fr 98px;gap:6px;}.tk-pill{font-size:15px;padding:7px 6px;}.tk-help-btn{font-size:16px;}.tk-message{font-size:15px;}.tk-board{gap:6px;}.tk-player-card{padding:7px;border-radius:14px;}.tk-player-name{font-size:14px;}.tk-score{font-size:17px;min-width:32px;padding:5px 6px;}.tk-last{font-size:11px;height:17px;}.tk-resource-grid{gap:3px;}.tk-resource{padding:4px 1px;border-radius:8px;}.tk-resource-icon{font-size:18px;}.tk-resource-num{font-size:17px;}.tk-resource-label{font-size:7px;}.tk-building{width:27px;height:25px;font-size:15px;}.tk-actions{gap:6px;}.tk-action{min-height:64px;padding:7px 3px;}.tk-action span{font-size:21px;}.tk-action b{font-size:13px;}.tk-action small{font-size:9px;}.tk-help-card{font-size:14px;max-height:84vh;padding:14px 13px 62px;}.tk-help-title{font-size:22px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
-        '<div class="tk-title">🏰 Tiny Kingdoms</div>',
         '<div class="tk-top">',
-            '<div class="tk-pill">Round ' + Number(st.round || 1) + ' / ' + Number(st.maxRounds || MAX_ROUNDS) + '<small>Build before winter</small></div>',
-            '<div class="tk-pill">' + escapeHtml(st.phase === "gameover" ? "Final Score" : "Turn") + '<small>' + escapeHtml(currentPlayer() ? currentPlayer().name : "Done") + '</small></div>',
+            '<div class="tk-pill">Round ' + Number(st.round || 1) + ' / ' + Number(st.maxRounds || MAX_ROUNDS) + '<small>' + escapeHtml(active ? active.name + " to act" : "Game over") + '</small></div>',
+            '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">Help ?</button>',
         '</div>',
+
         '<div class="tk-message">' + escapeHtml(st.message || "") + '</div>',
-        '<div class="tk-board">' + playersHtml + '</div>',
+
+        '<div class="tk-board-viewport">',
+            '<div class="tk-board-shell">',
+                '<div class="tk-board">' + playersHtml + '</div>',
+            '</div>',
+        '</div>',
+
         actionsHtml,
         '<div class="tk-log">' + logHtml + '</div>',
-        '<div class="tk-help">Actions are visual: 🍞 food, 🪙 coins, 📚 study, ⚔️ army, ✨ wonders, 🔥 raid. After 8 rounds, leftover resources become bonus points.</div>',
-    '</div>'
+        '<div class="tk-help-note">Pinch the kingdom board to zoom. Double tap the board to reset zoom.</div>',
+    '</div>',
+
+    helpOverlayHtml()
 ].join("");
 
-maybeComputerAction();
+setupKingdomZoom();
 
+if (!skipBotCheck) {
+    maybeComputerAction();
+}
 
 }
 
 window.resetTinyKingdomsGame = function () {
+boardView.scale = 1;
+boardView.x = 0;
+boardView.y = 0;
+window.__tinyKingdomsHelpOpen = false;
 window.tinyKingdomsState = createState();
 renderTinyKingdoms();
 syncTinyKingdoms();
@@ -613,7 +813,6 @@ maybeComputerAction();
 
 window.handleIncomingTinyKingdomsSync = function (payload) {
 if (!payload || !payload.state) return;
-
 
 if (
     payload.roomGameId &&
@@ -633,13 +832,11 @@ if (window.chaserGame) {
 renderTinyKingdoms();
 maybeComputerAction();
 
-
 };
 
 window.initTinyKingdomsGame = function () {
 window.chaserGame = window.chaserGame || {};
 window.chaserGame.activeGame = "TinyKingdoms";
-
 
 openStage();
 setHeader();
@@ -647,13 +844,15 @@ setHeader();
 const amHost = window.chaserGame && window.chaserGame.hostId === getMyId();
 
 if (amHost || !window.tinyKingdomsState) {
+    boardView.scale = 1;
+    boardView.x = 0;
+    boardView.y = 0;
     window.tinyKingdomsState = createState();
     syncTinyKingdoms();
 }
 
 renderTinyKingdoms();
 maybeComputerAction();
-
 
 };
 
