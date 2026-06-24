@@ -1030,6 +1030,12 @@ const el = canvas();
 const s = window.cribbageState;
 
 if (!el || !s) return;
+   
+const oldContainerScroll = el.scrollTop || 0;
+const oldWrap = el.querySelector(".crib-wrap");
+const oldWrapScroll = oldWrap ? oldWrap.scrollTop : 0;
+
+
 
 const meIndex = myPlayerIndex();
 const me = s.players[meIndex] || s.players[0];
