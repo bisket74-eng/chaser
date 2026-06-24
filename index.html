@@ -55,21 +55,21 @@
             pointer-events:none;
         }
 
-        #riderCounterWidget {
-            font-size:15px;
-            color:#1e4620;
-            font-weight:800;
-            background:#e2f0d9;
-            padding:6px 14px;
-            border-radius:12px;
-            box-shadow:0 4px 12px rgba(0,0,0,0.25);
-            margin-top:4px;
-            letter-spacing:0.2px;
-            cursor:pointer;
-            user-select:none;
-            -webkit-user-select:none;
-            -webkit-touch-callout:none;
-        }
+       #riderCounterWidget {
+    font-size:15px;
+    color:#1e4620;
+    font-weight:800;
+    background:#e2f0d9;
+    padding:6px 14px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.25);
+    margin-top:4px;
+    letter-spacing:0.2px;
+
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
+}
 
         #liveCountNumber {
             color:#dc3545;
@@ -461,11 +461,11 @@
         #chatHeader {
             background:#111;
             border-bottom:2px solid #ffd700;
-            padding:10px 8px;
+            padding:10px 12px;
             display:flex;
             justify-content:flex-start;
             align-items:center;
-            gap:6px;
+            gap:8px;
             flex-shrink:0;
             z-index:10;
             user-select:none;
@@ -474,20 +474,17 @@
 
         .chat-room-title {
             color:#ffd700;
-            font-size:15px;
+            font-size:18px;
             font-weight:900;
-            font-family:"Brush Script MT","Comic Sans MS",cursive;
-            letter-spacing:0.5px;
-            line-height:1;
-            text-transform:none;
+            font-family:'Trebuchet MS','Arial Black',sans-serif;
+            letter-spacing:1px;
+            line-height:1.05;
+            text-transform:uppercase;
             white-space:nowrap;
-            flex:0 0 auto;
-            max-width:125px;
+            flex:1;
             min-width:0;
             overflow:hidden;
             text-overflow:ellipsis;
-            margin-left:8px;
-            padding-left:4px;
         }
 
         .chat-room-title.youtube-pill-title {
@@ -498,21 +495,16 @@
             border-radius:999px;
             padding:6px 14px;
             font-size:18px;
-            font-family:Arial,sans-serif;
             letter-spacing:0;
             text-transform:none;
             box-shadow:0 3px 8px rgba(0,0,0,0.35);
-            margin-left:0;
-            padding-left:14px;
-            max-width:none;
         }
 
         .header-btn-row {
             display:flex;
             align-items:center;
-            justify-content:center;
-            gap:6px;
-            flex:1 1 auto;
+            gap:8px;
+            flex-shrink:0;
         }
 
         .round-btn {
@@ -538,49 +530,52 @@
         }
 
         #chatGamesTriggerBtn {
-            width:auto;
-            height:34px;
-            padding:0 14px;
-            border-radius:999px;
-            background:#ffffff;
-            color:#0056b3;
-            border:2px solid #0056b3;
-            font-size:14px;
-            font-weight:900;
-            font-family:Arial,sans-serif;
-            margin:0 auto;
-        }
+    width:auto !important;
+    height:34px !important;
+    padding:0 14px !important;
+    border-radius:999px !important;
+    background:#ffffff !important;
+    color:#0056b3 !important;
+    border:2px solid #0056b3 !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    font-family:Arial,sans-serif !important;
+}
 
         #youtubePlaceholderBtn {
-            background:#ffffff;
-            color:#dc3545;
-            border:2px solid #dc3545;
-            border-radius:50%;
-            width:36px;
-            height:36px;
-            padding:0;
-            font-family:Arial,sans-serif;
-            font-weight:900;
-            font-size:13px;
-            letter-spacing:0;
-            text-transform:uppercase;
+            background:#ffffff !important;
+            color:#dc3545 !important;
+            border:2px solid #dc3545 !important;
+            border-radius:50% !important;
+            width:36px !important;
+            height:36px !important;
+            padding:0 !important;
+            font-family:Arial,sans-serif !important;
+            font-weight:900 !important;
+            font-size:13px !important;
+            letter-spacing:0 !important;
+            text-transform:uppercase !important;
         }
 
         #closeChatBtn {
-            background:none;
-            color:#dc3545;
-            border:none;
+            background:none !important;
+            color:#dc3545 !important;
+            border:none !important;
             font-size:24px;
             font-weight:900;
             cursor:pointer;
             padding:4px;
-            margin-left:0;
+            margin-left:auto;
             flex-shrink:0;
             display:flex;
             align-items:center;
             justify-content:center;
             box-sizing:border-box;
-            box-shadow:none;
+            box-shadow:none !important;
+        }
+
+        #chatHeader.game-active-mode #closeChatBtn {
+            margin-left:auto;
         }
 
         #gameHubOverlay {
@@ -653,65 +648,23 @@
 
         #activeGameStage {
             display:none;
-            position:fixed;
-            left:50%;
-            top:70px;
-            transform:translateX(-50%);
-            width:calc(100vw - 28px);
-            max-width:760px;
-            height:68vh;
-            min-height:360px;
-            max-height:calc(100dvh - 235px);
+            flex:0 0 62%;
             flex-direction:column;
             background:#0e2e10;
-            z-index:9998;
+            z-index:6;
             box-sizing:border-box;
-            border:3px solid #e2f0d9;
-            border-radius:22px;
-            box-shadow:0 10px 35px rgba(0,0,0,0.55);
+            border-bottom:4px solid #b8860b;
+            box-shadow:0 4px 15px rgba(0,0,0,0.5);
             overflow:hidden;
-            padding-bottom:42px;
+            position:relative;
         }
 
         #activeGameStage.open {
             display:flex;
         }
 
-        #activeGameStage.game-board-hidden {
-            height:0;
-            min-height:0;
-            max-height:0;
-            padding:0;
-            border-width:0;
-            overflow:hidden;
-            opacity:0;
-            pointer-events:none;
-        }
-
-        #activeGameStage.game-board-hidden #gameCanvasContainer,
-        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
-        #activeGameStage.game-board-hidden #chaserFooterGameTitle {
-            display:none;
-        }
-
-        @media (max-height:750px) {
-            #activeGameStage.open {
-                top:60px;
-                height:72vh;
-            }
-        }
-
-        @media (max-width:520px) {
-            #activeGameStage.open {
-                width:94vw;
-            }
-        }
-
         #gameCanvasContainer {
             flex:1;
-            width:100%;
-            height:100%;
-            max-height:100%;
             display:flex;
             align-items:center;
             justify-content:center;
@@ -720,125 +673,61 @@
             font-weight:bold;
             text-align:center;
             padding:8px;
-            padding-bottom:42px;
             box-sizing:border-box;
             overflow:auto;
         }
 
-        .canvas-exit-anchor-box {
-            position:absolute;
-            left:14px;
-            bottom:8px;
-            width:96px;
-            min-width:96px;
-            max-width:96px;
-            height:32px;
-            min-height:32px;
-            max-height:32px;
-            padding:0;
-            margin:0;
-            box-sizing:border-box;
-            background:#dc3545;
-            border:2px solid #ffffff;
-            border-radius:999px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            gap:4px;
-            box-shadow:0 3px 9px rgba(0,0,0,0.4);
-            cursor:pointer;
-            pointer-events:auto;
-            z-index:10040;
-        }
+       .canvas-exit-anchor-box {
+    position:absolute !important;
+    bottom:8px !important;
+    left:10px !important;
+    display:flex !important;
+    align-items:center !important;
+    gap:5px !important;
+    z-index:9999 !important;
+    cursor:pointer !important;
+    pointer-events:auto !important;
+}
 
         .canvas-exit-x-glyph {
-            color:#ffffff;
-            font-size:11px;
+            color:#dc3545;
+            font-size:15px;
             font-weight:900;
             font-family:Arial,sans-serif;
-            line-height:1;
         }
 
         .canvas-exit-label-str {
-            color:#ffffff;
-            font-size:11px;
+            color:#dc3545;
+            font-size:13px;
             font-weight:bold;
             font-family:Arial,sans-serif;
-            text-transform:capitalize;
+            text-transform:lowercase;
             letter-spacing:0.2px;
-            line-height:1;
-        }
-
-        #chaserFooterGameTitle {
-            position:absolute;
-            left:110px;
-            right:110px;
-            bottom:14px;
-            text-align:center;
-            color:#ffd700;
-            font-family:"Brush Script MT","Comic Sans MS",cursive;
-            font-size:17px;
-            font-weight:900;
-            text-shadow:0 2px 5px rgba(0,0,0,0.75);
-            pointer-events:none;
-            white-space:nowrap;
-            overflow:hidden;
-            text-overflow:ellipsis;
-            z-index:10039;
-        }
-
-        #gameBoardToggleBtn {
-            position:fixed;
-            width:96px;
-            min-width:96px;
-            max-width:96px;
-            height:32px;
-            min-height:32px;
-            max-height:32px;
-            padding:0;
-            margin:0;
-            box-sizing:border-box;
-            border-radius:999px;
-            border:2px solid #ffffff;
-            background:#ffd700;
-            color:#1e4620;
-            font-size:11px;
-            font-weight:900;
-            box-shadow:0 3px 9px rgba(0,0,0,0.4);
-            cursor:pointer;
-            pointer-events:auto;
-            z-index:10060;
-            display:none;
-        }
-
-        #gameBoardToggleBtn .arrow {
-            font-size:17px;
-            line-height:1;
         }
 
         #youtubeStageWrapper {
-            display:none;
-            width:100%;
-            height:100%;
-            min-height:520px;
-            flex-direction:column;
-            box-sizing:border-box;
-            position:relative;
-            background:#000000;
-        }
+    display:none;
+    width:100%;
+    height:100%;
+    min-height:520px;
+    flex-direction:column;
+    box-sizing:border-box;
+    position:relative;
+    background:#000000;
+}
 
         #youtubeStageWrapper.active {
             display:flex;
         }
 
         .yt-iframe-frame {
-            width:100%;
-            height:calc(100% - 90px);
-            min-height:360px;
-            flex:1;
-            border:none;
-            background:#111;
-        }
+    width:100%;
+    height:calc(100% - 90px);
+    min-height:360px;
+    flex:1;
+    border:none;
+    background:#111;
+}
 
         .yt-control-dashboard {
             display:flex;
@@ -921,17 +810,17 @@
         }
 
         #chatMessages {
-            flex:1;
-            padding:16px;
-            overflow-y:auto;
-            display:flex;
-            flex-direction:column;
-            justify-content:flex-end;
-            gap:12px;
-            background:#e2f0d9;
-            z-index:1;
-            min-height:0;
-        }
+    flex:1;
+    padding:16px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-end;
+    gap:12px;
+    background:#e2f0d9;
+    z-index:1;
+    min-height:0;
+}
 
         .msg-bubble {
             position:relative;
@@ -1198,81 +1087,108 @@
         .leaflet-popup-content-wrapper,.leaflet-popup-tip {
             display:none!important;
         }
+        /* CHAT HEADER FINAL OVERRIDE */
+#chatHeader {
+    background:#111;
+    border-bottom:2px solid #ffd700;
+    padding:10px 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+    z-index:10;
+    user-select:none;
+    box-sizing:border-box;
+}
 
-        .leaflet-tooltip {
-            background:#e2f0d9!important;
-            color:#1e4620!important;
-            border:2px solid #1e4620!important;
-            border-radius:10px!important;
-            font-size:12px!important;
-            font-weight:800!important;
-            box-shadow:0 5px 14px rgba(0,0,0,0.38)!important;
-            padding:7px 9px!important;
-        }
+.chat-room-title {
+    color:#ffd700 !important;
+    font-size:18px !important;
+    font-weight:900 !important;
+    font-family:'Trebuchet MS','Arial Black',sans-serif !important;
+    letter-spacing:1px !important;
+    line-height:1.05 !important;
+    text-transform:uppercase !important;
+    white-space:nowrap !important;
+    flex:0 1 auto !important;
+    max-width:145px !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+}
 
-        /* EV charger toggle button */
-        #chaserEvBtn {
-            position:fixed;
-            width:38px;
-            height:38px;
-            min-width:38px;
-            min-height:38px;
-            max-width:38px;
-            max-height:38px;
-            padding:0;
-            border-radius:50%;
-            border:3px solid #e2f0d9;
-            background:#1e4620;
-            color:#ffd700;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            box-shadow:0 4px 14px rgba(0,0,0,0.42);
-            cursor:pointer;
-            box-sizing:border-box;
-            z-index:12;
-            -webkit-tap-highlight-color:transparent;
-            user-select:none;
-        }
+.header-btn-row {
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:8px !important;
+    flex:1 !important;
+}
 
-        #chaserEvBtn svg {
-            width:23px;
-            height:23px;
-            display:block;
-        }
+#chatGamesTriggerBtn {
+    width:auto !important;
+    height:34px !important;
+    padding:0 16px !important;
+    border-radius:999px !important;
+    background:#ffffff !important;
+    color:#0056b3 !important;
+    border:2px solid #ffd700 !important;
+    font-size:14px !important;
+    font-weight:900 !important;
+    font-family:Arial,sans-serif !important;
+    text-transform:uppercase !important;
+}
 
-        #chaserEvBtn.active {
-            background:#ffd700;
-            color:#1e4620;
-            border-color:#ffffff;
-        }
+#closeChatBtn {
+    margin-left:0 !important;
+}
+        /* CHASER PATCH — fit Games + Wheels buttons in chat header */
+#chatHeader {
+gap:6px !important;
+padding:10px 8px !important;
+}
 
-        #chatOverlay.open ~ #chaserEvBtn,
-        body:has(#chatOverlay.open) #chaserEvBtn {
-            display:none;
-            pointer-events:none;
-            opacity:0;
-        }
+.chat-room-title {
+font-size:15px !important;
+max-width:105px !important;
+letter-spacing:0.5px !important;
+}
 
-        .chaser-ev-marker {
-            width:28px;
-            height:28px;
-            border-radius:50%;
-            background:#ffd700;
-            color:#1e4620;
-            border:3px solid #ffffff;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            box-shadow:0 4px 12px rgba(0,0,0,0.45);
-            box-sizing:border-box;
-        }
+.header-btn-row {
+gap:6px !important;
+flex:1 1 auto !important;
+justify-content:center !important;
+}
 
-        .chaser-ev-marker svg {
-            width:18px;
-            height:18px;
-            display:block;
-        }
+#chatGamesTriggerBtn,
+#wheelsTriggerBtn {
+width:auto !important;
+height:34px !important;
+padding:0 10px !important;
+border-radius:999px !important;
+font-size:13px !important;
+font-weight:900 !important;
+font-family:Arial,sans-serif !important;
+text-transform:uppercase !important;
+box-sizing:border-box !important;
+}
+
+#chatGamesTriggerBtn {
+background:#ffd700 !important;
+color:#1e4620 !important;
+border:2px solid #ffffff !important;
+}
+
+#wheelsTriggerBtn {
+background:#ffd700 !important;
+color:#1e4620 !important;
+border:2px solid #ffffff !important;
+}
+
+#closeChatBtn {
+font-size:22px !important;
+padding:2px !important;
+margin-left:0 !important;
+}
     </style>
 </head>
 <body>
@@ -1281,7 +1197,7 @@
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
-    <div id="riderCounterWidget" title="Tap to cycle buddies, long-press to zoom out to everyone">Buddies Online: <span id="liveCountNumber">0</span></div>
+    <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
     <div id="privacyHint">share location to see buddies<br>and enter chat</div>
 </div>
 
@@ -1319,10 +1235,6 @@
 <button id="chatToggleBtn" type="button">
     <div id="chatBadge">0</div>
     <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-</button>
-
-<button id="chaserEvBtn" type="button" title="Show EV chargers in this map area">
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.2 1.8 4.3 13.6h6.1l-1.5 8.6 10.8-13.4h-6.4l-.1-7z"></path></svg>
 </button>
 
 <div id="roomModalOverlay">
@@ -1444,8 +1356,6 @@
     );
 
     const map = L.map('map', { zoomControl:true }).setView([45.6387, -122.6615], 12);
-    map.doubleClickZoom.disable();
-
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom:22,
         maxNativeZoom:19,
@@ -1710,17 +1620,23 @@
                 icon:buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
             }).addTo(map);
 
+            newMarker.on('click', e => {
+                L.DomEvent.stopPropagation(e);
+
+                if (!newMarker._zoomedIn) {
+                    map.setView([rData.lat, rData.lng], 18, { animate:true, duration:0.7 });
+                    newMarker._zoomedIn = true;
+                } else {
+                    fitAllRiders(true);
+                    newMarker._zoomedIn = false;
+                }
+            });
+
+            newMarker._zoomedIn = false;
             rData.marker = newMarker;
 
-            /* Click/tap handling is wired by chaserWireBuddyMarker() in the
-               follow-system script below, so every marker (existing or new)
-               uses one single, consistent zoom/focus behavior. */
-            if (window.chaserWireBuddyMarker) {
-                window.chaserWireBuddyMarker(user, rData);
-            }
-
-            if (!user.includes('(You)') && window.chaserOnNewBuddyJoined) {
-                window.chaserOnNewBuddyJoined();
+            if (!user.includes('(You)')) {
+                setTimeout(() => fitAllRiders(true), 300);
             }
         }
     }
@@ -1739,10 +1655,6 @@
 
                 if (isSharing && r.marker) {
                     r.marker.setIcon(buildLabelIcon(name, r.dest, r.color, r.isGhost, r.riderId));
-
-                    if (window.chaserWireBuddyMarker) {
-                        window.chaserWireBuddyMarker(name, r);
-                    }
                 }
             }
         });
@@ -1760,7 +1672,6 @@
             renderSingleRiderVisualLayers(user);
         });
 
-        if (window.chaserResumeFollow) window.chaserResumeFollow();
         setTimeout(() => fitAllRiders(true), 400);
     }
 
@@ -1835,30 +1746,28 @@
                 if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
             })
 
+            // === ADD THIS FOR CRIBBAGE ===
             .on('broadcast', { event:'cribbage-sync-state' }, ({ payload }) => {
                 if (window.handleIncomingCribbageSync) window.handleIncomingCribbageSync(payload);
             })
-
-            .on('broadcast', { event:'coup-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
+            
+           .on('broadcast', { event:'coup-sync-state' }, ({ payload }) => {
+               if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
             })
-
             .on('broadcast', { event:'yahtzee-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
-            })
+    if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
+})
+ .on('broadcast', { event:'texasholdem-sync-state' }, ({ payload }) => {
+if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
+})
+ .on('broadcast', { event:'tinykingdoms-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingTinyKingdomsSync) window.handleIncomingTinyKingdomsSync(payload);
+})           
+           
 
-            .on('broadcast', { event:'texasholdem-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
-            })
-
-            .on('broadcast', { event:'tinykingdoms-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingTinyKingdomsSync) window.handleIncomingTinyKingdomsSync(payload);
-            })
-
-            .on('broadcast', { event:'scrabble-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingScrabbleSync) window.handleIncomingScrabbleSync(payload);
-            })
-
+.on('broadcast', { event:'scrabble-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingScrabbleSync) window.handleIncomingScrabbleSync(payload);
+})
             .on('broadcast', { event:'chaser-game-lobby-open' }, ({ payload }) => {
                 if (window.handleIncomingChaserGameLobby) window.handleIncomingChaserGameLobby(payload);
             })
@@ -1870,10 +1779,10 @@
             .on('broadcast', { event:'chaser-game-lobby-start' }, ({ payload }) => {
                 if (window.handleIncomingChaserGameLobbyStart) window.handleIncomingChaserGameLobbyStart(payload);
             })
-
             .on('broadcast', { event:'battleship-sync-state' }, ({ payload }) => {
-                if (window.handleIncomingBattleshipSync) window.handleIncomingBattleshipSync(payload);
-            })
+    if (window.handleIncomingBattleshipSync) window.handleIncomingBattleshipSync(payload);
+})
+            
 
             .on('broadcast', { event:'youtube-sync-video' }, ({ payload }) => {
                 if (payload.videoId) loadDirectYoutubeVideoId(payload.videoId);
@@ -2062,8 +1971,6 @@
             if (window.chaserMasterExitSequence) window.chaserMasterExitSequence();
             gameHubOverlay.classList.remove('open');
         }
-
-        if (window.chaserResetFollowState) window.chaserResetFollowState();
     }
 
     startBtn.addEventListener('click', () => {
@@ -2097,12 +2004,17 @@
                 lastLng = pos.coords.longitude;
 
                 broadcastCurrentState();
+                
+                if (typeof window.chaserFollowMeOnGpsUpdate === "function") {
+window.chaserFollowMeOnGpsUpdate();
+} else if (isSharing && lastLat && lastLng && initialFrameDone) {
+fitAllRiders(true);
+}
 
-                if (window.chaserApplyRadiusFilter) window.chaserApplyRadiusFilter();
-                if (window.chaserFollowMeOnGpsUpdate) window.chaserFollowMeOnGpsUpdate();
 
                 if (!initialFrameDone) {
                     initialFrameDone = true;
+                    fitAllRiders(true);
                 }
             }, () => stopSharingLocation(), {
                 enableHighAccuracy:true,
@@ -2141,8 +2053,6 @@
 
         incomingRidersCache = {};
         chatMessages.innerHTML = '';
-
-        if (window.chaserResetFollowState) window.chaserResetFollowState();
     }
 
     function applyRoomCode(code) {
@@ -2382,6 +2292,10 @@
         headerActionButtonsContainer.style.display = 'flex';
 
         roomDisplayCode.classList.remove('youtube-pill-title');
+
+        roomDisplayCode.style.fontFamily = "'Trebuchet MS', 'Arial Black', sans-serif";
+        roomDisplayCode.style.fontWeight = '900';
+        roomDisplayCode.style.fontSize = '18px';
 
         if (activeRoomCode) {
             roomDisplayCode.innerText = 'Chat Room: ' + activeRoomCode;
@@ -2701,365 +2615,383 @@
         navigator.serviceWorker.register('/sw.js').then(() => {
             if (typeof registerPushSubscription === 'function') registerPushSubscription();
         });
-    }
+   
+}
 
-    /* CHASER PATCH — remove ghost duplicate of yourself */
-    function chaserCleanMyGhostCopies() {
-        const mySavedId = window.myId || localStorage.getItem("rider_id");
-        const myCurrentName = (usernameInput && usernameInput.value.trim()) || oldBroadcastedName || "";
 
-        Object.keys(incomingRidersCache).forEach(name => {
-            const rider = incomingRidersCache[name];
-            if (!rider) return;
+   /* CHASER PATCH — remove ghost duplicate of yourself */
+function chaserCleanMyGhostCopies() {
+    const mySavedId = window.myId || localStorage.getItem("rider_id");
+    const myCurrentName = (usernameInput && usernameInput.value.trim()) || oldBroadcastedName || "";
 
-            const isYouLabel = name.includes("(You)");
-            const sameRiderId = rider.riderId && mySavedId && rider.riderId === mySavedId;
-            const sameNameNotYou =
-                myCurrentName &&
-                name.replace(" (You)", "").trim().toLowerCase() === myCurrentName.trim().toLowerCase() &&
-                !isYouLabel;
+    Object.keys(incomingRidersCache).forEach(name => {
+        const rider = incomingRidersCache[name];
+        if (!rider) return;
 
-            if (sameRiderId || sameNameNotYou) {
-                if (!isYouLabel) {
-                    if (rider.marker) {
-                        map.removeLayer(rider.marker);
-                    }
-                    delete incomingRidersCache[name];
+        const isYouLabel = name.includes("(You)");
+        const sameRiderId = rider.riderId && mySavedId && rider.riderId === mySavedId;
+        const sameNameNotYou =
+            myCurrentName &&
+            name.replace(" (You)", "").trim().toLowerCase() === myCurrentName.trim().toLowerCase() &&
+            !isYouLabel;
+
+        if (sameRiderId || sameNameNotYou) {
+            if (!isYouLabel) {
+                if (rider.marker) {
+                    map.removeLayer(rider.marker);
                 }
+                delete incomingRidersCache[name];
             }
-        });
+        }
+    });
 
-        updateLiveRiderCounter();
-    }
+    updateLiveRiderCounter();
+}
 
-    setInterval(chaserCleanMyGhostCopies, 4000);
-
+setInterval(chaserCleanMyGhostCopies, 4000); 
+    
     /* CHASER PATCH — reliable chat history request for late joiners */
-    (function () {
-        function requestChatHistorySoon() {
-            if (!channel) return;
-
-            [900, 2500, 5000].forEach(delay => {
-                setTimeout(() => {
-                    if (!channel) return;
-
-                    channel.send({
-                        type: "broadcast",
-                        event: "request-chat-sync",
-                        payload: {
-                            requestedByToken: sessionMsgToken
-                        }
-                    });
-                }, delay);
-            });
-        }
-
-        const oldSubscribeChannel = subscribeChannel;
-
-        subscribeChannel = function () {
-            oldSubscribeChannel();
-            requestChatHistorySoon();
-        };
-
-        chatToggleBtn.addEventListener("click", () => {
-            requestChatHistorySoon();
-        });
-
-        setTimeout(requestChatHistorySoon, 1500);
-    })();
-</script>
-
-<script>
-/* =========================================================================
-   CHASER — CONSOLIDATED MAP FOLLOW + BUDDY CYCLE + EV TOGGLE
-   This single block replaces all previous overlapping map/follow/EV patches.
-
-   Behavior:
-   - "follow" mode (default while sharing): map always reframes to encompass
-     you + every visible buddy on every GPS update or buddy update. This is
-     UNCONDITIONAL — there is no manual-mode flag that can get stuck, which
-     was the root cause of follow-me silently breaking before.
-   - Pinch/scroll/double-tap zoom and manual dragging always work via
-     Leaflet's native controls; they simply don't fight the next reframe.
-   - Tap a buddy's pin or name label -> close zoom on that buddy ("focused"
-     mode). Tap that same buddy again -> back to "follow" (everyone).
-   - Tap "Buddies Online" widget -> cycles: buddy 1 -> buddy 2 -> ... ->
-     you -> back to encompass-everyone ("follow"). Long-press jumps
-     straight back to encompass-everyone.
-   - The 50-mile radius filter (when its toggle is checked) is always
-     centered on your current live position, and buddies are added/removed
-     live as they cross that boundary.
-   - New buddies joining always cause the map to zoom out to include them
-     while in follow mode.
-   - EV charger toggle is unchanged in behavior, just de-duplicated to one
-     button/one implementation.
-========================================================================= */
 (function () {
-    if (window.__chaserFollowSystemInstalled) return;
-    window.__chaserFollowSystemInstalled = true;
+    if (window.__chaserChatHistoryPatchInstalled) return;
+    window.__chaserChatHistoryPatchInstalled = true;
 
-    const FOLLOW_MAX_ZOOM = 13;
-    const FOCUS_ZOOM = 18;
+    function requestChatHistorySoon() {
+        if (!channel) return;
 
-    let mode = "follow"; // "follow" | "focused"
-    let focusedName = null;
-    let cycleIndex = 0;
-    let reframeQueued = false;
+        [900, 2500, 5000].forEach(delay => {
+            setTimeout(() => {
+                if (!channel) return;
 
-    function isMeName(name) {
-        return String(name || "").includes("(You)");
-    }
-
-    function hasLocation(name, rider) {
-        return !!(rider && rider.marker && rider.lat && rider.lng);
-    }
-
-    function allVisibleEntries() {
-        return Object.entries(incomingRidersCache).filter(([name, rider]) => hasLocation(name, rider));
-    }
-
-    function buddyEntries() {
-        return allVisibleEntries().filter(([name]) => !isMeName(name));
-    }
-
-    function clearFocusHighlight() {
-        Object.values(incomingRidersCache).forEach(r => {
-            if (r && r.marker) r.marker.setZIndexOffset(0);
+                channel.send({
+                    type: "broadcast",
+                    event: "request-chat-sync",
+                    payload: {
+                        requestedByToken: sessionMsgToken
+                    }
+                });
+            }, delay);
         });
     }
 
-    /* ---------- core reframing ---------- */
+    const oldSubscribeChannel = subscribeChannel;
 
-    function reframeToEncompassEveryone(animate) {
-        clearFocusHighlight();
+    subscribeChannel = function () {
+        oldSubscribeChannel();
+        requestChatHistorySoon();
+    };
 
-        const entries = allVisibleEntries();
-        const positions = entries.map(([name, rider]) => [rider.lat, rider.lng]);
-        const haveMe = entries.some(([name]) => isMeName(name));
+    chatToggleBtn.addEventListener("click", () => {
+        requestChatHistorySoon();
+    });
 
-        if (!haveMe && lastLat && lastLng) {
-            positions.push([lastLat, lastLng]);
+    setTimeout(requestChatHistorySoon, 1500);
+})();
+    /* CHASER PATCH — bigger pop-out game table */
+(function () {
+    if (window.__chaserGameTablePatchInstalled) return;
+    window.__chaserGameTablePatchInstalled = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #activeGameStage.open {
+            position: fixed !important;
+            left: 50% !important;
+            top: 50% !important; /* Centered perfectly *
+            transform: translate(-50%, -50%) !important;
+
+            width: min(90vw, 450px) !important;
+            height: min 80vh !important;
+            max-height: 800px !important;
+
+            z-index: 9998 !important;
+            border-radius: 22px !important;
+            border: 3px solid #e2f0d9 !important;
+            background: rgba(30, 70, 32, 0.96) !important;
+            box-shadow: 0 10px 35px rgba(0,0,0,.55) !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
         }
 
-        if (!positions.length) {
-            if (lastLat && lastLng) {
-                map.setView([lastLat, lastLng], FOLLOW_MAX_ZOOM, { animate });
+        #gameCanvasContainer {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: auto !important;
+            box-sizing: border-box !important;
+            padding-bottom: 48px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position: absolute !important;
+            left: 10px !important;
+            bottom: 8px !important;
+            z-index: 10000 !important;
+        }
+
+        @media (max-width: 520px) {
+            #activeGameStage.open {
+                width: 94vw !important;
+                height: 68vh !important;
+                top: 46% !important;
             }
+
+            
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+    
+  
+/* CHASER PATCH — clean game footer row v3 */
+(function () {
+    if (window.__chaserCleanGameFooterV3Installed) return;
+    window.__chaserCleanGameFooterV3Installed = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #roomDisplayCode {
+            text-indent:-9999px !important;
+        }
+
+        #roomDisplayCode::after {
+            content:"Chat Room";
+            text-indent:0;
+            float:left;
+        }
+
+        #activeGameStage.open {
+            position:fixed !important;
+            left:50% !important;
+            right:auto !important;
+            top:70px !important;
+            transform:translateX(-50%) !important;
+            width:calc(100vw - 28px) !important;
+            max-width:760px !important;
+            height:68vh !important;
+            min-height:360px !important;
+            max-height:calc(100dvh - 235px) !important;
+            padding-bottom:42px !important;
+            box-sizing:border-box !important;
+            overflow:hidden !important;
+        }
+
+        #gameCanvasContainer {
+            width:100% !important;
+            height:100% !important;
+            max-height:100% !important;
+            overflow:auto !important;
+            box-sizing:border-box !important;
+            padding-bottom:42px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position:absolute !important;
+            left:14px !important;
+            bottom:8px !important;
+            width:96px !important;
+            min-width:96px !important;
+            max-width:96px !important;
+            height:32px !important;
+            min-height:32px !important;
+            max-height:32px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
+            background:#dc3545 !important;
+            border:2px solid #ffffff !important;
+            border-radius:999px !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:4px !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+            pointer-events:auto !important;
+            transform:none !important;
+            z-index:10040 !important;
+            text-transform:capitalize !important;
+        }
+
+        .canvas-exit-x-glyph,
+        .canvas-exit-label-str {
+            color:#ffffff !important;
+            font-size:11px !important;
+            font-weight:900 !important;
+            text-shadow:none !important;
+            line-height:1 !important;
+            text-transform:capitalize !important;
+        }
+
+        #chaserFooterGameTitle {
+            position:absolute !important;
+            left:110px !important;
+            right:110px !important;
+            bottom:14px !important;
+            text-align:center !important;
+            color:#ffd700 !important;
+            font-family:"Brush Script MT","Comic Sans MS",cursive !important;
+            font-size:17px !important;
+            font-weight:900 !important;
+            text-shadow:0 2px 5px rgba(0,0,0,.75) !important;
+            pointer-events:none !important;
+            white-space:nowrap !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            z-index:10039 !important;
+        }
+
+        #gameBoardToggleBtn {
+            position:fixed !important;
+            width:96px !important;     
+            min-width:96px !important;
+            max-width:96px !important;
+            height:32px !important;
+            min-height:32px !important;
+            max-height:32px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            font-size:11px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+            pointer-events:auto !important;
+            z-index:10060 !important;
+        }
+
+        #gameBoardToggleBtn .arrow {
+            font-size:17px !important;
+            line-height:1 !important;
+        }
+
+        #activeGameStage.game-board-hidden {
+            height:0 !important;
+            min-height:0 !important;
+            max-height:0 !important;
+            padding:0 !important;
+            border-width:0 !important;
+            overflow:hidden !important;
+            opacity:0 !important;
+            pointer-events:none !important;
+        }
+
+        #activeGameStage.game-board-hidden #gameCanvasContainer,
+        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
+        #activeGameStage.game-board-hidden #chaserFooterGameTitle,
+        #activeGameStage.game-board-hidden #coupHelpBtn {
+            display:none !important;
+        }
+
+        @media (max-height:750px) {
+            #activeGameStage.open {
+                top:60px !important;
+                height:72vh !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    let footerTitle = null;
+    let toggle = null;
+    let lastRect = null;
+
+    function gameName() {
+        return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
+    }
+
+    function setToggleText(hidden) {
+        if (!toggle) return;
+        toggle.innerHTML = hidden
+            ? 'Show Board <span class="arrow">▲</span>'
+            : 'Hide Board <span class="arrow">▼</span>';
+    }
+
+    function ensureFooter() {
+        const stage = document.getElementById("activeGameStage");
+        const exitBtn = document.querySelector(".canvas-exit-anchor-box");
+        if (!stage || !exitBtn) return;
+        const exitLabel = exitBtn.querySelector(".canvas-exit-label-str");
+if (exitLabel) exitLabel.innerText = "Exit Game";
+
+        const isOpen = stage.classList.contains("open");
+        const hidden = stage.classList.contains("game-board-hidden");
+
+        if (!footerTitle) {
+            footerTitle = document.createElement("div");
+            footerTitle.id = "chaserFooterGameTitle";
+            stage.appendChild(footerTitle);
+        }
+
+        if (!toggle) {
+            toggle = document.createElement("button");
+            toggle.id = "gameBoardToggleBtn";
+            toggle.type = "button";
+            setToggleText(false);
+            document.body.appendChild(toggle);
+
+            toggle.onclick = () => {
+                const nowHidden = stage.classList.toggle("game-board-hidden");
+                setToggleText(nowHidden);
+
+                if (!nowHidden) {
+                    setTimeout(ensureFooter, 50);
+                }
+            };
+        }
+
+        if (!isOpen) {
+            toggle.style.display = "none";
+            stage.classList.remove("game-board-hidden");
+            setToggleText(false);
             return;
         }
 
-        if (positions.length === 1) {
-            map.setView(positions[0], FOLLOW_MAX_ZOOM, { animate });
-            return;
+        if (footerTitle.parentElement !== stage) {
+            stage.appendChild(footerTitle);
         }
 
-        map.fitBounds(L.latLngBounds(positions), {
-            paddingTopLeft:[40, 180],
-            paddingBottomRight:[40, 180],
-            animate,
-            maxZoom:FOLLOW_MAX_ZOOM
-        });
-    }
+        footerTitle.innerText = gameName();
 
-    function scheduleFollowReframe() {
-        if (mode !== "follow") return;
-        if (reframeQueued) return;
-
-        reframeQueued = true;
-
-        requestAnimationFrame(() => {
-            reframeQueued = false;
-            if (mode === "follow") reframeToEncompassEveryone(true);
-        });
-    }
-
-    /* Called on every GPS tick while sharing. Always reframes when in
-       follow mode -- no flag that can desync and silently disable this. */
-    window.chaserFollowMeOnGpsUpdate = function () {
-        if (!isSharing) return;
-        if (!lastLat || !lastLng) return;
-        if (mode !== "follow") return;
-
-        reframeToEncompassEveryone(true);
-    };
-
-    /* Keep the 50-mile filter centered on the live "me" position and drop
-       buddies that fall outside it, only while the radius toggle is on. */
-    window.chaserApplyRadiusFilter = function () {
-        if (!isRadiusFilterActive || !lastLat || !lastLng) return;
-
-        let changed = false;
-
-        Object.keys(incomingRidersCache).forEach(name => {
-            if (isMeName(name)) return;
-
-            const rider = incomingRidersCache[name];
-            if (!rider || !rider.lat || !rider.lng) return;
-
-            const distMi = map.distance([lastLat, lastLng], [rider.lat, rider.lng]) / 1609.34;
-
-            if (distMi > 50) {
-                removeRider(name);
-                changed = true;
-            }
-        });
-
-        if (changed) updateLiveRiderCounter();
-    };
-
-    /* Called whenever a brand-new buddy marker gets created. */
-    window.chaserOnNewBuddyJoined = function () {
-        if (mode === "follow") {
-            scheduleFollowReframe();
-        }
-    };
-
-    window.chaserResumeFollow = function () {
-        mode = "follow";
-        focusedName = null;
-        cycleIndex = 0;
-        clearFocusHighlight();
-        reframeToEncompassEveryone(true);
-    };
-
-    window.chaserResetFollowState = function () {
-        mode = "follow";
-        focusedName = null;
-        cycleIndex = 0;
-    };
-
-    /* ---------- tap a buddy pin/label ---------- */
-
-    function focusOnBuddy(name, rider) {
-        if (!hasLocation(name, rider)) return;
-
-        mode = "focused";
-        focusedName = name;
-
-        clearFocusHighlight();
-        rider.marker.setZIndexOffset(10000);
-
-        map.setView([rider.lat, rider.lng], FOCUS_ZOOM, { animate:true });
-    }
-
-    function toggleBuddyFocus(name, rider) {
-        const now = Date.now();
-
-        if (rider.marker.__chaserLastTap && now - rider.marker.__chaserLastTap < 350) {
-            return; // debounce double-fire from label + pin both being tapped
-        }
-        rider.marker.__chaserLastTap = now;
-
-        if (mode === "focused" && focusedName === name) {
-            window.chaserResumeFollow();
-        } else {
-            focusOnBuddy(name, rider);
-        }
-    }
-
-    /* Exposed so renderSingleRiderVisualLayers() can wire every marker
-       (new or re-rendered) through one single click handler. */
-    window.chaserWireBuddyMarker = function (name, rider) {
-        if (!rider || !rider.marker) return;
-
-        rider.marker.off('click');
-        rider.marker.off('dblclick');
-
-        rider.marker.on('click', e => {
-            if (e && e.originalEvent) {
-                e.originalEvent.preventDefault();
-                e.originalEvent.stopPropagation();
-            }
-            L.DomEvent.stopPropagation(e);
-            toggleBuddyFocus(name, rider);
-        });
-
-        rider.marker.on('dblclick', e => {
-            if (e && e.originalEvent) {
-                e.originalEvent.preventDefault();
-                e.originalEvent.stopPropagation();
-            }
-            L.DomEvent.stopPropagation(e);
-            toggleBuddyFocus(name, rider);
-        });
-    };
-
-    /* ---------- "Buddies Online" cycle button ---------- */
-
-    function cycleList() {
-        // Active buddies first, then dormant/ghost buddies, then you, in
-        // the order they currently appear in the cache.
-        const entries = allVisibleEntries();
-        const activeBuddies = entries.filter(([n, r]) => !isMeName(n) && !r.isGhost);
-        const dormantBuddies = entries.filter(([n, r]) => !isMeName(n) && r.isGhost);
-        const me = entries.filter(([n]) => isMeName(n));
-        return activeBuddies.concat(dormantBuddies).concat(me);
-    }
-
-    function cycleToNext() {
-        const list = cycleList();
-
-        if (!list.length) {
-            window.chaserResumeFollow();
-            return;
+        if (!hidden) {
+            lastRect = stage.getBoundingClientRect();
         }
 
-        const totalSteps = list.length + 1; // + 1 for "everyone" step
-        const step = cycleIndex % totalSteps;
-        cycleIndex++;
+        const r = lastRect || stage.getBoundingClientRect();
 
-        if (step === list.length) {
-            window.chaserResumeFollow();
-            return;
-        }
-
-        const [name, rider] = list[step];
-        mode = "focused";
-        focusedName = name;
-        clearFocusHighlight();
-        rider.marker.setZIndexOffset(10000);
-        map.setView([rider.lat, rider.lng], FOLLOW_MAX_ZOOM, { animate:true });
+        toggle.style.display = "block";
+        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 104, r.right - 108)) + "px";
+        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 38, r.bottom - 42)) + "px";
     }
 
-    function wireBuddiesOnlineWidget() {
-        const widget = document.getElementById("riderCounterWidget");
-        if (!widget || widget.__chaserCycleWired) return;
+    setInterval(ensureFooter, 300);
+})();
+</script>
+    
 
-        widget.__chaserCycleWired = true;
-
-        widget.addEventListener('click', e => {
-            e.preventDefault();
-            e.stopPropagation();
-            cycleToNext();
-        });
-
-        let pressTimer = null;
-
-        widget.addEventListener('touchstart', () => {
-            pressTimer = setTimeout(() => {
-                window.chaserResumeFollow();
-            }, 650);
-        }, { passive:true });
-
-        widget.addEventListener('touchend', () => {
-            clearTimeout(pressTimer);
-        }, { passive:true });
-
-        widget.addEventListener('touchcancel', () => {
-            clearTimeout(pressTimer);
-        }, { passive:true });
-    }
-
-    wireBuddiesOnlineWidget();
-    setInterval(wireBuddiesOnlineWidget, 1000);
-
-    /* Treat manual user dragging/pinching as a deliberate look-around: it
-       does not change `mode`, so the very next GPS tick or buddy update
-       will reframe again if we're still in follow mode. This means
-       follow-me can never get permanently "stuck" off the way it did
-       before -- there's no flag that flips off and never flips back. */
-
-    /* ---------- EV charger toggle (single consolidated implementation) --------- */
+<script src="./games.js?v=40"></script>
+<script src="./games/yahtzee.js"></script>
+    <script src="./games/scrabble.js?v=15"></script>
+<script src="./games/battleship.js?v=4"></script>
+    <script src="./games/texasholdem.js?v=6"></script>
+    <script src="./games/eucwheels.js?v=2"></script>
+    <script src="./games/cribbage.js?v=5"></script>
+    <script src="./games/tinykingdoms.js?v=1"></script>
+    
+<script>
+/* CHASER PATCH — FINAL EV SVG TOGGLE OVERRIDE
+   Runs last. Hides/removes all older EV buttons and markers.
+   Button:
+   - Small round green button with gold lightning
+   - Tap once: show EV chargers in current map view
+   - Tap again: hide EV chargers
+   - Active: gold button with green lightning
+*/
+(function () {
+    if (window.__chaserFinalEvSvgToggleOverrideInstalled) return;
+    window.__chaserFinalEvSvgToggleOverrideInstalled = true;
 
     const EV_SVG =
         '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
@@ -3070,57 +3002,169 @@
     let evVisible = false;
     let evLoading = false;
     let evRequestId = 0;
-    let evAbortController = null;
 
     function safeText(value) {
         return String(value || "")
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
+            .replace(/&/g, "&" + "amp;")
+            .replace(/</g, "&" + "lt;")
+            .replace(/>/g, "&" + "gt;")
+            .replace(/"/g, "&" + "quot;")
+            .replace(/'/g, "&" + "#039;");
     }
 
-    function evIcon() {
-        return L.divIcon({
-            className:"",
-            html:'<div class="chaser-ev-marker">' + EV_SVG + '</div>',
-            iconSize:[28, 28],
-            iconAnchor:[14, 14]
+    function installFinalEvStyles() {
+        let style = document.getElementById("chaser-final-ev-svg-style");
+
+        if (style) return;
+
+        style = document.createElement("style");
+        style.id = "chaser-final-ev-svg-style";
+        style.innerHTML = `
+            #chaserEvChargerBtn,
+            #chaserSimpleEvBtn,
+            #chaserLightningEvBtn,
+            #chaserCenteredEvBtn,
+            .chaser-ev-control,
+            .chaser-simple-ev-control,
+            .chaser-lightning-ev-control {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserFinalEvSvgBtn {
+                position:fixed !important;
+                width:38px !important;
+                height:38px !important;
+                min-width:38px !important;
+                min-height:38px !important;
+                max-width:38px !important;
+                max-height:38px !important;
+                padding:0 !important;
+                border-radius:50% !important;
+                border:3px solid #e2f0d9 !important;
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+                cursor:pointer !important;
+                box-sizing:border-box !important;
+                z-index:50000 !important;
+                -webkit-tap-highlight-color:transparent !important;
+                user-select:none !important;
+            }
+
+            #chaserFinalEvSvgBtn svg {
+                width:23px !important;
+                height:23px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            #chaserFinalEvSvgBtn.active {
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border-color:#ffffff !important;
+            }
+
+            .chaser-final-ev-marker {
+                width:28px !important;
+                height:28px !important;
+                border-radius:50% !important;
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border:3px solid #ffffff !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 12px rgba(0,0,0,.45) !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-final-ev-marker svg {
+                width:18px !important;
+                height:18px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            .leaflet-tooltip {
+                background:#e2f0d9 !important;
+                color:#1e4620 !important;
+                border:2px solid #1e4620 !important;
+                border-radius:10px !important;
+                font-size:12px !important;
+                font-weight:800 !important;
+                box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+                padding:7px 9px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function removeOlderEvControls() {
+        document.querySelectorAll(
+            ".chaser-ev-control, .chaser-simple-ev-control, .chaser-lightning-ev-control"
+        ).forEach(node => {
+            const parentControl = node.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else node.remove();
+        });
+
+        [
+            "chaserEvChargerBtn",
+            "chaserSimpleEvBtn",
+            "chaserLightningEvBtn",
+            "chaserCenteredEvBtn"
+        ].forEach(id => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const parentControl = btn.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else btn.remove();
         });
     }
 
-    function buildEvTooltip(tags) {
-        const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
-        const operator = tags.operator || tags.brand || "";
-        const access = tags.access || "";
-        const capacity = tags.capacity || "";
-        const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+    function removeOlderEvMarkers() {
+        map.eachLayer(layer => {
+            if (!(layer instanceof L.Marker)) return;
 
-        const lines = ["<b>" + safeText(name) + "</b>"];
-        if (operator && operator !== name) lines.push("Network: " + safeText(operator));
-        if (access) lines.push("Access: " + safeText(access));
-        if (capacity) lines.push("Stalls: " + safeText(capacity));
-        if (output) lines.push("Power: " + safeText(output));
+            const icon = layer.options && layer.options.icon;
+            const html = icon && icon.options ? String(icon.options.html || "") : "";
 
-        return lines.join("<br>");
+            const isOldEvMarker =
+                html.includes("⚡") ||
+                html.includes("chaser-simple-ev-marker") ||
+                html.includes("chaser-lightning-ev-marker") ||
+                html.includes("chaser-centered-ev-marker");
+
+            if (isOldEvMarker) {
+                map.removeLayer(layer);
+            }
+        });
     }
 
-    function setEvButtonActive(active) {
-        const btn = document.getElementById("chaserEvBtn");
+    function setButtonActive(active) {
+        const btn = document.getElementById("chaserFinalEvSvgBtn");
         if (!btn) return;
+
         btn.classList.toggle("active", !!active);
+        btn.innerHTML = EV_SVG;
     }
 
-    function positionEvButton() {
-        const btn = document.getElementById("chaserEvBtn");
+    function positionFinalButton() {
+        const btn = document.getElementById("chaserFinalEvSvgBtn");
         if (!btn) return;
-
-        const chat = document.getElementById("chatOverlay");
-        if (chat && chat.classList.contains("open")) return;
 
         const zoomControl = document.querySelector(".leaflet-control-zoom");
         const radiusControl = document.querySelector(".radius-toggle-container");
+
         const size = 38;
 
         if (!zoomControl || !radiusControl) {
@@ -3142,4 +3186,1364 @@
         left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
         top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
 
-        btn.style.left = left + "p
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+        btn.style.transform = "none";
+    }
+
+    function hideEvChargers() {
+        evRequestId++;
+
+        if (evLayer) {
+            evLayer.clearLayers();
+        }
+
+        removeOlderEvMarkers();
+
+        evVisible = false;
+        evLoading = false;
+        setButtonActive(false);
+    }
+
+    function evIcon() {
+        return L.divIcon({
+            className:"",
+            html:
+                '<div class="chaser-final-ev-marker">' +
+                    EV_SVG +
+                '</div>',
+            iconSize:[28, 28],
+            iconAnchor:[14, 14]
+        });
+    }
+
+    function buildTooltip(tags) {
+        const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+        const operator = tags.operator || tags.brand || "";
+        const access = tags.access || "";
+        const capacity = tags.capacity || "";
+        const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+        const lines = ["<b>" + safeText(name) + "</b>"];
+
+        if (operator && operator !== name) lines.push("Network: " + safeText(operator));
+        if (access) lines.push("Access: " + safeText(access));
+        if (capacity) lines.push("Stalls: " + safeText(capacity));
+        if (output) lines.push("Power: " + safeText(output));
+
+        return lines.join("<br>");
+    }
+
+    async function showEvChargersInCurrentMapView() {
+        if (evLoading) return;
+
+        const thisRequest = ++evRequestId;
+
+        evVisible = true;
+        evLoading = true;
+        setButtonActive(true);
+
+        if (!evLayer) {
+            evLayer = L.layerGroup().addTo(map);
+        }
+
+        evLayer.clearLayers();
+        removeOlderEvMarkers();
+
+        const b = map.getBounds();
+        const south = b.getSouth();
+        const west = b.getWest();
+        const north = b.getNorth();
+        const east = b.getEast();
+
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
+        try {
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+            const response = await fetch(url);
+
+            if (!response.ok) throw new Error("EV lookup failed");
+
+            const data = await response.json();
+
+            if (thisRequest !== evRequestId || !evVisible) return;
+
+            evLayer.clearLayers();
+
+            (data.elements || []).forEach(item => {
+                const tags = item.tags || {};
+                const access = String(tags.access || "").toLowerCase();
+
+                if (access === "private" || access === "no") return;
+
+                const lat = item.lat || (item.center && item.center.lat);
+                const lon = item.lon || (item.center && item.center.lon);
+
+                if (!lat || !lon) return;
+
+                const marker = L.marker([lat, lon], {
+                    icon:evIcon(),
+                    zIndexOffset:7000
+                }).addTo(evLayer);
+
+                marker.bindTooltip(buildTooltip(tags), {
+                    direction:"top",
+                    offset:[0, -18],
+                    opacity:0.96,
+                    sticky:true
+                });
+
+                marker.on("click", () => marker.openTooltip());
+            });
+
+            setButtonActive(true);
+        } catch (err) {
+            hideEvChargers();
+        } finally {
+            evLoading = false;
+        }
+    }
+
+    function installFinalButton() {
+        installFinalEvStyles();
+        removeOlderEvControls();
+        removeOlderEvMarkers();
+
+        let btn = document.getElementById("chaserFinalEvSvgBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserFinalEvSvgBtn";
+            btn.type = "button";
+            btn.title = "Show EV chargers in this map area";
+            btn.innerHTML = EV_SVG;
+            document.body.appendChild(btn);
+        }
+
+        btn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (evVisible || evLoading) {
+                hideEvChargers();
+            } else {
+                showEvChargersInCurrentMapView();
+            }
+        };
+
+        setButtonActive(false);
+        positionFinalButton();
+    }
+
+    installFinalButton();
+
+    window.addEventListener("resize", positionFinalButton);
+    window.addEventListener("orientationchange", () => {
+        setTimeout(positionFinalButton, 500);
+    });
+
+    map.on("moveend zoomend", positionFinalButton);
+
+    let fastCleanupCount = 0;
+
+    const fastCleanup = setInterval(() => {
+        fastCleanupCount++;
+        installFinalEvStyles();
+        removeOlderEvControls();
+
+        if (!evVisible) {
+            removeOlderEvMarkers();
+        }
+
+        positionFinalButton();
+
+        if (fastCleanupCount > 60) {
+            clearInterval(fastCleanup);
+        }
+    }, 100);
+
+    setInterval(() => {
+        installFinalEvStyles();
+        removeOlderEvControls();
+
+        if (!evVisible) {
+            removeOlderEvMarkers();
+        }
+
+        positionFinalButton();
+    }, 1200);
+})();
+</script>
+   
+<script>
+/* CHASER PATCH — stop Uno from ghost-rendering over other games */
+(function () {
+    if (window.__chaserStopUnoGhostRenderInstalled) return;
+    window.__chaserStopUnoGhostRenderInstalled = true;
+
+    function isUnoName(gameName) {
+        return String(gameName || "").toLowerCase().includes("uno");
+    }
+
+    function getActiveGameName() {
+        return String(
+            (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) ||
+            (window.activeGameLabelTitle && window.activeGameLabelTitle.innerText) ||
+            ""
+        );
+    }
+
+    function clearUnoState() {
+        window.unoState = null;
+        window.chaserUnoState = null;
+        window.__chaserUnoGhostBlocked = true;
+    }
+
+    function allowUnoState() {
+        window.__chaserUnoGhostBlocked = false;
+    }
+
+    if (typeof window.renderUnoLayout === "function" && !window.renderUnoLayout.__chaserGhostGuarded) {
+        const oldRenderUnoLayout = window.renderUnoLayout;
+
+        window.renderUnoLayout = function () {
+            const activeName = getActiveGameName();
+
+            if (window.__chaserUnoGhostBlocked && !isUnoName(activeName)) {
+                return;
+            }
+
+            return oldRenderUnoLayout.apply(this, arguments);
+        };
+
+        window.renderUnoLayout.__chaserGhostGuarded = true;
+    }
+
+    if (typeof window.launchGameEngine === "function" && !window.launchGameEngine.__chaserUnoGhostGuarded) {
+        const oldLaunchGameEngine = window.launchGameEngine;
+
+        window.launchGameEngine = function (gameName, icon) {
+            if (isUnoName(gameName)) {
+                allowUnoState();
+            } else {
+                clearUnoState();
+            }
+
+            const result = oldLaunchGameEngine.apply(this, arguments);
+
+            if (!isUnoName(gameName)) {
+                setTimeout(clearUnoState, 50);
+                setTimeout(clearUnoState, 250);
+                setTimeout(clearUnoState, 700);
+            }
+
+            return result;
+        };
+
+        window.launchGameEngine.__chaserUnoGhostGuarded = true;
+    }
+
+    if (typeof window.chaserMasterExitSequence === "function" && !window.chaserMasterExitSequence.__chaserUnoGhostGuarded) {
+        const oldExit = window.chaserMasterExitSequence;
+
+        window.chaserMasterExitSequence = function () {
+            clearUnoState();
+            return oldExit.apply(this, arguments);
+        };
+
+        window.chaserMasterExitSequence.__chaserUnoGhostGuarded = true;
+    }
+})();
+</script>
+<script>
+/* CHASER PATCH — chat header cleanup + hide EV over chat + hide Wheels */
+(function () {
+    if (window.__chaserChatHeaderCleanupFinalInstalled) return;
+    window.__chaserChatHeaderCleanupFinalInstalled = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        /* Hide the EV charger button whenever chat is open */
+        #chatOverlay.open ~ #chaserFinalEvSvgBtn,
+        body:has(#chatOverlay.open) #chaserFinalEvSvgBtn {
+            display:none !important;
+            pointer-events:none !important;
+            opacity:0 !important;
+        }
+
+        /* Keep EV button behind chat even if another patch gives it a huge z-index */
+        #chaserFinalEvSvgBtn {
+            z-index:12 !important;
+        }
+
+        /* Remove Wheels button from chat header */
+        #wheelsTriggerBtn {
+            display:none !important;
+            pointer-events:none !important;
+            opacity:0 !important;
+            width:0 !important;
+            min-width:0 !important;
+            max-width:0 !important;
+            padding:0 !important;
+            margin:0 !important;
+            overflow:hidden !important;
+        }
+
+        /* Chat header layout after Wheels is gone */
+        #chatHeader {
+            justify-content:flex-start !important;
+            gap:8px !important;
+            padding-left:14px !important;
+            padding-right:10px !important;
+            box-sizing:border-box !important;
+        }
+
+        /* Softer Chat Room text, nudged slightly right */
+        #roomDisplayCode.chat-room-title {
+            margin-left:8px !important;
+            padding-left:4px !important;
+            font-family:"Brush Script MT","Comic Sans MS",cursive !important;
+            font-size:27px !important;
+            font-weight:900 !important;
+            letter-spacing:0.5px !important;
+            color:#ffd700 !important;
+            text-transform:none !important;
+            max-width:125px !important;
+            flex:0 0 auto !important;
+            line-height:1 !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            white-space:nowrap !important;
+        }
+
+        /* Center the Games button in the open space */
+        #headerActionButtonsContainer {
+            display:flex !important;
+            flex:1 1 auto !important;
+            justify-content:center !important;
+            align-items:center !important;
+            gap:0 !important;
+        }
+
+        #chatGamesTriggerBtn {
+            margin:0 auto !important;
+        }
+
+        #closeChatBtn {
+            margin-left:0 !important;
+            flex:0 0 auto !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    function cleanupChatHeaderUi() {
+        const chat = document.getElementById("chatOverlay");
+        const evBtn = document.getElementById("chaserFinalEvSvgBtn");
+        const wheelsBtn = document.getElementById("wheelsTriggerBtn");
+        const gamesBtn = document.getElementById("chatGamesTriggerBtn");
+        const headerBtns = document.getElementById("headerActionButtonsContainer");
+        const roomTitle = document.getElementById("roomDisplayCode");
+
+        if (wheelsBtn) {
+            wheelsBtn.style.display = "none";
+            wheelsBtn.style.pointerEvents = "none";
+            wheelsBtn.style.opacity = "0";
+            wheelsBtn.style.width = "0";
+            wheelsBtn.style.minWidth = "0";
+            wheelsBtn.style.maxWidth = "0";
+            wheelsBtn.style.padding = "0";
+            wheelsBtn.style.margin = "0";
+            wheelsBtn.style.overflow = "hidden";
+        }
+
+        if (headerBtns) {
+            headerBtns.style.display = "flex";
+            headerBtns.style.flex = "1 1 auto";
+            headerBtns.style.justifyContent = "center";
+            headerBtns.style.alignItems = "center";
+            headerBtns.style.gap = "0";
+        }
+
+        if (gamesBtn) {
+            gamesBtn.style.margin = "0 auto";
+        }
+
+        if (roomTitle && !roomTitle.classList.contains("youtube-pill-title")) {
+            roomTitle.style.marginLeft = "8px";
+            roomTitle.style.paddingLeft = "4px";
+            roomTitle.style.fontFamily = '"Brush Script MT","Comic Sans MS",cursive';
+            roomTitle.style.fontSize = "27px";
+            roomTitle.style.fontWeight = "900";
+            roomTitle.style.letterSpacing = "0.5px";
+            roomTitle.style.textTransform = "none";
+            roomTitle.style.maxWidth = "125px";
+            roomTitle.style.lineHeight = "1";
+        }
+
+        if (evBtn) {
+            const chatOpen = chat && chat.classList.contains("open");
+
+            if (chatOpen) {
+                evBtn.style.display = "none";
+                evBtn.style.pointerEvents = "none";
+                evBtn.style.opacity = "0";
+            } else {
+                evBtn.style.display = "flex";
+                evBtn.style.pointerEvents = "auto";
+                evBtn.style.opacity = "1";
+            }
+
+            evBtn.style.zIndex = "12";
+        }
+    }
+
+    cleanupChatHeaderUi();
+
+    document.addEventListener("click", () => {
+        setTimeout(cleanupChatHeaderUi, 50);
+        setTimeout(cleanupChatHeaderUi, 250);
+    }, true);
+
+    setInterval(cleanupChatHeaderUi, 500);
+})();
+</script>
+    <script>
+/* CHASER PATCH — FINAL combined map follow + buddies + EV reliable toggle
+   Put this at the very bottom, right before </body>.
+
+   EV:
+   - Tap lightning once = show EV chargers in current map view
+   - Tap lightning again = hide immediately
+   - Cancels/ignores old slow EV requests
+   - No EV text, no count
+
+   Map:
+   - While sharing, follows/framing you and visible buddies
+   - Removes buddies outside 50 miles
+   - Buddies Online cycles through buddies at normal zoom
+   - After cycling buddies, Buddies Online returns to everyone
+   - Tap buddy marker once = close zoom
+   - Tap same buddy again = zoom back out to everyone
+   - Does not override your original fitAllRiders function
+*/
+(function () {
+    if (window.__chaserFinalCombinedMapEvPatchInstalled) return;
+    window.__chaserFinalCombinedMapEvPatchInstalled = true;
+
+    const NORMAL_ZOOM = 13;
+    const CLOSE_ZOOM = 18;
+
+    const EV_SVG =
+        '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+            '<path fill="currentColor" d="M13.2 1.8 4.3 13.6h6.1l-1.5 8.6 10.8-13.4h-6.4l-.1-7z"></path>' +
+        '</svg>';
+
+    let buddyCycleIndex = 0;
+    let focusedBuddyName = null;
+    let mapMode = "auto"; // auto, browse, focused, manual
+    let programmaticMove = false;
+
+    let evLayer = null;
+    let evVisible = false;
+    let evLoading = false;
+    let evRequestId = 0;
+    let evAbortController = null;
+
+    if (map && map.doubleClickZoom) {
+        map.doubleClickZoom.disable();
+    }
+
+    function safeText(value) {
+        return String(value || "")
+            .replace(/&/g, "&" + "amp;")
+            .replace(/</g, "&" + "lt;")
+            .replace(/>/g, "&" + "gt;")
+            .replace(/"/g, "&" + "quot;")
+            .replace(/'/g, "&" + "#039;");
+    }
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function validRider(name, rider) {
+        return !!(
+            rider &&
+            rider.marker &&
+            rider.lat &&
+            rider.lng &&
+            !rider.isGhost
+        );
+    }
+
+    function visibleRiders() {
+        return Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => validRider(name, rider));
+    }
+
+    function visibleBuddiesOnly() {
+        return visibleRiders().filter(([name]) => !isMeName(name));
+    }
+
+    function beginProgrammaticMove() {
+        programmaticMove = true;
+
+        setTimeout(() => {
+            programmaticMove = false;
+        }, 900);
+    }
+
+    function setMapView(lat, lng, zoom) {
+        beginProgrammaticMove();
+
+        map.setView([lat, lng], zoom, {
+            animate:true
+        });
+    }
+
+    function removeOutOfRangeBuddies() {
+        if (!isRadiusFilterActive || !lastLat || !lastLng) return;
+
+        Object.keys(incomingRidersCache).forEach(name => {
+            if (isMeName(name)) return;
+
+            const rider = incomingRidersCache[name];
+            if (!rider || !rider.lat || !rider.lng) return;
+
+            const distMi = map.distance([lastLat, lastLng], [rider.lat, rider.lng]) / 1609.34;
+
+            if (distMi > 50) {
+                removeRider(name);
+            }
+        });
+
+        updateLiveRiderCounter();
+    }
+
+    function clearBuddyFocus() {
+        focusedBuddyName = null;
+
+        Object.values(incomingRidersCache).forEach(rider => {
+            if (rider && rider.marker) {
+                rider.marker.__chaserCombinedFocused = false;
+                rider.marker.setZIndexOffset(0);
+            }
+        });
+    }
+
+    function frameEveryoneAndResumeAuto() {
+        mapMode = "auto";
+        clearBuddyFocus();
+        removeOutOfRangeBuddies();
+
+        const riders = visibleRiders();
+        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
+        const hasMe = riders.some(([name]) => isMeName(name));
+
+        if (!hasMe && lastLat && lastLng) {
+            positions.push([lastLat, lastLng]);
+        }
+
+        if (!positions.length && lastLat && lastLng) {
+            setMapView(lastLat, lastLng, NORMAL_ZOOM);
+            return;
+        }
+
+        if (positions.length === 1) {
+            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
+            return;
+        }
+
+        beginProgrammaticMove();
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:NORMAL_ZOOM
+        });
+    }
+
+    function autoFrameIfAllowed() {
+        if (!isSharing) return;
+        if (!lastLat || !lastLng) return;
+        if (mapMode !== "auto") return;
+
+        removeOutOfRangeBuddies();
+
+        const riders = visibleRiders();
+        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
+        const hasMe = riders.some(([name]) => isMeName(name));
+
+        if (!hasMe) {
+            positions.push([lastLat, lastLng]);
+        }
+
+        if (!positions.length) {
+            setMapView(lastLat, lastLng, NORMAL_ZOOM);
+            return;
+        }
+
+        if (positions.length === 1) {
+            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
+            return;
+        }
+
+        beginProgrammaticMove();
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:NORMAL_ZOOM
+        });
+    }
+
+    function normalViewOnBuddy(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        mapMode = "browse";
+        clearBuddyFocus();
+
+        rider.marker.setZIndexOffset(10000);
+        setMapView(rider.lat, rider.lng, NORMAL_ZOOM);
+    }
+
+    function closeViewOnBuddy(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        mapMode = "focused";
+        clearBuddyFocus();
+
+        focusedBuddyName = name;
+        rider.marker.__chaserCombinedFocused = true;
+        rider.marker.setZIndexOffset(10000);
+
+        setMapView(rider.lat, rider.lng, CLOSE_ZOOM);
+    }
+
+    function toggleBuddyMarker(name, rider) {
+        if (!validRider(name, rider)) return;
+
+        const now = Date.now();
+
+        if (rider.marker.__chaserCombinedLastTap && now - rider.marker.__chaserCombinedLastTap < 350) {
+            return;
+        }
+
+        rider.marker.__chaserCombinedLastTap = now;
+
+        if (focusedBuddyName === name || rider.marker.__chaserCombinedFocused) {
+            frameEveryoneAndResumeAuto();
+        } else {
+            closeViewOnBuddy(name, rider);
+        }
+    }
+
+    function cycleBuddiesButton() {
+        const buddies = visibleBuddiesOnly();
+
+        if (!buddies.length) {
+            frameEveryoneAndResumeAuto();
+            return;
+        }
+
+        const totalSteps = buddies.length + 1;
+        const step = buddyCycleIndex % totalSteps;
+        buddyCycleIndex++;
+
+        if (step === buddies.length) {
+            frameEveryoneAndResumeAuto();
+            return;
+        }
+
+        const [name, rider] = buddies[step];
+        normalViewOnBuddy(name, rider);
+    }
+
+    function rewireBuddyMarkers() {
+        Object.entries(incomingRidersCache).forEach(([name, rider]) => {
+            if (!validRider(name, rider)) return;
+
+            rider.marker.__chaserFinalCleanupWired = true;
+            rider.marker.__chaserFinalBuddyZoomWired = true;
+            rider.marker.__chaserFinalCleanFollowWired = true;
+            rider.marker.__chaserCombinedMapWired = true;
+
+            rider.marker.off("click");
+            rider.marker.off("dblclick");
+
+            rider.marker.on("click", e => {
+                if (e && e.originalEvent) {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                }
+
+                L.DomEvent.stopPropagation(e);
+                toggleBuddyMarker(name, rider);
+            });
+
+            rider.marker.on("dblclick", e => {
+                if (e && e.originalEvent) {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                }
+
+                L.DomEvent.stopPropagation(e);
+                toggleBuddyMarker(name, rider);
+            });
+        });
+    }
+
+    function wireBuddiesOnlineButton() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter) return;
+
+        if (oldCounter.__chaserCombinedCounterWired) return;
+
+        const newCounter = oldCounter.cloneNode(true);
+
+        newCounter.__chaserCombinedCounterWired = true;
+        newCounter.__chaserFinalCleanupCounterWired = true;
+        newCounter.__chaserFinalCleanFollowCounter = true;
+
+        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
+
+        newCounter.style.pointerEvents = "auto";
+        newCounter.style.cursor = "pointer";
+
+        newCounter.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            cycleBuddiesButton();
+        }, true);
+
+        let pressTimer = null;
+
+        newCounter.addEventListener("touchstart", () => {
+            pressTimer = setTimeout(() => {
+                frameEveryoneAndResumeAuto();
+            }, 650);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchend", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchcancel", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+    }
+
+    map.on("dragstart zoomstart", () => {
+        if (programmaticMove) return;
+        mapMode = "manual";
+    });
+
+    window.chaserFollowMapNow = frameEveryoneAndResumeAuto;
+    window.chaserEnableFollowMe = frameEveryoneAndResumeAuto;
+    window.chaserFollowMeOnGpsUpdate = autoFrameIfAllowed;
+
+    if (typeof broadcastCurrentState === "function" && !broadcastCurrentState.__chaserCombinedFollowWrapped) {
+        const oldBroadcastCurrentState = broadcastCurrentState;
+
+        broadcastCurrentState = function () {
+            const result = oldBroadcastCurrentState.apply(this, arguments);
+
+            setTimeout(() => {
+                rewireBuddyMarkers();
+                autoFrameIfAllowed();
+            }, 80);
+
+            return result;
+        };
+
+        broadcastCurrentState.__chaserCombinedFollowWrapped = true;
+        window.broadcastCurrentState = broadcastCurrentState;
+    }
+
+    if (typeof processIncomingCoordinateUpdate === "function" && !processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped) {
+        const oldProcessIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+
+        processIncomingCoordinateUpdate = function () {
+            const result = oldProcessIncomingCoordinateUpdate.apply(this, arguments);
+
+            setTimeout(() => {
+                rewireBuddyMarkers();
+                autoFrameIfAllowed();
+            }, 80);
+
+            return result;
+        };
+
+        processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped = true;
+        window.processIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
+    }
+
+    function installEvStyles() {
+        let style = document.getElementById("chaser-combined-ev-style");
+
+        if (style) return;
+
+        style = document.createElement("style");
+        style.id = "chaser-combined-ev-style";
+        style.innerHTML = `
+            #chaserEvChargerBtn,
+            #chaserSimpleEvBtn,
+            #chaserLightningEvBtn,
+            #chaserCenteredEvBtn,
+            #chaserFinalEvSvgBtn,
+            .chaser-ev-control,
+            .chaser-simple-ev-control,
+            .chaser-lightning-ev-control {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserCombinedEvBtn {
+                position:fixed !important;
+                width:38px !important;
+                height:38px !important;
+                min-width:38px !important;
+                min-height:38px !important;
+                max-width:38px !important;
+                max-height:38px !important;
+                padding:0 !important;
+                border-radius:50% !important;
+                border:3px solid #e2f0d9 !important;
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 14px rgba(0,0,0,.42) !important;
+                cursor:pointer !important;
+                box-sizing:border-box !important;
+                z-index:12 !important;
+                -webkit-tap-highlight-color:transparent !important;
+                user-select:none !important;
+            }
+
+            #chaserCombinedEvBtn svg {
+                width:23px !important;
+                height:23px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            #chaserCombinedEvBtn.active {
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border-color:#ffffff !important;
+            }
+
+            #chatOverlay.open ~ #chaserCombinedEvBtn,
+            body:has(#chatOverlay.open) #chaserCombinedEvBtn {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+            }
+
+            .chaser-combined-ev-marker {
+                width:28px !important;
+                height:28px !important;
+                border-radius:50% !important;
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                border:3px solid #ffffff !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-shadow:0 4px 12px rgba(0,0,0,.45) !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-combined-ev-marker svg {
+                width:18px !important;
+                height:18px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            .leaflet-tooltip {
+                background:#e2f0d9 !important;
+                color:#1e4620 !important;
+                border:2px solid #1e4620 !important;
+                border-radius:10px !important;
+                font-size:12px !important;
+                font-weight:800 !important;
+                box-shadow:0 5px 14px rgba(0,0,0,.38) !important;
+                padding:7px 9px !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function removeOldEvControls() {
+        document.querySelectorAll(
+            ".chaser-ev-control, .chaser-simple-ev-control, .chaser-lightning-ev-control"
+        ).forEach(node => {
+            const parentControl = node.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else node.remove();
+        });
+
+        [
+            "chaserEvChargerBtn",
+            "chaserSimpleEvBtn",
+            "chaserLightningEvBtn",
+            "chaserCenteredEvBtn",
+            "chaserFinalEvSvgBtn"
+        ].forEach(id => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+
+            const parentControl = btn.closest(".leaflet-control");
+            if (parentControl) parentControl.remove();
+            else btn.remove();
+        });
+    }
+
+    function removeOldEvMarkers() {
+        map.eachLayer(layer => {
+            if (!(layer instanceof L.Marker)) return;
+
+            const icon = layer.options && layer.options.icon;
+            const html = icon && icon.options ? String(icon.options.html || "") : "";
+
+            const oldEv =
+                html.includes("⚡") ||
+                html.includes("chaser-simple-ev-marker") ||
+                html.includes("chaser-lightning-ev-marker") ||
+                html.includes("chaser-centered-ev-marker") ||
+                html.includes("chaser-final-ev-marker");
+
+            if (oldEv) {
+                map.removeLayer(layer);
+            }
+        });
+    }
+
+    function setEvButtonActive(active) {
+        const btn = document.getElementById("chaserCombinedEvBtn");
+        if (!btn) return;
+
+        btn.classList.toggle("active", !!active);
+        btn.innerHTML = EV_SVG;
+    }
+
+    function positionEvButton() {
+        const btn = document.getElementById("chaserCombinedEvBtn");
+        if (!btn) return;
+
+        const chat = document.getElementById("chatOverlay");
+
+        if (chat && chat.classList.contains("open")) {
+            btn.style.display = "none";
+            btn.style.pointerEvents = "none";
+            btn.style.opacity = "0";
+            return;
+        }
+
+        btn.style.display = "flex";
+        btn.style.pointerEvents = "auto";
+        btn.style.opacity = "1";
+
+        const zoomControl = document.querySelector(".leaflet-control-zoom");
+        const radiusControl = document.querySelector(".radius-toggle-container");
+
+        const size = 38;
+
+        if (!zoomControl || !radiusControl) {
+            btn.style.top = "82px";
+            btn.style.left = "50%";
+            btn.style.transform = "translateX(-50%)";
+            return;
+        }
+
+        const z = zoomControl.getBoundingClientRect();
+        const r = radiusControl.getBoundingClientRect();
+
+        const centerX = (z.right + r.left) / 2;
+        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+
+        let left = centerX - (size / 2);
+        let top = centerY - (size / 2);
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+        btn.style.transform = "none";
+    }
+
+    function evIcon() {
+        return L.divIcon({
+            className:"",
+            html:
+                '<div class="chaser-combined-ev-marker">' +
+                    EV_SVG +
+                '</div>',
+            iconSize:[28, 28],
+            iconAnchor:[14, 14]
+        });
+    }
+
+    function buildEvTooltip(tags) {
+        const name = tags.name || tags.brand || tags.operator || "EV Charging Station";
+        const operator = tags.operator || tags.brand || "";
+        const access = tags.access || "";
+        const capacity = tags.capacity || "";
+        const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
+
+        const lines = ["<b>" + safeText(name) + "</b>"];
+
+        if (operator && operator !== name) lines.push("Network: " + safeText(operator));
+        if (access) lines.push("Access: " + safeText(access));
+        if (capacity) lines.push("Stalls: " + safeText(capacity));
+        if (output) lines.push("Power: " + safeText(output));
+
+        return lines.join("<br>");
+    }
+
+    function hideEvChargers() {
+        evRequestId++;
+
+        if (evAbortController) {
+            try { evAbortController.abort(); } catch(e) {}
+            evAbortController = null;
+        }
+
+        if (evLayer) {
+            evLayer.clearLayers();
+        }
+
+        evVisible = false;
+        evLoading = false;
+        setEvButtonActive(false);
+    }
+
+    async function showEvChargersInCurrentMapView() {
+        if (evLoading) {
+            hideEvChargers();
+            return;
+        }
+
+        const thisRequest = ++evRequestId;
+
+        evVisible = true;
+        evLoading = true;
+        setEvButtonActive(true);
+
+        if (!evLayer) {
+            evLayer = L.layerGroup().addTo(map);
+        }
+
+        evLayer.clearLayers();
+        removeOldEvMarkers();
+
+        evAbortController = new AbortController();
+
+        const timeoutId = setTimeout(() => {
+            if (evAbortController) {
+                try { evAbortController.abort(); } catch(e) {}
+            }
+        }, 10000);
+
+        const b = map.getBounds();
+        const south = b.getSouth();
+        const west = b.getWest();
+        const north = b.getNorth();
+        const east = b.getEast();
+
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
+        try {
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+
+            const response = await fetch(url, {
+                signal:evAbortController.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) throw new Error("EV lookup failed");
+
+            const data = await response.json();
+
+            if (thisRequest !== evRequestId || !evVisible) return;
+
+            evLayer.clearLayers();
+
+            (data.elements || []).forEach(item => {
+                const tags = item.tags || {};
+                const access = String(tags.access || "").toLowerCase();
+
+                if (access === "private" || access === "no") return;
+
+                const lat = item.lat || (item.center && item.center.lat);
+                const lon = item.lon || (item.center && item.center.lon);
+
+                if (!lat || !lon) return;
+
+                const marker = L.marker([lat, lon], {
+                    icon:evIcon(),
+                    zIndexOffset:7000
+                }).addTo(evLayer);
+
+                marker.bindTooltip(buildEvTooltip(tags), {
+                    direction:"top",
+                    offset:[0, -18],
+                    opacity:0.96,
+                    sticky:true
+                });
+
+                marker.on("click", () => marker.openTooltip());
+            });
+
+            setEvButtonActive(true);
+        } catch (err) {
+            if (thisRequest === evRequestId && evVisible) {
+                hideEvChargers();
+            }
+        } finally {
+            clearTimeout(timeoutId);
+
+            if (thisRequest === evRequestId) {
+                evLoading = false;
+                evAbortController = null;
+            }
+        }
+    }
+
+    function installEvButton() {
+        installEvStyles();
+        removeOldEvControls();
+
+        let btn = document.getElementById("chaserCombinedEvBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserCombinedEvBtn";
+            btn.type = "button";
+            btn.title = "Show EV chargers in this map area";
+            btn.innerHTML = EV_SVG;
+            document.body.appendChild(btn);
+        }
+
+        btn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (evVisible || evLoading) {
+                hideEvChargers();
+            } else {
+                showEvChargersInCurrentMapView();
+            }
+        };
+
+        setEvButtonActive(evVisible);
+        positionEvButton();
+    }
+
+    installEvButton();
+    wireBuddiesOnlineButton();
+    rewireBuddyMarkers();
+
+    window.addEventListener("resize", positionEvButton);
+    window.addEventListener("orientationchange", () => {
+        setTimeout(positionEvButton, 500);
+    });
+
+    map.on("moveend zoomend", positionEvButton);
+
+    setInterval(() => {
+        installEvStyles();
+        removeOldEvControls();
+        positionEvButton();
+
+        wireBuddiesOnlineButton();
+        rewireBuddyMarkers();
+
+        if (mapMode === "auto") {
+            autoFrameIfAllowed();
+        }
+    }, 1200);
+})();
+</script>
+    <script>
+/* CHASER PATCH — Buddies Online cycle includes active, dormant, and you last */
+(function () {
+    if (window.__chaserBuddyCycleIncludesDormantAndMeInstalled) return;
+    window.__chaserBuddyCycleIncludesDormantAndMeInstalled = true;
+
+    const CYCLE_ZOOM = 13;
+
+    let cycleIndex = 0;
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function hasLocation(name, rider) {
+        return !!(
+            rider &&
+            rider.marker &&
+            rider.lat &&
+            rider.lng
+        );
+    }
+
+    function getCycleList() {
+        const entries = Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => hasLocation(name, rider));
+
+        const activeBuddies = entries.filter(([name, rider]) => !isMeName(name) && !rider.isGhost);
+        const dormantBuddies = entries.filter(([name, rider]) => !isMeName(name) && rider.isGhost);
+        const me = entries.filter(([name]) => isMeName(name));
+
+        return activeBuddies.concat(dormantBuddies).concat(me);
+    }
+
+    function clearZIndexes() {
+        Object.values(incomingRidersCache).forEach(rider => {
+            if (rider && rider.marker) {
+                rider.marker.setZIndexOffset(0);
+            }
+        });
+    }
+
+    function zoomToPerson(name, rider) {
+        if (!hasLocation(name, rider)) return;
+
+        clearZIndexes();
+
+        rider.marker.setZIndexOffset(10000);
+
+        map.setView([rider.lat, rider.lng], CYCLE_ZOOM, {
+            animate:true
+        });
+    }
+
+    function zoomOutToEveryone() {
+        clearZIndexes();
+
+        const entries = Object.entries(incomingRidersCache)
+            .filter(([name, rider]) => hasLocation(name, rider));
+
+        const positions = entries.map(([name, rider]) => [rider.lat, rider.lng]);
+
+        if (!positions.length && lastLat && lastLng) {
+            map.setView([lastLat, lastLng], CYCLE_ZOOM, { animate:true });
+            return;
+        }
+
+        if (positions.length === 1) {
+            map.setView(positions[0], CYCLE_ZOOM, { animate:true });
+            return;
+        }
+
+        map.fitBounds(L.latLngBounds(positions), {
+            paddingTopLeft:[40, 180],
+            paddingBottomRight:[40, 180],
+            animate:true,
+            maxZoom:CYCLE_ZOOM
+        });
+    }
+
+    function cycleNext() {
+        const list = getCycleList();
+
+        if (!list.length) {
+            zoomOutToEveryone();
+            return;
+        }
+
+        const totalSteps = list.length + 1;
+        const step = cycleIndex % totalSteps;
+        cycleIndex++;
+
+        if (step === list.length) {
+            zoomOutToEveryone();
+            return;
+        }
+
+        const [name, rider] = list[step];
+        zoomToPerson(name, rider);
+    }
+
+    function installCycleButton() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter || oldCounter.__chaserCycleDormantMeButton) return;
+
+        const newCounter = oldCounter.cloneNode(true);
+
+        newCounter.__chaserCycleDormantMeButton = true;
+
+        /* These flags stop the older map patches from re-cloning this button. */
+        newCounter.__chaserCombinedCounterWired = true;
+        newCounter.__chaserFinalCleanFollowCounter = true;
+        newCounter.__chaserFinalCleanupCounterWired = true;
+
+        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
+
+        newCounter.style.pointerEvents = "auto";
+        newCounter.style.cursor = "pointer";
+
+        newCounter.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            cycleNext();
+        }, true);
+
+        let pressTimer = null;
+
+        newCounter.addEventListener("touchstart", () => {
+            pressTimer = setTimeout(() => {
+                zoomOutToEveryone();
+            }, 650);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchend", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+
+        newCounter.addEventListener("touchcancel", () => {
+            clearTimeout(pressTimer);
+        }, { passive:true, capture:true });
+    }
+
+    installCycleButton();
+
+    setInterval(installCycleButton, 1000);
+})();
+</script>
+  
+
+</body>
+</html>
