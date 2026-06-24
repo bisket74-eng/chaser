@@ -2001,6 +2001,13 @@ if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(p
                 lastLng = pos.coords.longitude;
 
                 broadcastCurrentState();
+                
+                if (typeof window.chaserFollowMeOnGpsUpdate === "function") {
+window.chaserFollowMeOnGpsUpdate();
+} else if (isSharing && lastLat && lastLng && initialFrameDone) {
+fitAllRiders(true);
+}
+
 
                 if (!initialFrameDone) {
                     initialFrameDone = true;
