@@ -6,7 +6,7 @@ Small-screen strategy kingdom game.
 "use strict";
 
 const MAX_ROUNDS = 8;
-const MAX_PLAYERS = 2;
+const MAX_PLAYERS = 4;
 const BOT_ID = "tiny-kingdoms-computer";
 const BOT_DELAY = 6000;
 const ARMY_REVEAL_MS = 2800;
