@@ -890,13 +890,13 @@ return (
 }
 
 function actionButton(action, icon, title, sub, disabled, extraClass) {
-return (
-'<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction('' + action + '')" ' + (disabled ? "disabled" : "") + ' type="button">' +
-'<span>' + icon + '</span>' +
-'<b>' + title + '</b>' +
-'<small>' + sub + '</small>' +
-'</button>'
-);
+    return (
+        '<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction(&quot;' + action + '&quot;)" ' + (disabled ? "disabled" : "") + ' type="button">' +
+            '<span>' + icon + '</span>' +
+            '<b>' + title + '</b>' +
+            '<small>' + sub + '</small>' +
+        '</button>'
+    );
 }
 
 window.openTinyKingdomsHelp = function () {
