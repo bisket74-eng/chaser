@@ -7194,3 +7194,32 @@ installGuards();
 nativeSetInterval(installGuards, 700);
 
 })();
+/* CHASER PATCH — Tiny Kingdoms launcher support
+   Put at the very bottom of games.js.
+*/
+(function () {
+    if (window.__tinyKingdomsLauncherPatchInstalled) return;
+    window.__tinyKingdomsLauncherPatchInstalled = true;
+
+    const oldLaunchGameEngine = window.launchGameEngine;
+
+    window.launchGameEngine = function (gameName, icon) {
+        const cleanName = String(gameName || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+
+        if (cleanName === "tinykingdoms") {
+            if (typeof window.initTinyKingdomsGame === "function") {
+                window.initTinyKingdomsGame();
+                return;
+            }
+
+            alert("Tiny Kingdoms file did not load. Check /games/tinykingdoms.js and the script tag in index.html.");
+            return;
+        }
+
+        if (typeof oldLaunchGameEngine === "function") {
+            return oldLaunchGameEngine.apply(this, arguments);
+        }
+    };
+})();
