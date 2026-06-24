@@ -189,7 +189,7 @@
     icon: "🏰",
     displayName: "Tiny Kingdoms",
     minPlayers: 1,
-    maxPlayers: 2,
+    maxPlayers: 4,
     multiplayer: true,
     init: () => {
         if (typeof window.initTinyKingdomsGame === "function") {
