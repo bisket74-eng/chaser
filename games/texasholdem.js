@@ -5,7 +5,6 @@ Fake-chip Texas Hold'em
 ;(function () {
 "use strict";
 
-
 const STARTING_CHIPS = 1000;
 const SMALL_BLIND = 10;
 const BIG_BLIND = 20;
@@ -131,7 +130,7 @@ function makePlayers() {
     if (players.length === 1) {
         players.push({
             id: DEALER_BOT_ID,
-            name: "Dealer",
+            name: "Computer", // Renamed from Dealer
             isComputer: true,
             chips: STARTING_CHIPS,
             hand: [],
@@ -816,7 +815,27 @@ function buildPlayerHtml(p) {
     const current = currentPlayer();
     const isMe = me && p.id === me.id;
     const isWinner = st.winners.indexOf(p.id) !== -1;
-    const showCards = isMe || p.isComputer || st.round === "showdown" || st.phase === "handOver";
+    
+    // BUG FIX: Removed p.isComputer. Opponent cards are ONLY revealed at Showdown.
+    const showCards = isMe || st.round === "showdown" || st.phase === "handOver";
+
+    let handHtml = "";
+
+    if (showCards && p.hand.length > 0) {
+        // Show the actual cards
+        handHtml = "<div class=\"th-hand\">" +
+            cardHtml(p.hand[0], false) +
+            cardHtml(p.hand[1], false) +
+        "</div>";
+    } else if (isMe && p.hand.length === 0) {
+        // Show empty card slots for local player before deal
+        handHtml = "<div class=\"th-hand\">" +
+            "<div class=\"th-card th-empty\"></div>" +
+            "<div class=\"th-card th-empty\"></div>" +
+        "</div>";
+    }
+    // If it's an opponent and we aren't at showdown, we render NOTHING for the hand. 
+    // This removes the card backs and clears up table space like requested.
 
     return (
         "<div class=\"th-player " +
@@ -829,10 +848,7 @@ function buildPlayerHtml(p) {
                 "<span>" + Number(p.chips || 0) + " chips</span>" +
             "</div>" +
             "<div class=\"th-mini-action\">" + escapeHtml(p.lastAction || (p.folded ? "Folded" : "")) + "</div>" +
-            "<div class=\"th-hand\">" +
-                (p.hand[0] ? cardHtml(p.hand[0], !showCards) : "<div class=\"th-card th-empty\"></div>") +
-                (p.hand[1] ? cardHtml(p.hand[1], !showCards) : "<div class=\"th-card th-empty\"></div>") +
-            "</div>" +
+            handHtml +
             "<div class=\"th-bet\">Bet: " + Number(p.bet || 0) + "</div>" +
         "</div>"
     );
