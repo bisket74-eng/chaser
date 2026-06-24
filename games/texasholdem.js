@@ -967,8 +967,8 @@ window.initTexasHoldemGame = function () {
 
     const amHost = window.chaserGame && window.chaserGame.hostId === getMyId();
 
-    if (amHost || !window.TexasHoldemState) {
-        window.TexasHoldemState = createState();
+    if (amHost || !window.texasHoldemState) {
+        window.texasHoldemState = createState();
         syncTexas();
     }
 
@@ -987,7 +987,7 @@ window.handleIncomingTexasHoldemSync = function (payload) {
         return;
     }
 
-    window.TexasHoldemState = payload.state;
+    window.texasHoldemState = payload.state;
 
     if (window.chaserGame) window.chaserGame.activeGame = "TexasHoldem";
 
