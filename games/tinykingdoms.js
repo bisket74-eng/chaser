@@ -53,12 +53,12 @@ return byId("gameCanvasContainer");
 }
 
 function escapeHtml(value) {
-return String(value || "")
-.replace(/&/g, "&")
-.replace(/</g, "<")
-.replace(/>/g, ">")
-.replace(/"/g, """)
-.replace(/'/g, "'");
+    return String(value || "")
+        .replace(/&/g, "\u0026amp;")
+        .replace(/</g, "\u0026lt;")
+        .replace(/>/g, "\u0026gt;")
+        .replace(/"/g, "\u0026quot;")
+        .replace(/'/g, "\u0026#039;");
 }
 
 function getMyId() {
