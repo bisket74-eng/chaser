@@ -1227,7 +1227,7 @@ if (st.phase === "playing") {
         actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
         actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
         actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
-        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "blue pos-guard") +
+        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "pos-guard") +
         actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
         actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
         '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
