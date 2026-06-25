@@ -192,9 +192,14 @@
     maxPlayers: 4,
     multiplayer: true,
     init: () => {
+        console.log("1. Tiny Kingdoms button was clicked!");
+        
         if (typeof window.initTinyKingdomsGame === "function") {
+            console.log("2. Found the Tiny Kingdoms function. Attempting to run...");
             window.initTinyKingdomsGame();
+            console.log("3. Init function finished running.");
         } else {
+            console.log("❌ ERROR: Tiny Kingdoms function not found!");
             alert("Tiny Kingdoms file did not load. Check /games/tinykingdoms.js and the script tag in index.html.");
         }
     }
