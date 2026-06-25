@@ -29,10 +29,10 @@ const ROUND_EVENTS = [
 { id: "harvest", icon: "🌧️", title: "Rainy Season", desc: "Farm gives +4 food this round." },
 { id: "market", icon: "🏪", title: "Busy Market", desc: "Sell gives +4 coins this round." },
 { id: "scholar", icon: "📚", title: "Scholar Visit", desc: "Study gives +3 study this round." },
+    { id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +3 shield this round." },
 { id: "training", icon: "⚔️", title: "War Drums", desc: "Train gives +3 army this round." },
 { id: "bandits", icon: "🔥", title: "Bandits Nearby", desc: "Successful raids score +4 this round." },
-{ id: "builder", icon: "🏛️", title: "Builder Boom", desc: "Wonder costs 1 less coin this round." },
-{ id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +3 shield this round." }
+    { id: "builder", icon: "🏛️", title: "Builder Boom", desc: "Wonder costs 1 less coin this round." }
 ];
 
 const SECRET_GOALS = [
