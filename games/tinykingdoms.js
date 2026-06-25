@@ -925,33 +925,13 @@ function actionButton(action, icon, title, sub, disabled, extraClass) {
     );
 }
 
-function setTinyKingdomsHelpMode(isOpen) {
-    window.__tinyKingdomsHelpOpen = isOpen;
-
-    document.querySelectorAll("button").forEach(function (btn) {
-        const txt = (btn.textContent || "").trim();
-
-        if (txt.indexOf("Hide Board") !== -1 || txt.indexOf("Show Board") !== -1) {
-            if (isOpen) {
-                btn.setAttribute("data-tk-help-hidden", "yes");
-                btn.style.visibility = "hidden";
-                btn.style.pointerEvents = "none";
-            } else if (btn.getAttribute("data-tk-help-hidden") === "yes") {
-                btn.removeAttribute("data-tk-help-hidden");
-                btn.style.visibility = "";
-                btn.style.pointerEvents = "";
-            }
-        }
-    });
-}
-
 window.openTinyKingdomsHelp = function () {
-setTinyKingdomsHelpMode(true);
+window.__tinyKingdomsHelpOpen = true;
 renderTinyKingdomsNoBot();
 };
 
 window.closeTinyKingdomsHelp = function () {
-setTinyKingdomsHelpMode(false);
+window.__tinyKingdomsHelpOpen = false;
 renderTinyKingdomsNoBot();
 };
 
@@ -1314,15 +1294,13 @@ el.innerHTML = [
 '.tk-action.help:disabled{background:#0d47a1!important;color:#ffffff!important;opacity:1!important;}',
         '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
         '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
-       '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9!important;z-index:2147483000!important;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-close-x{position:fixed;top:12px;right:16px;border:none;background:#b00020!important;color:#ffffff!important;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:2147483001!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 90px;box-sizing:border-box;color:#1e4620!important;font-size:16px;line-height:1.4;text-shadow:none!important;filter:none!important;opacity:1!important;background:#e2f0d9!important;}',
-'.tk-help-card *{color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-card b{color:#1e4620!important;font-weight:900!important;}',
-'.tk-help-title{text-align:center;color:#1e4620!important;font-size:28px;font-weight:900;margin-bottom:12px;}',
-'.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12!important;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
-'.tk-help-card p{margin:8px 0;color:#1e4620!important;}',
-'.tk-help-row{background:#ffffff!important;color:#1e4620!important;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);text-shadow:none!important;filter:none!important;opacity:1!important;}',
+        '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9;z-index:70000;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
+        '.tk-help-close-x{position:fixed;top:12px;right:16px;border:none;background:#b00020;color:#ffffff;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:70001;}',
+        '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 60px;box-sizing:border-box;color:#1e4620;font-size:16px;line-height:1.4;}',
+        '.tk-help-title{text-align:center;color:#1e4620;font-size:28px;font-weight:900;margin-bottom:12px;}',
+        '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
+        '.tk-help-card p{margin:8px 0;}',
+        '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
         '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
     '</style>',
 
