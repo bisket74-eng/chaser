@@ -3616,29 +3616,37 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 })();
 </script>
     <script>
-/* CHASER PATCH — FINAL combined map follow + buddies + EV reliable toggle
-   Put this at the very bottom, right before </body>.
+<script>
+/* CHASER PATCH — UNIFIED follow-me + buddies cycle + EV toggle (v3)
+   Replaces:
+     - "FINAL combined map follow + buddies + EV reliable toggle"
+     - "Buddies Online cycle includes active, dormant, and you last"
 
-   EV:
-   - Tap lightning once = show EV chargers in current map view
-   - Tap lightning again = hide immediately
-   - Cancels/ignores old slow EV requests
-   - No EV text, no count
+   Map state machine: auto | browsing | zoomed | manual
 
-   Map:
-   - While sharing, follows/framing you and visible buddies
-   - Removes buddies outside 50 miles
-   - Buddies Online cycles through buddies at normal zoom
-   - After cycling buddies, Buddies Online returns to everyone
-   - Tap buddy marker once = close zoom
-   - Tap same buddy again = zoom back out to everyone
-   - Does not override your original fitAllRiders function
+   - auto: default. Centers on you, zoomed out. Re-fits to include you +
+     all visible buddies (respecting the 50mi radius toggle) whenever
+     anyone moves or appears/disappears. This is the resting state.
+   - browsing: reached only via the "Buddies Online" button. Centers on
+     one specific person (buddy or "me") at a moderate zoom.
+   - zoomed: reached only by tapping a person's pin/name tag. Zooms in
+     close on that one person.
+   - manual: user dragged/pinched the map. Nothing here touches the
+     map again until Buddies Online or a pin/name tag is tapped.
+
+   Buddies Online tap cycle (moderate zoom each stop):
+     buddy1 -> buddy2 -> ... -> me -> auto (fit everyone) -> buddy1 -> ...
+   Dormant (ghost) buddies are included, ordered after active buddies.
+
+   Pin / name-tag tap (simple 2-state toggle, independent of the button):
+     tap once  -> zoom in tight on that person
+     tap again -> zoom all the way back out to everyone (auto)
 */
 (function () {
-    if (window.__chaserFinalCombinedMapEvPatchInstalled) return;
-    window.__chaserFinalCombinedMapEvPatchInstalled = true;
+    if (window.__chaserUnifiedFollowPatchInstalled) return;
+    window.__chaserUnifiedFollowPatchInstalled = true;
 
-    const NORMAL_ZOOM = 13;
+    const BROWSE_ZOOM = 13;
     const CLOSE_ZOOM = 18;
 
     const EV_SVG =
@@ -3646,9 +3654,9 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             '<path fill="currentColor" d="M13.2 1.8 4.3 13.6h6.1l-1.5 8.6 10.8-13.4h-6.4l-.1-7z"></path>' +
         '</svg>';
 
-    let buddyCycleIndex = 0;
-    let focusedBuddyName = null;
-    let mapMode = "auto"; // auto, browse, focused, manual
+    let mapMode = "auto"; // auto | browsing | zoomed | manual
+    let focusedName = null; // name key currently browsed/zoomed, or null
+    let cycleIndex = 0;
     let programmaticMove = false;
 
     let evLayer = null;
@@ -3674,39 +3682,18 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         return String(name || "").includes("(You)");
     }
 
-    function validRider(name, rider) {
-        return !!(
-            rider &&
-            rider.marker &&
-            rider.lat &&
-            rider.lng &&
-            !rider.isGhost
-        );
-    }
-
-    function visibleRiders() {
-        return Object.entries(incomingRidersCache)
-            .filter(([name, rider]) => validRider(name, rider));
-    }
-
-    function visibleBuddiesOnly() {
-        return visibleRiders().filter(([name]) => !isMeName(name));
+    function hasLocation(rider) {
+        return !!(rider && rider.marker && rider.lat && rider.lng);
     }
 
     function beginProgrammaticMove() {
         programmaticMove = true;
-
-        setTimeout(() => {
-            programmaticMove = false;
-        }, 900);
+        setTimeout(() => { programmaticMove = false; }, 900);
     }
 
     function setMapView(lat, lng, zoom) {
         beginProgrammaticMove();
-
-        map.setView([lat, lng], zoom, {
-            animate:true
-        });
+        map.setView([lat, lng], zoom, { animate:true });
     }
 
     function removeOutOfRangeBuddies() {
@@ -3719,164 +3706,139 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             if (!rider || !rider.lat || !rider.lng) return;
 
             const distMi = map.distance([lastLat, lastLng], [rider.lat, rider.lng]) / 1609.34;
-
-            if (distMi > 50) {
-                removeRider(name);
-            }
+            if (distMi > 50) removeRider(name);
         });
 
         updateLiveRiderCounter();
     }
 
-    function clearBuddyFocus() {
-        focusedBuddyName = null;
-
+    function clearAllZIndexes() {
         Object.values(incomingRidersCache).forEach(rider => {
-            if (rider && rider.marker) {
-                rider.marker.__chaserCombinedFocused = false;
-                rider.marker.setZIndexOffset(0);
-            }
+            if (rider && rider.marker) rider.marker.setZIndexOffset(0);
         });
     }
 
-    function frameEveryoneAndResumeAuto() {
-        mapMode = "auto";
-        clearBuddyFocus();
+    function allFramePositions() {
+        // NOTE: when isRadiusFilterActive is false, nothing gets pruned here,
+        // so fitBounds will zoom out to include everyone regardless of
+        // distance (e.g. a buddy in Australia), exactly as wanted.
         removeOutOfRangeBuddies();
 
-        const riders = visibleRiders();
-        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
-        const hasMe = riders.some(([name]) => isMeName(name));
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const positions = entries.map(([, r]) => [r.lat, r.lng]);
+        const hasMe = entries.some(([name]) => isMeName(name));
 
-        if (!hasMe && lastLat && lastLng) {
-            positions.push([lastLat, lastLng]);
-        }
+        if (!hasMe && lastLat && lastLng) positions.push([lastLat, lastLng]);
 
-        if (!positions.length && lastLat && lastLng) {
-            setMapView(lastLat, lastLng, NORMAL_ZOOM);
+        return positions;
+    }
+
+    function fitToPositions(positions) {
+        if (!positions.length) {
+            if (lastLat && lastLng) setMapView(lastLat, lastLng, BROWSE_ZOOM);
             return;
         }
 
         if (positions.length === 1) {
-            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
+            setMapView(positions[0][0], positions[0][1], BROWSE_ZOOM);
             return;
         }
 
         beginProgrammaticMove();
-
         map.fitBounds(L.latLngBounds(positions), {
             paddingTopLeft:[40, 180],
             paddingBottomRight:[40, 180],
-            animate:true,
-            maxZoom:NORMAL_ZOOM
+            animate:true
+            // intentionally no maxZoom cap here: when radius filter is off
+            // and a buddy is far away (e.g. Australia), this needs to be
+            // free to zoom out as far as necessary to fit everyone.
         });
+    }
+
+    /* ---- AUTO mode (resting state) ---- */
+
+    function enterAutoMode() {
+        mapMode = "auto";
+        focusedName = null;
+        clearAllZIndexes();
+        fitToPositions(allFramePositions());
     }
 
     function autoFrameIfAllowed() {
         if (!isSharing) return;
         if (!lastLat || !lastLng) return;
         if (mapMode !== "auto") return;
-
-        removeOutOfRangeBuddies();
-
-        const riders = visibleRiders();
-        const positions = riders.map(([name, rider]) => [rider.lat, rider.lng]);
-        const hasMe = riders.some(([name]) => isMeName(name));
-
-        if (!hasMe) {
-            positions.push([lastLat, lastLng]);
-        }
-
-        if (!positions.length) {
-            setMapView(lastLat, lastLng, NORMAL_ZOOM);
-            return;
-        }
-
-        if (positions.length === 1) {
-            setMapView(positions[0][0], positions[0][1], NORMAL_ZOOM);
-            return;
-        }
-
-        beginProgrammaticMove();
-
-        map.fitBounds(L.latLngBounds(positions), {
-            paddingTopLeft:[40, 180],
-            paddingBottomRight:[40, 180],
-            animate:true,
-            maxZoom:NORMAL_ZOOM
-        });
+        fitToPositions(allFramePositions());
     }
 
-    function normalViewOnBuddy(name, rider) {
-        if (!validRider(name, rider)) return;
+    /* ---- Buddies Online button: moderate-zoom cycle ---- */
 
-        mapMode = "browse";
-        clearBuddyFocus();
+    function getCycleList() {
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const activeBuddies = entries.filter(([name, r]) => !isMeName(name) && !r.isGhost);
+        const dormantBuddies = entries.filter(([name, r]) => !isMeName(name) && r.isGhost);
+        const me = entries.filter(([name]) => isMeName(name));
+        return activeBuddies.concat(dormantBuddies).concat(me);
+    }
 
+    function browseTo(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        mapMode = "browsing";
+        focusedName = name;
+        clearAllZIndexes();
         rider.marker.setZIndexOffset(10000);
-        setMapView(rider.lat, rider.lng, NORMAL_ZOOM);
+
+        setMapView(rider.lat, rider.lng, BROWSE_ZOOM);
     }
 
-    function closeViewOnBuddy(name, rider) {
-        if (!validRider(name, rider)) return;
+    function cycleBuddiesOnlineTap() {
+        const list = getCycleList();
 
-        mapMode = "focused";
-        clearBuddyFocus();
+        if (!list.length) {
+            enterAutoMode();
+            return;
+        }
 
-        focusedBuddyName = name;
-        rider.marker.__chaserCombinedFocused = true;
+        const totalSteps = list.length + 1; // + "back to auto"
+        const step = cycleIndex % totalSteps;
+        cycleIndex = (cycleIndex + 1) % totalSteps;
+
+        if (step === list.length) {
+            enterAutoMode();
+            return;
+        }
+
+        const [name, rider] = list[step];
+        browseTo(name, rider);
+    }
+
+    /* ---- Pin / name-tag tap: simple 2-state toggle ---- */
+
+    function togglePinFocus(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        if (mapMode === "zoomed" && focusedName === name) {
+            enterAutoMode();
+            return;
+        }
+
+        mapMode = "zoomed";
+        focusedName = name;
+        clearAllZIndexes();
         rider.marker.setZIndexOffset(10000);
 
         setMapView(rider.lat, rider.lng, CLOSE_ZOOM);
     }
 
-    function toggleBuddyMarker(name, rider) {
-        if (!validRider(name, rider)) return;
-
-        const now = Date.now();
-
-        if (rider.marker.__chaserCombinedLastTap && now - rider.marker.__chaserCombinedLastTap < 350) {
-            return;
-        }
-
-        rider.marker.__chaserCombinedLastTap = now;
-
-        if (focusedBuddyName === name || rider.marker.__chaserCombinedFocused) {
-            frameEveryoneAndResumeAuto();
-        } else {
-            closeViewOnBuddy(name, rider);
-        }
-    }
-
-    function cycleBuddiesButton() {
-        const buddies = visibleBuddiesOnly();
-
-        if (!buddies.length) {
-            frameEveryoneAndResumeAuto();
-            return;
-        }
-
-        const totalSteps = buddies.length + 1;
-        const step = buddyCycleIndex % totalSteps;
-        buddyCycleIndex++;
-
-        if (step === buddies.length) {
-            frameEveryoneAndResumeAuto();
-            return;
-        }
-
-        const [name, rider] = buddies[step];
-        normalViewOnBuddy(name, rider);
-    }
+    /* ---- Marker wiring ---- */
 
     function rewireBuddyMarkers() {
         Object.entries(incomingRidersCache).forEach(([name, rider]) => {
-            if (!validRider(name, rider)) return;
+            if (!hasLocation(rider)) return;
+            if (rider.marker.__chaserUnifiedWired) return;
 
-            rider.marker.__chaserFinalCleanupWired = true;
-            rider.marker.__chaserFinalBuddyZoomWired = true;
-            rider.marker.__chaserFinalCleanFollowWired = true;
-            rider.marker.__chaserCombinedMapWired = true;
+            rider.marker.__chaserUnifiedWired = true;
 
             rider.marker.off("click");
             rider.marker.off("dblclick");
@@ -3886,35 +3848,20 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                     e.originalEvent.preventDefault();
                     e.originalEvent.stopPropagation();
                 }
-
                 L.DomEvent.stopPropagation(e);
-                toggleBuddyMarker(name, rider);
-            });
-
-            rider.marker.on("dblclick", e => {
-                if (e && e.originalEvent) {
-                    e.originalEvent.preventDefault();
-                    e.originalEvent.stopPropagation();
-                }
-
-                L.DomEvent.stopPropagation(e);
-                toggleBuddyMarker(name, rider);
+                togglePinFocus(name, incomingRidersCache[name] || rider);
             });
         });
     }
 
-    function wireBuddiesOnlineButton() {
-        const oldCounter = document.getElementById("riderCounterWidget");
-        if (!oldCounter) return;
+    /* ---- Buddies Online button ---- */
 
-        if (oldCounter.__chaserCombinedCounterWired) return;
+    function installBuddiesOnlineButton() {
+        const oldCounter = document.getElementById("riderCounterWidget");
+        if (!oldCounter || oldCounter.__chaserUnifiedCounterWired) return;
 
         const newCounter = oldCounter.cloneNode(true);
-
-        newCounter.__chaserCombinedCounterWired = true;
-        newCounter.__chaserFinalCleanupCounterWired = true;
-        newCounter.__chaserFinalCleanFollowCounter = true;
-
+        newCounter.__chaserUnifiedCounterWired = true;
         oldCounter.parentNode.replaceChild(newCounter, oldCounter);
 
         newCounter.style.pointerEvents = "auto";
@@ -3924,88 +3871,69 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-
-            cycleBuddiesButton();
+            cycleBuddiesOnlineTap();
         }, true);
-
-        let pressTimer = null;
-
-        newCounter.addEventListener("touchstart", () => {
-            pressTimer = setTimeout(() => {
-                frameEveryoneAndResumeAuto();
-            }, 650);
-        }, { passive:true, capture:true });
-
-        newCounter.addEventListener("touchend", () => {
-            clearTimeout(pressTimer);
-        }, { passive:true, capture:true });
-
-        newCounter.addEventListener("touchcancel", () => {
-            clearTimeout(pressTimer);
-        }, { passive:true, capture:true });
     }
+
+    /* ---- Manual override detection ---- */
 
     map.on("dragstart zoomstart", () => {
         if (programmaticMove) return;
         mapMode = "manual";
+        focusedName = null;
     });
 
-    window.chaserFollowMapNow = frameEveryoneAndResumeAuto;
-    window.chaserEnableFollowMe = frameEveryoneAndResumeAuto;
+    /* ---- Public hooks used elsewhere in index.html ---- */
+
+    window.chaserFollowMapNow = enterAutoMode;
+    window.chaserEnableFollowMe = enterAutoMode;
     window.chaserFollowMeOnGpsUpdate = autoFrameIfAllowed;
 
-    if (typeof broadcastCurrentState === "function" && !broadcastCurrentState.__chaserCombinedFollowWrapped) {
+    /* ---- Wrap state-changing functions so new arrivals/moves re-fit ---- */
+
+    if (typeof broadcastCurrentState === "function" && !broadcastCurrentState.__chaserUnifiedWrapped) {
         const oldBroadcastCurrentState = broadcastCurrentState;
 
         broadcastCurrentState = function () {
             const result = oldBroadcastCurrentState.apply(this, arguments);
-
             setTimeout(() => {
                 rewireBuddyMarkers();
                 autoFrameIfAllowed();
             }, 80);
-
             return result;
         };
 
-        broadcastCurrentState.__chaserCombinedFollowWrapped = true;
+        broadcastCurrentState.__chaserUnifiedWrapped = true;
         window.broadcastCurrentState = broadcastCurrentState;
     }
 
-    if (typeof processIncomingCoordinateUpdate === "function" && !processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped) {
+    if (typeof processIncomingCoordinateUpdate === "function" && !processIncomingCoordinateUpdate.__chaserUnifiedWrapped) {
         const oldProcessIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
 
         processIncomingCoordinateUpdate = function () {
             const result = oldProcessIncomingCoordinateUpdate.apply(this, arguments);
-
             setTimeout(() => {
                 rewireBuddyMarkers();
                 autoFrameIfAllowed();
             }, 80);
-
             return result;
         };
 
-        processIncomingCoordinateUpdate.__chaserCombinedFollowWrapped = true;
+        processIncomingCoordinateUpdate.__chaserUnifiedWrapped = true;
         window.processIncomingCoordinateUpdate = processIncomingCoordinateUpdate;
     }
 
+    /* ---- EV charger toggle (unchanged behavior, kept inline) ---- */
+
     function installEvStyles() {
-        let style = document.getElementById("chaser-combined-ev-style");
+        if (document.getElementById("chaser-unified-ev-style")) return;
 
-        if (style) return;
-
-        style = document.createElement("style");
-        style.id = "chaser-combined-ev-style";
+        const style = document.createElement("style");
+        style.id = "chaser-unified-ev-style";
         style.innerHTML = `
-            #chaserEvChargerBtn,
-            #chaserSimpleEvBtn,
-            #chaserLightningEvBtn,
-            #chaserCenteredEvBtn,
-            #chaserFinalEvSvgBtn,
-            .chaser-ev-control,
-            .chaser-simple-ev-control,
-            .chaser-lightning-ev-control {
+            #chaserEvChargerBtn, #chaserSimpleEvBtn, #chaserLightningEvBtn,
+            #chaserCenteredEvBtn, #chaserFinalEvSvgBtn, #chaserCombinedEvBtn,
+            .chaser-ev-control, .chaser-simple-ev-control, .chaser-lightning-ev-control {
                 display:none !important;
                 pointer-events:none !important;
                 opacity:0 !important;
@@ -4014,7 +3942,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 overflow:hidden !important;
             }
 
-            #chaserCombinedEvBtn {
+            #chaserUnifiedEvBtn {
                 position:fixed !important;
                 width:38px !important;
                 height:38px !important;
@@ -4038,27 +3966,27 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 user-select:none !important;
             }
 
-            #chaserCombinedEvBtn svg {
+            #chaserUnifiedEvBtn svg {
                 width:23px !important;
                 height:23px !important;
                 display:block !important;
                 color:inherit !important;
             }
 
-            #chaserCombinedEvBtn.active {
+            #chaserUnifiedEvBtn.active {
                 background:#ffd700 !important;
                 color:#1e4620 !important;
                 border-color:#ffffff !important;
             }
 
-            #chatOverlay.open ~ #chaserCombinedEvBtn,
-            body:has(#chatOverlay.open) #chaserCombinedEvBtn {
+            #chatOverlay.open ~ #chaserUnifiedEvBtn,
+            body:has(#chatOverlay.open) #chaserUnifiedEvBtn {
                 display:none !important;
                 pointer-events:none !important;
                 opacity:0 !important;
             }
 
-            .chaser-combined-ev-marker {
+            .chaser-unified-ev-marker {
                 width:28px !important;
                 height:28px !important;
                 border-radius:50% !important;
@@ -4072,7 +4000,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 box-sizing:border-box !important;
             }
 
-            .chaser-combined-ev-marker svg {
+            .chaser-unified-ev-marker svg {
                 width:18px !important;
                 height:18px !important;
                 display:block !important;
@@ -4103,15 +4031,11 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         });
 
         [
-            "chaserEvChargerBtn",
-            "chaserSimpleEvBtn",
-            "chaserLightningEvBtn",
-            "chaserCenteredEvBtn",
-            "chaserFinalEvSvgBtn"
+            "chaserEvChargerBtn", "chaserSimpleEvBtn", "chaserLightningEvBtn",
+            "chaserCenteredEvBtn", "chaserFinalEvSvgBtn", "chaserCombinedEvBtn"
         ].forEach(id => {
             const btn = document.getElementById(id);
             if (!btn) return;
-
             const parentControl = btn.closest(".leaflet-control");
             if (parentControl) parentControl.remove();
             else btn.remove();
@@ -4121,7 +4045,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     function removeOldEvMarkers() {
         map.eachLayer(layer => {
             if (!(layer instanceof L.Marker)) return;
-
             const icon = layer.options && layer.options.icon;
             const html = icon && icon.options ? String(icon.options.html || "") : "";
 
@@ -4130,24 +4053,22 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 html.includes("chaser-simple-ev-marker") ||
                 html.includes("chaser-lightning-ev-marker") ||
                 html.includes("chaser-centered-ev-marker") ||
-                html.includes("chaser-final-ev-marker");
+                html.includes("chaser-final-ev-marker") ||
+                html.includes("chaser-combined-ev-marker");
 
-            if (oldEv) {
-                map.removeLayer(layer);
-            }
+            if (oldEv) map.removeLayer(layer);
         });
     }
 
     function setEvButtonActive(active) {
-        const btn = document.getElementById("chaserCombinedEvBtn");
+        const btn = document.getElementById("chaserUnifiedEvBtn");
         if (!btn) return;
-
         btn.classList.toggle("active", !!active);
         btn.innerHTML = EV_SVG;
     }
 
     function positionEvButton() {
-        const btn = document.getElementById("chaserCombinedEvBtn");
+        const btn = document.getElementById("chaserUnifiedEvBtn");
         if (!btn) return;
 
         const chat = document.getElementById("chatOverlay");
@@ -4165,7 +4086,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
         const zoomControl = document.querySelector(".leaflet-control-zoom");
         const radiusControl = document.querySelector(".radius-toggle-container");
-
         const size = 38;
 
         if (!zoomControl || !radiusControl) {
@@ -4177,7 +4097,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
         const z = zoomControl.getBoundingClientRect();
         const r = radiusControl.getBoundingClientRect();
-
         const centerX = (z.right + r.left) / 2;
         const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
 
@@ -4195,10 +4114,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     function evIcon() {
         return L.divIcon({
             className:"",
-            html:
-                '<div class="chaser-combined-ev-marker">' +
-                    EV_SVG +
-                '</div>',
+            html:'<div class="chaser-unified-ev-marker">' + EV_SVG + '</div>',
             iconSize:[28, 28],
             iconAnchor:[14, 14]
         });
@@ -4212,7 +4128,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         const output = tags.output || tags["socket:type2:output"] || tags["socket:tesla_supercharger:output"] || "";
 
         const lines = ["<b>" + safeText(name) + "</b>"];
-
         if (operator && operator !== name) lines.push("Network: " + safeText(operator));
         if (access) lines.push("Access: " + safeText(access));
         if (capacity) lines.push("Stalls: " + safeText(capacity));
@@ -4229,9 +4144,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             evAbortController = null;
         }
 
-        if (evLayer) {
-            evLayer.clearLayers();
-        }
+        if (evLayer) evLayer.clearLayers();
 
         evVisible = false;
         evLoading = false;
@@ -4250,9 +4163,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         evLoading = true;
         setEvButtonActive(true);
 
-        if (!evLayer) {
-            evLayer = L.layerGroup().addTo(map);
-        }
+        if (!evLayer) evLayer = L.layerGroup().addTo(map);
 
         evLayer.clearLayers();
         removeOldEvMarkers();
@@ -4283,17 +4194,13 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
         try {
             const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
-
-            const response = await fetch(url, {
-                signal:evAbortController.signal
-            });
+            const response = await fetch(url, { signal:evAbortController.signal });
 
             clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error("EV lookup failed");
 
             const data = await response.json();
-
             if (thisRequest !== evRequestId || !evVisible) return;
 
             evLayer.clearLayers();
@@ -4301,18 +4208,13 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             (data.elements || []).forEach(item => {
                 const tags = item.tags || {};
                 const access = String(tags.access || "").toLowerCase();
-
                 if (access === "private" || access === "no") return;
 
                 const lat = item.lat || (item.center && item.center.lat);
                 const lon = item.lon || (item.center && item.center.lon);
-
                 if (!lat || !lon) return;
 
-                const marker = L.marker([lat, lon], {
-                    icon:evIcon(),
-                    zIndexOffset:7000
-                }).addTo(evLayer);
+                const marker = L.marker([lat, lon], { icon:evIcon(), zIndexOffset:7000 }).addTo(evLayer);
 
                 marker.bindTooltip(buildEvTooltip(tags), {
                     direction:"top",
@@ -4326,12 +4228,9 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
             setEvButtonActive(true);
         } catch (err) {
-            if (thisRequest === evRequestId && evVisible) {
-                hideEvChargers();
-            }
+            if (thisRequest === evRequestId && evVisible) hideEvChargers();
         } finally {
             clearTimeout(timeoutId);
-
             if (thisRequest === evRequestId) {
                 evLoading = false;
                 evAbortController = null;
@@ -4343,11 +4242,11 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         installEvStyles();
         removeOldEvControls();
 
-        let btn = document.getElementById("chaserCombinedEvBtn");
+        let btn = document.getElementById("chaserUnifiedEvBtn");
 
         if (!btn) {
             btn = document.createElement("button");
-            btn.id = "chaserCombinedEvBtn";
+            btn.id = "chaserUnifiedEvBtn";
             btn.type = "button";
             btn.title = "Show EV chargers in this map area";
             btn.innerHTML = EV_SVG;
@@ -4358,11 +4257,8 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             e.preventDefault();
             e.stopPropagation();
 
-            if (evVisible || evLoading) {
-                hideEvChargers();
-            } else {
-                showEvChargersInCurrentMapView();
-            }
+            if (evVisible || evLoading) hideEvChargers();
+            else showEvChargersInCurrentMapView();
         };
 
         setEvButtonActive(evVisible);
@@ -4370,7 +4266,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 
     installEvButton();
-    wireBuddiesOnlineButton();
+    installBuddiesOnlineButton();
     rewireBuddyMarkers();
 
     window.addEventListener("resize", positionEvButton);
@@ -4385,163 +4281,13 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         removeOldEvControls();
         positionEvButton();
 
-        wireBuddiesOnlineButton();
+        installBuddiesOnlineButton();
         rewireBuddyMarkers();
 
-        if (mapMode === "auto") {
-            autoFrameIfAllowed();
-        }
+        if (mapMode === "auto") autoFrameIfAllowed();
     }, 1200);
 })();
-</script>
-    <script>
-/* CHASER PATCH — Buddies Online cycle includes active, dormant, and you last */
-(function () {
-    if (window.__chaserBuddyCycleIncludesDormantAndMeInstalled) return;
-    window.__chaserBuddyCycleIncludesDormantAndMeInstalled = true;
 
-    const CYCLE_ZOOM = 13;
-
-    let cycleIndex = 0;
-
-    function isMeName(name) {
-        return String(name || "").includes("(You)");
-    }
-
-    function hasLocation(name, rider) {
-        return !!(
-            rider &&
-            rider.marker &&
-            rider.lat &&
-            rider.lng
-        );
-    }
-
-    function getCycleList() {
-        const entries = Object.entries(incomingRidersCache)
-            .filter(([name, rider]) => hasLocation(name, rider));
-
-        const activeBuddies = entries.filter(([name, rider]) => !isMeName(name) && !rider.isGhost);
-        const dormantBuddies = entries.filter(([name, rider]) => !isMeName(name) && rider.isGhost);
-        const me = entries.filter(([name]) => isMeName(name));
-
-        return activeBuddies.concat(dormantBuddies).concat(me);
-    }
-
-    function clearZIndexes() {
-        Object.values(incomingRidersCache).forEach(rider => {
-            if (rider && rider.marker) {
-                rider.marker.setZIndexOffset(0);
-            }
-        });
-    }
-
-    function zoomToPerson(name, rider) {
-        if (!hasLocation(name, rider)) return;
-
-        clearZIndexes();
-
-        rider.marker.setZIndexOffset(10000);
-
-        map.setView([rider.lat, rider.lng], CYCLE_ZOOM, {
-            animate:true
-        });
-    }
-
-    function zoomOutToEveryone() {
-        clearZIndexes();
-
-        const entries = Object.entries(incomingRidersCache)
-            .filter(([name, rider]) => hasLocation(name, rider));
-
-        const positions = entries.map(([name, rider]) => [rider.lat, rider.lng]);
-
-        if (!positions.length && lastLat && lastLng) {
-            map.setView([lastLat, lastLng], CYCLE_ZOOM, { animate:true });
-            return;
-        }
-
-        if (positions.length === 1) {
-            map.setView(positions[0], CYCLE_ZOOM, { animate:true });
-            return;
-        }
-
-        map.fitBounds(L.latLngBounds(positions), {
-            paddingTopLeft:[40, 180],
-            paddingBottomRight:[40, 180],
-            animate:true,
-            maxZoom:CYCLE_ZOOM
-        });
-    }
-
-    function cycleNext() {
-        const list = getCycleList();
-
-        if (!list.length) {
-            zoomOutToEveryone();
-            return;
-        }
-
-        const totalSteps = list.length + 1;
-        const step = cycleIndex % totalSteps;
-        cycleIndex++;
-
-        if (step === list.length) {
-            zoomOutToEveryone();
-            return;
-        }
-
-        const [name, rider] = list[step];
-        zoomToPerson(name, rider);
-    }
-
-    function installCycleButton() {
-        const oldCounter = document.getElementById("riderCounterWidget");
-        if (!oldCounter || oldCounter.__chaserCycleDormantMeButton) return;
-
-        const newCounter = oldCounter.cloneNode(true);
-
-        newCounter.__chaserCycleDormantMeButton = true;
-
-        /* These flags stop the older map patches from re-cloning this button. */
-        newCounter.__chaserCombinedCounterWired = true;
-        newCounter.__chaserFinalCleanFollowCounter = true;
-        newCounter.__chaserFinalCleanupCounterWired = true;
-
-        oldCounter.parentNode.replaceChild(newCounter, oldCounter);
-
-        newCounter.style.pointerEvents = "auto";
-        newCounter.style.cursor = "pointer";
-
-        newCounter.addEventListener("click", e => {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-
-            cycleNext();
-        }, true);
-
-        let pressTimer = null;
-
-        newCounter.addEventListener("touchstart", () => {
-            pressTimer = setTimeout(() => {
-                zoomOutToEveryone();
-            }, 650);
-        }, { passive:true, capture:true });
-
-        newCounter.addEventListener("touchend", () => {
-            clearTimeout(pressTimer);
-        }, { passive:true, capture:true });
-
-        newCounter.addEventListener("touchcancel", () => {
-            clearTimeout(pressTimer);
-        }, { passive:true, capture:true });
-    }
-
-    installCycleButton();
-
-    setInterval(installCycleButton, 1000);
-})();
 </script>
   
 
