@@ -1281,7 +1281,7 @@ el.innerHTML = [
         '.tk-action.pos-wonder{grid-column:4;grid-row:1 / span 2;}',
         '.tk-action span{display:block;font-size:21px;line-height:1;}',
         '.tk-action b{display:block;font-size:13px;margin-top:2px;}',
-        '.tk-action small{display:block;font-size:9px;line-height:1.1;color:#3c6f41;}',
+        '.tk-action small{display:block;font-size:11px;line-height:1.1;color:#3c6f41;}',
         '.tk-action.gold{background:#ffd700;}',
         '.tk-action.red{background:#ffc9c9;color:#7a1010;}',
         '.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
