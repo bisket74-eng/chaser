@@ -35,25 +35,6 @@ const ROUND_EVENTS = [
 { id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +3 shield this round." }
 ];
 
-const NO_EVENT = { id: "calm", icon: "☁️", title: "Calm Round", desc: "No special bonus this round." };
-
-function buildRoundEventSchedule() {
-const middleSlots = ROUND_EVENTS.concat([NO_EVENT]);
-
-for (let i = middleSlots.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const temp = middleSlots[i];
-    middleSlots[i] = middleSlots[j];
-    middleSlots[j] = temp;
-}
-
-const schedule = [NO_EVENT];
-schedule.push.apply(schedule, middleSlots);
-schedule.push(NO_EVENT);
-
-return schedule;
-}
-
 const SECRET_GOALS = [
 { id: "bread", title: "Bread Baron", desc: "Have the most food at the end.", resource: "food" },
 { id: "coins", title: "Coin Crown", desc: "Have the most coins at the end.", resource: "coins" },
@@ -132,12 +113,8 @@ return window.chaserGame.hostId === getMyId();
 }
 
 function roundEventFor(round) {
-const st = window.tinyKingdomsState;
-const schedule = (st && Array.isArray(st.roundEventSchedule) && st.roundEventSchedule.length)
-    ? st.roundEventSchedule
-    : buildRoundEventSchedule();
-const idx = Math.max(0, Math.min(schedule.length - 1, Number(round || 1) - 1));
-return schedule[idx];
+const idx = Math.abs((Number(round || 1) - 1) % ROUND_EVENTS.length);
+return ROUND_EVENTS[idx];
 }
 
 function goalForIndex(index) {
@@ -210,13 +187,11 @@ return players;
 }
 
 function createState() {
-const schedule = buildRoundEventSchedule();
 return {
 phase: "playing",
 round: 1,
 maxRounds: MAX_ROUNDS,
-roundEventSchedule: schedule,
-roundEvent: schedule[0],
+roundEvent: roundEventFor(1),
 players: makePlayers(),
 turnIndex: 0,
 message: "Build your tiny kingdom.",
@@ -1252,7 +1227,7 @@ if (st.phase === "playing") {
         actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
         actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
         actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
-        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "blue pos-guard") +
+        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "pos-guard") +
         actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
         actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
         '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
