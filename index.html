@@ -1615,31 +1615,22 @@ margin-left:0 !important;
         if (rData.marker) {
             rData.marker.setLatLng([rData.lat, rData.lng]);
             rData.marker.setIcon(buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId));
-        } else {
+       } else {
             const newMarker = L.marker([rData.lat, rData.lng], {
                 icon:buildLabelIcon(user, rData.dest, rData.color, rData.isGhost, rData.riderId)
             }).addTo(map);
-
-            newMarker.on('click', e => {
-                L.DomEvent.stopPropagation(e);
-
-                if (!newMarker._zoomedIn) {
-                    map.setView([rData.lat, rData.lng], 18, { animate:true, duration:0.7 });
-                    newMarker._zoomedIn = true;
-                } else {
-                    fitAllRiders(true);
-                    newMarker._zoomedIn = false;
-                }
-            });
-
-            newMarker._zoomedIn = false;
+ 
+            // Click handling for this marker (zoom-in/zoom-out toggle) is now
+            // owned entirely by the unified follow-me patch's rewireBuddyMarkers().
+            // No click handler is attached here on purpose.
+ 
             rData.marker = newMarker;
-
+ 
             if (!user.includes('(You)')) {
                 setTimeout(() => fitAllRiders(true), 300);
             }
         }
-    }
+ 
 
     setInterval(() => {
         const now = Date.now();
