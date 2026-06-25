@@ -1286,7 +1286,7 @@ el.innerHTML = [
         '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
         '.tk-help-card p{margin:8px 0;}',
         '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
-        @media(max-width:430px).tk-help-btn{top:6px;right:6px;width:54px;height:42px;font-size:12px;}
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:6px;right:6px;width:54px;height:42px;font-size:12px;}
 .tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}
 .tk-event-round span{font-size:14px;}
 .tk-event-round b{font-size:34px;}
