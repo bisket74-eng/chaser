@@ -794,62 +794,39 @@ function compareScores(a, b) {
     return 0;
 }
 
-function cardHtml(card, hidden) {
-    if (hidden) {
-        return "<div class=\"th-card th-back\">◆</div>";
-    }
-
+function cardHtml(card, size) {
     const red = card.suit === "♥" || card.suit === "♦";
+    const sizeClass = size === "big" ? "th-card-big" : "th-card-small";
 
     return (
-        "<div class=\"th-card " + (red ? "red" : "black") + "\">" +
+        "<div class=\"th-card " + sizeClass + " " + (red ? "red" : "black") + "\">" +
             "<span>" + escapeHtml(card.rank) + "</span>" +
             "<b>" + escapeHtml(card.suit) + "</b>" +
         "</div>"
     );
 }
 
-function buildPlayerHtml(p) {
+/* Builds the small seat tag that wraps around the table edge for every
+   player who is NOT the local user. Shows name + last action only. */
+function buildSeatTagHtml(p) {
     const st = window.texasHoldemState;
-    const me = myPlayer();
     const current = currentPlayer();
-    const isMe = me && p.id === me.id;
+    const isTurn = current && current.id === p.id && st.phase === "playing";
     const isWinner = st.winners.indexOf(p.id) !== -1;
-    
-    // BUG FIX: Removed p.isComputer. Opponent cards are ONLY revealed at Showdown.
-    const showCards = isMe || st.round === "showdown" || st.phase === "handOver";
 
-    let handHtml = "";
-
-    if (showCards && p.hand.length > 0) {
-        // Show the actual cards
-        handHtml = "<div class=\"th-hand\">" +
-            cardHtml(p.hand[0], false) +
-            cardHtml(p.hand[1], false) +
-        "</div>";
-    } else if (isMe && p.hand.length === 0) {
-        // Show empty card slots for local player before deal
-        handHtml = "<div class=\"th-hand\">" +
-            "<div class=\"th-card th-empty\"></div>" +
-            "<div class=\"th-card th-empty\"></div>" +
-        "</div>";
-    }
-    // If it's an opponent and we aren't at showdown, we render NOTHING for the hand. 
-    // This removes the card backs and clears up table space like requested.
+    let actionText = p.lastAction || "";
+    if (p.folded) actionText = "Folded";
+    if (!actionText && st.phase === "playing") actionText = "Waiting...";
 
     return (
-        "<div class=\"th-player " +
-        (current && current.id === p.id && st.phase === "playing" ? "turn " : "") +
+        "<div class=\"th-seat " +
+        (isTurn ? "turn " : "") +
         (p.folded ? "folded " : "") +
         (isWinner ? "winner " : "") +
         "\">" +
-            "<div class=\"th-player-top\">" +
-                "<strong>" + escapeHtml(p.name) + "</strong>" +
-                "<span>" + Number(p.chips || 0) + " chips</span>" +
-            "</div>" +
-            "<div class=\"th-mini-action\">" + escapeHtml(p.lastAction || (p.folded ? "Folded" : "")) + "</div>" +
-            handHtml +
-            "<div class=\"th-bet\">Bet: " + Number(p.bet || 0) + "</div>" +
+            "<div class=\"th-seat-name\">" + escapeHtml(p.name) + "</div>" +
+            "<div class=\"th-seat-action\">" + escapeHtml(actionText) + "</div>" +
+            "<div class=\"th-seat-chips\">" + Number(p.chips || 0) + " chips" + (p.bet ? " &middot; bet " + Number(p.bet) : "") + "</div>" +
         "</div>"
     );
 }
@@ -860,13 +837,61 @@ function buildCommunityHtml() {
 
     for (let i = 0; i < 5; i++) {
         if (st.community[i]) {
-            html += cardHtml(st.community[i], false);
+            html += cardHtml(st.community[i], "small");
         } else {
-            html += "<div class=\"th-card th-empty\"></div>";
+            html += "<div class=\"th-card th-card-small th-empty\"></div>";
         }
     }
 
     return html;
+}
+
+/* Showdown strip: everyone still live in the hand, two cards each,
+   winner(s) highlighted. Folded players are not shown here. */
+function buildShowdownHtml() {
+    const st = window.texasHoldemState;
+    const live = livePlayers().length ? livePlayers() : playersInHand();
+
+    return live.map(function (p) {
+        const isWinner = st.winners.indexOf(p.id) !== -1;
+
+        const cards = p.hand.length
+            ? cardHtml(p.hand[0], "small") + cardHtml(p.hand[1], "small")
+            : "";
+
+        return (
+            "<div class=\"th-show-player " + (isWinner ? "winner " : "") + "\">" +
+                "<div class=\"th-show-name\">" + (isWinner ? "&#9813; " : "") + escapeHtml(p.name) + "</div>" +
+                "<div class=\"th-show-cards\">" + cards + "</div>" +
+            "</div>"
+        );
+    }).join("");
+}
+
+/* Arranges all non-local players around the table edge in seat order,
+   starting from the seat right after the local player and wrapping
+   around, splitting evenly across left/top/right. */
+function buildSeatWrapHtml() {
+    const st = window.texasHoldemState;
+    const me = myPlayer();
+    const others = [];
+
+    const myIndex = me ? st.players.indexOf(me) : -1;
+    const order = myIndex === -1 ? st.players.slice() : (function () {
+        const arr = [];
+        for (let step = 1; step <= st.players.length; step++) {
+            arr.push(st.players[(myIndex + step) % st.players.length]);
+        }
+        return arr;
+    })();
+
+    order.forEach(function (p) {
+        if (!me || p.id !== me.id) others.push(p);
+    });
+
+    if (!others.length) return "<div class=\"th-seatwrap th-seatwrap-empty\"></div>";
+
+    return "<div class=\"th-seatwrap\">" + others.map(buildSeatTagHtml).join("") + "</div>";
 }
 
 function renderTexas() {
@@ -882,8 +907,11 @@ function renderTexas() {
     const canAct = st.phase === "playing" && myTurn && me && !me.folded && !me.allIn && me.chips > 0;
     const callText = toCall > 0 ? "Call " + toCall : "Check";
     const raiseText = st.currentBet > 0 ? "Raise " + st.minRaise : "Bet " + BIG_BLIND;
+    const isShowdown = st.phase === "handOver" && st.round === "showdown";
 
-    const tablePlayers = st.players.map(buildPlayerHtml).join("");
+    const myCardsHtml = me && me.hand.length
+        ? cardHtml(me.hand[0], "big") + cardHtml(me.hand[1], "big")
+        : "<div class=\"th-card th-card-big th-empty\"></div><div class=\"th-card th-card-big th-empty\"></div>";
 
     const actionButtons = st.phase === "playing" ? (
         "<div class=\"th-actions\">" +
@@ -906,6 +934,16 @@ function renderTexas() {
         titleLine = current.name + " to act.";
     }
 
+    const middleHtml = isShowdown ? (
+        "<div class=\"th-showdown\">" +
+            "<div class=\"th-showdown-title\">Showdown</div>" +
+            "<div class=\"th-show-row\">" + buildShowdownHtml() + "</div>" +
+        "</div>"
+    ) : (
+        "<div class=\"th-community-title\">Community Cards</div>" +
+        "<div class=\"th-community\">" + buildCommunityHtml() + "</div>"
+    );
+
     el.innerHTML = [
         "<style>",
             ".th-wrap{height:100%;overflow:auto;padding:8px 8px 70px;box-sizing:border-box;font-family:Arial,sans-serif;color:#e2f0d9;background:radial-gradient(circle at center,#125c35 0%,#063012 65%,#031d0b 100%);}",
@@ -914,33 +952,56 @@ function renderTexas() {
             ".th-pill span{display:block;font-size:12px;margin-top:1px;}",
             ".th-message{text-align:center;color:#ffd700;font-weight:900;font-size:15px;line-height:1.15;max-width:620px;margin:6px auto;}",
             ".th-last{text-align:center;color:#ffffff;font-size:12px;font-weight:900;max-width:620px;margin:-2px auto 5px;opacity:.92;}",
-            ".th-table{max-width:720px;margin:0 auto;border:3px solid #d4af37;border-radius:26px;background:rgba(0,0,0,.18);padding:10px;box-shadow:inset 0 0 25px rgba(0,0,0,.45),0 4px 15px rgba(0,0,0,.4);}",
-            ".th-community-title{text-align:center;color:#ffd700;font-weight:900;font-size:14px;margin:2px 0 5px;}",
-            ".th-community{display:flex;gap:6px;justify-content:center;margin:0 auto 9px;}",
-            ".th-players{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;}",
-            ".th-player{background:rgba(226,240,217,.95);color:#1e4620;border:3px solid transparent;border-radius:14px;padding:7px;box-sizing:border-box;min-width:0;}",
-            ".th-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}",
-            ".th-player.folded{opacity:.55;}",
-            ".th-player.winner{border-color:#ffd700;box-shadow:0 0 0 2px #ffd700;}",
-            ".th-player-top{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:13px;font-weight:900;}",
-            ".th-player-top strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
-            ".th-player-top span{font-size:11px;white-space:nowrap;}",
-            ".th-mini-action{height:14px;font-size:11px;font-weight:900;text-align:center;color:#b00020;margin:1px 0;}",
-            ".th-hand{display:flex;justify-content:center;gap:5px;margin:4px 0;}",
-            ".th-card{width:42px;height:58px;background:#fff;border-radius:8px;border:2px solid #ddd;box-shadow:0 2px 4px rgba(0,0,0,.32);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;position:relative;}",
-            ".th-card span{font-size:16px;line-height:1;}",
-            ".th-card b{font-size:20px;line-height:1;margin-top:2px;}",
+
+            /* Table: card-shaped oval with seat tags wrapped around the rim */
+            ".th-table{max-width:680px;margin:0 auto;border:3px solid #d4af37;border-radius:50%/30%;background:rgba(0,0,0,.18);padding:18px 14px;box-shadow:inset 0 0 25px rgba(0,0,0,.45),0 4px 15px rgba(0,0,0,.4);position:relative;}",
+            ".th-community-title{text-align:center;color:#ffd700;font-weight:900;font-size:13px;margin:0 0 6px;}",
+            ".th-community{display:flex;gap:5px;justify-content:center;margin:0 auto 4px;}",
+
+            /* Seat wrap: flex-wrap row, naturally flows left-to-right then wraps,
+               which reads as 'around the table' for 2-6 seats without needing
+               absolute positioning math per seat count. */
+            ".th-seatwrap{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px auto 2px;max-width:620px;}",
+            ".th-seatwrap-empty{display:none;}",
+            ".th-seat{background:rgba(226,240,217,.92);color:#1e4620;border:2px solid transparent;border-radius:10px;padding:5px 9px;min-width:84px;text-align:center;flex:0 1 auto;}",
+            ".th-seat.turn{border-color:#ff3b3b;box-shadow:0 0 0 2px #ff3b3b;}",
+            ".th-seat.folded{opacity:.5;}",
+            ".th-seat.winner{border-color:#ffd700;box-shadow:0 0 0 2px #ffd700;}",
+            ".th-seat-name{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
+            ".th-seat-action{font-size:11px;font-weight:900;color:#b00020;height:13px;}",
+            ".th-seat-chips{font-size:10px;font-weight:700;opacity:.85;white-space:nowrap;}",
+
+            /* Showdown strip replaces the community-card block when hand ends */
+            ".th-showdown{margin-top:6px;}",
+            ".th-showdown-title{text-align:center;color:#ffd700;font-weight:900;font-size:13px;margin:0 0 6px;}",
+            ".th-show-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}",
+            ".th-show-player{background:rgba(226,240,217,.95);border:2px solid transparent;border-radius:12px;padding:6px 8px;text-align:center;}",
+            ".th-show-player.winner{border-color:#ffd700;box-shadow:0 0 0 2px #ffd700;}",
+            ".th-show-name{font-size:12px;font-weight:900;color:#1e4620;margin-bottom:3px;white-space:nowrap;}",
+            ".th-show-cards{display:flex;gap:3px;justify-content:center;}",
+
+            /* My own cards: big, fixed at bottom of table area, always visible */
+            ".th-mycards-row{display:flex;justify-content:center;align-items:center;gap:10px;margin:14px auto 4px;}",
+            ".th-mycards{display:flex;gap:8px;}",
+            ".th-mycards-label{text-align:center;color:#ffd700;font-weight:900;font-size:12px;margin:0 0 4px;}",
+
+            ".th-card{background:#fff;border-radius:8px;border:2px solid #ddd;box-shadow:0 2px 4px rgba(0,0,0,.32);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;position:relative;}",
+            ".th-card-small{width:38px;height:52px;}",
+            ".th-card-small span{font-size:14px;line-height:1;}",
+            ".th-card-small b{font-size:17px;line-height:1;margin-top:2px;}",
+            ".th-card-big{width:64px;height:90px;border-width:3px;}",
+            ".th-card-big span{font-size:21px;line-height:1;}",
+            ".th-card-big b{font-size:30px;line-height:1;margin-top:3px;}",
             ".th-card.red{color:#c1121f;}",
             ".th-card.black{color:#111827;}",
-            ".th-card.th-back{background:linear-gradient(135deg,#1d4ed8,#0f172a);color:#ffd700;font-size:23px;}",
             ".th-card.th-empty{background:rgba(255,255,255,.14);border:2px dashed rgba(255,255,255,.4);box-shadow:none;}",
-            ".th-bet{text-align:center;font-size:11px;font-weight:900;}",
-            ".th-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:9px auto 6px;max-width:620px;}",
+
+            ".th-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:12px auto 6px;max-width:620px;}",
             ".th-actions button{border:none;border-radius:12px;padding:9px 13px;font-size:14px;font-weight:900;background:#e2f0d9;color:#1e4620;box-shadow:0 2px 6px rgba(0,0,0,.3);}",
             ".th-actions button.th-gold{background:#ffd700;color:#1e4620;}",
             ".th-actions button:disabled{background:#777;color:#222;box-shadow:none;}",
             ".th-rules{font-size:11px;line-height:1.2;text-align:center;color:#e2f0d9;max-width:620px;margin:6px auto 0;opacity:.9;}",
-            "@media(max-width:390px){.th-wrap{padding:6px 6px 70px;}.th-card{width:36px;height:50px;border-radius:7px;}.th-card span{font-size:14px;}.th-card b{font-size:18px;}.th-community{gap:4px;}.th-player{padding:6px;}.th-actions button{font-size:13px;padding:8px 10px;}}",
+            "@media(max-width:390px){.th-wrap{padding:6px 6px 70px;}.th-card-small{width:32px;height:46px;}.th-card-small span{font-size:12px;}.th-card-small b{font-size:15px;}.th-card-big{width:54px;height:76px;}.th-card-big span{font-size:18px;}.th-card-big b{font-size:25px;}.th-seat{min-width:74px;padding:4px 7px;}.th-actions button{font-size:13px;padding:8px 10px;}}",
         "</style>",
         "<div class=\"th-wrap\">",
             "<div class=\"th-top\">",
@@ -950,9 +1011,14 @@ function renderTexas() {
             "<div class=\"th-message\">", escapeHtml(titleLine), "</div>",
             st.lastResult ? "<div class=\"th-last\">" + escapeHtml(st.lastResult) + "</div>" : "",
             "<div class=\"th-table\">",
-                "<div class=\"th-community-title\">Community Cards</div>",
-                "<div class=\"th-community\">", buildCommunityHtml(), "</div>",
-                "<div class=\"th-players\">", tablePlayers, "</div>",
+                middleHtml,
+                buildSeatWrapHtml(),
+            "</div>",
+            "<div class=\"th-mycards-row\">",
+                "<div>",
+                    "<div class=\"th-mycards-label\">", escapeHtml(me ? me.name : "You"), "</div>",
+                    "<div class=\"th-mycards\">", myCardsHtml, "</div>",
+                "</div>",
             "</div>",
             actionButtons,
             dealButton,
