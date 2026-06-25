@@ -1212,7 +1212,7 @@ if (st.phase === "playing") {
         actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
         '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
     '</div>'
-);
+
     );
 } else if (st.phase === "scoring") {
     actionsHtml = '<div class="tk-actions tk-scoring-actions"><button class="tk-new" disabled type="button">Scoring...</button></div>';
