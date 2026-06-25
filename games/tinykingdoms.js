@@ -113,7 +113,13 @@ return window.chaserGame.hostId === getMyId();
 }
 
 function roundEventFor(round) {
-const idx = Math.abs((Number(round || 1) - 1) % ROUND_EVENTS.length);
+const r = Number(round || 1);
+
+if (r <= 1 || r >= 9) {
+    return { id: "calm", icon: "☁️", title: "Calm Round", desc: "No special bonus this round." };
+}
+
+const idx = r - 2;
 return ROUND_EVENTS[idx];
 }
 
