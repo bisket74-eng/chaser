@@ -27,7 +27,7 @@ y: 0
 
 const ROUND_EVENTS = [
 { id: "harvest", icon: "🌧️", title: "Rainy Season", desc: "Farm gives +4 food this round." },
-{ id: "market", icon: "🏪", title: "Busy Market", desc: "Trade gives +4 coins this round." },
+{ id: "market", icon: "🏪", title: "Busy Market", desc: "Sell gives +4 coins this round." },
 { id: "scholar", icon: "📚", title: "Scholar Visit", desc: "Study gives +3 study this round." },
 { id: "training", icon: "⚔️", title: "War Drums", desc: "Train gives +3 army this round." },
 { id: "bandits", icon: "🔥", title: "Bandits Nearby", desc: "Successful raids score +4 this round." },
@@ -331,7 +331,7 @@ until: Date.now() + ACTION_FLASH_MS
 
 function actionResource(action) {
 if (action === "farm") return "food";
-if (action === "trade") return "coins";
+if (action === "sell") return "coins";
 if (action === "study") return "science";
 if (action === "train") return "army";
 if (action === "guard") return "shield";
@@ -649,12 +649,12 @@ if (action === "farm") {
     triggerActionFlash(st, p.id, action, "+" + gain, "");
 }
 
-if (action === "trade") {
+if (action === "sell") {
     const gain = eventId === "market" ? 4 : 3;
     p.coins += gain;
     p.score += 1;
-    text = "Trade +" + gain + " coins";
-    p.lastAction = "🪙 Trade +" + gain;
+    text = "Sell +" + gain + " coins";
+    p.lastAction = "🪙 Sell +" + gain;
     triggerActionFlash(st, p.id, action, "+" + gain, "");
 }
 
@@ -801,11 +801,11 @@ if (canBuildWonder(p) && Math.random() < 0.55) return "wonder";
 if (opponent && p.army > opponent.army + 1 && Math.random() < 0.42) return "raid";
 if (opponent && opponent.army >= p.army && p.shield < 2 && Math.random() < 0.35) return "guard";
 if (p.food < 2) return "farm";
-if (p.coins < 2) return "trade";
+if (p.coins < 2) return "sell";
 if (p.science < 1) return "study";
 if (opponent && p.army <= opponent.army && Math.random() < 0.36) return "train";
 
-const choices = ["farm", "trade", "study", "train", "guard", "raid"];
+const choices = ["farm", "sell", "study", "train", "guard", "raid"];
 return choices[Math.floor(Math.random() * choices.length)];
 
 }
@@ -931,7 +931,7 @@ return (
 
             '<h3 class="tk-help-section-title">1. Turn Actions</h3>' +
             '<div class="tk-help-row"><b>🍞 Farm:</b> Gain food and +1 point. Rainy Season makes it +4 food.</div>' +
-            '<div class="tk-help-row"><b>🪙 Trade:</b> Gain coins and +1 point. Busy Market makes it +4 coins.</div>' +
+            '<div class="tk-help-row"><b>🪙 Sell:</b> Gain coins and +1 point. Busy Market makes it +4 coins.</div>' +
             '<div class="tk-help-row"><b>📚 Study:</b> Gain study and +1 point. Scholar Visit makes it +3 study.</div>' +
             '<div class="tk-help-row"><b>⚔️ Train:</b> Gain army and +1 point. War Drums makes it +3 army.</div>' +
             '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain shield and +1 point. Fortify Walls makes it +2 shield. Opponent shield is hidden like army.</div>' +
@@ -941,7 +941,7 @@ return (
             '<h3 class="tk-help-section-title">2. Round Events</h3>' +
             '<p>Each round has one event shown under the round box. Use it to decide which action is stronger that round.</p>' +
             '<div class="tk-help-row"><b>🌧️ Rainy Season:</b> Farm gives +4 food.</div>' +
-            '<div class="tk-help-row"><b>🏪 Busy Market:</b> Trade gives +4 coins.</div>' +
+            '<div class="tk-help-row"><b>🏪 Busy Market:</b> Sell gives +4 coins.</div>' +
             '<div class="tk-help-row"><b>📚 Scholar Visit:</b> Study gives +3 study.</div>' +
             '<div class="tk-help-row"><b>⚔️ War Drums:</b> Train gives +3 army.</div>' +
             '<div class="tk-help-row"><b>🔥 Bandits Nearby:</b> Full raid scores +4.</div>' +
@@ -1172,7 +1172,7 @@ if (st.phase === "playing") {
     actionsHtml = (
         '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
             actionButton("farm", "🍞", "Farm", currentEventId(st) === "harvest" ? "+4 food" : "+3 food", !canAct, "pos-farm") +
-            actionButton("trade", "🪙", "Trade", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-trade") +
+            actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
             actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
             actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+2 shield" : "+1 shield", !canAct, "blue pos-guard") +
             actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
@@ -1240,7 +1240,7 @@ el.innerHTML = [
         '.tk-actions.my-turn{border-color:#ff0000;}',
         '.tk-action,.tk-new{border:none;border-radius:12px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,.35);padding:5px 3px;min-height:0;width:100%;height:100%;}',
         '.tk-action.pos-farm{grid-column:1;grid-row:1;}',
-        '.tk-action.pos-trade{grid-column:2;grid-row:1;}',
+        '.tk-action.pos-sell{grid-column:2;grid-row:1;}',
         '.tk-action.pos-study{grid-column:3;grid-row:1;}',
         '.tk-action.pos-guard{grid-column:1;grid-row:2;}',
         '.tk-action.pos-train{grid-column:2;grid-row:2;}',
