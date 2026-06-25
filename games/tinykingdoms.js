@@ -5,7 +5,7 @@ Small-screen strategy kingdom game.
 ;(function () {
 "use strict";
 
-const MAX_ROUNDS = 8;
+const MAX_ROUNDS = 10;
 const MAX_PLAYERS = 4;
 const BOT_ID = "tiny-kingdoms-computer";
 const BOT_DELAY = 6000;
@@ -935,7 +935,7 @@ return (
         '<button class="tk-help-close-x" onclick="closeTinyKingdomsHelp()" type="button">✕</button>' +
         '<div class="tk-help-card">' +
             '<div class="tk-help-title">How to Play</div>' +
-            '<p><b>Goal:</b> Earn the highest score at the end of 8 rounds.</p>' +
+            '<p><b>Goal:</b> Earn the highest score at the end of 10 rounds.</p>' +
             '<p><b>Players:</b> 1 player vs computer, or up to 4 players synced.</p>' +
 
             '<h3 class="tk-help-section-title">1. Turn Actions</h3>' +
