@@ -476,10 +476,18 @@ return Math.max.apply(null, st.players.map(function (p) {
 }
 
 function secretGoalMet(p) {
+const st = window.tinyKingdomsState;
+if (!st || !st.players || !st.players.length || !p) return false;
+
 const goal = secretGoalById(p.secretGoal);
 const value = Number(p[goal.resource] || 0);
-const best = highestResourceValue(goal.resource);
-return value > 0 && value === best;
+
+if (value <= 0) return false;
+
+return st.players.every(function (otherPlayer) {
+    if (otherPlayer.id === p.id) return true;
+    return value > Number(otherPlayer[goal.resource] || 0);
+});
 }
 
 function secretGoalText(p, reveal) {
