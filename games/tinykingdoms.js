@@ -1316,7 +1316,188 @@ if (!skipBotCheck) {
 }
 
 }
+/* === TINY KINGDOMS ONE-PASTE PATCH: HIDDEN MILITARY + ROUND HEADER FIX === */
+;(function () {
+    function tkIsHiddenMilitaryAction(action) {
+        return action === "train" || action === "guard";
+    }
 
+    function tkDisplayLastActionForViewer(p) {
+        const st = window.tinyKingdomsState;
+        const me = myPlayer();
+
+        if (!p || !p.lastAction) {
+            return p && p.acted ? "Waiting" : "To act";
+        }
+
+        if (
+            st &&
+            st.phase === "playing" &&
+            tkIsHiddenMilitaryAction(p.lastActionCode) &&
+            me &&
+            me.id !== p.id
+        ) {
+            return "Military";
+        }
+
+        return p.lastAction;
+    }
+
+    function tkDisplayMessageForViewer(st) {
+        const me = myPlayer();
+
+        if (!st) return "";
+
+        const msg = String(st.message || "");
+        const meta = st.lastActionMeta || null;
+        const messageIsExactMilitary =
+            msg.indexOf("Train") !== -1 ||
+            msg.indexOf("Guard") !== -1 ||
+            msg.indexOf("army") !== -1 ||
+            msg.indexOf("shield") !== -1;
+
+        if (
+            st.phase === "playing" &&
+            meta &&
+            tkIsHiddenMilitaryAction(meta.action) &&
+            messageIsExactMilitary &&
+            me &&
+            me.id !== meta.playerId
+        ) {
+            return meta.playerName + ": Military";
+        }
+
+        return msg;
+    }
+
+    const tkOriginalApplyAction = applyAction;
+
+    applyAction = function (st, p, action) {
+        const ok = tkOriginalApplyAction(st, p, action);
+
+        if (ok && p && st) {
+            p.lastActionCode = action;
+            st.lastActionMeta = {
+                playerId: p.id,
+                playerName: p.name,
+                action: action
+            };
+        }
+
+        return ok;
+    };
+
+    actionFlashLabel = function (p, resourceName) {
+        const st = window.tinyKingdomsState;
+        if (!st || st.phase === "scoring" || !st.actionFlash || !st.actionFlash.until) return "";
+        if (Date.now() > st.actionFlash.until) return "";
+
+        const flash = st.actionFlash;
+        const resource = actionResource(flash.action);
+        if (resource !== resourceName) return "";
+
+        const me = myPlayer();
+
+        if (tkIsHiddenMilitaryAction(flash.action)) {
+            if (!me || me.id !== flash.playerId) return "";
+        }
+
+        if (flash.action === "raid") {
+            if (p.id === flash.playerId) return flash.label || "Raid";
+            if (p.id === flash.targetId) return "Raid";
+            return "";
+        }
+
+        if (p.id !== flash.playerId) return "";
+        return flash.label || "";
+    };
+
+    roundEventHtml = function (st) {
+        const ev = st.roundEvent || roundEventFor(st.round);
+        const roundNum = Number(st.round || 1);
+
+        return (
+            '<div class="tk-event">' +
+                '<div class="tk-event-round">' +
+                    '<span>ROUND</span>' +
+                    '<b>' + roundNum + '</b>' +
+                '</div>' +
+                '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">? Help</button>' +
+                '<div class="tk-event-info">' +
+                    '<div class="tk-event-label">ROUND EVENT</div>' +
+                    '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
+                    '<div class="tk-event-desc">' + escapeHtml(ev.desc) + '</div>' +
+                '</div>' +
+            '</div>'
+        );
+    };
+
+    const tkOriginalRenderTinyKingdoms = renderTinyKingdoms;
+
+    renderTinyKingdoms = function (skipBotCheck) {
+        tkOriginalRenderTinyKingdoms(skipBotCheck);
+        tkPatchTinyKingdomsDom();
+    };
+
+    renderTinyKingdomsNoBot = function () {
+        renderTinyKingdoms(true);
+    };
+
+    function tkPatchTinyKingdomsDom() {
+        const root = canvas();
+        const st = window.tinyKingdomsState;
+        if (!root || !st) return;
+
+        let patchStyle = root.querySelector("#tk-one-paste-patch-style");
+
+        if (!patchStyle) {
+            patchStyle = document.createElement("style");
+            patchStyle.id = "tk-one-paste-patch-style";
+            root.appendChild(patchStyle);
+        }
+
+        patchStyle.textContent =
+            ".tk-event-round{border-right:2px solid rgba(30,70,32,.28)!important;height:100%!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:0!important;padding-left:22px!important;padding-right:48px!important;box-sizing:border-box!important;}" +
+            ".tk-event-round span{font-size:15px!important;font-weight:900!important;letter-spacing:2px!important;line-height:1!important;}" +
+            ".tk-event-round b{font-size:48px!important;font-weight:900!important;line-height:.82!important;margin-top:3px!important;}" +
+            ".tk-help-btn{position:absolute!important;top:8px!important;left:34%!important;right:auto!important;transform:translateX(-50%)!important;z-index:30!important;border:2px solid #ffffff!important;border-radius:999px!important;background:#2f80ed!important;color:#ffffff!important;font-weight:900!important;font-size:14px!important;line-height:1!important;width:62px!important;height:48px!important;box-shadow:0 3px 9px rgba(0,0,0,.4)!important;}" +
+            ".tk-secret-bottom{margin:8px auto 7px!important;}" +
+            "@media(max-width:430px){.tk-event-round{align-items:flex-start!important;padding-left:14px!important;padding-right:38px!important;}.tk-event-round span{font-size:12px!important;letter-spacing:1.5px!important;}.tk-event-round b{font-size:39px!important;line-height:.82!important;}.tk-help-btn{top:7px!important;left:33%!important;right:auto!important;width:54px!important;height:42px!important;font-size:12px!important;}}";
+
+        const messageEl = root.querySelector(".tk-message");
+        if (messageEl) {
+            messageEl.textContent = tkDisplayMessageForViewer(st);
+        }
+
+        const me = myPlayer();
+
+        const displayPlayers = st.players.map(function (p, index) {
+            return { p: p, index: index };
+        }).sort(function (a, b) {
+            if (me && a.p.id === me.id && b.p.id !== me.id) return 1;
+            if (me && b.p.id === me.id && a.p.id !== me.id) return -1;
+            return a.index - b.index;
+        });
+
+        const lastEls = root.querySelectorAll(".tk-player-card .tk-last");
+
+        displayPlayers.forEach(function (item, index) {
+            if (lastEls[index]) {
+                lastEls[index].textContent = tkDisplayLastActionForViewer(item.p);
+            }
+        });
+
+        const secretGoal = root.querySelector(".tk-secret-bottom");
+        const actions = root.querySelector(".tk-actions");
+
+        if (secretGoal && actions && actions.parentNode && secretGoal.parentNode !== actions.parentNode) {
+            actions.parentNode.insertBefore(secretGoal, actions);
+        } else if (secretGoal && actions && actions.parentNode) {
+            actions.parentNode.insertBefore(secretGoal, actions);
+        }
+    }
+})();
+/* === END TINY KINGDOMS ONE-PASTE PATCH === */
 window.resetTinyKingdomsGame = function () {
 clearTimeout(armyRevealTimer);
 clearTimeout(actionFlashTimer);
