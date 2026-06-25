@@ -1164,7 +1164,7 @@ function roundEventHtml(st) {
                 '<span>ROUND</span>' +
                 '<b>' + roundNum + '</b>' +
             '</div>' +
-            '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">? Help</button>' +
+            
             '<div class="tk-event-info">' +
                 '<div class="tk-event-label">ROUND EVENT</div>' +
                 '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
@@ -1201,16 +1201,18 @@ let actionsHtml = "";
 
 if (st.phase === "playing") {
     const cost = wonderCost(st);
-    actionsHtml = (
-        '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
-            actionButton("farm", "🍞", "Farm", currentEventId(st) === "harvest" ? "+4 food" : "+3 food", !canAct, "pos-farm") +
-            actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
-            actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
-            actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "blue pos-guard") +
-            actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
-            actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
-            actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
-        '</div>'
+  actionsHtml = (
+    '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
+        actionButton("farm", "🍞", "Farm", currentEventId(st) === "harvest" ? "+4 food" : "+3 food", !canAct, "pos-farm") +
+        actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
+        actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
+        actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
+        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "blue pos-guard") +
+        actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
+        actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
+        '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
+    '</div>'
+);
     );
 } else if (st.phase === "scoring") {
     actionsHtml = '<div class="tk-actions tk-scoring-actions"><button class="tk-new" disabled type="button">Scoring...</button></div>';
@@ -1269,23 +1271,27 @@ el.innerHTML = [
         '.tk-secret{position:relative;background:#ffffff;border:2px solid #cfe4c3;border-radius:10px;margin-top:7px;padding:5px 7px;font-size:11px;font-weight:900;color:#1e4620;text-align:left;line-height:1.15;}',
         '.tk-secret .secret-float{top:-12px;}',
         '.tk-bonus{font-size:14px;font-weight:900;color:#1e4620;margin-top:8px;}',
-        '.tk-actions{margin:8px auto 6px;display:grid;grid-template-columns:1fr 1fr 1fr .55fr;grid-template-rows:58px 58px;gap:6px;border:3px solid transparent;border-radius:15px;padding:6px;box-sizing:border-box;align-items:stretch;}',
-        '.tk-actions.my-turn{border-color:#ff0000;}',
-        '.tk-action,.tk-new{border:none;border-radius:12px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,.35);padding:5px 3px;min-height:0;width:100%;height:100%;}',
-        '.tk-action.pos-farm{grid-column:1;grid-row:1;}',
-        '.tk-action.pos-sell{grid-column:2;grid-row:1;}',
-        '.tk-action.pos-study{grid-column:3;grid-row:1;}',
-        '.tk-action.pos-guard{grid-column:1;grid-row:2;}',
-        '.tk-action.pos-train{grid-column:2;grid-row:2;}',
-        '.tk-action.pos-raid{grid-column:3;grid-row:2;}',
-        '.tk-action.pos-wonder{grid-column:4;grid-row:1 / span 2;}',
-        '.tk-action span{display:block;font-size:21px;line-height:1;}',
-        '.tk-action b{display:block;font-size:13px;margin-top:2px;}',
-        '.tk-action small{display:block;font-size:11px;line-height:1.1;color:#3c6f41;}',
-        '.tk-action.gold{background:#ffd700;}',
-        '.tk-action.red{background:#ffc9c9;color:#7a1010;}',
-        '.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
-        '.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
+        '.tk-actions{margin:8px auto 6px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:54px 54px;gap:5px;border:3px solid transparent;border-radius:15px;padding:6px;box-sizing:border-box;align-items:stretch;}',
+'.tk-actions.my-turn{border-color:#ff0000;}',
+'.tk-action,.tk-new{border:none;border-radius:12px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,.35);padding:4px 2px;min-height:0;width:100%;height:100%;}',
+'.tk-action.pos-farm{grid-column:1;grid-row:1;}',
+'.tk-action.pos-sell{grid-column:2;grid-row:1;}',
+'.tk-action.pos-study{grid-column:3;grid-row:1;}',
+'.tk-action.pos-wonder{grid-column:4;grid-row:1;}',
+'.tk-action.pos-guard{grid-column:1;grid-row:2;}',
+'.tk-action.pos-train{grid-column:2;grid-row:2;}',
+'.tk-action.pos-raid{grid-column:3;grid-row:2;}',
+'.tk-action.pos-help{grid-column:4;grid-row:2;}',
+'.tk-action span{display:block;font-size:20px;line-height:1;}',
+'.tk-action b{display:block;font-size:12px;margin-top:1px;}',
+'.tk-action small{display:block;font-size:9px;line-height:1.05;color:#3c6f41;}',
+'.tk-action.gold{background:#ffd700;}',
+'.tk-action.red{background:#ffc9c9;color:#7a1010;}',
+'.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
+'.tk-action.help{background:#0d47a1;color:#ffffff;}',
+'.tk-action.help small{color:#d9ecff;}',
+'.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
+'.tk-action.help:disabled{background:#0d47a1!important;color:#ffffff!important;opacity:1!important;}',
         '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
         '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
         '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9;z-index:70000;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
@@ -1295,7 +1301,7 @@ el.innerHTML = [
         '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
         '.tk-help-card p{margin:8px 0;}',
         '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
-        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:1fr 1fr 1fr .55fr;grid-template-rows:52px 52px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
@@ -1430,7 +1436,7 @@ if (!skipBotCheck) {
                     '<span>ROUND</span>' +
                     '<b>' + roundNum + '</b>' +
                 '</div>' +
-                '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">? Help</button>' +
+                
                 '<div class="tk-event-info">' +
                     '<div class="tk-event-label">ROUND EVENT</div>' +
                     '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
