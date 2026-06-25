@@ -32,7 +32,7 @@ const ROUND_EVENTS = [
 { id: "training", icon: "⚔️", title: "War Drums", desc: "Train gives +3 army this round." },
 { id: "bandits", icon: "🔥", title: "Bandits Nearby", desc: "Successful raids score +4 this round." },
 { id: "builder", icon: "🏛️", title: "Builder Boom", desc: "Wonder costs 1 less coin this round." },
-{ id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +2 shield this round." }
+{ id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +3 shield this round." }
 ];
 
 const SECRET_GOALS = [
@@ -677,7 +677,7 @@ if (action === "train") {
 }
 
 if (action === "guard") {
-    const gain = eventId === "fortify" ? 2 : 1;
+    const gain = eventId === "fortify" ? 3 : 2;
     p.shield += gain;
     p.score += 1;
     text = "Guard +" + gain + " shield";
@@ -713,15 +713,13 @@ if (action === "raid") {
 
     revealRaidArmies(st, p, target);
 
-    if (p.army > target.army) {
+    if (p.army >= target.army + 2) {
         if (target.shield > 0) {
             target.shield -= 1;
-            stealOneResource(target, p);
-            const scoreGain = eventId === "bandits" ? 3 : 2;
-            p.score += scoreGain;
-            text = "Raid hit shield +" + scoreGain;
-            p.lastAction = "🔥 Raid +" + scoreGain;
-            triggerActionFlash(st, p.id, action, "+" + scoreGain, target.id);
+            p.score += 1;
+            text = "Raid cracked shield +1";
+            p.lastAction = "🔥 Shield cracked +1";
+            triggerActionFlash(st, p.id, action, "+1", target.id);
         } else {
             stealOneResource(target, p);
             stealOneResource(target, p);
@@ -732,14 +730,11 @@ if (action === "raid") {
             triggerActionFlash(st, p.id, action, "+" + scoreGain, target.id);
         }
     } else {
-        p.army += 1;
-        p.score += 1;
         text = "Raid failed";
         p.lastAction = "🔥 Raid failed";
-        triggerActionFlash(st, p.id, action, "+1", target.id);
+        triggerActionFlash(st, p.id, action, "Fail", target.id);
     }
 }
-
 p.acted = true;
 st.message = p.name + ": " + text;
 addLog(st, p.name + ": " + p.lastAction);
@@ -930,13 +925,13 @@ return (
             '<p><b>Players:</b> 1 player vs computer, or up to 4 players synced.</p>' +
 
             '<h3 class="tk-help-section-title">1. Turn Actions</h3>' +
-            '<div class="tk-help-row"><b>🍞 Farm:</b> Gain food and +1 point. Rainy Season makes it +4 food.</div>' +
-            '<div class="tk-help-row"><b>🪙 Sell:</b> Gain coins and +1 point. Busy Market makes it +4 coins.</div>' +
-            '<div class="tk-help-row"><b>📚 Study:</b> Gain study and +1 point. Scholar Visit makes it +3 study.</div>' +
-            '<div class="tk-help-row"><b>⚔️ Train:</b> Gain army and +1 point. War Drums makes it +3 army.</div>' +
-            '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain shield and +1 point. Fortify Walls makes it +2 shield. Opponent shield is hidden like army.</div>' +
-            '<div class="tk-help-row"><b>🔥 Raid:</b> Compares your army against the strongest opponent. If your army is higher, you win. If they have shield, one shield breaks, you steal 1 resource, and score +2. If they have no shield, you steal 2 resources and score +3. Bandits Nearby makes a full raid worth +4. If raid fails, you get +1 army and +1 point.</div>' +
-            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs food, coins, and study. Usually costs 🍞2 🪙2 📚1. Builder Boom lowers the coin cost to 🪙1. Your first Wonder scores 7, second scores 8, and so on.</div>' +
+            '<div class="tk-help-row"><b>🍞 Farm:</b> Gain +3 food and +1 point. Rainy Season makes it +4 food.</div>' +
+            '<div class="tk-help-row"><b>🪙 Sell:</b> Gain +3 coins and +1 point. Busy Market makes it +4 coins.</div>' +
+            '<div class="tk-help-row"><b>📚 Study:</b> Gain +2 study and +1 point. Scholar Visit makes it +3 study.</div>' +
+            '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. War Drums makes it +3 army.</div>' +
+            '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Fortify Walls makes it +3 shield. Opponent shield is hidden like army.</div>' +
+           '<div class="tk-help-row"><b>🔥 Raid:</b> Your army must be at least 2 higher than the strongest opponent to win. If they have shield, one shield breaks, you steal nothing, and score +1. If they have no shield, you steal 2 resources and score +3. Bandits Nearby makes a full unshielded raid worth +4. If raid fails, you get nothing.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs food, coins, and study. costs 🍞2 food 🪙2 coin 📚1 study. Builder Boom lowers the coin cost to 🪙1. Your first Wonder scores 7, second scores 8, and so on.</div>' +
 
             '<h3 class="tk-help-section-title">2. Round Events</h3>' +
             '<p>Each round has one event shown under the round box. Use it to decide which action is stronger that round.</p>' +
@@ -946,7 +941,7 @@ return (
             '<div class="tk-help-row"><b>⚔️ War Drums:</b> Train gives +3 army.</div>' +
             '<div class="tk-help-row"><b>🔥 Bandits Nearby:</b> Full raid scores +4.</div>' +
             '<div class="tk-help-row"><b>🏛️ Builder Boom:</b> Wonder costs 1 less coin.</div>' +
-            '<div class="tk-help-row"><b>🛡️ Fortify Walls:</b> Guard gives +2 shield.</div>' +
+           '<div class="tk-help-row"><b>🛡️ Fortify Walls:</b> Guard gives +3 shield.</div>' +
 
             '<h3 class="tk-help-section-title">3. Secret Goals</h3>' +
             '<p>Each player has a secret end-game goal worth <b>+5 points</b>. During the game, you can see yours, but opponents see question marks. At scoring time, everyone&apos;s goals reveal.</p>' +
@@ -1174,7 +1169,7 @@ if (st.phase === "playing") {
             actionButton("farm", "🍞", "Farm", currentEventId(st) === "harvest" ? "+4 food" : "+3 food", !canAct, "pos-farm") +
             actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
             actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
-            actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+2 shield" : "+1 shield", !canAct, "blue pos-guard") +
+            actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "blue pos-guard") +
             actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
             actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
             actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
