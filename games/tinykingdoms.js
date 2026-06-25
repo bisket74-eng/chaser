@@ -1156,6 +1156,7 @@ function roundEventHtml(st) {
                 '<span>ROUND</span>' +
                 '<b>' + roundNum + '</b>' +
             '</div>' +
+            '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">? Help</button>' +
             '<div class="tk-event-info">' +
                 '<div class="tk-event-label">ROUND EVENT</div>' +
                 '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
@@ -1216,8 +1217,8 @@ el.innerHTML = [
         '.tk-wrap{position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;background:linear-gradient(180deg,#092a12,#031906);}',
         '.tk-zoom-viewport{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;box-sizing:border-box;padding:8px 8px 116px;}',
         '.tk-zoom-content{width:100%;max-width:760px;margin:0 auto;transform-origin:top left;will-change:transform;}',        
-'.tk-help-btn{position:absolute;top:8px;right:8px;z-index:30;border:2px solid #ffffff;border-radius:999px;background:#2f80ed;color:#ffffff;font-weight:900;font-size:14px;line-height:1;width:62px;height:48px;box-shadow:0 3px 9px rgba(0,0,0,.4);}',
-'.tk-event{display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
+'.tk-help-btn{position:absolute;top:10px;left:34%;transform:translateX(-50%);z-index:30;border:2px solid #ffffff;border-radius:999px;background:#2f80ed;color:#ffffff;font-weight:900;font-size:14px;line-height:1;width:62px;height:48px;box-shadow:0 3px 9px rgba(0,0,0,.4);}',
+'.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
 '.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;align-items:center;justify-content:center;gap:7px;}',
 '.tk-event-round span{font-size:18px;font-weight:900;letter-spacing:1px;}',
 '.tk-event-round b{font-size:42px;font-weight:900;line-height:.9;}',
@@ -1286,14 +1287,13 @@ el.innerHTML = [
         '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
         '.tk-help-card p{margin:8px 0;}',
         '.tk-help-row{background:#ffffff;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);}',
-        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:6px;right:6px;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:1fr 1fr 1fr .55fr;grid-template-rows:52px 52px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:7px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:1fr 1fr 1fr .55fr;grid-template-rows:52px 52px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:7px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
         '<div class="tk-zoom-viewport">',
             '<div class="tk-zoom-content">',
-               '<button class="tk-help-btn" onclick="openTinyKingdomsHelp()" type="button">? Help</button>',
-roundEventHtml(st),
+              roundEventHtml(st),
                 '<div class="tk-message">' + escapeHtml(messageText) + '</div>',
               
                 '<div class="tk-board">' + playersHtml + '</div>',
