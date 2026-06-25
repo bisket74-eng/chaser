@@ -868,9 +868,18 @@ function buildShowdownHtml() {
     }).join("");
 }
 
-/* Arranges all non-local players around the table edge in seat order,
-   starting from the seat right after the local player and wrapping
-   around, splitting evenly across left/top/right. */
+/* Seat slot order for filling positions around the table, working
+   outward from directly across from the local player toward the two
+   edges nearest the local player (left/right of where you sit).
+   Index 0 = directly across (used for 1-opponent heads-up).
+   Then alternates left/right of center as more players are seated. */
+const SEAT_SLOT_ORDER = ["across", "across-left", "across-right", "left", "right"];
+
+/* Arranges all non-local players directly across the table and along
+   the left/right edges nearest the local player, in seat order
+   starting from the seat right after the local player. The local
+   player's own seat sits at the bottom (rendered separately), so
+   nobody is ever placed "in front of" them. */
 function buildSeatWrapHtml() {
     const st = window.texasHoldemState;
     const me = myPlayer();
@@ -891,7 +900,29 @@ function buildSeatWrapHtml() {
 
     if (!others.length) return "<div class=\"th-seatwrap th-seatwrap-empty\"></div>";
 
-    return "<div class=\"th-seatwrap\">" + others.map(buildSeatTagHtml).join("") + "</div>";
+    const slots = { across: [], "across-left": [], "across-right": [], left: [], right: [] };
+
+    others.forEach(function (p, idx) {
+        const slotName = SEAT_SLOT_ORDER[Math.min(idx, SEAT_SLOT_ORDER.length - 1)];
+        slots[slotName].push(p);
+    });
+
+    function renderSlot(name) {
+        if (!slots[name].length) return "";
+        return "<div class=\"th-seatslot th-seatslot-" + name + "\">" + slots[name].map(buildSeatTagHtml).join("") + "</div>";
+    }
+
+    return (
+        "<div class=\"th-seatwrap\">" +
+            renderSlot("left") +
+            "<div class=\"th-seatwrap-center\">" +
+                renderSlot("across-left") +
+                renderSlot("across") +
+                renderSlot("across-right") +
+            "</div>" +
+            renderSlot("right") +
+        "</div>"
+    );
 }
 
 function renderTexas() {
@@ -958,11 +989,14 @@ function renderTexas() {
             ".th-community-title{text-align:center;color:#ffd700;font-weight:900;font-size:13px;margin:0 0 6px;}",
             ".th-community{display:flex;gap:5px;justify-content:center;margin:0 auto 4px;}",
 
-            /* Seat wrap: flex-wrap row, naturally flows left-to-right then wraps,
-               which reads as 'around the table' for 2-6 seats without needing
-               absolute positioning math per seat count. */
-            ".th-seatwrap{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px auto 2px;max-width:620px;}",
+            /* Seat wrap: opponents sit across the table (top) and along
+               the two edges nearest the local player (left/right columns),
+               so nobody ever appears "in front of" the local player. */
+            ".th-seatwrap{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin:0 auto 12px;max-width:640px;min-height:54px;}",
             ".th-seatwrap-empty{display:none;}",
+            ".th-seatwrap-center{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;flex:1 1 auto;}",
+            ".th-seatslot{display:flex;flex-direction:column;gap:6px;}",
+            ".th-seatslot-left,.th-seatslot-right{flex:0 0 auto;justify-content:center;}",
             ".th-seat{background:rgba(226,240,217,.92);color:#1e4620;border:2px solid transparent;border-radius:10px;padding:5px 9px;min-width:84px;text-align:center;flex:0 1 auto;}",
             ".th-seat.turn{border-color:#ff3b3b;box-shadow:0 0 0 2px #ff3b3b;}",
             ".th-seat.folded{opacity:.5;}",
@@ -1011,8 +1045,8 @@ function renderTexas() {
             "<div class=\"th-message\">", escapeHtml(titleLine), "</div>",
             st.lastResult ? "<div class=\"th-last\">" + escapeHtml(st.lastResult) + "</div>" : "",
             "<div class=\"th-table\">",
-                middleHtml,
                 buildSeatWrapHtml(),
+                middleHtml,
             "</div>",
             "<div class=\"th-mycards-row\">",
                 "<div>",
