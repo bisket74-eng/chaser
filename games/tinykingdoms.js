@@ -120,14 +120,28 @@ return ROUND_EVENTS[idx];
 function goalForIndex(index) {
 return SECRET_GOALS[index % SECRET_GOALS.length];
 }
+ function shuffledSecretGoals() {
+    const goals = SECRET_GOALS.slice();
+
+    for (let i = goals.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = goals[i];
+        goals[i] = goals[j];
+        goals[j] = temp;
+    }
+
+    return goals;
+}   
 
 function makePlayers() {
 const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.players) && window.chaserGame.players.length
 ? window.chaserGame.players
 : [{ id: getMyId(), name: myName(), seat: 0 }];
 
+const secretGoalOrder = shuffledSecretGoals();
+
 const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
-    const goal = goalForIndex(idx);
+    const goal = secretGoalOrder[idx % secretGoalOrder.length];
     return {
         id: p.id,
         name: p.name || "Player " + (idx + 1),
@@ -148,7 +162,7 @@ const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
 });
 
 if (players.length === 1) {
-    const goal = goalForIndex(1);
+    const goal = secretGoalOrder[1 % secretGoalOrder.length];
     players.push({
         id: BOT_ID,
         name: "Computer",
@@ -931,7 +945,7 @@ return (
             '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. War Drums makes it +3 army.</div>' +
             '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Fortify Walls makes it +3 shield. Opponent shield is hidden like army.</div>' +
            '<div class="tk-help-row"><b>🔥 Raid:</b> Your army must be at least 2 higher than the strongest opponent to win. If they have shield, one shield breaks, you steal nothing, and score +1. If they have no shield, you steal 2 resources and score +3. Bandits Nearby makes a full unshielded raid worth +4. If raid fails, you get nothing.</div>' +
-            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs food, coins, and study. costs 🍞2 food 🪙2 coin 📚1 study. Builder Boom lowers the coin cost to 🪙1. Your first Wonder scores 7, second scores 8, and so on.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs  🍞2 food 🪙2 coin 📚1 study. Builder Boom lowers the coin cost to 🪙1. Your first Wonder scores 7, second scores 8, and so on.</div>' +
 
             '<h3 class="tk-help-section-title">2. Round Events</h3>' +
             '<p>Each round has one event shown under the round box. Use it to decide which action is stronger that round.</p>' +
