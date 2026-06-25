@@ -483,6 +483,15 @@ const me = myPlayer();
 if (!st || !me || st.phase !== "playing") return "";
 return '<div class="tk-my-secret">🎯 ' + escapeHtml(secretGoalText(me, true)) + '</div>';
 }
+function bottomInfoHtml(st) {
+    const me = myPlayer();
+
+    if (st && st.phase === "playing" && me) {
+        return '<div class="tk-mini-log tk-secret-bottom">🎯 ' + escapeHtml(secretGoalText(me, true)) + '</div>';
+    }
+
+    return '<div class="tk-mini-log">' + escapeHtml(st.log[0] || "Tap one action.") + '</div>';
+}    
 
 function buildScoringQueue(st) {
 const resources = ["food", "coins", "science", "army", "shield", "wonder", "secret"];
@@ -1245,7 +1254,7 @@ el.innerHTML = [
         '.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
         '.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
         '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
-        '.tk-mini-log{background:rgba(0,0,0,.22);border:2px solid rgba(255,215,0,.35);border-radius:12px;padding:7px;color:#e2f0d9;font-size:13px;font-weight:900;line-height:1.2;margin-top:7px;min-height:18px;}',
+        '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
         '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9;z-index:70000;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
         '.tk-help-close-x{position:fixed;top:12px;right:16px;border:none;background:#b00020;color:#ffffff;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:70001;}',
         '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 60px;box-sizing:border-box;color:#1e4620;font-size:16px;line-height:1.4;}',
@@ -1265,10 +1274,10 @@ el.innerHTML = [
                 '</div>',
                 roundEventHtml(st),
                 '<div class="tk-message">' + escapeHtml(messageText) + '</div>',
-                mySecretGoalHtml(st),
+              
                 '<div class="tk-board">' + playersHtml + '</div>',
                 actionsHtml,
-                '<div class="tk-mini-log">' + escapeHtml(st.log[0] || "Tap one action.") + '</div>',
+                bottomInfoHtml(st),
             '</div>',
         '</div>',
     '</div>',
