@@ -1,4 +1,4 @@
-/* CHASER SETTLERS - SEPARATE GAME FILE
+/* CHASER SETTLERS - SEPARATE GAME FILE - ASCII ICON SAFE
 Mobile-optimized Hex Resource Game
 3-4 player setup with named computer players, dice, resource cards, development cards, ports, trading, and action availability
 */
@@ -52,20 +52,29 @@ const COSTS = {
 };
 
 const ICONS = {
-    brick: "ðŸ§±",
-    wheat: "ðŸŒ¾",
-    sheep: "ðŸ‘",
-    wood: "ðŸŒ²",
-    ore: "â›°ï¸",
-    desert: "ðŸœï¸"
+    brick: "&#129521;",
+    wheat: "&#127806;",
+    sheep: "&#128017;",
+    wood: "&#127794;",
+    ore: "&#9968;",
+    desert: "Desert"
+};
+
+const RESOURCE_NAMES = {
+    brick: "Brick",
+    wheat: "Wheat",
+    sheep: "Wool",
+    wood: "Wood",
+    ore: "Ore",
+    desert: "Desert"
 };
 
 const DEV_CARD_INFO = {
-    knight: { title: "Knight", icon: "âš”ï¸", desc: "Play for knight power. Robber is not added yet." },
-    victory: { title: "Victory Point", icon: "â­", desc: "Worth 1 hidden point." },
-    roadBuilding: { title: "Road Building", icon: "ðŸ›£ï¸", desc: "Place 2 roads for free." },
-    yearOfPlenty: { title: "Year of Plenty", icon: "ðŸŒ¾", desc: "Take any 2 resources." },
-    monopoly: { title: "Monopoly", icon: "ðŸ§²", desc: "Choose 1 resource and take all of it from others." }
+    knight: { title: "Knight", icon: "&#9876;", desc: "Play for knight power. Robber is not added yet." },
+    victory: { title: "Victory Point", icon: "&#11088;", desc: "Worth 1 hidden point." },
+    roadBuilding: { title: "Road Building", icon: "&#128739;", desc: "Place 2 roads for free." },
+    yearOfPlenty: { title: "Year of Plenty", icon: "&#127806;", desc: "Take any 2 resources." },
+    monopoly: { title: "Monopoly", icon: "M", desc: "Choose 1 resource and take all of it from others." }
 };
 
 let uiState = "IDLE";
@@ -689,11 +698,11 @@ function collectStartingResourcesForSettlement(settlement) {
 
 function resourceParts(cards) {
     const parts = [];
-    if (cards.brick) parts.push(`ðŸ§± +${cards.brick}`);
-    if (cards.wheat) parts.push(`ðŸŒ¾ +${cards.wheat}`);
-    if (cards.sheep) parts.push(`ðŸ‘ +${cards.sheep}`);
-    if (cards.wood) parts.push(`ðŸŒ² +${cards.wood}`);
-    if (cards.ore) parts.push(`â›°ï¸ +${cards.ore}`);
+    if (cards.brick) parts.push(`brick +${cards.brick}`);
+    if (cards.wheat) parts.push(`wheat +${cards.wheat}`);
+    if (cards.sheep) parts.push(`wool +${cards.sheep}`);
+    if (cards.wood) parts.push(`wood +${cards.wood}`);
+    if (cards.ore) parts.push(`ore +${cards.ore}`);
     return parts;
 }
 
@@ -1018,7 +1027,7 @@ function tryPlaceSettlementForPlayer(playerId, x, y, options) {
     }
 
     if (!setupActive && !spendResources(playerId, COSTS.settlement)) {
-        if (!opts.silent) setMessage("Settlement costs ðŸ§± + ðŸŒ² + ðŸ‘ + ðŸŒ¾.");
+        if (!opts.silent) setMessage("Settlement costs brick + wood + wool + wheat.");
         return false;
     }
 
@@ -1075,7 +1084,7 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
     }
 
     if (!setupActive && !usingFreeRoad && !spendResources(playerId, COSTS.road)) {
-        if (!opts.silent) setMessage("Road costs ðŸ§± + ðŸŒ².");
+        if (!opts.silent) setMessage("Road costs brick + wood.");
         return false;
     }
 
@@ -1140,7 +1149,7 @@ function tryUpgradeCityForPlayer(playerId, settlementId, options) {
     }
 
     if (!spendResources(playerId, COSTS.city)) {
-        if (!opts.silent) setMessage("City costs ðŸŒ¾ðŸŒ¾ + â›°ï¸â›°ï¸â›°ï¸.");
+        if (!opts.silent) setMessage("City costs 2 wheat + 3 ore.");
         return false;
     }
 
@@ -1163,7 +1172,7 @@ function buyDevelopmentCardForPlayer(playerId, options) {
     }
 
     if (!spendResources(playerId, COSTS.card)) {
-        if (!opts.silent) setMessage("Development card costs ðŸ‘ + ðŸŒ¾ + â›°ï¸.");
+        if (!opts.silent) setMessage("Development card costs wool + wheat + ore.");
         return false;
     }
 
@@ -1428,7 +1437,7 @@ window.chooseMonopolyResource = function (cardId, resource) {
 };
 
 function resourceChoiceButtons(onclickName, cardId) {
-    const labels = { brick: "ðŸ§± Brick", wheat: "ðŸŒ¾ Wheat", sheep: "ðŸ‘ Sheep", wood: "ðŸŒ² Wood", ore: "â›°ï¸ Ore" };
+    const labels = { brick: ICONS.brick + " Brick", wheat: ICONS.wheat + " Wheat", sheep: ICONS.sheep + " Wool", wood: ICONS.wood + " Wood", ore: ICONS.ore + " Ore" };
     return RESOURCE_TYPES.map(type => `
         <button type="button" onclick="${onclickName}('${cardId}', '${type}')" style="
             background:#fff;
@@ -1452,8 +1461,8 @@ function showYearOfPlentyOverlay(cardId) {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersYearOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersYearOverlay').remove()">Ã—</button>
-                <div class="set-overlay-title">ðŸŒ¾ Year of Plenty</div>
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersYearOverlay').remove()">&times;</button>
+                <div class="set-overlay-title">&#127806; Year of Plenty</div>
                 <div class="set-overlay-sub">Pick 2 resources. Picked: ${escapeHtml(picked)}</div>
                 <div class="set-resource-choice-grid">${resourceChoiceButtons("chooseYearPlentyResource", cardId)}</div>
             </div>
@@ -1469,8 +1478,8 @@ function showMonopolyOverlay(cardId) {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersMonopolyOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersMonopolyOverlay').remove()">Ã—</button>
-                <div class="set-overlay-title">ðŸ§² Monopoly</div>
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersMonopolyOverlay').remove()">&times;</button>
+                <div class="set-overlay-title">Monopoly</div>
                 <div class="set-overlay-sub">Choose a resource to collect from everyone.</div>
                 <div class="set-resource-choice-grid">${resourceChoiceButtons("chooseMonopolyResource", cardId)}</div>
             </div>
@@ -1484,7 +1493,7 @@ function tradeButtonsHtml() {
     const canTrade = canTradeNow(getMyId());
 
     const portText = ports.length
-        ? ports.map(p => p === "3:1" ? "3:1 any" : `${ICONS[p]} 2:1`).join(" â€¢ ")
+        ? ports.map(p => p === "3:1" ? "3:1 any" : `${ICONS[p]} 2:1`).join("  &bull;  ")
         : "No ports yet. Bank trades are 4:1.";
 
     const buttons = RESOURCE_TYPES.map(type => {
@@ -1492,7 +1501,7 @@ function tradeButtonsHtml() {
         const enough = (cards[type] || 0) >= rate;
         return `
             <button type="button" class="set-trade-btn" onclick="openSettlersTrade('${type}')" ${canTrade && enough ? "" : "disabled"}>
-                ${rate} ${ICONS[type]} â†’ 1 any
+                ${rate} ${ICONS[type]} &rarr; 1 any
             </button>
         `;
     }).join("");
@@ -1529,7 +1538,7 @@ function showTradeOverlay(giveType) {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersTradeOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersTradeOverlay').remove()">Ã—</button>
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersTradeOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">Trade</div>
                 <div class="set-overlay-sub">Give ${rate} ${ICONS[giveType]} for 1 resource.</div>
                 <div class="set-resource-choice-grid">${receiveButtons}</div>
@@ -1559,7 +1568,7 @@ window.showSettlersDevCards = function () {
                 <div class="set-dev-card-icon">${info.icon}</div>
                 <div class="set-dev-card-title">${escapeHtml(info.title)}</div>
                 <div class="set-dev-card-desc">${escapeHtml(info.desc)}</div>
-                ${isNew ? `<div class="set-dev-new">New card â€” playable later</div>` : ""}
+                ${isNew ? `<div class="set-dev-new">New card - playable later</div>` : ""}
                 ${isVictory ? `<div class="set-dev-vp">Kept for points</div>` : `
                     <button type="button" class="set-dev-play" onclick="playSettlersDevCard('${card.id}')" ${playable ? "" : "disabled"}>Play</button>
                 `}
@@ -1574,8 +1583,8 @@ window.showSettlersDevCards = function () {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersDevOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card set-dev-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersDevOverlay').remove()">Ã—</button>
-                <div class="set-overlay-title">ðŸƒ My Cards</div>
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersDevOverlay').remove()">&times;</button>
+                <div class="set-overlay-title">&#127183; My Cards</div>
                 <div class="set-overlay-sub">You have ${hand.length} development card${hand.length === 1 ? "" : "s"}.</div>
                 <div class="set-dev-grid">${cardsHtml}</div>
                 ${tradeButtonsHtml()}
@@ -1702,14 +1711,14 @@ window.showSettlersHelp = function () {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersHelpOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersHelpOverlay').remove()">Ã—</button>
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersHelpOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">Build Costs</div>
                 <div class="set-help-list">
-                    <div>ðŸ›£ï¸ Road = ðŸ§± + ðŸŒ²</div>
-                    <div>ðŸ  Settlement = ðŸ§± + ðŸŒ² + ðŸ‘ + ðŸŒ¾</div>
-                    <div>ðŸ° City = ðŸŒ¾ðŸŒ¾ + â›°ï¸â›°ï¸â›°ï¸</div>
-                    <div>ðŸƒ Dev Card = ðŸ‘ + ðŸŒ¾ + â›°ï¸</div>
-                    <div>âš“ Ports = build on a port corner to trade better.</div>
+                    <div>&#128739; Road = &#129521; + &#127794;</div>
+                    <div>&#127968; Settlement = &#129521; + &#127794; + &#128017; + &#127806;</div>
+                    <div>&#127984; City = &#127806;&#127806; + &#9968;&#9968;&#9968;</div>
+                    <div>&#127183; Dev Card = &#128017; + &#127806; + &#9968;</div>
+                    <div>Ports = build on a port corner to trade better.</div>
                     <div>3:1 port = any 3 same resources for 1 resource.</div>
                     <div>2:1 port = two matching resources for 1 resource.</div>
                 </div>
@@ -1721,7 +1730,7 @@ window.showSettlersHelp = function () {
 
 function portLabel(type) {
     if (type === "3:1") return "3:1";
-    return `${ICONS[type]} 2:1`;
+    return `${RESOURCE_NAMES[type]} 2:1`;
 }
 
 function buildSvgBoardHtml() {
@@ -1777,12 +1786,17 @@ function buildSvgBoardHtml() {
     let portsHtml = "";
     (st.board.ports || []).forEach(port => {
         const lineColor = port.type === "3:1" ? "#ffffff" : "#111111";
+        const label = portLabel(port.type);
+        const labelWidth = port.type === "3:1" ? 44 : 66;
+        const labelX = port.lx - labelWidth / 2;
         portsHtml += `
             <g>
-                <line x1="${port.mx}" y1="${port.my}" x2="${port.lx}" y2="${port.ly}" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.95"/>
-                <line x1="${port.x1}" y1="${port.y1}" x2="${port.x2}" y2="${port.y2}" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.88"/>
-                <rect x="${port.lx - 21}" y="${port.ly - 11}" width="42" height="22" rx="8" fill="#eaf4df" stroke="${lineColor}" stroke-width="1.5"/>
-                <text x="${port.lx}" y="${port.ly + 5}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="900" fill="#1e4620">${portLabel(port.type)}</text>
+                <line x1="${port.lx}" y1="${port.ly}" x2="${port.x1}" y2="${port.y1}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+                <line x1="${port.lx}" y1="${port.ly}" x2="${port.x2}" y2="${port.y2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+                <circle cx="${port.x1}" cy="${port.y1}" r="5" fill="#eaf4df" stroke="#1e4620" stroke-width="1.5"/>
+                <circle cx="${port.x2}" cy="${port.y2}" r="5" fill="#eaf4df" stroke="#1e4620" stroke-width="1.5"/>
+                <rect x="${labelX}" y="${port.ly - 11}" width="${labelWidth}" height="22" rx="8" fill="#eaf4df" stroke="${lineColor}" stroke-width="1.5"/>
+                <text x="${port.lx}" y="${port.ly + 5}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="900" fill="#1e4620">${escapeHtml(label)}</text>
             </g>
         `;
     });
@@ -2161,7 +2175,7 @@ function renderSettlers() {
     const canEnd = myTurn && st.rolledThisTurn && !setupActive && !pendingRoll && !computerTurn;
     const rollButtonActive = canRoll || canEnd;
     const rollButtonLabel = canEnd ? "End" : "Roll";
-    const rollButtonIcon = canEnd ? "âž¡ï¸" : "ðŸŽ²";
+    const rollButtonIcon = canEnd ? "&rarr;" : "&#127922;";
     const rollButtonAction = canEnd ? "endSettlersTurn()" : "rollSettlersDice()";
 
     let burst = null;
@@ -2252,35 +2266,35 @@ function renderSettlers() {
 
                         <div class="set-hand-ui">
                             <div class="set-resources">
-                                <span class="set-res-item">ðŸ§± ${brick}${getResourceBurstHtml(burst && burst.brick)}</span>
-                                <span class="set-res-item">ðŸŒ¾ ${wheat}${getResourceBurstHtml(burst && burst.wheat)}</span>
-                                <span class="set-res-item">ðŸ‘ ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
-                                <span class="set-res-item">ðŸŒ² ${wood}${getResourceBurstHtml(burst && burst.wood)}</span>
-                                <span class="set-res-item">â›°ï¸ ${ore}${getResourceBurstHtml(burst && burst.ore)}</span>
+                                <span class="set-res-item">&#129521; ${brick}${getResourceBurstHtml(burst && burst.brick)}</span>
+                                <span class="set-res-item">&#127806; ${wheat}${getResourceBurstHtml(burst && burst.wheat)}</span>
+                                <span class="set-res-item">&#128017; ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
+                                <span class="set-res-item">&#127794; ${wood}${getResourceBurstHtml(burst && burst.wood)}</span>
+                                <span class="set-res-item">&#9968; ${ore}${getResourceBurstHtml(burst && burst.ore)}</span>
                             </div>
 
                             <div class="set-actions">
                                 <button type="button" class="${buttonClass(roadEnabled, uiState === "BUILD_ROAD", "")}" onclick="setSettlersUiState('BUILD_ROAD')" ${roadEnabled ? "" : "disabled"}>
-                                    <span class="ico">ðŸ›£ï¸</span><span class="lbl">Road</span>
+                                    <span class="ico">&#128739;</span><span class="lbl">Road</span>
                                 </button>
                                 <button type="button" class="${buttonClass(settleEnabled, uiState === "BUILD_SETTLEMENT", "")}" onclick="setSettlersUiState('BUILD_SETTLEMENT')" ${settleEnabled ? "" : "disabled"}>
-                                    <span class="ico">ðŸ </span><span class="lbl">Settle</span>
+                                    <span class="ico">&#127968;</span><span class="lbl">Settle</span>
                                 </button>
                                 <button type="button" class="${buttonClass(cityEnabled, uiState === "BUILD_CITY", "")}" onclick="setSettlersUiState('BUILD_CITY')" ${cityEnabled ? "" : "disabled"}>
-                                    <span class="ico">ðŸ°</span><span class="lbl">City</span>
+                                    <span class="ico">&#127984;</span><span class="lbl">City</span>
                                 </button>
                                 <div class="set-card-split">
-                                    <button type="button" class="set-card-half set-card-buy" onclick="buySettlersDevelopmentCard()" ${buyEnabled ? "" : "disabled"}>ðŸƒ Buy<br>Card</button>
-                                    <button type="button" class="set-card-half set-card-mine" onclick="showSettlersDevCards()">ðŸƒ My<br>Cards: ${myDevCount}</button>
+                                    <button type="button" class="set-card-half set-card-buy" onclick="buySettlersDevelopmentCard()" ${buyEnabled ? "" : "disabled"}>&#127183; Buy<br>Card</button>
+                                    <button type="button" class="set-card-half set-card-mine" onclick="showSettlersDevCards()">&#127183; My<br>Cards: ${myDevCount}</button>
                                 </div>
                                 <button type="button" class="${buttonClass(rollButtonActive, false, "set-roll-btn " + (rollButtonActive ? "active" : ""))}" onclick="${rollButtonAction}" ${rollButtonActive ? "" : "disabled"}>
                                     <span class="ico">${rollButtonIcon}</span><span class="lbl">${rollButtonLabel}</span>
                                 </button>
                                 <button type="button" class="set-act-btn enabled set-help-btn" onclick="showSettlersHelp()">
-                                    <span class="ico">â”</span><span class="lbl">Help</span>
+                                    <span class="ico">?</span><span class="lbl">Help</span>
                                 </button>
                                 <button type="button" class="set-act-btn cancel-btn" id="set-cancel" onclick="setSettlersUiState('IDLE')">
-                                    <span class="ico">âœ•</span><span class="lbl">Cancel</span>
+                                    <span class="ico">X</span><span class="lbl">Cancel</span>
                                 </button>
                             </div>
                         </div>
@@ -2314,7 +2328,7 @@ window.initSettlersGame = function () {
     const headerBtns = document.getElementById("headerActionButtonsContainer");
     const chatHeader = document.getElementById("chatHeader");
 
-    if (roomDisplay) roomDisplay.innerText = "ðŸŒ¾ Settlers";
+    if (roomDisplay) roomDisplay.innerText = "Settlers";
     if (headerBtns) headerBtns.style.display = "none";
     if (chatHeader) chatHeader.classList.add("game-active-mode");
 
