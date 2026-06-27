@@ -263,7 +263,7 @@
         minPlayers: 1,
         maxPlayers: 4,
         singlePlayer: true,
-        launch: () => {
+        init: () => {
             if (typeof window.initSettlersGame === 'function') {
                 window.initSettlersGame();
             } else {
