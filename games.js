@@ -257,6 +257,22 @@
         }
     }
 },
+           "Settlers": {
+        icon: "🌾",
+        displayName: "Settlers",
+        minPlayers: 1,
+        maxPlayers: 4,
+        singlePlayer: true,
+        launch: () => {
+            if (typeof window.initSettlersGame === 'function') {
+                window.initSettlersGame();
+            } else {
+                console.error("Settlers script is not loaded.");
+                alert("Settlers is currently under construction or failed to load.");
+            }
+        }
+    },
+
        
        Cribbage: {
     icon:"🃏",
