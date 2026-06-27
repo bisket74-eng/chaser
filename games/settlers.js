@@ -274,7 +274,7 @@ function buildSvgBoardHtml() {
             </svg>
         </div>
     `;
-
+}
 function renderSettlers() {
     const el = document.getElementById("gameCanvasContainer");
     const st = window.settlersState;
