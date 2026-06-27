@@ -284,8 +284,8 @@ function pickPortEdges(hexes, portTypes) {
     for (let i = 0; i < shuffledPorts.length; i++) {
         const idx = Math.floor((i * boundary.length) / shuffledPorts.length);
         const edge = boundary[idx];
-        const outX = Math.cos(edge.angle) * 29;
-        const outY = Math.sin(edge.angle) * 29;
+        const outX = Math.cos(edge.angle) * 52;
+        const outY = Math.sin(edge.angle) * 52;
         chosen.push({
             type: shuffledPorts[i],
             x1: edge.x1,
@@ -324,9 +324,11 @@ function generateBoard() {
         }
     }
 
+    const finalHexes = best || makeBoardPositions();
+
     return {
-        hexes: best || makeBoardPositions(),
-        ports: pickPortEdges(best || makeBoardPositions(), PORTS)
+        hexes: finalHexes,
+        ports: pickPortEdges(finalHexes, PORTS)
     };
 }
 
@@ -354,6 +356,7 @@ function createState() {
         highlightedRoll: null,
         pendingRoll: null,
         resourceBurst: null,
+        pendingTrade: null,
         message: `${firstPlayer.name}: choose Settle below for your first settlement.`,
         resources,
         devDeck: buildDevelopmentDeck(),
@@ -871,6 +874,195 @@ window.completeSettlersTrade = function (giveType, receiveType) {
     renderSettlers();
     syncSettlers();
 };
+
+function canPlayerTradeNow() {
+    const st = window.settlersState;
+    return !!(st && st.phase === "playing" && isMySettlersTurn() && st.rolledThisTurn && !st.pendingRoll);
+}
+
+function resourceOptionsHtml(selected) {
+    return RESOURCE_TYPES.map(type => `<option value="${type}" ${selected === type ? "selected" : ""}>${RESOURCE_NAMES[type]}</option>`).join("");
+}
+
+function amountOptionsHtml(selected) {
+    let html = "";
+    for (let i = 1; i <= 4; i++) html += `<option value="${i}" ${selected === i ? "selected" : ""}>${i}</option>`;
+    return html;
+}
+
+function otherPlayerOptionsHtml() {
+    const st = window.settlersState;
+    return (st.players || []).filter(p => p.id !== getMyId()).map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("");
+}
+
+window.openSettlersPlayerTrade = function () {
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (!canvas) return;
+
+    if (!canPlayerTradeNow()) {
+        setMessage("Player trades open during your turn after rolling.");
+        return;
+    }
+
+    closeSettlersOverlay("settlersPlayerTradeOverlay");
+
+    canvas.insertAdjacentHTML("beforeend", `
+        <div id="settlersPlayerTradeOverlay" class="set-overlay-backdrop">
+            <div class="set-overlay-card set-trade-overlay-card">
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersPlayerTradeOverlay').remove()">&times;</button>
+                <div class="set-overlay-title">Player Trade</div>
+                <div class="set-overlay-sub">Offer one resource trade to a player. Named computer players answer right away.</div>
+
+                <div class="set-player-trade-grid">
+                    <label>Trade with<select id="setTradeTarget">${otherPlayerOptionsHtml()}</select></label>
+                    <label>You give<select id="setTradeGiveType">${resourceOptionsHtml("brick")}</select></label>
+                    <label>Give amount<select id="setTradeGiveAmount">${amountOptionsHtml(1)}</select></label>
+                    <label>You want<select id="setTradeWantType">${resourceOptionsHtml("wood")}</select></label>
+                    <label>Want amount<select id="setTradeWantAmount">${amountOptionsHtml(1)}</select></label>
+                </div>
+
+                <button type="button" class="set-player-trade-send" onclick="sendSettlersPlayerTradeOffer()">Send Offer</button>
+            </div>
+        </div>
+    `);
+};
+
+function getSelectedTradeOffer() {
+    const target = document.getElementById("setTradeTarget");
+    const giveType = document.getElementById("setTradeGiveType");
+    const giveAmount = document.getElementById("setTradeGiveAmount");
+    const wantType = document.getElementById("setTradeWantType");
+    const wantAmount = document.getElementById("setTradeWantAmount");
+
+    if (!target || !giveType || !giveAmount || !wantType || !wantAmount) return null;
+
+    return {
+        targetId: target.value,
+        giveType: giveType.value,
+        giveAmount: Number(giveAmount.value || 1),
+        wantType: wantType.value,
+        wantAmount: Number(wantAmount.value || 1)
+    };
+}
+
+function settlePlayerTrade(fromId, toId, giveType, giveAmount, wantType, wantAmount) {
+    const fromCards = getResourceCards(fromId);
+    const toCards = getResourceCards(toId);
+
+    if ((fromCards[giveType] || 0) < giveAmount) return false;
+    if ((toCards[wantType] || 0) < wantAmount) return false;
+
+    fromCards[giveType] -= giveAmount;
+    toCards[giveType] += giveAmount;
+    toCards[wantType] -= wantAmount;
+    fromCards[wantType] += wantAmount;
+
+    return true;
+}
+
+window.sendSettlersPlayerTradeOffer = function () {
+    const st = window.settlersState;
+    if (!st) return;
+
+    if (!canPlayerTradeNow()) {
+        setMessage("Player trades open during your turn after rolling.");
+        return;
+    }
+
+    const offer = getSelectedTradeOffer();
+    if (!offer) return;
+
+    if (offer.giveType === offer.wantType) {
+        setMessage("Choose two different resources for a player trade.");
+        return;
+    }
+
+    const myCards = getMyResourceCards();
+    if ((myCards[offer.giveType] || 0) < offer.giveAmount) {
+        setMessage("You do not have enough to offer that trade.");
+        return;
+    }
+
+    const target = st.players.find(p => p.id === offer.targetId);
+    if (!target) return;
+
+    const targetCards = getResourceCards(target.id);
+
+    if (target.isComputer) {
+        const canAfford = (targetCards[offer.wantType] || 0) >= offer.wantAmount;
+        const fairEnough = offer.giveAmount >= offer.wantAmount || Math.random() < 0.35;
+
+        if (canAfford && fairEnough && settlePlayerTrade(getMyId(), target.id, offer.giveType, offer.giveAmount, offer.wantType, offer.wantAmount)) {
+            st.message = `${target.name} accepted your trade.`;
+        } else {
+            st.message = `${target.name} declined your trade.`;
+        }
+
+        closeSettlersOverlay("settlersPlayerTradeOverlay");
+        closeSettlersOverlay("settlersDevOverlay");
+        renderSettlers();
+        syncSettlers();
+        return;
+    }
+
+    st.pendingTrade = {
+        id: `trade-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
+        fromId: getMyId(),
+        toId: target.id,
+        giveType: offer.giveType,
+        giveAmount: offer.giveAmount,
+        wantType: offer.wantType,
+        wantAmount: offer.wantAmount
+    };
+
+    st.message = `Trade offer sent to ${target.name}.`;
+    closeSettlersOverlay("settlersPlayerTradeOverlay");
+    closeSettlersOverlay("settlersDevOverlay");
+    renderSettlers();
+    syncSettlers();
+};
+
+window.acceptSettlersPlayerTrade = function () {
+    const st = window.settlersState;
+    if (!st || !st.pendingTrade || st.pendingTrade.toId !== getMyId()) return;
+
+    const t = st.pendingTrade;
+    const ok = settlePlayerTrade(t.fromId, t.toId, t.giveType, t.giveAmount, t.wantType, t.wantAmount);
+    st.message = ok ? `${playerName(t.toId)} accepted ${playerName(t.fromId)}'s trade.` : "Trade failed because someone lacked the cards.";
+    st.pendingTrade = null;
+    renderSettlers();
+    syncSettlers();
+};
+
+window.declineSettlersPlayerTrade = function () {
+    const st = window.settlersState;
+    if (!st || !st.pendingTrade || st.pendingTrade.toId !== getMyId()) return;
+
+    const fromName = playerName(st.pendingTrade.fromId);
+    st.message = `${playerName(getMyId())} declined ${fromName}'s trade.`;
+    st.pendingTrade = null;
+    renderSettlers();
+    syncSettlers();
+};
+
+function pendingTradeOverlayHtml() {
+    const st = window.settlersState;
+    if (!st || !st.pendingTrade || st.pendingTrade.toId !== getMyId()) return "";
+
+    const t = st.pendingTrade;
+    return `
+        <div class="set-trade-prompt">
+            <div class="set-trade-prompt-title">Trade Offer</div>
+            <div>${escapeHtml(playerName(t.fromId))} gives ${t.giveAmount} ${ICONS[t.giveType]}</div>
+            <div>For ${t.wantAmount} ${ICONS[t.wantType]} from you</div>
+            <div class="set-trade-prompt-buttons">
+                <button type="button" onclick="acceptSettlersPlayerTrade()">Accept</button>
+                <button type="button" onclick="declineSettlersPlayerTrade()">Decline</button>
+            </div>
+        </div>
+    `;
+}
+
 
 function closeSettlersOverlay(id) {
     const el = document.getElementById(id);
@@ -1511,7 +1703,8 @@ function tradeButtonsHtml() {
             <div class="set-port-title">Ports / Trade</div>
             <div class="set-port-owned">${escapeHtml(portText)}</div>
             <div class="set-trade-grid">${buttons}</div>
-            <div class="set-port-note">Trade opens after you roll on your turn.</div>
+            <button type="button" class="set-player-trade-open" onclick="openSettlersPlayerTrade()" ${canTrade ? "" : "disabled"}>Offer Player Trade</button>
+            <div class="set-port-note">Bank, port, and player trades open after you roll on your turn.</div>
         </div>
     `;
 }
@@ -1709,9 +1902,9 @@ window.showSettlersHelp = function () {
     closeSettlersOverlay("settlersHelpOverlay");
 
     canvas.insertAdjacentHTML("beforeend", `
-        <div id="settlersHelpOverlay" class="set-overlay-backdrop">
-            <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersHelpOverlay').remove()">&times;</button>
+        <div id="settlersHelpOverlay" class="set-overlay-backdrop set-help-backdrop">
+            <div class="set-overlay-card set-help-cost-card">
+                <button type="button" class="set-overlay-close set-help-fixed-close" onclick="document.getElementById('settlersHelpOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">Build Costs</div>
                 <div class="set-help-list">
                     <div>&#128739; Road = &#129521; + &#127794;</div>
@@ -1730,7 +1923,7 @@ window.showSettlersHelp = function () {
 
 function portLabel(type) {
     if (type === "3:1") return "3:1";
-    return `${RESOURCE_NAMES[type]} 2:1`;
+    return `${ICONS[type]} 2:1`;
 }
 
 function buildSvgBoardHtml() {
@@ -1785,18 +1978,30 @@ function buildSvgBoardHtml() {
 
     let portsHtml = "";
     (st.board.ports || []).forEach(port => {
-        const lineColor = port.type === "3:1" ? "#ffffff" : "#111111";
         const label = portLabel(port.type);
-        const labelWidth = port.type === "3:1" ? 44 : 66;
+        const labelWidth = port.type === "3:1" ? 46 : 62;
+        const labelHeight = 28;
         const labelX = port.lx - labelWidth / 2;
+        const center = { x: port.mx, y: port.my };
+        const labelPoint = { x: port.lx, y: port.ly };
+        const dx = labelPoint.x - center.x;
+        const dy = labelPoint.y - center.y;
+        const mag = Math.hypot(dx, dy) || 1;
+        const ox = dx / mag * 9;
+        const oy = dy / mag * 9;
+        const p1x = port.x1 + ox;
+        const p1y = port.y1 + oy;
+        const p2x = port.x2 + ox;
+        const p2y = port.y2 + oy;
+
         portsHtml += `
             <g>
-                <line x1="${port.lx}" y1="${port.ly}" x2="${port.x1}" y2="${port.y1}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
-                <line x1="${port.lx}" y1="${port.ly}" x2="${port.x2}" y2="${port.y2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
-                <circle cx="${port.x1}" cy="${port.y1}" r="5" fill="#eaf4df" stroke="#1e4620" stroke-width="1.5"/>
-                <circle cx="${port.x2}" cy="${port.y2}" r="5" fill="#eaf4df" stroke="#1e4620" stroke-width="1.5"/>
-                <rect x="${labelX}" y="${port.ly - 11}" width="${labelWidth}" height="22" rx="8" fill="#eaf4df" stroke="${lineColor}" stroke-width="1.5"/>
-                <text x="${port.lx}" y="${port.ly + 5}" text-anchor="middle" font-family="Arial" font-size="9" font-weight="900" fill="#1e4620">${escapeHtml(label)}</text>
+                <line x1="${port.lx}" y1="${port.ly}" x2="${p1x}" y2="${p1y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
+                <line x1="${port.lx}" y1="${port.ly}" x2="${p2x}" y2="${p2y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
+                <circle cx="${p1x}" cy="${p1y}" r="7" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
+                <circle cx="${p2x}" cy="${p2y}" r="7" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
+                <rect x="${labelX}" y="${port.ly - labelHeight / 2}" width="${labelWidth}" height="${labelHeight}" rx="9" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
+                <text x="${port.lx}" y="${port.ly + 5}" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="#1e4620">${label}</text>
             </g>
         `;
     });
@@ -1862,8 +2067,8 @@ function buildSvgBoardHtml() {
     return `
         <div class="set-board-zoomer">
             <svg viewBox="-90 -90 510 470" preserveAspectRatio="xMidYMid meet">
-                <g id="ports-layer">${portsHtml}</g>
                 <g id="hex-grid">${hexHtml}</g>
+                <g id="ports-layer">${portsHtml}</g>
                 <g id="placed-pieces">${piecesHtml}</g>
                 <g id="snap-edges" style="opacity:0; pointer-events:none;">${snapEdgesHtml}</g>
                 <g id="snap-nodes" style="opacity:0; pointer-events:none;">${snapNodesHtml}</g>
@@ -2186,7 +2391,7 @@ function renderSettlers() {
 
     el.innerHTML = `
         <style>
-            .set-wrap { display:flex; flex-direction:column; height:100%; width:100%; background:${COLORS.ocean}; color:#111; font-family:Arial,sans-serif; overflow:hidden; }
+            .set-wrap { display:flex; flex-direction:column; height:100%; width:100%; background:${COLORS.ocean}; color:#111; font-family:Arial,sans-serif; overflow:hidden; position:relative; }
             .set-header { background:#1e4620; color:#ffd700; padding:10px; text-align:center; font-weight:900; font-size:15px; box-shadow:0 4px 10px rgba(0,0,0,0.3); z-index:10; flex-shrink:0; }
             .set-zoom-shell { flex:1; overflow:hidden; touch-action:none; background:${COLORS.ocean}; position:relative; }
             #settlersPanZoom { width:100%; height:100%; transform-origin:top left; will-change:transform; }
@@ -2199,8 +2404,9 @@ function renderSettlers() {
             .set-roll-die { width:54px; height:54px; background:#fff; border:3px solid #111; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#111; box-shadow:inset 0 0 0 2px rgba(0,0,0,0.08); }
             .set-roll-total { font-size:17px; color:${HIGHLIGHT_PURPLE}; }
             .set-hand-ui { background:#d7e0cf; border-top:3px solid #1e4620; padding:8px 8px 42px 8px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; box-sizing:border-box; }
-            .set-resources { display:flex; justify-content:space-around; align-items:center; font-size:16px; font-weight:900; color:#1e4620; background:#f5f5f5; padding:10px 6px; border-radius:14px; border:3px solid #2d6a30; }
-            .set-res-item { position:relative; min-width:42px; text-align:center; }
+            .set-resources { display:flex; justify-content:space-between; align-items:center; gap:3px; font-size:16px; font-weight:900; color:#1e4620; background:#f5f5f5; padding:8px 6px; border-radius:14px; border:3px solid #2d6a30; }
+            .set-res-item { position:relative; min-width:34px; text-align:center; white-space:nowrap; }
+            .set-dev-res-btn { border:2px solid #1d4ed8; border-radius:10px; background:#102b63; color:#fff; padding:4px 6px; font-size:15px; font-weight:900; box-shadow:0 2px 6px rgba(0,0,0,.24); }
             .set-resource-burst { position:absolute; left:50%; top:-10px; transform:translateX(-50%); color:#ffd700; background:#1e4620; border:2px solid #fff; border-radius:999px; padding:1px 7px; font-size:16px; font-weight:900; animation:setFloatUp 1.25s ease-out forwards; pointer-events:none; box-shadow:0 3px 8px rgba(0,0,0,.35); }
             @keyframes setFloatUp { 0% { opacity:0; transform:translate(-50%, 10px) scale(.75); } 18% { opacity:1; transform:translate(-50%, -10px) scale(1.2); } 100% { opacity:0; transform:translate(-50%, -48px) scale(1); } }
             .set-actions { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:7px; }
@@ -2211,18 +2417,16 @@ function renderSettlers() {
             .set-act-btn.enabled { opacity:1; filter:none; }
             .set-act-btn.disabled-look, .set-act-btn:disabled { opacity:.38; filter:grayscale(.35); cursor:default; box-shadow:none; }
             .set-act-btn.selected { box-shadow:0 0 0 3px ${HIGHLIGHT_PURPLE}, 0 3px 9px rgba(0,0,0,.32); }
-            .set-card-split { min-height:74px; border-radius:14px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 3px 8px rgba(0,0,0,0.22); }
-            .set-card-half { flex:1; border:0; font-weight:900; font-size:11px; display:flex; align-items:center; justify-content:center; gap:3px; line-height:1.05; }
-            .set-card-buy { background:#ffd700; color:#1e4620; border-bottom:2px solid rgba(0,0,0,.15); }
-            .set-card-mine { background:#102b63; color:#fff; }
-            .set-card-half:disabled { opacity:.45; filter:grayscale(.45); }
+            .set-act-btn.card-btn { background:#ffd700; color:#1e4620; border-color:#d3b200; }
             .set-act-btn.cancel-btn { background:#dc3545; border-color:#bd2130; display:none; }
             .set-roll-btn { background:#6b3fa0; border-color:#ffffff; }
             .set-roll-btn.active { background:#ff8c00; color:#111; border-color:#ffd700; box-shadow:0 0 0 3px #ffd700, 0 4px 10px rgba(0,0,0,0.35); opacity:1; filter:none; }
             .set-help-btn { background:#1d4ed8; border-color:#ffffff; }
             .set-overlay-backdrop { position:absolute; inset:0; z-index:99999; background:rgba(0,0,0,.76); display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box; }
             .set-overlay-card { width:96%; max-width:370px; max-height:92%; overflow:auto; background:#eaf4df; border:4px solid #ffd700; border-radius:18px; padding:12px; box-sizing:border-box; color:#1e4620; font-weight:900; box-shadow:0 6px 18px rgba(0,0,0,.45); position:relative; }
-            .set-overlay-close { position:absolute; top:8px; right:8px; width:38px; height:38px; border-radius:999px; border:2px solid #fff; background:#dc3545; color:#fff; font-size:24px; font-weight:900; line-height:1; }
+            .set-overlay-close { position:absolute; top:8px; right:8px; width:38px; height:38px; border-radius:999px; border:2px solid #fff; background:#dc3545; color:#fff; font-size:24px; font-weight:900; line-height:1; z-index:100005; }
+            .set-help-cost-card { padding-bottom:72px; }
+            .set-help-fixed-close { position:fixed !important; top:auto !important; right:34px !important; bottom:84px !important; width:54px !important; height:54px !important; font-size:32px !important; box-shadow:0 4px 12px rgba(0,0,0,.42); }
             .set-overlay-title { font-family:Impact,sans-serif; font-size:28px; color:#1e4620; text-align:center; margin-bottom:10px; padding-right:34px; }
             .set-overlay-sub { text-align:center; color:#2d6a30; font-size:14px; margin-bottom:10px; }
             .set-help-list { display:flex; flex-direction:column; gap:8px; font-size:17px; }
@@ -2244,6 +2448,18 @@ function renderSettlers() {
             .set-trade-btn { border:2px solid #1e4620; border-radius:10px; background:#eaf4df; color:#1e4620; padding:8px; font-weight:900; }
             .set-trade-btn:disabled { opacity:.38; }
             .set-port-note { font-size:12px; color:#555; margin-top:6px; text-align:center; }
+            .set-player-trade-open { width:100%; margin-top:8px; border:none; border-radius:12px; padding:10px; background:#1d4ed8; color:#fff; font-size:15px; font-weight:900; }
+            .set-player-trade-open:disabled { opacity:.38; }
+            .set-player-trade-grid { display:grid; grid-template-columns:1fr; gap:8px; }
+            .set-player-trade-grid label { display:flex; flex-direction:column; gap:4px; color:#1e4620; font-size:14px; font-weight:900; }
+            .set-player-trade-grid select { border:2px solid #2d6a30; border-radius:10px; padding:8px; font-size:15px; font-weight:900; background:#fff; color:#1e4620; }
+            .set-player-trade-send { width:100%; margin-top:10px; border:none; border-radius:12px; padding:11px; background:#ffd700; color:#1e4620; font-size:17px; font-weight:900; }
+            .set-trade-prompt { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); z-index:99998; width:86%; max-width:330px; background:#eaf4df; border:4px solid #ffd700; border-radius:18px; padding:14px; box-sizing:border-box; color:#1e4620; font-weight:900; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,.42); }
+            .set-trade-prompt-title { font-family:Impact,sans-serif; font-size:27px; margin-bottom:6px; }
+            .set-trade-prompt-buttons { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+            .set-trade-prompt-buttons button { border:none; border-radius:12px; padding:10px; color:#fff; font-size:16px; font-weight:900; }
+            .set-trade-prompt-buttons button:first-child { background:#00b050; }
+            .set-trade-prompt-buttons button:last-child { background:#dc3545; }
         </style>
 
         <div class="set-wrap">
@@ -2271,6 +2487,7 @@ function renderSettlers() {
                                 <span class="set-res-item">&#128017; ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
                                 <span class="set-res-item">&#127794; ${wood}${getResourceBurstHtml(burst && burst.wood)}</span>
                                 <span class="set-res-item">&#9968; ${ore}${getResourceBurstHtml(burst && burst.ore)}</span>
+                                <button type="button" class="set-res-item set-dev-res-btn" onclick="showSettlersDevCards()">&#127183; ${myDevCount}</button>
                             </div>
 
                             <div class="set-actions">
@@ -2283,10 +2500,9 @@ function renderSettlers() {
                                 <button type="button" class="${buttonClass(cityEnabled, uiState === "BUILD_CITY", "")}" onclick="setSettlersUiState('BUILD_CITY')" ${cityEnabled ? "" : "disabled"}>
                                     <span class="ico">&#127984;</span><span class="lbl">City</span>
                                 </button>
-                                <div class="set-card-split">
-                                    <button type="button" class="set-card-half set-card-buy" onclick="buySettlersDevelopmentCard()" ${buyEnabled ? "" : "disabled"}>&#127183; Buy<br>Card</button>
-                                    <button type="button" class="set-card-half set-card-mine" onclick="showSettlersDevCards()">&#127183; My<br>Cards: ${myDevCount}</button>
-                                </div>
+                                <button type="button" class="${buttonClass(buyEnabled, false, "card-btn")}" onclick="buySettlersDevelopmentCard()" ${buyEnabled ? "" : "disabled"}>
+                                    <span class="ico">&#127183;</span><span class="lbl">Buy Card</span>
+                                </button>
                                 <button type="button" class="${buttonClass(rollButtonActive, false, "set-roll-btn " + (rollButtonActive ? "active" : ""))}" onclick="${rollButtonAction}" ${rollButtonActive ? "" : "disabled"}>
                                     <span class="ico">${rollButtonIcon}</span><span class="lbl">${rollButtonLabel}</span>
                                 </button>
@@ -2301,6 +2517,7 @@ function renderSettlers() {
                     </div>
                 </div>
             </div>
+            ${pendingTradeOverlayHtml()}
         </div>
     `;
 
