@@ -259,7 +259,7 @@
 },
            "Settlers": {
         icon: "🌾",
-        displayName: "Settlers",
+        displayName: "Catan",
         minPlayers: 1,
         maxPlayers: 4,
         singlePlayer: true,
