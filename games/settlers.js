@@ -265,14 +265,15 @@ function buildSvgBoardHtml() {
     });
 
     return `
-        <svg viewBox="-50 -50 480 480" width="100%" height="100%" style="min-width:500px; min-height:500px;">
-            <g id="hex-grid">${hexHtml}</g>
-            <g id="placed-pieces">${piecesHtml}</g>
-            <g id="snap-edges" style="opacity:0; pointer-events:none;">${snapEdgesHtml}</g>
-            <g id="snap-nodes" style="opacity:0; pointer-events:none;">${snapNodesHtml}</g>
-        </svg>
+        <div id="settlersBoardZoomer" class="set-board-zoomer">
+            <svg viewBox="-65 -65 470 430" preserveAspectRatio="xMidYMid meet">
+                <g id="hex-grid">${hexHtml}</g>
+                <g id="placed-pieces">${piecesHtml}</g>
+                <g id="snap-edges" style="opacity:0; pointer-events:none;">${snapEdgesHtml}</g>
+                <g id="snap-nodes" style="opacity:0; pointer-events:none;">${snapNodesHtml}</g>
+            </svg>
+        </div>
     `;
-}
 
 function renderSettlers() {
     const el = document.getElementById("gameCanvasContainer");
