@@ -3053,21 +3053,20 @@ currentOffset += card.open ? 18 : 12;
 
         if (gameName === "Trivia" && typeof window.initTriviaGame === "function") {
             window.initTriviaGame();
-        } else if (gameName === "Uno" && typeof window.initChaserUnoGame === "function") {
+                } else if (gameName === "Uno" && typeof window.initChaserUnoGame === "function") {
             window.initChaserUnoGame();
-               if (gameName === 'Settlers') {
-        if (typeof window.initSettlersGame === 'function') {
-            window.initSettlersGame();
-        } else {
-            console.error("Settlers script is missing or not loaded yet.");
-            alert("Settlers couldn't load. Try refreshing the page.");
-        }
-        return;
-    }
-
+        } else if (gameName === 'Settlers') {
+            // This is now at the correct level
+            if (typeof window.initSettlersGame === 'function') {
+                window.initSettlersGame();
+            } else {
+                console.error("Settlers script is missing or not loaded yet.");
+                alert("Settlers couldn't load. Try refreshing the page.");
+            }
         } else if (gameName === "Sequence" && typeof window.initSequenceGame === "function") {
             window.initSequenceGame();
         }
+
     };
 
     window.unoDrawCard = function () {
