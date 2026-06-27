@@ -4296,7 +4296,563 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 })();
 
 </script>
-  
+    
+  <script>
+/* CHASER PATCH — follow-me auto-close + see-through speed/trip HUD v2 */
+(function () {
+    if (window.__chaserFollowSpeedTripHudV2Installed) return;
+    window.__chaserFollowSpeedTripHudV2Installed = true;
+
+    const HUD_ID = "chaserFollowStatsHud";
+
+    let followHudMode = false;
+    let hudWatchId = null;
+    let buddiesTapIndex = 0;
+
+    let tripMeters = Number(localStorage.getItem("chaser_trip_meters") || 0) || 0;
+
+    let lastHudLat = null;
+    let lastHudLng = null;
+    let lastHudTime = 0;
+
+    let currentHudLat = null;
+    let currentHudLng = null;
+
+    let currentSpeedMps = 0;
+    let lastSpeedStamp = 0;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isCurrentlySharing() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function installHudStyles() {
+        if (document.getElementById("chaser-follow-speed-trip-style-v2")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-follow-speed-trip-style-v2";
+        style.innerHTML = `
+            #chaserFollowStatsHud {
+                position:fixed !important;
+                left:24px !important;
+                bottom:114px !important;
+                width:min(74vw, 340px) !important;
+                max-width:340px !important;
+                z-index:13 !important;
+                display:none !important;
+                gap:8px !important;
+                align-items:stretch !important;
+                justify-content:flex-start !important;
+                pointer-events:auto !important;
+                box-sizing:border-box !important;
+                font-family:"Courier New", monospace !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+            }
+
+            #chaserFollowStatsHud.show {
+                display:flex !important;
+            }
+
+            .chaser-hud-tile {
+                flex:1 !important;
+                min-width:0 !important;
+                background:rgba(12, 38, 15, 0.68) !important;
+                color:#e2f0d9 !important;
+                border:2px solid rgba(226, 240, 217, 0.72) !important;
+                border-radius:14px !important;
+                box-shadow:0 7px 20px rgba(0,0,0,.34) !important;
+                padding:8px 10px !important;
+                box-sizing:border-box !important;
+                backdrop-filter:blur(5px) !important;
+                -webkit-backdrop-filter:blur(5px) !important;
+                text-align:center !important;
+            }
+
+            .chaser-hud-label {
+                font-size:10px !important;
+                font-weight:900 !important;
+                letter-spacing:1.4px !important;
+                opacity:.9 !important;
+                line-height:1 !important;
+                margin-bottom:4px !important;
+            }
+
+            .chaser-hud-number {
+                font-size:27px !important;
+                line-height:1 !important;
+                font-weight:900 !important;
+                color:#ffffff !important;
+                text-shadow:0 0 8px rgba(226,240,217,.55) !important;
+                font-variant-numeric:tabular-nums !important;
+            }
+
+            .chaser-hud-unit {
+                font-size:10px !important;
+                font-weight:900 !important;
+                opacity:.88 !important;
+                margin-top:2px !important;
+                letter-spacing:1px !important;
+            }
+
+            #chaserHudTripReset {
+                margin-top:6px !important;
+                border:none !important;
+                border-radius:999px !important;
+                background:rgba(255, 255, 255, 0.86) !important;
+                color:#1e4620 !important;
+                font-size:10px !important;
+                font-weight:900 !important;
+                padding:4px 10px !important;
+                cursor:pointer !important;
+                box-shadow:0 2px 7px rgba(0,0,0,.25) !important;
+            }
+
+            #chaserHudTripReset:active {
+                transform:scale(.94) !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserFollowStatsHud {
+                display:none !important;
+            }
+
+            @media (max-width:380px) {
+                #chaserFollowStatsHud {
+                    left:18px !important;
+                    width:calc(100vw - 120px) !important;
+                    gap:6px !important;
+                }
+
+                .chaser-hud-number {
+                    font-size:23px !important;
+                }
+
+                .chaser-hud-tile {
+                    padding:7px 8px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureHud() {
+        installHudStyles();
+
+        let hud = byId(HUD_ID);
+        if (hud) return hud;
+
+        hud = document.createElement("div");
+        hud.id = HUD_ID;
+        hud.innerHTML = `
+            <div class="chaser-hud-tile">
+                <div class="chaser-hud-label">SPEED</div>
+                <div class="chaser-hud-number" id="chaserHudSpeed">0</div>
+                <div class="chaser-hud-unit">MPH</div>
+            </div>
+
+            <div class="chaser-hud-tile">
+                <div class="chaser-hud-label">TRIP</div>
+                <div class="chaser-hud-number" id="chaserHudTrip">0.00</div>
+                <div class="chaser-hud-unit">MI</div>
+                <button id="chaserHudTripReset" type="button">reset</button>
+            </div>
+        `;
+
+        document.body.appendChild(hud);
+
+        const resetBtn = byId("chaserHudTripReset");
+        if (resetBtn) {
+            resetBtn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                tripMeters = 0;
+                localStorage.setItem("chaser_trip_meters", "0");
+
+                if (currentHudLat && currentHudLng) {
+                    lastHudLat = currentHudLat;
+                    lastHudLng = currentHudLng;
+                    lastHudTime = Date.now();
+                }
+
+                updateHudNumbers();
+            });
+        }
+
+        updateHudNumbers();
+        return hud;
+    }
+
+    function closeInputsForFollowMode() {
+        const wrapper = byId("inputsWrapper");
+        const toggle = byId("toggleInputsBtn");
+
+        if (wrapper && !wrapper.classList.contains("hidden")) {
+            wrapper.classList.add("hidden");
+        }
+
+        if (toggle) {
+            toggle.classList.add("flipped");
+        }
+    }
+
+    function inputsAreClosed() {
+        const wrapper = byId("inputsWrapper");
+        return !wrapper || wrapper.classList.contains("hidden");
+    }
+
+    function chatIsOpen() {
+        const chat = byId("chatOverlay");
+        return !!(chat && chat.classList.contains("open"));
+    }
+
+    function updateHudVisibility() {
+        const hud = ensureHud();
+
+        const shouldShow =
+            followHudMode &&
+            isCurrentlySharing() &&
+            inputsAreClosed() &&
+            !chatIsOpen();
+
+        hud.classList.toggle("show", !!shouldShow);
+
+        if (shouldShow) {
+            startHudGpsWatch();
+        } else {
+            stopHudGpsWatch();
+        }
+    }
+
+    function enterFollowHudMode(autoCloseInputs) {
+        if (!isCurrentlySharing()) {
+            leaveFollowHudMode();
+            return;
+        }
+
+        followHudMode = true;
+
+        if (autoCloseInputs) {
+            closeInputsForFollowMode();
+        }
+
+        updateHudNumbers();
+        updateHudVisibility();
+    }
+
+    function leaveFollowHudMode() {
+        followHudMode = false;
+        updateHudVisibility();
+    }
+
+    function mapDistanceMeters(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function updateHudNumbers() {
+        const speedEl = byId("chaserHudSpeed");
+        const tripEl = byId("chaserHudTrip");
+
+        const mph = Math.max(0, currentSpeedMps * 2.236936);
+        const miles = Math.max(0, tripMeters / 1609.344);
+
+        if (speedEl) {
+            speedEl.innerText = mph < 10 ? mph.toFixed(1) : String(Math.round(mph));
+        }
+
+        if (tripEl) {
+            tripEl.innerText = miles < 10 ? miles.toFixed(2) : miles.toFixed(1);
+        }
+    }
+
+    function onHudPosition(pos) {
+        if (!isCurrentlySharing()) {
+            leaveFollowHudMode();
+            return;
+        }
+
+        const coords = pos.coords || {};
+        const lat = Number(coords.latitude);
+        const lng = Number(coords.longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const timestamp = Number(pos.timestamp || Date.now());
+        const accuracy = Number(coords.accuracy || 9999);
+
+        currentHudLat = lat;
+        currentHudLng = lng;
+
+        let fallbackSpeedMps = currentSpeedMps;
+
+        if (
+            lastHudLat !== null &&
+            lastHudLng !== null &&
+            lastHudTime > 0
+        ) {
+            const meters = mapDistanceMeters(lastHudLat, lastHudLng, lat, lng);
+            const seconds = Math.max(0.001, (timestamp - lastHudTime) / 1000);
+
+            const saneTime = seconds > 0 && seconds < 180;
+            const saneJump = meters >= 0 && meters < 1000;
+            const movementSpeed = meters / seconds;
+
+            if (saneTime && saneJump && movementSpeed < 70) {
+                fallbackSpeedMps = movementSpeed;
+
+                const movingEnough = meters >= 4;
+                const accuracyOkay = accuracy <= 80 || meters >= accuracy * 0.45;
+
+                if (movingEnough && accuracyOkay) {
+                    tripMeters += meters;
+                    localStorage.setItem("chaser_trip_meters", String(tripMeters));
+                }
+            }
+        }
+
+        if (Number.isFinite(coords.speed) && coords.speed >= 0) {
+            currentSpeedMps = coords.speed;
+        } else if (Number.isFinite(fallbackSpeedMps)) {
+            currentSpeedMps = (currentSpeedMps * 0.6) + (fallbackSpeedMps * 0.4);
+        }
+
+        if (currentSpeedMps < 0.25) {
+            currentSpeedMps = 0;
+        }
+
+        lastHudLat = lat;
+        lastHudLng = lng;
+        lastHudTime = timestamp;
+        lastSpeedStamp = Date.now();
+
+        updateHudNumbers();
+        updateHudVisibility();
+    }
+
+    function startHudGpsWatch() {
+        if (hudWatchId !== null) return;
+        if (!navigator.geolocation) return;
+
+        try {
+            hudWatchId = navigator.geolocation.watchPosition(
+                onHudPosition,
+                function () {},
+                {
+                    enableHighAccuracy:true,
+                    maximumAge:1000,
+                    timeout:10000
+                }
+            );
+        } catch (e) {}
+    }
+
+    function stopHudGpsWatch() {
+        if (hudWatchId !== null && navigator.geolocation) {
+            try {
+                navigator.geolocation.clearWatch(hudWatchId);
+            } catch (e) {}
+        }
+
+        hudWatchId = null;
+        currentSpeedMps = 0;
+        updateHudNumbers();
+    }
+
+    function wrapFollowFunction(functionName) {
+        const original = window[functionName];
+
+        if (typeof original !== "function") return;
+        if (original.__chaserHudV2Wrapped) return;
+
+        window[functionName] = function () {
+            const result = original.apply(this, arguments);
+
+            setTimeout(function () {
+                enterFollowHudMode(true);
+            }, 120);
+
+            return result;
+        };
+
+        window[functionName].__chaserHudV2Wrapped = true;
+    }
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function hasLocation(rider) {
+        return !!(rider && rider.marker && rider.lat && rider.lng);
+    }
+
+    function getBuddyCycleLength() {
+        try {
+            const entries = Object.entries(incomingRidersCache || {}).filter(([, rider]) => hasLocation(rider));
+            const activeBuddies = entries.filter(([name, rider]) => !isMeName(name) && !rider.isGhost);
+            const dormantBuddies = entries.filter(([name, rider]) => !isMeName(name) && rider.isGhost);
+            const me = entries.filter(([name]) => isMeName(name));
+            return activeBuddies.concat(dormantBuddies).concat(me).length;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function handleBuddiesOnlineTap() {
+        if (!isCurrentlySharing()) {
+            leaveFollowHudMode();
+            return;
+        }
+
+        const listLength = getBuddyCycleLength();
+
+        if (!listLength) {
+            setTimeout(function () {
+                enterFollowHudMode(true);
+            }, 220);
+            return;
+        }
+
+        const totalSteps = listLength + 1;
+        const step = buddiesTapIndex % totalSteps;
+        buddiesTapIndex = (buddiesTapIndex + 1) % totalSteps;
+
+        if (step === listLength) {
+            setTimeout(function () {
+                enterFollowHudMode(true);
+            }, 220);
+        } else {
+            setTimeout(leaveFollowHudMode, 80);
+        }
+    }
+
+    function installCounterHandler() {
+        const counter = byId("riderCounterWidget");
+        if (!counter || counter.__chaserHudV2CounterWired) return;
+
+        counter.__chaserHudV2CounterWired = true;
+        counter.addEventListener("click", function () {
+            handleBuddiesOnlineTap();
+        }, true);
+    }
+
+    ensureHud();
+    wrapFollowFunction("chaserFollowMapNow");
+    wrapFollowFunction("chaserEnableFollowMe");
+    installCounterHandler();
+
+    const startButton = byId("startBtn");
+    if (startButton) {
+        startButton.addEventListener("click", function () {
+            setTimeout(function () {
+                if (isCurrentlySharing()) {
+                    enterFollowHudMode(true);
+                } else {
+                    leaveFollowHudMode();
+                }
+            }, 450);
+        });
+    }
+
+    const toggleButton = byId("toggleInputsBtn");
+    if (toggleButton) {
+        toggleButton.addEventListener("click", function () {
+            setTimeout(function () {
+                updateHudVisibility();
+            }, 90);
+        });
+    }
+
+    document.addEventListener("click", function (e) {
+        const target = e.target;
+        if (!target || !target.closest) return;
+
+        if (
+            target.closest("#chaserHudTripReset") ||
+            target.closest("#toggleInputsBtn") ||
+            target.closest("#chaserFollowStatsHud") ||
+            target.closest("#riderCounterWidget")
+        ) {
+            return;
+        }
+
+        const userIsLookingAround =
+            target.closest(".rider-label") ||
+            target.closest(".rider-physical-pin") ||
+            target.closest(".leaflet-control-zoom");
+
+        if (userIsLookingAround) {
+            setTimeout(leaveFollowHudMode, 80);
+        }
+    }, true);
+
+    const mapDiv = byId("map");
+    if (mapDiv) {
+        mapDiv.addEventListener("touchstart", function (e) {
+            if (e.touches && e.touches.length > 1) {
+                leaveFollowHudMode();
+            }
+        }, { passive:true });
+    }
+
+    try {
+        if (typeof map !== "undefined" && map && typeof map.on === "function") {
+            map.on("dragstart", function () {
+                leaveFollowHudMode();
+            });
+        }
+    } catch (e) {}
+
+    setInterval(function () {
+        installCounterHandler();
+
+        if (!isCurrentlySharing()) {
+            leaveFollowHudMode();
+            return;
+        }
+
+        if (followHudMode) {
+            if (lastSpeedStamp && Date.now() - lastSpeedStamp > 8000) {
+                currentSpeedMps = 0;
+                updateHudNumbers();
+            }
+
+            updateHudVisibility();
+        }
+    }, 1000);
+
+    window.chaserEnterFollowHudMode = function () {
+        enterFollowHudMode(true);
+    };
+
+    window.chaserLeaveFollowHudMode = leaveFollowHudMode;
+})();
+</script>
 
 </body>
 </html>
