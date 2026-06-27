@@ -790,10 +790,31 @@ function syncSettlers() {
     }
 }
 
+function getSettlersHeaderText() {
+    const st = window.settlersState;
+    if (!st) return "";
+
+    const current = currentSettlersPlayer();
+    const name = current && current.name ? current.name : "Player";
+
+    if (st.setup && st.setup.active) {
+        return `${name}'s setup turn.`;
+    }
+
+    if (st.phase === "playing") {
+        if (st.rolledThisTurn && st.lastRoll && typeof st.lastRoll.total === "number") {
+            return `${name}'s turn - rolled ${st.lastRoll.total}.`;
+        }
+        return `${name}'s turn - roll dice.`;
+    }
+
+    return st.message || `${name}'s turn.`;
+}
+
 function setMessage(text) {
     if (window.settlersState) window.settlersState.message = text;
     const msg = document.getElementById("set-msg");
-    if (msg) msg.innerText = text;
+    if (msg) msg.innerText = getSettlersHeaderText();
 }
 
 window.setSettlersMessage = function (text) {
@@ -1152,6 +1173,7 @@ function endCurrentTurn() {
     st.rolledThisTurn = false;
     st.highlightedRoll = null;
     st.pendingRoll = null;
+    st.lastRoll = null;
     st.freeRoads = null;
     st.turnNumber += 1;
     yearPlentyPick = null;
@@ -2473,7 +2495,7 @@ function renderSettlers() {
         </style>
 
         <div class="set-wrap">
-            <div class="set-header" id="set-msg">${escapeHtml(st.message)}</div>
+            <div class="set-header" id="set-msg">${escapeHtml(getSettlersHeaderText())}</div>
             <div class="set-zoom-shell">
                 <div id="settlersPanZoom">
                     <div class="set-play-area">
@@ -2493,9 +2515,9 @@ function renderSettlers() {
                         <div class="set-hand-ui">
                             <div class="set-resources">
                                 <span class="set-res-item">&#129521; ${brick}${getResourceBurstHtml(burst && burst.brick)}</span>
-                                <span class="set-res-item">&#127806; ${wheat}${getResourceBurstHtml(burst && burst.wheat)}</span>
-                                <span class="set-res-item">&#128017; ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
                                 <span class="set-res-item">&#127794; ${wood}${getResourceBurstHtml(burst && burst.wood)}</span>
+                                <span class="set-res-item">&#128017; ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
+                                <span class="set-res-item">&#127806; ${wheat}${getResourceBurstHtml(burst && burst.wheat)}</span>
                                 <span class="set-res-item">&#9968; ${ore}${getResourceBurstHtml(burst && burst.ore)}</span>
                                 <button type="button" class="set-res-item set-dev-res-btn" onclick="showSettlersDevCards()">&#127183; ${myDevCount}</button>
                             </div>
