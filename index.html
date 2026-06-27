@@ -6930,6 +6930,217 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 })();
 </script>
     
+    <script>
+/* CHASER PATCH — keep big turn arrow visible + move it up/right */
+(function () {
+    if (window.__chaserKeepTurnArrowVisibleAndMovedInstalled) return;
+    window.__chaserKeepTurnArrowVisibleAndMovedInstalled = true;
+
+    let lastGoodArrowType = "straight";
+    let lastGoodDistance = "--";
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function destinationText() {
+        const input = byId("destination");
+        return input ? input.value.trim() : "";
+    }
+
+    function chatIsOpen() {
+        const chat = byId("chatOverlay");
+        return !!(chat && chat.classList.contains("open"));
+    }
+
+    function pickerIsOpen() {
+        const picker = byId("chaserRouteChoiceOverlay");
+        return !!(picker && picker.classList.contains("show"));
+    }
+
+    function installStyle() {
+        if (byId("chaser-turn-arrow-keep-moved-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-turn-arrow-keep-moved-style";
+        style.innerHTML = `
+            #chaserNextTurnHud {
+                transform:translate(18px, -58px) !important;
+                z-index:16 !important;
+            }
+
+            #chaserNextTurnHud.show {
+                display:block !important;
+            }
+
+            #chaserNextTurnArrow {
+                height:90px !important;
+            }
+
+            #chaserNextTurnArrow svg {
+                width:122px !important;
+                height:94px !important;
+            }
+
+            #chaserNextTurnDistance {
+                margin-top:-2px !important;
+                font-size:22px !important;
+                font-weight:900 !important;
+            }
+
+            @media (max-width:380px) {
+                #chaserNextTurnHud {
+                    transform:translate(12px, -52px) !important;
+                }
+
+                #chaserNextTurnArrow svg {
+                    width:108px !important;
+                    height:84px !important;
+                }
+
+                #chaserNextTurnDistance {
+                    font-size:19px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function turnSvg(type) {
+        const outline = "#e2f0d9";
+        const black = "#050505";
+
+        const paths = {
+            right: "M42 88 L42 36 L76 36 M76 36 L60 20 M76 36 L60 52",
+            left: "M58 88 L58 36 L24 36 M24 36 L40 20 M24 36 L40 52",
+            straight: "M50 88 L50 20 M50 20 L34 38 M50 20 L66 38",
+            slightRight: "M40 88 C40 58 51 42 76 26 M76 26 L56 22 M76 26 L68 48",
+            slightLeft: "M60 88 C60 58 49 42 24 26 M24 26 L44 22 M24 26 L32 48",
+            roundabout: "M50 80 C28 80 20 62 27 46 C34 28 56 25 68 38 C78 49 75 67 62 75 M62 75 L65 55 M62 75 L82 72",
+            arrive: "M34 88 L34 18 M34 20 C47 12 57 28 70 20 L70 52 C57 60 47 44 34 52"
+        };
+
+        const d = paths[type] || paths.straight;
+
+        return `
+            <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                <path d="${d}" fill="none" stroke="${outline}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="${d}" fill="none" stroke="${black}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `;
+    }
+
+    function arrowTypeFromRaw(raw) {
+        const text = String(raw || "").trim();
+
+        if (text.includes("🏁")) return "arrive";
+        if (text.includes("⟳")) return "roundabout";
+        if (text.includes("↗")) return "slightRight";
+        if (text.includes("↖")) return "slightLeft";
+        if (text.includes("↱") || text.includes("→")) return "right";
+        if (text.includes("↰") || text.includes("←")) return "left";
+        if (text.includes("↑")) return "straight";
+
+        return null;
+    }
+
+    function captureCurrentTurn() {
+        const arrowEl = byId("chaserNextTurnArrow");
+        const distEl = byId("chaserNextTurnDistance");
+
+        if (!arrowEl || !distEl) return;
+
+        const rawArrow = arrowEl.textContent.trim();
+        const rawDistance = distEl.textContent.trim();
+
+        const foundType = arrowTypeFromRaw(rawArrow);
+
+        if (foundType) {
+            lastGoodArrowType = foundType;
+        }
+
+        if (rawDistance && rawDistance !== "--") {
+            lastGoodDistance = rawDistance;
+        }
+    }
+
+    function redrawArrowShape() {
+        const arrowEl = byId("chaserNextTurnArrow");
+        const distEl = byId("chaserNextTurnDistance");
+
+        if (!arrowEl || !distEl) return;
+
+        captureCurrentTurn();
+
+        if (!arrowEl.querySelector("svg")) {
+            arrowEl.innerHTML = turnSvg(lastGoodArrowType);
+        }
+
+        if ((!distEl.textContent.trim() || distEl.textContent.trim() === "--") && lastGoodDistance !== "--") {
+            distEl.textContent = lastGoodDistance;
+        }
+    }
+
+    function shouldShowArrow() {
+        return (
+            isSharingNow() &&
+            !!destinationText() &&
+            !chatIsOpen() &&
+            !pickerIsOpen() &&
+            lastGoodDistance !== "--"
+        );
+    }
+
+    function keepArrowVisible() {
+        installStyle();
+
+        const hud = byId("chaserNextTurnHud");
+        if (!hud) return;
+
+        redrawArrowShape();
+
+        if (shouldShowArrow()) {
+            hud.classList.add("show");
+            hud.style.display = "block";
+        } else if (!isSharingNow() || !destinationText() || chatIsOpen() || pickerIsOpen()) {
+            hud.classList.remove("show");
+        }
+    }
+
+    function watchArrowChanges() {
+        const hud = byId("chaserNextTurnHud");
+        if (!hud || hud.__chaserKeepArrowObserver) return;
+
+        hud.__chaserKeepArrowObserver = true;
+
+        const observer = new MutationObserver(function () {
+            captureCurrentTurn();
+            setTimeout(redrawArrowShape, 40);
+        });
+
+        observer.observe(hud, {
+            childList:true,
+            characterData:true,
+            subtree:true
+        });
+    }
+
+    installStyle();
+
+    setInterval(function () {
+        watchArrowChanges();
+        keepArrowVisible();
+    }, 250);
+})();
+</script>
     
 </body>
 </html>
