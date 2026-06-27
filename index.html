@@ -4853,6 +4853,201 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     window.chaserLeaveFollowHudMode = leaveFollowHudMode;
 })();
 </script>
+    <script>
+/* CHASER PATCH — windshield-style digital HUD visual override */
+(function () {
+    if (window.__chaserWindshieldHudStyleInstalled) return;
+    window.__chaserWindshieldHudStyleInstalled = true;
+
+    const style = document.createElement("style");
+    style.id = "chaser-windshield-hud-style";
+    style.innerHTML = `
+        #chaserFollowStatsHud {
+            left:22px !important;
+            bottom:112px !important;
+            width:min(76vw, 350px) !important;
+            max-width:350px !important;
+            gap:10px !important;
+            background:transparent !important;
+            z-index:13 !important;
+        }
+
+        #chaserFollowStatsHud::before {
+            content:"N        S        W        E";
+            position:absolute !important;
+            left:8px !important;
+            right:8px !important;
+            top:-22px !important;
+            text-align:center !important;
+            color:#24ff36 !important;
+            font-family:"Courier New", monospace !important;
+            font-size:13px !important;
+            font-weight:900 !important;
+            letter-spacing:5px !important;
+            text-shadow:
+                0 0 5px rgba(36,255,54,.85),
+                0 0 12px rgba(36,255,54,.45) !important;
+            opacity:.78 !important;
+            pointer-events:none !important;
+        }
+
+        .chaser-hud-tile {
+            position:relative !important;
+            min-height:88px !important;
+            background:rgba(2, 18, 10, 0.34) !important;
+            border:1px solid rgba(36, 255, 54, 0.42) !important;
+            border-radius:12px !important;
+            box-shadow:
+                inset 0 0 18px rgba(36,255,54,.13),
+                0 7px 22px rgba(0,0,0,.26) !important;
+            backdrop-filter:blur(3px) !important;
+            -webkit-backdrop-filter:blur(3px) !important;
+            padding:10px 10px 12px 10px !important;
+            overflow:hidden !important;
+        }
+
+        .chaser-hud-tile::after {
+            content:"";
+            position:absolute !important;
+            left:8px !important;
+            right:8px !important;
+            bottom:8px !important;
+            height:1px !important;
+            background:linear-gradient(
+                90deg,
+                transparent,
+                rgba(36,255,54,.45),
+                transparent
+            ) !important;
+            opacity:.7 !important;
+            pointer-events:none !important;
+        }
+
+        .chaser-hud-label {
+            color:#24ff36 !important;
+            font-family:"Courier New", monospace !important;
+            font-size:10px !important;
+            font-weight:900 !important;
+            letter-spacing:2px !important;
+            text-shadow:
+                0 0 5px rgba(36,255,54,.8),
+                0 0 12px rgba(36,255,54,.35) !important;
+            opacity:.82 !important;
+            margin-bottom:3px !important;
+        }
+
+        .chaser-hud-number {
+            position:relative !important;
+            isolation:isolate !important;
+            color:#24ff36 !important;
+            font-family:"Courier New", monospace !important;
+            font-size:42px !important;
+            line-height:.95 !important;
+            font-weight:900 !important;
+            letter-spacing:-3px !important;
+            text-shadow:
+                0 0 5px rgba(36,255,54,.95),
+                0 0 14px rgba(36,255,54,.65),
+                0 0 24px rgba(36,255,54,.32) !important;
+            font-variant-numeric:tabular-nums !important;
+        }
+
+        #chaserHudSpeed::before {
+            content:"888";
+            position:absolute !important;
+            inset:0 !important;
+            color:rgba(36,255,54,.12) !important;
+            text-shadow:none !important;
+            z-index:-1 !important;
+        }
+
+        #chaserHudTrip::before {
+            content:"88.88";
+            position:absolute !important;
+            inset:0 !important;
+            color:rgba(36,255,54,.10) !important;
+            text-shadow:none !important;
+            z-index:-1 !important;
+        }
+
+        .chaser-hud-unit {
+            position:absolute !important;
+            right:10px !important;
+            bottom:18px !important;
+            color:#24ff36 !important;
+            font-family:"Courier New", monospace !important;
+            font-size:10px !important;
+            font-weight:900 !important;
+            letter-spacing:1.5px !important;
+            text-shadow:
+                0 0 5px rgba(36,255,54,.85),
+                0 0 12px rgba(36,255,54,.35) !important;
+            opacity:.9 !important;
+        }
+
+        .chaser-hud-tile:nth-child(2) {
+            padding-bottom:28px !important;
+        }
+
+        #chaserHudTripReset {
+            position:absolute !important;
+            right:8px !important;
+            bottom:6px !important;
+            margin:0 !important;
+            background:rgba(36,255,54,.16) !important;
+            border:1px solid rgba(36,255,54,.55) !important;
+            color:#24ff36 !important;
+            font-family:"Courier New", monospace !important;
+            font-size:9px !important;
+            font-weight:900 !important;
+            letter-spacing:.8px !important;
+            padding:3px 8px !important;
+            border-radius:999px !important;
+            box-shadow:
+                inset 0 0 7px rgba(36,255,54,.12),
+                0 0 8px rgba(36,255,54,.18) !important;
+            text-transform:uppercase !important;
+        }
+
+        #chaserHudTripReset:active {
+            transform:scale(.92) !important;
+            background:rgba(36,255,54,.3) !important;
+        }
+
+        @media (max-width:380px) {
+            #chaserFollowStatsHud {
+                left:18px !important;
+                bottom:110px !important;
+                width:calc(100vw - 120px) !important;
+                gap:7px !important;
+            }
+
+            #chaserFollowStatsHud::before {
+                font-size:11px !important;
+                letter-spacing:3.5px !important;
+                top:-19px !important;
+            }
+
+            .chaser-hud-tile {
+                min-height:80px !important;
+                padding:9px 8px 10px 8px !important;
+            }
+
+            .chaser-hud-number {
+                font-size:35px !important;
+                letter-spacing:-3px !important;
+            }
+
+            .chaser-hud-unit {
+                right:8px !important;
+                bottom:17px !important;
+                font-size:9px !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+})();
+</script>
 
 </body>
 </html>
