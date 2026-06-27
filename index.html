@@ -5160,6 +5160,846 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
     setInterval(syncHistoryToScreen, 700);
 })();
+</script><script>
+/* CHASER PATCH — auto route highlight with Bike/Car toggle + destination picker */
+(function () {
+    if (window.__chaserAutoRouteModePickerInstalled) return;
+    window.__chaserAutoRouteModePickerInstalled = true;
+
+    const ROUTE_ENDPOINT = "https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/chaser-route";
+    const MAX_ROUTE_MILES = 50;
+
+    let routeMode = localStorage.getItem("chaser_route_mode") || "bike";
+    if (routeMode !== "car") routeMode = "bike";
+
+    let routeLayer = null;
+    let routeTimer = null;
+    let routeAborter = null;
+    let routeLookupSerial = 0;
+
+    let lastRouteKey = "";
+    let lastRouteOriginLat = null;
+    let lastRouteOriginLng = null;
+    let lastRouteTime = 0;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function currentLat() {
+        try {
+            return Number(lastLat || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function currentLng() {
+        try {
+            return Number(lastLng || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function destinationText() {
+        const input = byId("destination");
+        return input ? input.value.trim().replace(/\s+/g, " ") : "";
+    }
+
+    function modeLabel() {
+        return routeMode === "car" ? "Car" : "Bike";
+    }
+
+    function isBlockedPrivateDestination(text) {
+        const q = String(text || "").toLowerCase().trim();
+        return [
+            "home",
+            "my home",
+            "my house",
+            "house",
+            "work",
+            "my work",
+            "school",
+            "my school"
+        ].includes(q);
+    }
+
+    function metersBetween(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function safeText(value) {
+        return String(value || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function installRouteStyles() {
+        if (byId("chaser-auto-route-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-auto-route-style";
+        style.innerHTML = `
+            .chaser-route-mode-control {
+                margin-top:8px !important;
+                margin-left:0 !important;
+                border:none !important;
+                background:transparent !important;
+                box-shadow:none !important;
+            }
+
+            #chaserRouteModeBtn {
+                width:92px !important;
+                height:44px !important;
+                border-radius:999px !important;
+                border:3px solid #e2f0d9 !important;
+                background:#e2f0d9 !important;
+                color:#1e4620 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                gap:5px !important;
+                padding:0 9px !important;
+                box-sizing:border-box !important;
+                box-shadow:0 4px 14px rgba(0,0,0,.34) !important;
+                cursor:pointer !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+                font-family:Arial,sans-serif !important;
+            }
+
+            #chaserRouteModeBtn.car-mode {
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                border-color:#e2f0d9 !important;
+            }
+
+            #chaserRouteModeBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            #chaserRouteModeBtn svg {
+                width:24px !important;
+                height:24px !important;
+                flex:0 0 auto !important;
+                display:block !important;
+            }
+
+            #chaserRouteModeLabel {
+                font-size:12px !important;
+                font-weight:900 !important;
+                line-height:1 !important;
+                letter-spacing:.4px !important;
+                text-transform:uppercase !important;
+            }
+
+            #chaserRouteStatus {
+                position:fixed !important;
+                left:15px !important;
+                bottom:210px !important;
+                width:74% !important;
+                max-width:340px !important;
+                z-index:14 !important;
+                display:none !important;
+                box-sizing:border-box !important;
+                padding:7px 11px !important;
+                border-radius:999px !important;
+                background:rgba(226, 240, 217, 0.94) !important;
+                border:2px solid rgba(30, 70, 32, 0.78) !important;
+                color:#1e4620 !important;
+                font-family:Arial,sans-serif !important;
+                font-size:12px !important;
+                font-weight:900 !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.24) !important;
+                text-align:center !important;
+                pointer-events:none !important;
+            }
+
+            #chaserRouteStatus.show {
+                display:block !important;
+            }
+
+            #chaserRouteChoiceOverlay {
+                position:fixed !important;
+                left:15px !important;
+                bottom:210px !important;
+                width:74% !important;
+                max-width:340px !important;
+                max-height:min(46vh, 360px) !important;
+                z-index:18 !important;
+                display:none !important;
+                box-sizing:border-box !important;
+                font-family:Arial,sans-serif !important;
+            }
+
+            #chaserRouteChoiceOverlay.show {
+                display:block !important;
+            }
+
+            .chaser-route-choice-card {
+                background:rgba(226, 240, 217, 0.97) !important;
+                border:3px solid #1e4620 !important;
+                border-radius:20px !important;
+                box-shadow:0 10px 30px rgba(0,0,0,.38) !important;
+                overflow:hidden !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-route-choice-head {
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                padding:10px 12px !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:space-between !important;
+                gap:8px !important;
+                font-size:16px !important;
+                font-weight:900 !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserRouteChoiceClose {
+                border:none !important;
+                background:transparent !important;
+                color:#ffffff !important;
+                font-size:22px !important;
+                font-weight:900 !important;
+                line-height:1 !important;
+                padding:0 2px !important;
+                cursor:pointer !important;
+            }
+
+            .chaser-route-choice-sub {
+                color:#1e4620 !important;
+                font-size:12px !important;
+                font-weight:800 !important;
+                padding:8px 12px 4px !important;
+                opacity:.9 !important;
+            }
+
+            #chaserRouteChoiceList {
+                padding:6px 10px 10px !important;
+                display:flex !important;
+                flex-direction:column !important;
+                gap:8px !important;
+                max-height:260px !important;
+                overflow-y:auto !important;
+                box-sizing:border-box !important;
+            }
+
+            .chaser-route-choice-btn {
+                border:2px solid rgba(30,70,32,.72) !important;
+                background:#ffffff !important;
+                color:#1e4620 !important;
+                border-radius:14px !important;
+                padding:9px 10px !important;
+                box-shadow:0 3px 8px rgba(0,0,0,.16) !important;
+                text-align:left !important;
+                cursor:pointer !important;
+                box-sizing:border-box !important;
+                font-family:Arial,sans-serif !important;
+            }
+
+            .chaser-route-choice-btn:active {
+                transform:scale(.98) !important;
+                background:#fff8d8 !important;
+            }
+
+            .chaser-route-choice-name {
+                font-size:13px !important;
+                font-weight:900 !important;
+                line-height:1.2 !important;
+                margin-bottom:3px !important;
+            }
+
+            .chaser-route-choice-distance {
+                font-size:12px !important;
+                font-weight:800 !important;
+                color:#2d6a30 !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserRouteStatus,
+            body:has(#chatOverlay.open) #chaserRouteChoiceOverlay {
+                display:none !important;
+            }
+
+            @media (max-width:380px) {
+                #chaserRouteModeBtn {
+                    width:86px !important;
+                    height:42px !important;
+                    padding:0 8px !important;
+                }
+
+                #chaserRouteModeBtn svg {
+                    width:22px !important;
+                    height:22px !important;
+                }
+
+                #chaserRouteModeLabel {
+                    font-size:11px !important;
+                }
+
+                #chaserRouteStatus,
+                #chaserRouteChoiceOverlay {
+                    width:74% !important;
+                    bottom:202px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function bikeSvg() {
+        return `
+            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M39 17h8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+                <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
+            </svg>
+        `;
+    }
+
+    function carSvg() {
+        return `
+            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+                <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
+                <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
+                <path d="M22 28h20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+            </svg>
+        `;
+    }
+
+    function updateRouteModeButton() {
+        const btn = byId("chaserRouteModeBtn");
+        const label = byId("chaserRouteModeLabel");
+        const icon = byId("chaserRouteModeIcon");
+
+        if (!btn || !label || !icon) return;
+
+        btn.classList.toggle("car-mode", routeMode === "car");
+        btn.title = routeMode === "car" ? "Car route mode" : "Bike route mode";
+        btn.setAttribute("aria-label", routeMode === "car" ? "Car route mode" : "Bike route mode");
+        label.innerText = modeLabel();
+        icon.innerHTML = routeMode === "car" ? carSvg() : bikeSvg();
+    }
+
+    function installRouteModeControl() {
+        installRouteStyles();
+
+        if (byId("chaserRouteModeBtn")) {
+            updateRouteModeButton();
+            return;
+        }
+
+        if (typeof L === "undefined" || typeof map === "undefined" || !map) return;
+
+        const RouteModeControl = L.Control.extend({
+            options:{ position:"topleft" },
+            onAdd:function () {
+                const box = L.DomUtil.create("div", "leaflet-control chaser-route-mode-control");
+                box.innerHTML = `
+                    <button id="chaserRouteModeBtn" type="button">
+                        <span id="chaserRouteModeIcon"></span>
+                        <span id="chaserRouteModeLabel">Bike</span>
+                    </button>
+                `;
+
+                L.DomEvent.disableClickPropagation(box);
+                L.DomEvent.disableScrollPropagation(box);
+
+                const btn = box.querySelector("#chaserRouteModeBtn");
+                if (btn) {
+                    btn.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        routeMode = routeMode === "bike" ? "car" : "bike";
+                        localStorage.setItem("chaser_route_mode", routeMode);
+                        updateRouteModeButton();
+
+                        clearChoicePicker();
+                        clearRouteLine();
+                        lastRouteKey = "";
+
+                        if (isSharingNow() && destinationText()) {
+                            showRouteStatus(modeLabel() + " mode", true);
+                            scheduleRouteLookup(250);
+                        } else {
+                            showRouteStatus(modeLabel() + " mode", true);
+                        }
+                    });
+                }
+
+                return box;
+            }
+        });
+
+        map.addControl(new RouteModeControl());
+        setTimeout(updateRouteModeButton, 50);
+    }
+
+    function ensureStatusBox() {
+        installRouteStyles();
+
+        let box = byId("chaserRouteStatus");
+        if (!box) {
+            box = document.createElement("div");
+            box.id = "chaserRouteStatus";
+            document.body.appendChild(box);
+        }
+        return box;
+    }
+
+    function showRouteStatus(text, autoHide) {
+        const box = ensureStatusBox();
+
+        if (!text) {
+            box.classList.remove("show");
+            box.innerText = "";
+            return;
+        }
+
+        box.innerText = text;
+        box.classList.add("show");
+
+        if (autoHide) {
+            setTimeout(function () {
+                if (box.innerText === text) {
+                    box.classList.remove("show");
+                }
+            }, 3500);
+        }
+    }
+
+    function ensureChoicePicker() {
+        installRouteStyles();
+
+        let overlay = byId("chaserRouteChoiceOverlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "chaserRouteChoiceOverlay";
+            overlay.innerHTML = `
+                <div class="chaser-route-choice-card">
+                    <div class="chaser-route-choice-head">
+                        <span>Choose destination</span>
+                        <button id="chaserRouteChoiceClose" type="button">×</button>
+                    </div>
+                    <div class="chaser-route-choice-sub" id="chaserRouteChoiceSub">Several nearby matches found</div>
+                    <div id="chaserRouteChoiceList"></div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            const closeBtn = byId("chaserRouteChoiceClose");
+            if (closeBtn) {
+                closeBtn.addEventListener("click", function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearChoicePicker();
+                    showRouteStatus("Route choice closed", true);
+                });
+            }
+        }
+        return overlay;
+    }
+
+    function clearChoicePicker() {
+        const overlay = byId("chaserRouteChoiceOverlay");
+        if (overlay) overlay.classList.remove("show");
+    }
+
+    function showChoicePicker(choices, query) {
+        const overlay = ensureChoicePicker();
+        const list = byId("chaserRouteChoiceList");
+        const sub = byId("chaserRouteChoiceSub");
+
+        if (!list) return;
+
+        showRouteStatus("", false);
+
+        if (sub) {
+            sub.innerText = modeLabel() + " route — tap the right place";
+        }
+
+        list.innerHTML = "";
+
+        (choices || []).slice(0, 5).forEach(choice => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "chaser-route-choice-btn";
+
+            const miles = Number(choice.milesAway || 0);
+            btn.innerHTML = `
+                <div class="chaser-route-choice-name">${safeText(choice.label || query)}</div>
+                <div class="chaser-route-choice-distance">${Number.isFinite(miles) ? miles.toFixed(1) : "?"} mi away</div>
+            `;
+
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearChoicePicker();
+                runRouteLookup({
+                    label: choice.label || query,
+                    lat: Number(choice.lat),
+                    lng: Number(choice.lng)
+                });
+            });
+
+            list.appendChild(btn);
+        });
+
+        overlay.classList.add("show");
+    }
+
+    function clearRouteLine() {
+        if (routeLayer) {
+            try { map.removeLayer(routeLayer); } catch (e) {}
+        }
+        routeLayer = null;
+    }
+
+    function clearRouteEverything(message) {
+        routeLookupSerial++;
+
+        if (routeAborter) {
+            try { routeAborter.abort(); } catch (e) {}
+        }
+
+        routeAborter = null;
+        clearTimeout(routeTimer);
+        clearChoicePicker();
+        clearRouteLine();
+
+        lastRouteKey = "";
+        lastRouteOriginLat = null;
+        lastRouteOriginLng = null;
+        lastRouteTime = 0;
+
+        if (message) showRouteStatus(message, true);
+        else showRouteStatus("", false);
+    }
+
+    function shouldSkipSameRoute(dest, lat, lng) {
+        if (!routeLayer) return false;
+        if (!lastRouteKey) return false;
+        if (lastRouteKey !== (routeMode + "|" + dest.toLowerCase())) return false;
+        if (lastRouteOriginLat === null || lastRouteOriginLng === null) return false;
+
+        const movedMeters = metersBetween(lastRouteOriginLat, lastRouteOriginLng, lat, lng);
+        const ageMs = Date.now() - lastRouteTime;
+
+        return movedMeters < 200 && ageMs < 120000;
+    }
+
+    function drawRoute(routeGeoJson) {
+        clearRouteLine();
+
+        if (!routeGeoJson || typeof L === "undefined" || typeof map === "undefined") return;
+
+        const group = L.layerGroup().addTo(map);
+
+        L.geoJSON(routeGeoJson, {
+            style:function () {
+                return {
+                    color:"#1e4620",
+                    weight:11,
+                    opacity:0.78,
+                    lineCap:"round",
+                    lineJoin:"round"
+                };
+            }
+        }).addTo(group);
+
+        L.geoJSON(routeGeoJson, {
+            style:function () {
+                return {
+                    color:"#ffd700",
+                    weight:7,
+                    opacity:0.94,
+                    lineCap:"round",
+                    lineJoin:"round"
+                };
+            }
+        }).addTo(group);
+
+        routeLayer = group;
+
+        try { routeLayer.bringToFront(); } catch (e) {}
+    }
+
+    async function runRouteLookup(selectedChoice) {
+        const dest = destinationText();
+        const lat = currentLat();
+        const lng = currentLng();
+        const serial = ++routeLookupSerial;
+
+        if (!isSharingNow()) {
+            clearRouteEverything("");
+            return;
+        }
+
+        if (!dest) {
+            clearRouteEverything("");
+            return;
+        }
+
+        if (dest.length < 2) {
+            clearRouteEverything("");
+            return;
+        }
+
+        if (isBlockedPrivateDestination(dest)) {
+            clearRouteEverything("Use a specific destination name");
+            return;
+        }
+
+        if (!lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            showRouteStatus("Waiting for GPS before routing…", true);
+            return;
+        }
+
+        if (!selectedChoice && shouldSkipSameRoute(dest, lat, lng)) {
+            return;
+        }
+
+        if (routeAborter) {
+            try { routeAborter.abort(); } catch (e) {}
+        }
+
+        routeAborter = new AbortController();
+        clearChoicePicker();
+        showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
+
+        const payload = {
+            query:dest,
+            mode:routeMode,
+            lat:lat,
+            lng:lng,
+            maxMiles:MAX_ROUTE_MILES
+        };
+
+        if (selectedChoice && Number.isFinite(selectedChoice.lat) && Number.isFinite(selectedChoice.lng)) {
+            payload.selectedLat = selectedChoice.lat;
+            payload.selectedLng = selectedChoice.lng;
+            payload.selectedLabel = selectedChoice.label || dest;
+        }
+
+        try {
+            const response = await fetch(ROUTE_ENDPOINT, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                signal:routeAborter.signal,
+                body:JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => null);
+
+            if (serial !== routeLookupSerial) return;
+
+            if (!response.ok || !data || !data.ok) {
+                clearRouteLine();
+                clearChoicePicker();
+
+                const message = data && data.error ? data.error : "No nearby route found";
+                showRouteStatus(message, true);
+                return;
+            }
+
+            if (data.needsChoice && Array.isArray(data.choices) && data.choices.length) {
+                clearRouteLine();
+                showChoicePicker(data.choices, dest);
+                return;
+            }
+
+            drawRoute(data.route);
+
+            lastRouteKey = routeMode + "|" + dest.toLowerCase();
+            lastRouteOriginLat = lat;
+            lastRouteOriginLng = lng;
+            lastRouteTime = Date.now();
+
+            const distanceMeters = data.summary && data.summary.distanceMeters;
+            const miles = Number(distanceMeters || 0) / 1609.344;
+
+            if (miles > 0) {
+                showRouteStatus(modeLabel() + " route highlighted: " + miles.toFixed(1) + " mi", true);
+            } else {
+                showRouteStatus(modeLabel() + " route highlighted", true);
+            }
+        } catch (err) {
+            if (err && err.name === "AbortError") return;
+            if (serial !== routeLookupSerial) return;
+
+            clearRouteLine();
+            clearChoicePicker();
+            showRouteStatus("Route lookup unavailable", true);
+        } finally {
+            if (serial === routeLookupSerial) {
+                routeAborter = null;
+            }
+        }
+    }
+
+    function scheduleRouteLookup(delay) {
+        clearTimeout(routeTimer);
+        routeTimer = setTimeout(function () {
+            runRouteLookup(null);
+        }, delay || 1000);
+    }
+
+    function wireDestinationInput() {
+        const input = byId("destination");
+        if (!input || input.__chaserAutoRouteWired) return;
+
+        input.__chaserAutoRouteWired = true;
+
+        input.addEventListener("input", function () {
+            lastRouteKey = "";
+            clearChoicePicker();
+            clearRouteLine();
+
+            if (!destinationText()) {
+                clearRouteEverything("");
+                return;
+            }
+
+            if (isSharingNow()) scheduleRouteLookup(1000);
+        });
+
+        input.addEventListener("change", function () {
+            if (isSharingNow() && destinationText()) scheduleRouteLookup(350);
+        });
+
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.keyCode === 13) {
+                if (isSharingNow() && destinationText()) scheduleRouteLookup(120);
+            }
+        });
+    }
+
+    function wrapStopSharing() {
+        try {
+            if (typeof stopSharingLocation !== "function") return;
+            if (stopSharingLocation.__chaserAutoRouteWrapped) return;
+
+            const oldStopSharingLocation = stopSharingLocation;
+
+            stopSharingLocation = function () {
+                clearRouteEverything("");
+                return oldStopSharingLocation.apply(this, arguments);
+            };
+
+            stopSharingLocation.__chaserAutoRouteWrapped = true;
+            window.stopSharingLocation = stopSharingLocation;
+        } catch (e) {}
+    }
+
+    function wrapBroadcastCurrentState() {
+        try {
+            if (typeof broadcastCurrentState !== "function") return;
+            if (broadcastCurrentState.__chaserAutoRouteWrapped) return;
+
+            const oldBroadcastCurrentState = broadcastCurrentState;
+
+            broadcastCurrentState = function () {
+                const result = oldBroadcastCurrentState.apply(this, arguments);
+
+                if (isSharingNow() && destinationText()) {
+                    scheduleRouteLookup(1400);
+                }
+
+                return result;
+            };
+
+            broadcastCurrentState.__chaserAutoRouteWrapped = true;
+            window.broadcastCurrentState = broadcastCurrentState;
+        } catch (e) {}
+    }
+
+    function wireStartButton() {
+        const startButton = byId("startBtn");
+        if (!startButton || startButton.__chaserAutoRouteStartWired) return;
+
+        startButton.__chaserAutoRouteStartWired = true;
+
+        startButton.addEventListener("click", function () {
+            setTimeout(function () {
+                if (isSharingNow() && destinationText()) {
+                    scheduleRouteLookup(1200);
+                } else if (!isSharingNow()) {
+                    clearRouteEverything("");
+                }
+            }, 700);
+        });
+    }
+
+    installRouteStyles();
+    ensureStatusBox();
+    ensureChoicePicker();
+    installRouteModeControl();
+    wireDestinationInput();
+    wireStartButton();
+    wrapStopSharing();
+    wrapBroadcastCurrentState();
+
+    setInterval(function () {
+        installRouteModeControl();
+        wireDestinationInput();
+        wireStartButton();
+        wrapStopSharing();
+        wrapBroadcastCurrentState();
+
+        if (!isSharingNow()) {
+            if (routeLayer || byId("chaserRouteChoiceOverlay")?.classList.contains("show")) {
+                clearRouteEverything("");
+            }
+        }
+    }, 1500);
+
+    window.chaserRefreshRoute = function () {
+        scheduleRouteLookup(100);
+    };
+
+    window.chaserClearRoute = function () {
+        clearRouteEverything("");
+    };
+})();
 </script>
+    
 </body>
 </html>
