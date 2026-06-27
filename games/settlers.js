@@ -284,8 +284,8 @@ function pickPortEdges(hexes, portTypes) {
     for (let i = 0; i < shuffledPorts.length; i++) {
         const idx = Math.floor((i * boundary.length) / shuffledPorts.length);
         const edge = boundary[idx];
-        const outX = Math.cos(edge.angle) * 52;
-        const outY = Math.sin(edge.angle) * 52;
+        const outX = Math.cos(edge.angle) * 76;
+        const outY = Math.sin(edge.angle) * 76;
         chosen.push({
             type: shuffledPorts[i],
             x1: edge.x1,
@@ -909,7 +909,7 @@ window.openSettlersPlayerTrade = function () {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersPlayerTradeOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card set-trade-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersPlayerTradeOverlay').remove()">&times;</button>
+                <button type="button" class="set-overlay-close set-floating-close" onclick="document.getElementById('settlersPlayerTradeOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">Player Trade</div>
                 <div class="set-overlay-sub">Offer one resource trade to a player. Named computer players answer right away.</div>
 
@@ -1701,7 +1701,7 @@ function tradeButtonsHtml() {
     return `
         <div class="set-port-box">
             <div class="set-port-title">Ports / Trade</div>
-            <div class="set-port-owned">${escapeHtml(portText)}</div>
+            <div class="set-port-owned">${portText}</div>
             <div class="set-trade-grid">${buttons}</div>
             <button type="button" class="set-player-trade-open" onclick="openSettlersPlayerTrade()" ${canTrade ? "" : "disabled"}>Offer Player Trade</button>
             <div class="set-port-note">Bank, port, and player trades open after you roll on your turn.</div>
@@ -1731,7 +1731,7 @@ function showTradeOverlay(giveType) {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersTradeOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersTradeOverlay').remove()">&times;</button>
+                <button type="button" class="set-overlay-close set-floating-close" onclick="document.getElementById('settlersTradeOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">Trade</div>
                 <div class="set-overlay-sub">Give ${rate} ${ICONS[giveType]} for 1 resource.</div>
                 <div class="set-resource-choice-grid">${receiveButtons}</div>
@@ -1776,7 +1776,7 @@ window.showSettlersDevCards = function () {
     canvas.insertAdjacentHTML("beforeend", `
         <div id="settlersDevOverlay" class="set-overlay-backdrop">
             <div class="set-overlay-card set-dev-overlay-card">
-                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersDevOverlay').remove()">&times;</button>
+                <button type="button" class="set-overlay-close set-floating-close" onclick="document.getElementById('settlersDevOverlay').remove()">&times;</button>
                 <div class="set-overlay-title">&#127183; My Cards</div>
                 <div class="set-overlay-sub">You have ${hand.length} development card${hand.length === 1 ? "" : "s"}.</div>
                 <div class="set-dev-grid">${cardsHtml}</div>
@@ -1979,29 +1979,37 @@ function buildSvgBoardHtml() {
     let portsHtml = "";
     (st.board.ports || []).forEach(port => {
         const label = portLabel(port.type);
-        const labelWidth = port.type === "3:1" ? 46 : 62;
-        const labelHeight = 28;
-        const labelX = port.lx - labelWidth / 2;
+        const labelWidth = port.type === "3:1" ? 52 : 68;
+        const labelHeight = 31;
+        const viewMinX = -90;
+        const viewMinY = -90;
+        const viewMaxX = 420;
+        const viewMaxY = 380;
+        const safeMargin = 8;
         const center = { x: port.mx, y: port.my };
-        const labelPoint = { x: port.lx, y: port.ly };
-        const dx = labelPoint.x - center.x;
-        const dy = labelPoint.y - center.y;
+        const rawLabelPoint = { x: port.lx, y: port.ly };
+        const clampedLx = Math.max(viewMinX + labelWidth / 2 + safeMargin, Math.min(viewMaxX - labelWidth / 2 - safeMargin, rawLabelPoint.x));
+        const clampedLy = Math.max(viewMinY + labelHeight / 2 + safeMargin, Math.min(viewMaxY - labelHeight / 2 - safeMargin, rawLabelPoint.y));
+        const labelX = clampedLx - labelWidth / 2;
+        const labelY = clampedLy - labelHeight / 2;
+        const dx = (rawLabelPoint.x - center.x) || (clampedLx - center.x);
+        const dy = (rawLabelPoint.y - center.y) || (clampedLy - center.y);
         const mag = Math.hypot(dx, dy) || 1;
-        const ox = dx / mag * 9;
-        const oy = dy / mag * 9;
+        const ox = dx / mag * 10;
+        const oy = dy / mag * 10;
         const p1x = port.x1 + ox;
         const p1y = port.y1 + oy;
         const p2x = port.x2 + ox;
         const p2y = port.y2 + oy;
 
         portsHtml += `
-            <g>
-                <line x1="${port.lx}" y1="${port.ly}" x2="${p1x}" y2="${p1y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
-                <line x1="${port.lx}" y1="${port.ly}" x2="${p2x}" y2="${p2y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
-                <circle cx="${p1x}" cy="${p1y}" r="7" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
-                <circle cx="${p2x}" cy="${p2y}" r="7" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
-                <rect x="${labelX}" y="${port.ly - labelHeight / 2}" width="${labelWidth}" height="${labelHeight}" rx="9" fill="#eaf4df" stroke="#1e4620" stroke-width="2"/>
-                <text x="${port.lx}" y="${port.ly + 5}" text-anchor="middle" font-family="Arial" font-size="13" font-weight="900" fill="#1e4620">${label}</text>
+            <g pointer-events="none">
+                <line x1="${clampedLx}" y1="${clampedLy}" x2="${p1x}" y2="${p1y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
+                <line x1="${clampedLx}" y1="${clampedLy}" x2="${p2x}" y2="${p2y}" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.98"/>
+                <circle cx="${p1x}" cy="${p1y}" r="8.5" fill="#eaf4df" stroke="#1e4620" stroke-width="2.2"/>
+                <circle cx="${p2x}" cy="${p2y}" r="8.5" fill="#eaf4df" stroke="#1e4620" stroke-width="2.2"/>
+                <rect x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}" rx="10" fill="#eaf4df" stroke="#1e4620" stroke-width="2.2"/>
+                <text x="${clampedLx}" y="${clampedLy + 6}" text-anchor="middle" font-family="Arial" font-size="15" font-weight="900" fill="#1e4620">${label}</text>
             </g>
         `;
     });
@@ -2068,8 +2076,8 @@ function buildSvgBoardHtml() {
         <div class="set-board-zoomer">
             <svg viewBox="-90 -90 510 470" preserveAspectRatio="xMidYMid meet">
                 <g id="hex-grid">${hexHtml}</g>
-                <g id="ports-layer">${portsHtml}</g>
                 <g id="placed-pieces">${piecesHtml}</g>
+                <g id="ports-layer">${portsHtml}</g>
                 <g id="snap-edges" style="opacity:0; pointer-events:none;">${snapEdgesHtml}</g>
                 <g id="snap-nodes" style="opacity:0; pointer-events:none;">${snapNodesHtml}</g>
                 <g id="snap-cities" style="opacity:0; pointer-events:none;">${snapCitiesHtml}</g>
@@ -2427,6 +2435,8 @@ function renderSettlers() {
             .set-overlay-close { position:absolute; top:8px; right:8px; width:38px; height:38px; border-radius:999px; border:2px solid #fff; background:#dc3545; color:#fff; font-size:24px; font-weight:900; line-height:1; z-index:100005; }
             .set-help-cost-card { padding-bottom:72px; }
             .set-help-fixed-close { position:fixed !important; top:auto !important; right:34px !important; bottom:84px !important; width:54px !important; height:54px !important; font-size:32px !important; box-shadow:0 4px 12px rgba(0,0,0,.42); }
+            .set-floating-close { position:fixed !important; top:auto !important; right:34px !important; bottom:84px !important; width:54px !important; height:54px !important; font-size:32px !important; box-shadow:0 4px 12px rgba(0,0,0,.42); }
+            .set-dev-overlay-card, .set-trade-overlay-card { padding-bottom:76px !important; }
             .set-overlay-title { font-family:Impact,sans-serif; font-size:28px; color:#1e4620; text-align:center; margin-bottom:10px; padding-right:34px; }
             .set-overlay-sub { text-align:center; color:#2d6a30; font-size:14px; margin-bottom:10px; }
             .set-help-list { display:flex; flex-direction:column; gap:8px; font-size:17px; }
