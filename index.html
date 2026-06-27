@@ -4984,5 +4984,182 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     };
 })();
 </script>
+    <script>
+/* CHASER PATCH — Android/browser back button handles Chaser screens */
+(function () {
+    if (window.__chaserBackButtonPatchInstalled) return;
+    window.__chaserBackButtonPatchInstalled = true;
+
+    let lastKnownLayer = "map";
+    let handlingBackButton = false;
+
+    const layerDepth = {
+        map: 0,
+        chat: 1,
+        roomModal: 2,
+        gameHub: 2,
+        gameStage: 3
+    };
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isOpen(id) {
+        const node = byId(id);
+        return !!(node && node.classList.contains("open"));
+    }
+
+    function getTopLayer() {
+        const chatOpen = isOpen("chatOverlay");
+        const roomOpen = isOpen("roomModalOverlay");
+        const gameHubOpen = isOpen("gameHubOverlay");
+        const gameStageOpen = isOpen("activeGameStage");
+
+        if (roomOpen) return "roomModal";
+        if (chatOpen && gameStageOpen) return "gameStage";
+        if (chatOpen && gameHubOpen) return "gameHub";
+        if (chatOpen) return "chat";
+
+        return "map";
+    }
+
+    function safeSetChatClosed() {
+        try {
+            if (typeof isChatOpen !== "undefined") {
+                isChatOpen = false;
+            }
+        } catch (e) {}
+    }
+
+    function closeTopLayer() {
+        const top = getTopLayer();
+
+        if (top === "roomModal") {
+            const roomModal = byId("roomModalOverlay");
+            if (roomModal) roomModal.classList.remove("open");
+
+            try {
+                if (typeof activeRoomCode !== "undefined" && !activeRoomCode && typeof resetModalUI === "function") {
+                    resetModalUI();
+                }
+            } catch (e) {}
+
+            return true;
+        }
+
+        if (top === "gameStage") {
+            if (typeof window.chaserMasterExitSequence === "function") {
+                window.chaserMasterExitSequence();
+            } else {
+                const stage = byId("activeGameStage");
+                if (stage) stage.classList.remove("open");
+            }
+
+            return true;
+        }
+
+        if (top === "gameHub") {
+            const hub = byId("gameHubOverlay");
+            if (hub) hub.classList.remove("open");
+            return true;
+        }
+
+        if (top === "chat") {
+            safeSetChatClosed();
+
+            const chat = byId("chatOverlay");
+            const hub = byId("gameHubOverlay");
+
+            if (hub) hub.classList.remove("open");
+            if (chat) chat.classList.remove("open");
+
+            return true;
+        }
+
+        return false;
+    }
+
+    function setCurrentHistoryLayer(layer, mode) {
+        const state = {
+            chaserBackButton: true,
+            layer: layer
+        };
+
+        try {
+            if (mode === "push") {
+                history.pushState(state, "", location.href);
+            } else {
+                history.replaceState(state, "", location.href);
+            }
+        } catch (e) {}
+    }
+
+    function syncHistoryToScreen() {
+        if (handlingBackButton) return;
+
+        const currentLayer = getTopLayer();
+
+        if (currentLayer === lastKnownLayer) return;
+
+        const oldDepth = layerDepth[lastKnownLayer] || 0;
+        const newDepth = layerDepth[currentLayer] || 0;
+
+        if (newDepth > oldDepth) {
+            setCurrentHistoryLayer(currentLayer, "push");
+        } else {
+            setCurrentHistoryLayer(currentLayer, "replace");
+        }
+
+        lastKnownLayer = currentLayer;
+    }
+
+    function installBaseHistoryState() {
+        try {
+            const state = history.state || {};
+
+            if (!state.chaserBackButton) {
+                history.replaceState({
+                    chaserBackButton: true,
+                    layer: getTopLayer()
+                }, "", location.href);
+            }
+        } catch (e) {}
+
+        lastKnownLayer = getTopLayer();
+    }
+
+    window.addEventListener("popstate", function () {
+        const top = getTopLayer();
+
+        if (top === "map") {
+            lastKnownLayer = "map";
+            return;
+        }
+
+        handlingBackButton = true;
+        closeTopLayer();
+
+        setTimeout(function () {
+            lastKnownLayer = getTopLayer();
+            handlingBackButton = false;
+        }, 120);
+    });
+
+    document.addEventListener("click", function () {
+        setTimeout(syncHistoryToScreen, 80);
+        setTimeout(syncHistoryToScreen, 250);
+        setTimeout(syncHistoryToScreen, 600);
+    }, true);
+
+    document.addEventListener("keydown", function () {
+        setTimeout(syncHistoryToScreen, 120);
+    }, true);
+
+    installBaseHistoryState();
+
+    setInterval(syncHistoryToScreen, 700);
+})();
+</script>
 </body>
 </html>
