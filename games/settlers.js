@@ -1853,22 +1853,7 @@ function canBuyCardAction(playerId) {
     return st.devDeck.length > 0 && hasResources(playerId, COSTS.card);
 }
 
-window.setSettlersUiState = function (newState) {
-    const st = window.settlersState;
-    const current = currentSettlersPlayer();
-
-    if (current && current.isComputer) {
-        uiState = "IDLE";
-        setMessage(`${current.name} is thinking...`);
-        return;
-    }
-
-    if (newState === "BUILD_ROAD" && !canSelectRoadAction(getMyId())) return;
-    if (newState === "BUILD_SETTLEMENT" && !canSelectSettlementAction(getMyId())) return;
-    if (newState === "BUILD_CITY" && !canSelectCityAction(getMyId())) return;
-
-    uiState = newState || "IDLE";
-
+function hideSettlersBuildMarkers() {
     const snapNodes = document.getElementById("snap-nodes");
     const snapEdges = document.getElementById("snap-edges");
     const snapCities = document.getElementById("snap-cities");
@@ -1881,13 +1866,63 @@ window.setSettlersUiState = function (newState) {
         }
     });
 
-    if (cancelBtn) cancelBtn.style.display = uiState === "IDLE" ? "none" : "flex";
+    if (cancelBtn) cancelBtn.style.display = "none";
+}
+
+function refreshSettlersActionSelection() {
+    const roadBtn = document.querySelector(".set-actions button[onclick=\"setSettlersUiState('BUILD_ROAD')\"]");
+    const settleBtn = document.querySelector(".set-actions button[onclick=\"setSettlersUiState('BUILD_SETTLEMENT')\"]");
+    const cityBtn = document.querySelector(".set-actions button[onclick=\"setSettlersUiState('BUILD_CITY')\"]");
+
+    [roadBtn, settleBtn, cityBtn].forEach(btn => {
+        if (btn) btn.classList.remove("selected");
+    });
+
+    if (uiState === "BUILD_ROAD" && roadBtn) roadBtn.classList.add("selected");
+    if (uiState === "BUILD_SETTLEMENT" && settleBtn) settleBtn.classList.add("selected");
+    if (uiState === "BUILD_CITY" && cityBtn) cityBtn.classList.add("selected");
+}
+
+window.setSettlersUiState = function (newState) {
+    const st = window.settlersState;
+    const current = currentSettlersPlayer();
+    const requestedState = newState || "IDLE";
+
+    if (current && current.isComputer) {
+        uiState = "IDLE";
+        hideSettlersBuildMarkers();
+        refreshSettlersActionSelection();
+        setMessage(`${current.name} is thinking...`);
+        return;
+    }
+
+    // Tap the same build button again to hide the purple markers.
+    // No separate red Cancel button is needed.
+    if (requestedState === uiState && ["BUILD_ROAD", "BUILD_SETTLEMENT", "BUILD_CITY"].includes(requestedState)) {
+        uiState = "IDLE";
+        hideSettlersBuildMarkers();
+        refreshSettlersActionSelection();
+        if (st) setMessage(st.message || "");
+        return;
+    }
+
+    if (requestedState === "BUILD_ROAD" && !canSelectRoadAction(getMyId())) return;
+    if (requestedState === "BUILD_SETTLEMENT" && !canSelectSettlementAction(getMyId())) return;
+    if (requestedState === "BUILD_CITY" && !canSelectCityAction(getMyId())) return;
+
+    uiState = requestedState;
+    hideSettlersBuildMarkers();
+
+    const snapNodes = document.getElementById("snap-nodes");
+    const snapEdges = document.getElementById("snap-edges");
+    const snapCities = document.getElementById("snap-cities");
 
     if (uiState === "BUILD_SETTLEMENT") {
         if (snapNodes) {
             snapNodes.style.opacity = "1";
             snapNodes.style.pointerEvents = "auto";
         }
+        refreshSettlersActionSelection();
         setMessage(st && st.setup && st.setup.active ? "Tap a purple spot for your settlement." : "Tap a purple spot to build a settlement.");
         return;
     }
@@ -1897,6 +1932,7 @@ window.setSettlersUiState = function (newState) {
             snapEdges.style.opacity = "1";
             snapEdges.style.pointerEvents = "auto";
         }
+        refreshSettlersActionSelection();
         if (st && st.freeRoads && st.freeRoads.playerId === getMyId()) {
             setMessage(`Tap a purple road marker. Free roads left: ${st.freeRoads.remaining}.`);
         } else {
@@ -1910,10 +1946,13 @@ window.setSettlersUiState = function (newState) {
             snapCities.style.opacity = "1";
             snapCities.style.pointerEvents = "auto";
         }
+        refreshSettlersActionSelection();
         setMessage("Tap one of your settlements to upgrade to a city.");
         return;
     }
 
+    hideSettlersBuildMarkers();
+    refreshSettlersActionSelection();
     if (st) setMessage(st.message || "Choose an action below.");
 };
 
@@ -2448,7 +2487,7 @@ function renderSettlers() {
             .set-act-btn.disabled-look, .set-act-btn:disabled { opacity:.38; filter:grayscale(.35); cursor:default; box-shadow:none; }
             .set-act-btn.selected { box-shadow:0 0 0 3px ${HIGHLIGHT_PURPLE}, 0 3px 9px rgba(0,0,0,.32); }
             .set-act-btn.card-btn { background:#ffd700; color:#1e4620; border-color:#d3b200; }
-            .set-act-btn.cancel-btn { background:#dc3545; border-color:#bd2130; display:none; }
+            .set-act-btn.cancel-btn, #set-cancel { display:none !important; }
             .set-roll-btn { background:#6b3fa0; border-color:#ffffff; }
             .set-roll-btn.active { background:#ff8c00; color:#111; border-color:#ffd700; box-shadow:0 0 0 3px #ffd700, 0 4px 10px rgba(0,0,0,0.35); opacity:1; filter:none; }
             .set-help-btn { background:#1d4ed8; border-color:#ffffff; }
@@ -2540,9 +2579,6 @@ function renderSettlers() {
                                 </button>
                                 <button type="button" class="set-act-btn enabled set-help-btn" onclick="showSettlersHelp()">
                                     <span class="ico">?</span><span class="lbl">Help</span>
-                                </button>
-                                <button type="button" class="set-act-btn cancel-btn" id="set-cancel" onclick="setSettlersUiState('IDLE')">
-                                    <span class="ico">X</span><span class="lbl">Cancel</span>
                                 </button>
                             </div>
                         </div>
