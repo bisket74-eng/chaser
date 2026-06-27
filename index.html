@@ -6000,6 +6000,601 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     };
 })();
 </script>
+  <script>
+/* CHASER PATCH — auto-route fix + large next-turn arrow overlay */
+(function () {
+    if (window.__chaserRouteAutoFixLargeTurnArrowInstalled) return;
+    window.__chaserRouteAutoFixLargeTurnArrowInstalled = true;
+
+    const ROUTE_ENDPOINT_MATCH = "/functions/v1/chaser-route";
+
+    let lastAutoRouteKey = "";
+    let autoRouteTimer = null;
+
+    let activeRouteGeoJson = null;
+    let lastTurnDisplay = "";
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function currentLat() {
+        try {
+            return Number(lastLat || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function currentLng() {
+        try {
+            return Number(lastLng || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function destinationText() {
+        const input = byId("destination");
+        return input ? input.value.trim().replace(/\s+/g, " ") : "";
+    }
+
+    function currentRouteMode() {
+        return localStorage.getItem("chaser_route_mode") === "car" ? "car" : "bike";
+    }
+
+    function chatIsOpen() {
+        const chat = byId("chatOverlay");
+        return !!(chat && chat.classList.contains("open"));
+    }
+
+    function choicePickerIsOpen() {
+        const picker = byId("chaserRouteChoiceOverlay");
+        return !!(picker && picker.classList.contains("show"));
+    }
+
+    function installTurnArrowStyles() {
+        if (byId("chaser-large-turn-arrow-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-large-turn-arrow-style";
+        style.innerHTML = `
+            #chaserNextTurnHud {
+                position:fixed !important;
+                left:280px;
+                top:155px;
+                width:104px !important;
+                min-height:98px !important;
+                z-index:13 !important;
+                display:none !important;
+                box-sizing:border-box !important;
+                background:transparent !important;
+                border:none !important;
+                box-shadow:none !important;
+                pointer-events:none !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                text-align:center !important;
+                font-family:Arial,sans-serif !important;
+            }
+
+            #chaserNextTurnHud.show {
+                display:block !important;
+            }
+
+            #chaserNextTurnArrow {
+                color:#050505 !important;
+                font-size:78px !important;
+                font-weight:900 !important;
+                line-height:.78 !important;
+                font-family:Arial Black, Impact, Arial, sans-serif !important;
+                text-shadow:
+                    2px 2px 0 #e2f0d9,
+                    -2px 2px 0 #e2f0d9,
+                    2px -2px 0 #e2f0d9,
+                    -2px -2px 0 #e2f0d9,
+                    0 5px 12px rgba(0,0,0,.35) !important;
+            }
+
+            #chaserNextTurnDistance {
+                margin-top:4px !important;
+                color:#050505 !important;
+                font-size:19px !important;
+                font-weight:900 !important;
+                line-height:1 !important;
+                font-family:Arial Black, Arial, sans-serif !important;
+                text-shadow:
+                    1px 1px 0 #e2f0d9,
+                    -1px 1px 0 #e2f0d9,
+                    1px -1px 0 #e2f0d9,
+                    -1px -1px 0 #e2f0d9,
+                    0 3px 8px rgba(0,0,0,.30) !important;
+                white-space:nowrap !important;
+            }
+
+            #chaserNextTurnLabel {
+                display:none !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserNextTurnHud {
+                display:none !important;
+            }
+
+            @media (max-width:380px) {
+                #chaserNextTurnHud {
+                    width:94px !important;
+                    min-height:90px !important;
+                }
+
+                #chaserNextTurnArrow {
+                    font-size:68px !important;
+                }
+
+                #chaserNextTurnDistance {
+                    font-size:17px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureTurnHud() {
+        installTurnArrowStyles();
+
+        let hud = byId("chaserNextTurnHud");
+
+        if (!hud) {
+            hud = document.createElement("div");
+            hud.id = "chaserNextTurnHud";
+            hud.innerHTML = `
+                <div id="chaserNextTurnArrow">↑</div>
+                <div id="chaserNextTurnDistance">--</div>
+                <div id="chaserNextTurnLabel">Next</div>
+            `;
+            document.body.appendChild(hud);
+        }
+
+        positionTurnHud();
+        return hud;
+    }
+
+    function positionTurnHud() {
+        const hud = byId("chaserNextTurnHud");
+        const counter = byId("riderCounterWidget");
+
+        if (!hud || !counter) return;
+
+        const r = counter.getBoundingClientRect();
+        const hudWidth = hud.offsetWidth || 104;
+
+        let left = r.right + 12;
+        let top = r.top + 16;
+
+        left = Math.max(8, Math.min(window.innerWidth - hudWidth - 8, left));
+        top = Math.max(84, Math.min(window.innerHeight - 125, top));
+
+        hud.style.left = left + "px";
+        hud.style.top = top + "px";
+    }
+
+    function hideTurnHud() {
+        const hud = ensureTurnHud();
+        hud.classList.remove("show");
+    }
+
+    function setTurnHud(arrow, distance) {
+        const hud = ensureTurnHud();
+        const arrowEl = byId("chaserNextTurnArrow");
+        const distEl = byId("chaserNextTurnDistance");
+
+        if (arrowEl) arrowEl.innerText = arrow || "↑";
+        if (distEl) distEl.innerText = distance || "--";
+
+        if (isSharingNow() && activeRouteGeoJson && !chatIsOpen()) {
+            hud.classList.add("show");
+            positionTurnHud();
+        } else {
+            hud.classList.remove("show");
+        }
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function formatTurnDistance(meters) {
+        if (!Number.isFinite(meters) || meters < 0) return "--";
+
+        const feet = meters * 3.28084;
+
+        if (feet < 900) {
+            return Math.max(20, Math.round(feet / 20) * 20) + " ft";
+        }
+
+        const miles = meters / 1609.344;
+
+        if (miles < 10) {
+            return miles.toFixed(1) + " mi";
+        }
+
+        return Math.round(miles) + " mi";
+    }
+
+    function arrowFromInstruction(text) {
+        const t = String(text || "").toLowerCase();
+
+        if (t.includes("arrive") || t.includes("destination")) return "🏁";
+        if (t.includes("sharp left")) return "↰";
+        if (t.includes("sharp right")) return "↱";
+        if (t.includes("slight left")) return "↖";
+        if (t.includes("slight right")) return "↗";
+        if (t.includes("left")) return "←";
+        if (t.includes("right")) return "→";
+        if (t.includes("roundabout")) return "⟳";
+        if (t.includes("straight") || t.includes("continue")) return "↑";
+        if (t.includes("keep")) return "↑";
+
+        return "↑";
+    }
+
+    function getRoutePieces() {
+        const feature =
+            activeRouteGeoJson &&
+            activeRouteGeoJson.features &&
+            activeRouteGeoJson.features[0];
+
+        if (!feature) return null;
+
+        const geometry = feature.geometry || {};
+        const coords = Array.isArray(geometry.coordinates) ? geometry.coordinates : [];
+
+        const segments =
+            feature.properties && Array.isArray(feature.properties.segments)
+                ? feature.properties.segments
+                : [];
+
+        const steps =
+            segments[0] && Array.isArray(segments[0].steps)
+                ? segments[0].steps
+                : [];
+
+        if (!coords.length || !steps.length) return null;
+
+        return { coords, steps };
+    }
+
+    function nearestCoordIndex(coords, lat, lng) {
+        let bestIndex = 0;
+        let bestDistance = Infinity;
+
+        coords.forEach((coord, index) => {
+            if (!Array.isArray(coord) || coord.length < 2) return;
+
+            const cLng = Number(coord[0]);
+            const cLat = Number(coord[1]);
+
+            if (!Number.isFinite(cLat) || !Number.isFinite(cLng)) return;
+
+            const d = distanceMeters(lat, lng, cLat, cLng);
+
+            if (d < bestDistance) {
+                bestDistance = d;
+                bestIndex = index;
+            }
+        });
+
+        return bestIndex;
+    }
+
+    function distanceAlongRoute(coords, fromIndex, toIndex, lat, lng) {
+        if (!coords.length) return 0;
+
+        fromIndex = Math.max(0, Math.min(coords.length - 1, fromIndex));
+        toIndex = Math.max(0, Math.min(coords.length - 1, toIndex));
+
+        if (toIndex <= fromIndex) return 0;
+
+        let meters = 0;
+
+        const start = coords[fromIndex];
+
+        if (Array.isArray(start) && start.length >= 2) {
+            meters += distanceMeters(lat, lng, Number(start[1]), Number(start[0]));
+        }
+
+        for (let i = fromIndex; i < toIndex; i++) {
+            const a = coords[i];
+            const b = coords[i + 1];
+
+            if (!Array.isArray(a) || !Array.isArray(b)) continue;
+
+            meters += distanceMeters(
+                Number(a[1]),
+                Number(a[0]),
+                Number(b[1]),
+                Number(b[0])
+            );
+        }
+
+        return meters;
+    }
+
+    function isUsefulStep(step) {
+        const instruction = String(step && step.instruction || "").toLowerCase();
+
+        if (!instruction) return false;
+        if (instruction.includes("depart")) return false;
+
+        return true;
+    }
+
+    function updateNextTurnHud() {
+        if (!isSharingNow() || !activeRouteGeoJson) {
+            hideTurnHud();
+            return;
+        }
+
+        const lat = currentLat();
+        const lng = currentLng();
+
+        if (!lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            hideTurnHud();
+            return;
+        }
+
+        const pieces = getRoutePieces();
+
+        if (!pieces) {
+            hideTurnHud();
+            return;
+        }
+
+        const coords = pieces.coords;
+        const steps = pieces.steps;
+        const nearIndex = nearestCoordIndex(coords, lat, lng);
+
+        let nextStep = null;
+
+        for (const step of steps) {
+            if (!isUsefulStep(step)) continue;
+
+            const wp = Array.isArray(step.way_points) ? step.way_points : null;
+            if (!wp || wp.length < 2) continue;
+
+            const stepStart = Number(wp[0]);
+            const stepEnd = Number(wp[1]);
+
+            if (!Number.isFinite(stepStart) || !Number.isFinite(stepEnd)) continue;
+
+            if (stepStart > nearIndex + 2 || stepEnd > nearIndex + 12) {
+                nextStep = step;
+                break;
+            }
+        }
+
+        if (!nextStep) {
+            setTurnHud("🏁", "--");
+            return;
+        }
+
+        const wp = nextStep.way_points || [nearIndex, nearIndex];
+        const turnIndex = Math.max(0, Number(wp[0]) || 0);
+        const metersToTurn = distanceAlongRoute(coords, nearIndex, turnIndex, lat, lng);
+
+        const instruction = nextStep.instruction || "";
+        const arrow = arrowFromInstruction(instruction);
+        const distance = formatTurnDistance(metersToTurn);
+
+        const displayKey = arrow + "|" + distance;
+
+        if (displayKey !== lastTurnDisplay) {
+            lastTurnDisplay = displayKey;
+        }
+
+        setTurnHud(arrow, distance);
+    }
+
+    function scheduleAutoRoute(reason, delay) {
+        clearTimeout(autoRouteTimer);
+
+        autoRouteTimer = setTimeout(function () {
+            const dest = destinationText();
+            const lat = currentLat();
+            const lng = currentLng();
+            const mode = currentRouteMode();
+
+            if (!isSharingNow() || !dest || !lat || !lng) return;
+            if (choicePickerIsOpen() && reason !== "force") return;
+
+            const key =
+                mode +
+                "|" +
+                dest.toLowerCase() +
+                "|" +
+                Math.round(lat * 1000) +
+                "|" +
+                Math.round(lng * 1000);
+
+            if (key === lastAutoRouteKey && reason !== "force") return;
+
+            lastAutoRouteKey = key;
+
+            if (typeof window.chaserRefreshRoute === "function") {
+                window.chaserRefreshRoute();
+            }
+        }, delay || 600);
+    }
+
+    function wireAutoRouteInputFix() {
+        const input = byId("destination");
+
+        if (!input || input.__chaserAutoRouteLargeArrowWired) return;
+
+        input.__chaserAutoRouteLargeArrowWired = true;
+
+        ["input", "change", "blur", "paste"].forEach(eventName => {
+            input.addEventListener(eventName, function () {
+                lastAutoRouteKey = "";
+                activeRouteGeoJson = null;
+                hideTurnHud();
+                scheduleAutoRoute("force", eventName === "input" ? 900 : 250);
+            });
+        });
+
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" || e.keyCode === 13) {
+                lastAutoRouteKey = "";
+                activeRouteGeoJson = null;
+                hideTurnHud();
+                scheduleAutoRoute("force", 120);
+            }
+        });
+    }
+
+    function captureRouteResponses() {
+        if (window.fetch.__chaserLargeTurnArrowFetchWrapped) return;
+
+        const oldFetch = window.fetch;
+
+        window.fetch = function () {
+            const args = arguments;
+            const requestInfo = args[0];
+
+            let url = "";
+
+            try {
+                url = typeof requestInfo === "string"
+                    ? requestInfo
+                    : String(requestInfo && requestInfo.url || "");
+            } catch (e) {}
+
+            const result = oldFetch.apply(this, args);
+
+            if (url.includes(ROUTE_ENDPOINT_MATCH)) {
+                result.then(response => {
+                    try {
+                        response.clone().json().then(data => {
+                            if (!data || !data.ok) {
+                                activeRouteGeoJson = null;
+                                hideTurnHud();
+                                return;
+                            }
+
+                            if (data.needsChoice) {
+                                activeRouteGeoJson = null;
+                                hideTurnHud();
+                                return;
+                            }
+
+                            if (data.route) {
+                                activeRouteGeoJson = data.route;
+                                setTimeout(updateNextTurnHud, 200);
+                            }
+                        }).catch(function () {});
+                    } catch (e) {}
+                }).catch(function () {});
+            }
+
+            return result;
+        };
+
+        window.fetch.__chaserLargeTurnArrowFetchWrapped = true;
+    }
+
+    function wrapStopSharingForTurnHud() {
+        try {
+            if (typeof stopSharingLocation !== "function") return;
+            if (stopSharingLocation.__chaserLargeTurnArrowStopWrapped) return;
+
+            const oldStop = stopSharingLocation;
+
+            stopSharingLocation = function () {
+                activeRouteGeoJson = null;
+                hideTurnHud();
+                return oldStop.apply(this, arguments);
+            };
+
+            stopSharingLocation.__chaserLargeTurnArrowStopWrapped = true;
+            window.stopSharingLocation = stopSharingLocation;
+        } catch (e) {}
+    }
+
+    function wireStartButtonAutoRoute() {
+        const startButton = byId("startBtn");
+        if (!startButton || startButton.__chaserLargeTurnArrowStartWired) return;
+
+        startButton.__chaserLargeTurnArrowStartWired = true;
+
+        startButton.addEventListener("click", function () {
+            setTimeout(function () {
+                if (isSharingNow() && destinationText()) {
+                    lastAutoRouteKey = "";
+                    scheduleAutoRoute("force", 900);
+                }
+            }, 900);
+        });
+    }
+
+    installTurnArrowStyles();
+    ensureTurnHud();
+    captureRouteResponses();
+    wireAutoRouteInputFix();
+    wireStartButtonAutoRoute();
+    wrapStopSharingForTurnHud();
+
+    window.addEventListener("resize", positionTurnHud);
+    window.addEventListener("orientationchange", function () {
+        setTimeout(positionTurnHud, 500);
+    });
+
+    setInterval(function () {
+        wireAutoRouteInputFix();
+        wireStartButtonAutoRoute();
+        wrapStopSharingForTurnHud();
+        positionTurnHud();
+
+        if (!isSharingNow()) {
+            activeRouteGeoJson = null;
+            hideTurnHud();
+            return;
+        }
+
+        if (destinationText() && !activeRouteGeoJson && !choicePickerIsOpen()) {
+            scheduleAutoRoute("watch", 700);
+        }
+
+        updateNextTurnHud();
+    }, 1000);
+
+    window.chaserUpdateNextTurnHud = updateNextTurnHud;
+})();
+</script>  
     
 </body>
 </html>
