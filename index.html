@@ -1737,6 +1737,10 @@ margin-left:0 !important;
             .on('broadcast', { event:'sync-room-trivia' }, ({ payload }) => {
                 if (window.handleIncomingTriviaSync) window.handleIncomingTriviaSync(payload);
             })
+            
+.on('broadcast', { event:'settlers-sync-state' }, ({ payload }) => {
+    if (window.handleIncomingSettlersSync) window.handleIncomingSettlersSync(payload);
+})
 
             .on('broadcast', { event:'sequence-sync-state' }, ({ payload }) => {
                 if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
