@@ -6594,7 +6594,342 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
     window.chaserUpdateNextTurnHud = updateNextTurnHud;
 })();
-</script>  
+</script>  <script>
+/* CHASER PATCH — shaped turn arrows + live blue compass letters */
+(function () {
+    if (window.__chaserShapedTurnArrowLiveCompassInstalled) return;
+    window.__chaserShapedTurnArrowLiveCompassInstalled = true;
+
+    let lastCompassLat = null;
+    let lastCompassLng = null;
+    let currentHeadingDeg = null;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function currentLat() {
+        try {
+            return Number(lastLat || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function currentLng() {
+        try {
+            return Number(lastLng || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+
+        const lat1 = toRad(aLat);
+        const lat2 = toRad(bLat);
+        const dLng = toRad(bLng - aLng);
+
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x =
+            Math.cos(lat1) * Math.sin(lat2) -
+            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function installStyles() {
+        if (byId("chaser-shaped-arrow-live-compass-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-shaped-arrow-live-compass-style";
+        style.innerHTML = `
+            /* Hide the old decorative compass letters from the HUD patch */
+            #chaserFollowStatsHud::before {
+                content:none !important;
+                display:none !important;
+            }
+
+            #chaserNextTurnHud {
+                width:136px !important;
+                min-height:118px !important;
+            }
+
+            #chaserNextTurnArrow {
+                height:86px !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                font-size:0 !important;
+                line-height:1 !important;
+            }
+
+            #chaserNextTurnArrow svg {
+                width:112px !important;
+                height:88px !important;
+                display:block !important;
+                overflow:visible !important;
+            }
+
+            #chaserNextTurnDistance {
+                margin-top:0 !important;
+                font-size:21px !important;
+                font-weight:900 !important;
+            }
+
+            #chaserCompassHud {
+                position:fixed !important;
+                left:15px;
+                top:0;
+                width:74%;
+                max-width:340px;
+                z-index:14 !important;
+                display:none;
+                grid-template-columns:repeat(4, 1fr);
+                align-items:center;
+                justify-items:center;
+                pointer-events:none !important;
+                font-family:"Courier New", monospace !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+            }
+
+            #chaserCompassHud.show {
+                display:grid !important;
+            }
+
+            .chaser-compass-letter {
+                color:rgba(30, 70, 32, 0.58) !important;
+                font-size:18px !important;
+                font-weight:900 !important;
+                letter-spacing:1px !important;
+                line-height:1 !important;
+                text-shadow:
+                    1px 1px 0 rgba(226,240,217,.95),
+                    0 2px 5px rgba(0,0,0,.22) !important;
+                transform:scale(1);
+                transition:color .18s ease, transform .18s ease, text-shadow .18s ease;
+            }
+
+            .chaser-compass-letter.active {
+                color:#0077ff !important;
+                transform:scale(1.32);
+                text-shadow:
+                    1px 1px 0 rgba(255,255,255,.95),
+                    0 0 8px rgba(0,119,255,.9),
+                    0 0 15px rgba(0,119,255,.48),
+                    0 3px 8px rgba(0,0,0,.30) !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserCompassHud {
+                display:none !important;
+            }
+
+            @media (max-width:380px) {
+                #chaserNextTurnHud {
+                    width:118px !important;
+                    min-height:108px !important;
+                }
+
+                #chaserNextTurnArrow svg {
+                    width:100px !important;
+                    height:80px !important;
+                }
+
+                #chaserNextTurnDistance {
+                    font-size:18px !important;
+                }
+
+                .chaser-compass-letter {
+                    font-size:16px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function turnSvg(type) {
+        const outline = "#e2f0d9";
+        const black = "#050505";
+
+        const paths = {
+            right: "M42 86 L42 36 L76 36 M76 36 L60 20 M76 36 L60 52",
+            left: "M58 86 L58 36 L24 36 M24 36 L40 20 M24 36 L40 52",
+            straight: "M50 88 L50 20 M50 20 L34 38 M50 20 L66 38",
+            slightRight: "M40 86 C40 58 51 42 76 26 M76 26 L56 22 M76 26 L68 48",
+            slightLeft: "M60 86 C60 58 49 42 24 26 M24 26 L44 22 M24 26 L32 48",
+            roundabout: "M50 80 C28 80 20 62 27 46 C34 28 56 25 68 38 C78 49 75 67 62 75 M62 75 L65 55 M62 75 L82 72",
+            arrive: "M34 86 L34 18 M34 20 C47 12 57 28 70 20 L70 52 C57 60 47 44 34 52"
+        };
+
+        const d = paths[type] || paths.straight;
+
+        return `
+            <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                <path d="${d}" fill="none" stroke="${outline}" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="${d}" fill="none" stroke="${black}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        `;
+    }
+
+    function arrowTypeFromText(text) {
+        const raw = String(text || "").trim();
+
+        if (raw.includes("🏁")) return "arrive";
+        if (raw.includes("⟳")) return "roundabout";
+        if (raw.includes("↗")) return "slightRight";
+        if (raw.includes("↖")) return "slightLeft";
+        if (raw.includes("↱") || raw.includes("→")) return "right";
+        if (raw.includes("↰") || raw.includes("←")) return "left";
+
+        return "straight";
+    }
+
+    function replaceTextArrowWithShape() {
+        const arrowEl = byId("chaserNextTurnArrow");
+        if (!arrowEl) return;
+
+        const raw = arrowEl.textContent.trim();
+
+        if (!raw) return;
+        if (raw === arrowEl.dataset.lastRawTurnArrow) return;
+
+        const type = arrowTypeFromText(raw);
+
+        arrowEl.dataset.lastRawTurnArrow = raw;
+        arrowEl.dataset.turnType = type;
+        arrowEl.innerHTML = turnSvg(type);
+    }
+
+    function ensureCompass() {
+        installStyles();
+
+        let compass = byId("chaserCompassHud");
+
+        if (!compass) {
+            compass = document.createElement("div");
+            compass.id = "chaserCompassHud";
+            compass.innerHTML = `
+                <span class="chaser-compass-letter" data-dir="N">N</span>
+                <span class="chaser-compass-letter" data-dir="E">E</span>
+                <span class="chaser-compass-letter" data-dir="S">S</span>
+                <span class="chaser-compass-letter" data-dir="W">W</span>
+            `;
+            document.body.appendChild(compass);
+        }
+
+        return compass;
+    }
+
+    function positionCompass() {
+        const compass = ensureCompass();
+        const hud = byId("chaserFollowStatsHud");
+
+        if (!hud || !hud.classList.contains("show") || !isSharingNow()) {
+            compass.classList.remove("show");
+            return;
+        }
+
+        const r = hud.getBoundingClientRect();
+
+        compass.style.left = r.left + "px";
+        compass.style.width = r.width + "px";
+        compass.style.top = Math.max(80, r.top - 28) + "px";
+        compass.classList.add("show");
+    }
+
+    function activeDirectionsFromHeading(deg) {
+        if (!Number.isFinite(deg)) return [];
+
+        if (deg >= 337.5 || deg < 22.5) return ["N"];
+        if (deg >= 22.5 && deg < 67.5) return ["N", "E"];
+        if (deg >= 67.5 && deg < 112.5) return ["E"];
+        if (deg >= 112.5 && deg < 157.5) return ["S", "E"];
+        if (deg >= 157.5 && deg < 202.5) return ["S"];
+        if (deg >= 202.5 && deg < 247.5) return ["S", "W"];
+        if (deg >= 247.5 && deg < 292.5) return ["W"];
+        return ["N", "W"];
+    }
+
+    function updateCompassHeading() {
+        const lat = currentLat();
+        const lng = currentLng();
+
+        if (!isSharingNow() || !lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return;
+        }
+
+        if (lastCompassLat !== null && lastCompassLng !== null) {
+            const moved = distanceMeters(lastCompassLat, lastCompassLng, lat, lng);
+
+            if (moved >= 4) {
+                currentHeadingDeg = bearingDegrees(lastCompassLat, lastCompassLng, lat, lng);
+            }
+        }
+
+        lastCompassLat = lat;
+        lastCompassLng = lng;
+    }
+
+    function updateCompassLights() {
+        const compass = ensureCompass();
+        const active = activeDirectionsFromHeading(currentHeadingDeg);
+
+        compass.querySelectorAll(".chaser-compass-letter").forEach(letter => {
+            const dir = letter.getAttribute("data-dir");
+            letter.classList.toggle("active", active.includes(dir));
+        });
+    }
+
+    installStyles();
+    ensureCompass();
+
+    setInterval(function () {
+        replaceTextArrowWithShape();
+        updateCompassHeading();
+        updateCompassLights();
+        positionCompass();
+    }, 300);
+
+    window.addEventListener("resize", positionCompass);
+    window.addEventListener("orientationchange", function () {
+        setTimeout(positionCompass, 500);
+    });
+})();
+</script>
+    
     
 </body>
 </html>
