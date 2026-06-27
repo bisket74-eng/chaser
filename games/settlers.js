@@ -1,6 +1,6 @@
 /* CHASER SETTLERS - SEPARATE GAME FILE
 Mobile-optimized Hex Resource Game
-3-4 player setup with named computer players, dice, resource cards, build costs, SVG board, whole-play-area pinch zoom
+3-4 player setup with named computer players, dice, resource cards, development cards, build costs, SVG board, whole-play-area pinch zoom
 */
 ;(function () {
 "use strict";
@@ -11,6 +11,10 @@ const HEX_SIZE = 48;
 const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 const NODE_KEY_PRECISION = 1;
+
+const COMPUTER_DELAY_MS = 1800;
+const COMPUTER_ROLL_DELAY_MS = 2100;
+const COMPUTER_BUILD_DELAY_MS = 1900;
 
 const RESOURCES = [
     "desert",
@@ -46,10 +50,20 @@ const COSTS = {
     card: { sheep: 1, wheat: 1, ore: 1 }
 };
 
+const DEV_CARD_INFO = {
+    knight: { title: "Knight", icon: "⚔️", desc: "Play for knight power. Robber is not added yet." },
+    victory: { title: "Victory Point", icon: "⭐", desc: "Worth 1 hidden point." },
+    roadBuilding: { title: "Road Building", icon: "🛣️", desc: "Place 2 roads for free." },
+    yearOfPlenty: { title: "Year of Plenty", icon: "🌾", desc: "Take any 2 resources." },
+    monopoly: { title: "Monopoly", icon: "🧲", desc: "Choose 1 resource and take all of it from others." }
+};
+
 let uiState = "IDLE";
 let zoomState = { scale: 1, x: 0, y: 0 };
 let computerTimer = null;
 let computerActionKey = "";
+let lastResourceBurstId = "";
+let yearPlentyPick = null;
 
 function getMyId() {
     if (typeof window.myId === "function") return window.myId();
@@ -89,6 +103,32 @@ function emptyResourceSet() {
     return { brick: 0, wheat: 0, sheep: 0, wood: 0, ore: 0 };
 }
 
+function cloneResourceSet(cards) {
+    return {
+        brick: cards && cards.brick ? cards.brick : 0,
+        wheat: cards && cards.wheat ? cards.wheat : 0,
+        sheep: cards && cards.sheep ? cards.sheep : 0,
+        wood: cards && cards.wood ? cards.wood : 0,
+        ore: cards && cards.ore ? cards.ore : 0
+    };
+}
+
+function buildDevelopmentDeck() {
+    const deck = [];
+
+    function add(type, count) {
+        for (let i = 0; i < count; i++) deck.push(type);
+    }
+
+    add("knight", 14);
+    add("victory", 5);
+    add("roadBuilding", 2);
+    add("yearOfPlenty", 2);
+    add("monopoly", 2);
+
+    return shuffle(deck);
+}
+
 function getLobbyPlayers() {
     const g = window.chaserGame || {};
     const humans = Array.isArray(g.players) && g.players.length
@@ -114,10 +154,7 @@ function getLobbyPlayers() {
         computerIndex++;
     }
 
-    return players.slice(0, MAX_PLAYERS).map((p, idx) => ({
-        ...p,
-        seat: idx
-    }));
+    return players.slice(0, MAX_PLAYERS).map((p, idx) => ({ ...p, seat: idx }));
 }
 
 function buildSetupOrder(count) {
@@ -162,9 +199,11 @@ function generateBoard() {
 function createState() {
     const players = getLobbyPlayers();
     const resources = {};
+    const devHands = {};
 
     players.forEach(p => {
         resources[p.id] = emptyResourceSet();
+        devHands[p.id] = [];
     });
 
     const setupOrder = buildSetupOrder(players.length);
@@ -175,12 +214,19 @@ function createState() {
         board: generateBoard(),
         players,
         turnIndex: setupOrder[0] || 0,
+        turnNumber: 1,
         rolledThisTurn: false,
         lastRoll: null,
         highlightedRoll: null,
         pendingRoll: null,
+        resourceBurst: null,
         message: `${firstPlayer.name}: place your first settlement.`,
         resources,
+        devDeck: buildDevelopmentDeck(),
+        devHands,
+        devDiscard: [],
+        playedKnights: {},
+        freeRoads: null,
         setup: {
             active: true,
             order: setupOrder,
@@ -200,9 +246,7 @@ function ensureResourceBank() {
     const st = window.settlersState;
     if (!st) return;
 
-    if (!st.resources || typeof st.resources !== "object") {
-        st.resources = {};
-    }
+    if (!st.resources || typeof st.resources !== "object") st.resources = {};
 
     const players = Array.isArray(st.players) && st.players.length
         ? st.players
@@ -213,6 +257,21 @@ function ensureResourceBank() {
         RESOURCE_TYPES.forEach(type => {
             if (typeof st.resources[p.id][type] !== "number") st.resources[p.id][type] = 0;
         });
+    });
+}
+
+function ensureDevelopmentState() {
+    const st = window.settlersState;
+    if (!st) return;
+
+    if (!Array.isArray(st.devDeck)) st.devDeck = buildDevelopmentDeck();
+    if (!st.devHands || typeof st.devHands !== "object") st.devHands = {};
+    if (!Array.isArray(st.devDiscard)) st.devDiscard = [];
+    if (!st.playedKnights || typeof st.playedKnights !== "object") st.playedKnights = {};
+
+    (st.players || []).forEach(p => {
+        if (!Array.isArray(st.devHands[p.id])) st.devHands[p.id] = [];
+        if (typeof st.playedKnights[p.id] !== "number") st.playedKnights[p.id] = 0;
     });
 }
 
@@ -231,7 +290,11 @@ function normalizeSettlersState() {
     if (!Array.isArray(st.pieces.cities)) st.pieces.cities = [];
     if (!Array.isArray(st.pieces.roads)) st.pieces.roads = [];
 
+    if (typeof st.turnNumber !== "number") st.turnNumber = 1;
+    if (typeof st.rolledThisTurn !== "boolean") st.rolledThisTurn = false;
+
     ensureResourceBank();
+    ensureDevelopmentState();
 
     if (st.phase === "setup" && !st.setup) {
         st.setup = {
@@ -249,6 +312,12 @@ function playerColor(ownerId) {
     const players = st && Array.isArray(st.players) ? st.players : [];
     const idx = players.findIndex(p => p.id === ownerId);
     return PLAYER_COLORS[idx >= 0 ? idx % PLAYER_COLORS.length : 0];
+}
+
+function playerName(playerId) {
+    const st = window.settlersState;
+    const p = st && st.players ? st.players.find(x => x.id === playerId) : null;
+    return p ? p.name : "Player";
 }
 
 function currentSettlersPlayer() {
@@ -285,6 +354,13 @@ function getResourceCards(playerId) {
 
 function getMyResourceCards() {
     return getResourceCards(getMyId());
+}
+
+function getDevHand(playerId) {
+    ensureDevelopmentState();
+    const st = window.settlersState;
+    if (!st.devHands[playerId]) st.devHands[playerId] = [];
+    return st.devHands[playerId];
 }
 
 function hasResources(playerId, cost) {
@@ -407,10 +483,7 @@ function edgeConnectsToOwnNetwork(playerId, edge) {
     );
 
     const ownRoadTouches = st.pieces.roads.some(r =>
-        r.owner === playerId && (
-            edgeTouchesPoint(r, a) ||
-            edgeTouchesPoint(r, b)
-        )
+        r.owner === playerId && (edgeTouchesPoint(r, a) || edgeTouchesPoint(r, b))
     );
 
     return ownPieceTouches || ownRoadTouches;
@@ -442,7 +515,7 @@ function ownedSettlementPieces(playerId) {
 
 function addResourceToPlayer(ownerId, resource, amount, gains) {
     const st = window.settlersState;
-    if (!st || !resource || resource === "desert") return;
+    if (!st || !resource || resource === "desert" || !amount) return;
 
     ensureResourceBank();
 
@@ -498,9 +571,7 @@ function collectStartingResourcesForSettlement(settlement) {
 
     st.board.hexes.forEach(hex => {
         if (hex.resource === "desert") return;
-        if (pieceTouchesHex(settlement, hex)) {
-            addResourceToPlayer(settlement.owner, hex.resource, 1, gains);
-        }
+        if (pieceTouchesHex(settlement, hex)) addResourceToPlayer(settlement.owner, hex.resource, 1, gains);
     });
 
     return gains;
@@ -546,10 +617,7 @@ function nextSetupMessage() {
     const current = currentSettlersPlayer();
     const round = setupRoundName();
 
-    if (st.setup.needed === "road") {
-        return `${current.name}: now place a road touching that settlement.`;
-    }
-
+    if (st.setup.needed === "road") return `${current.name}: now place a road touching that settlement.`;
     return `${current.name}: place your ${round} settlement.`;
 }
 
@@ -619,6 +687,11 @@ function applyPendingSettlersRoll(rollId) {
     const gains = st.pendingRoll.gains || {};
     applyResourceGains(gains);
 
+    st.resourceBurst = {
+        id: `burst-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
+        gains: JSON.parse(JSON.stringify(gains))
+    };
+
     st.pendingRoll.applied = true;
     st.highlightedRoll = null;
     st.message = `Rolled ${st.pendingRoll.d1} + ${st.pendingRoll.d2} = ${st.pendingRoll.total}. ${summarizeMyGains(gains)}`;
@@ -628,9 +701,7 @@ function applyPendingSettlersRoll(rollId) {
     syncSettlers();
 
     const current = currentSettlersPlayer();
-    if (current && current.isComputer && isHostPlayer()) {
-        scheduleComputerIfNeeded(800);
-    }
+    if (current && current.isComputer && isHostPlayer()) scheduleComputerIfNeeded(COMPUTER_BUILD_DELAY_MS);
 }
 
 function rollForCurrentPlayer() {
@@ -652,7 +723,7 @@ function rollForCurrentPlayer() {
     renderSettlers();
     syncSettlers();
 
-    setTimeout(() => applyPendingSettlersRoll(rollId), 2600);
+    setTimeout(() => applyPendingSettlersRoll(rollId), 2800);
 }
 
 window.rollSettlersDice = function () {
@@ -690,15 +761,14 @@ function endCurrentTurn() {
     st.rolledThisTurn = false;
     st.highlightedRoll = null;
     st.pendingRoll = null;
+    st.freeRoads = null;
+    st.turnNumber += 1;
+    yearPlentyPick = null;
 
-    if (Array.isArray(st.players) && st.players.length > 1) {
-        st.turnIndex = (st.turnIndex + 1) % st.players.length;
-    }
+    if (Array.isArray(st.players) && st.players.length > 1) st.turnIndex = (st.turnIndex + 1) % st.players.length;
 
     const current = currentSettlersPlayer();
-    st.message = current.id === getMyId()
-        ? "Your turn. Roll the dice."
-        : `${current.name}'s turn.`;
+    st.message = current.id === getMyId() ? "Your turn. Roll the dice." : `${current.name}'s turn.`;
 
     uiState = "IDLE";
     renderSettlers();
@@ -732,7 +802,6 @@ function tryPlaceSettlementForPlayer(playerId, x, y, options) {
     const st = window.settlersState;
     const opts = options || {};
     normalizeSettlersState();
-
     if (!st) return false;
 
     const setupActive = st.setup && st.setup.active;
@@ -790,10 +859,10 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
     const st = window.settlersState;
     const opts = options || {};
     normalizeSettlersState();
-
     if (!st || !edge) return false;
 
     const setupActive = st.setup && st.setup.active;
+    const usingFreeRoad = st.freeRoads && st.freeRoads.playerId === playerId && st.freeRoads.remaining > 0;
 
     if (setupActive) {
         const current = currentSettlersPlayer();
@@ -815,7 +884,7 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
         return false;
     }
 
-    if (!setupActive && !spendResources(playerId, COSTS.road)) {
+    if (!setupActive && !usingFreeRoad && !spendResources(playerId, COSTS.road)) {
         if (!opts.silent) setMessage("Road costs 🧱 + 🌲.");
         return false;
     }
@@ -829,6 +898,19 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
         owner: playerId
     });
 
+    if (usingFreeRoad) {
+        st.freeRoads.remaining -= 1;
+        if (st.freeRoads.remaining <= 0) {
+            st.freeRoads = null;
+            uiState = "IDLE";
+            st.message = `${playerName(playerId)} placed 2 free roads.`;
+        } else {
+            uiState = "BUILD_ROAD";
+            st.message = `${playerName(playerId)}: place 1 more free road.`;
+        }
+        return true;
+    }
+
     if (setupActive) {
         let gainText = "";
         const pending = st.setup.pendingSettlement;
@@ -837,6 +919,7 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
         if (isSecondSetupSettlement) {
             const gains = collectStartingResourcesForSettlement(pending);
             gainText = summarizeGainsForPlayer(gains, pending.owner);
+            st.resourceBurst = { id: `burst-${Date.now()}-${Math.floor(Math.random() * 9999)}`, gains: JSON.parse(JSON.stringify(gains)) };
         }
 
         advanceSetupAfterRoad();
@@ -858,7 +941,6 @@ function tryUpgradeCityForPlayer(playerId, settlementId, options) {
     const st = window.settlersState;
     const opts = options || {};
     normalizeSettlersState();
-
     if (!st || st.phase === "setup") return false;
 
     const idx = st.pieces.settlements.findIndex(s => s.id === settlementId && s.owner === playerId);
@@ -873,17 +955,71 @@ function tryUpgradeCityForPlayer(playerId, settlementId, options) {
     }
 
     const settlement = st.pieces.settlements.splice(idx, 1)[0];
-    st.pieces.cities.push({
-        id: `city-${settlement.id}`,
-        x: settlement.x,
-        y: settlement.y,
-        owner: playerId
-    });
-
+    st.pieces.cities.push({ id: `city-${settlement.id}`, x: settlement.x, y: settlement.y, owner: playerId });
     st.message = `${playerName(playerId)} upgraded to a city.`;
     uiState = "IDLE";
     return true;
 }
+
+function buyDevelopmentCardForPlayer(playerId, options) {
+    const st = window.settlersState;
+    const opts = options || {};
+    normalizeSettlersState();
+    if (!st || st.phase === "setup") return false;
+
+    if (!st.devDeck.length) {
+        if (!opts.silent) setMessage("No development cards left.");
+        return false;
+    }
+
+    if (!spendResources(playerId, COSTS.card)) {
+        if (!opts.silent) setMessage("Development card costs 🐑 + 🌾 + ⛰️.");
+        return false;
+    }
+
+    const type = st.devDeck.pop();
+    const hand = getDevHand(playerId);
+    hand.push({
+        id: `dev-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
+        type,
+        boughtTurn: st.turnNumber
+    });
+
+    st.message = playerId === getMyId() ? "You bought a development card." : `${playerName(playerId)} bought a development card.`;
+    return true;
+}
+
+window.buySettlersDevelopmentCard = function () {
+    const st = window.settlersState;
+    if (!st) return;
+    normalizeSettlersState();
+
+    const current = currentSettlersPlayer();
+    if (current && current.isComputer) {
+        setMessage(`${current.name} is thinking...`);
+        return;
+    }
+
+    if (!isMySettlersTurn()) {
+        setMessage(`Waiting for ${current.name}.`);
+        return;
+    }
+
+    if (st.setup && st.setup.active) {
+        setMessage("Development cards are after setup.");
+        return;
+    }
+
+    if (st.pendingRoll) {
+        setMessage("Wait for the roll to finish first.");
+        return;
+    }
+
+    if (buyDevelopmentCardForPlayer(getMyId(), { silent: false })) {
+        renderSettlers();
+        syncSettlers();
+    }
+};
 
 window.placeSettlement = function (x, y) {
     const st = window.settlersState;
@@ -951,11 +1087,236 @@ window.placeCity = function (settlementId) {
     }
 };
 
-function playerName(playerId) {
-    const st = window.settlersState;
-    const p = st && st.players ? st.players.find(x => x.id === playerId) : null;
-    return p ? p.name : "Player";
+function removeDevCard(playerId, cardId) {
+    const hand = getDevHand(playerId);
+    const idx = hand.findIndex(c => c.id === cardId);
+    if (idx < 0) return null;
+    return hand.splice(idx, 1)[0];
 }
+
+function canPlayDevCard(card) {
+    const st = window.settlersState;
+    if (!st || !card) return false;
+    if (card.type === "victory") return false;
+    return card.boughtTurn !== st.turnNumber;
+}
+
+window.playSettlersDevCard = function (cardId) {
+    const st = window.settlersState;
+    if (!st) return;
+    normalizeSettlersState();
+
+    if (!isMySettlersTurn()) {
+        setMessage(`Waiting for ${currentSettlersPlayer().name}.`);
+        return;
+    }
+
+    if (st.pendingRoll) {
+        setMessage("Wait for the roll to finish first.");
+        return;
+    }
+
+    const hand = getDevHand(getMyId());
+    const card = hand.find(c => c.id === cardId);
+    if (!card) return;
+
+    if (!canPlayDevCard(card)) {
+        setMessage("You cannot play a new development card until a later turn.");
+        return;
+    }
+
+    if (card.type === "knight") {
+        removeDevCard(getMyId(), cardId);
+        st.playedKnights[getMyId()] = (st.playedKnights[getMyId()] || 0) + 1;
+        st.devDiscard.push(card.type);
+        st.message = "You played a Knight.";
+        closeSettlersOverlay("settlersDevOverlay");
+        renderSettlers();
+        syncSettlers();
+        return;
+    }
+
+    if (card.type === "roadBuilding") {
+        removeDevCard(getMyId(), cardId);
+        st.devDiscard.push(card.type);
+        st.freeRoads = { playerId: getMyId(), remaining: 2 };
+        st.message = "Road Building: place 2 free roads.";
+        uiState = "BUILD_ROAD";
+        closeSettlersOverlay("settlersDevOverlay");
+        renderSettlers();
+        syncSettlers();
+        return;
+    }
+
+    if (card.type === "yearOfPlenty") {
+        yearPlentyPick = { cardId, picks: [] };
+        showYearOfPlentyOverlay(cardId);
+        return;
+    }
+
+    if (card.type === "monopoly") {
+        showMonopolyOverlay(cardId);
+    }
+};
+
+function closeSettlersOverlay(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+window.chooseYearPlentyResource = function (cardId, resource) {
+    const st = window.settlersState;
+    if (!st || !yearPlentyPick || yearPlentyPick.cardId !== cardId) return;
+
+    yearPlentyPick.picks.push(resource);
+
+    if (yearPlentyPick.picks.length < 2) {
+        showYearOfPlentyOverlay(cardId);
+        return;
+    }
+
+    const card = removeDevCard(getMyId(), cardId);
+    if (!card) return;
+
+    st.devDiscard.push(card.type);
+    const gains = { [getMyId()]: emptyResourceSet() };
+    yearPlentyPick.picks.forEach(type => {
+        gains[getMyId()][type] += 1;
+    });
+    applyResourceGains(gains);
+    st.resourceBurst = { id: `burst-${Date.now()}-${Math.floor(Math.random() * 9999)}`, gains };
+    st.message = "Year of Plenty: you took 2 resources.";
+    yearPlentyPick = null;
+    closeSettlersOverlay("settlersYearOverlay");
+    closeSettlersOverlay("settlersDevOverlay");
+    renderSettlers();
+    syncSettlers();
+};
+
+window.chooseMonopolyResource = function (cardId, resource) {
+    const st = window.settlersState;
+    if (!st) return;
+
+    const card = removeDevCard(getMyId(), cardId);
+    if (!card) return;
+
+    st.devDiscard.push(card.type);
+    let total = 0;
+
+    st.players.forEach(p => {
+        if (p.id === getMyId()) return;
+        const cards = getResourceCards(p.id);
+        total += cards[resource] || 0;
+        cards[resource] = 0;
+    });
+
+    const gains = { [getMyId()]: emptyResourceSet() };
+    gains[getMyId()][resource] = total;
+    applyResourceGains(gains);
+
+    st.resourceBurst = { id: `burst-${Date.now()}-${Math.floor(Math.random() * 9999)}`, gains };
+    st.message = `Monopoly: you collected ${total} ${resource}.`;
+    closeSettlersOverlay("settlersMonopolyOverlay");
+    closeSettlersOverlay("settlersDevOverlay");
+    renderSettlers();
+    syncSettlers();
+};
+
+function resourceChoiceButtons(onclickName, cardId) {
+    const labels = { brick: "🧱 Brick", wheat: "🌾 Wheat", sheep: "🐑 Sheep", wood: "🌲 Wood", ore: "⛰️ Ore" };
+    return RESOURCE_TYPES.map(type => `
+        <button type="button" onclick="${onclickName}('${cardId}', '${type}')" style="
+            background:#fff;
+            color:#1e4620;
+            border:2px solid #2d6a30;
+            border-radius:12px;
+            padding:10px;
+            font-size:16px;
+            font-weight:900;
+        ">${labels[type]}</button>
+    `).join("");
+}
+
+function showYearOfPlentyOverlay(cardId) {
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (!canvas) return;
+
+    closeSettlersOverlay("settlersYearOverlay");
+    const picked = yearPlentyPick && yearPlentyPick.picks.length ? yearPlentyPick.picks.join(", ") : "none yet";
+
+    canvas.insertAdjacentHTML("beforeend", `
+        <div id="settlersYearOverlay" class="set-overlay-backdrop">
+            <div class="set-overlay-card">
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersYearOverlay').remove()">×</button>
+                <div class="set-overlay-title">🌾 Year of Plenty</div>
+                <div class="set-overlay-sub">Pick 2 resources. Picked: ${escapeHtml(picked)}</div>
+                <div class="set-resource-choice-grid">${resourceChoiceButtons("chooseYearPlentyResource", cardId)}</div>
+            </div>
+        </div>
+    `);
+}
+
+function showMonopolyOverlay(cardId) {
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (!canvas) return;
+
+    closeSettlersOverlay("settlersMonopolyOverlay");
+    canvas.insertAdjacentHTML("beforeend", `
+        <div id="settlersMonopolyOverlay" class="set-overlay-backdrop">
+            <div class="set-overlay-card">
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersMonopolyOverlay').remove()">×</button>
+                <div class="set-overlay-title">🧲 Monopoly</div>
+                <div class="set-overlay-sub">Choose a resource to collect from everyone.</div>
+                <div class="set-resource-choice-grid">${resourceChoiceButtons("chooseMonopolyResource", cardId)}</div>
+            </div>
+        </div>
+    `);
+}
+
+window.showSettlersDevCards = function () {
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (!canvas) return;
+
+    normalizeSettlersState();
+    closeSettlersOverlay("settlersDevOverlay");
+
+    const hand = getDevHand(getMyId());
+    const st = window.settlersState;
+
+    const cardsHtml = hand.length ? hand.map(card => {
+        const info = DEV_CARD_INFO[card.type] || DEV_CARD_INFO.knight;
+        const playable = canPlayDevCard(card) && isMySettlersTurn() && !st.pendingRoll;
+        const isNew = card.boughtTurn === st.turnNumber;
+        const isVictory = card.type === "victory";
+
+        return `
+            <div class="set-dev-card">
+                <div class="set-dev-card-icon">${info.icon}</div>
+                <div class="set-dev-card-title">${escapeHtml(info.title)}</div>
+                <div class="set-dev-card-desc">${escapeHtml(info.desc)}</div>
+                ${isNew ? `<div class="set-dev-new">New card — playable later</div>` : ""}
+                ${isVictory ? `<div class="set-dev-vp">Kept for points</div>` : `
+                    <button type="button" class="set-dev-play" onclick="playSettlersDevCard('${card.id}')" ${playable ? "" : "disabled"}>Play</button>
+                `}
+            </div>
+        `;
+    }).join("") : `
+        <div style="background:#fff;border:2px dashed #2d6a30;border-radius:14px;padding:16px;font-weight:900;color:#1e4620;text-align:center;">
+            No development cards yet.
+        </div>
+    `;
+
+    canvas.insertAdjacentHTML("beforeend", `
+        <div id="settlersDevOverlay" class="set-overlay-backdrop">
+            <div class="set-overlay-card set-dev-overlay-card">
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersDevOverlay').remove()">×</button>
+                <div class="set-overlay-title">🃏 Development Cards</div>
+                <div class="set-overlay-sub">You have ${hand.length} card${hand.length === 1 ? "" : "s"}.</div>
+                <div class="set-dev-grid">${cardsHtml}</div>
+            </div>
+        </div>
+    `);
+};
 
 window.setSettlersUiState = function (newState) {
     const st = window.settlersState;
@@ -998,9 +1359,7 @@ window.setSettlersUiState = function (newState) {
         }
     });
 
-    if (cancelBtn) {
-        cancelBtn.style.display = uiState === "IDLE" || (st && st.setup && st.setup.active) ? "none" : "flex";
-    }
+    if (cancelBtn) cancelBtn.style.display = uiState === "IDLE" || (st && st.setup && st.setup.active) ? "none" : "flex";
 
     if (uiState === "BUILD_SETTLEMENT") {
         if (snapNodes) {
@@ -1016,7 +1375,11 @@ window.setSettlersUiState = function (newState) {
             snapEdges.style.opacity = "1";
             snapEdges.style.pointerEvents = "auto";
         }
-        setMessage(st && st.setup && st.setup.active ? nextSetupMessage() : "Tap a purple road marker to build a road.");
+        if (st && st.freeRoads && st.freeRoads.playerId === getMyId()) {
+            setMessage(`Place ${st.freeRoads.remaining} free road${st.freeRoads.remaining === 1 ? "" : "s"}.`);
+        } else {
+            setMessage(st && st.setup && st.setup.active ? nextSetupMessage() : "Tap a purple road marker to build a road.");
+        }
         return;
     }
 
@@ -1042,63 +1405,20 @@ window.showSettlersHelp = function () {
     const canvas = document.getElementById("gameCanvasContainer");
     if (!canvas) return;
 
-    const old = document.getElementById("settlersHelpOverlay");
-    if (old) old.remove();
+    closeSettlersOverlay("settlersHelpOverlay");
 
     canvas.insertAdjacentHTML("beforeend", `
-        <div id="settlersHelpOverlay" style="
-            position:absolute;
-            inset:0;
-            z-index:99999;
-            background:rgba(0,0,0,0.76);
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            padding:12px;
-            box-sizing:border-box;
-        ">
-            <div style="
-                width:96%;
-                max-width:360px;
-                background:#eaf4df;
-                border:4px solid #ffd700;
-                border-radius:18px;
-                padding:12px;
-                box-sizing:border-box;
-                color:#1e4620;
-                font-weight:900;
-                box-shadow:0 6px 18px rgba(0,0,0,0.45);
-                position:relative;
-            ">
-                <button type="button" onclick="document.getElementById('settlersHelpOverlay').remove()" style="
-                    position:absolute;
-                    top:8px;
-                    right:8px;
-                    width:38px;
-                    height:38px;
-                    border-radius:999px;
-                    border:2px solid #fff;
-                    background:#dc3545;
-                    color:#fff;
-                    font-size:24px;
-                    font-weight:900;
-                    line-height:1;
-                ">×</button>
-
-                <div style="font-family:Impact,sans-serif;font-size:28px;color:#1e4620;text-align:center;margin-bottom:12px;">
-                    Build Costs
+        <div id="settlersHelpOverlay" class="set-overlay-backdrop">
+            <div class="set-overlay-card">
+                <button type="button" class="set-overlay-close" onclick="document.getElementById('settlersHelpOverlay').remove()">×</button>
+                <div class="set-overlay-title">Build Costs</div>
+                <div class="set-help-list">
+                    <div>🛣️ Road = 🧱 + 🌲</div>
+                    <div>🏠 Settlement = 🧱 + 🌲 + 🐑 + 🌾</div>
+                    <div>🏰 City = 🌾🌾 + ⛰️⛰️⛰️</div>
+                    <div>🃏 Dev Card = 🐑 + 🌾 + ⛰️</div>
                 </div>
-
-                <div style="display:flex;flex-direction:column;gap:8px;font-size:17px;">
-                    <div style="background:#fff;border:2px solid #2d6a30;border-radius:12px;padding:9px;">🛣️ Road = 🧱 + 🌲</div>
-                    <div style="background:#fff;border:2px solid #2d6a30;border-radius:12px;padding:9px;">🏠 Settlement = 🧱 + 🌲 + 🐑 + 🌾</div>
-                    <div style="background:#fff;border:2px solid #2d6a30;border-radius:12px;padding:9px;">🏰 City = 🌾🌾 + ⛰️⛰️⛰️</div>
-                    <div style="background:#fff;border:2px solid #2d6a30;border-radius:12px;padding:9px;">🃏 Dev Card = 🐑 + 🌾 + ⛰️</div>
-                </div>
-
-                <div style="margin-top:10px;background:#fff3cd;border:2px solid #d3b200;border-radius:12px;padding:9px;font-size:14px;">
-                    Setup goes forward, then backward. Starting resources come only from your second settlement.
-                </div>
+                <div class="set-help-note">Setup goes forward, then backward. Starting resources come only from your second settlement.</div>
             </div>
         </div>
     `);
@@ -1136,9 +1456,7 @@ function buildSvgBoardHtml() {
             const isRed = hex.token === 6 || hex.token === 8;
             hexHtml += `
                 <circle cx="0" cy="0" r="15" fill="#fff" stroke="#333" stroke-width="1"/>
-                <text x="0" y="5" font-family="Arial" font-weight="900" font-size="16" text-anchor="middle" fill="${isRed ? "#dc3545" : "#111"}">
-                    ${hex.token}
-                </text>
+                <text x="0" y="5" font-family="Arial" font-weight="900" font-size="16" text-anchor="middle" fill="${isRed ? "#dc3545" : "#111"}">${hex.token}</text>
             `;
         }
 
@@ -1159,26 +1477,17 @@ function buildSvgBoardHtml() {
     let piecesHtml = "";
 
     st.pieces.roads.forEach(r => {
-        piecesHtml += `
-            <line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}"
-                stroke="${playerColor(r.owner)}" stroke-width="8" stroke-linecap="round" />
-        `;
+        piecesHtml += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${playerColor(r.owner)}" stroke-width="8" stroke-linecap="round" />`;
     });
 
     st.pieces.settlements.forEach(s => {
         const color = playerColor(s.owner);
-        piecesHtml += `
-            <rect x="${s.x - 10}" y="${s.y - 10}" width="20" height="20" rx="3"
-                fill="${color}" stroke="#fff" stroke-width="2" />
-        `;
+        piecesHtml += `<rect x="${s.x - 10}" y="${s.y - 10}" width="20" height="20" rx="3" fill="${color}" stroke="#fff" stroke-width="2" />`;
     });
 
     st.pieces.cities.forEach(c => {
         const color = playerColor(c.owner);
-        piecesHtml += `
-            <path d="M ${c.x - 13} ${c.y + 10} L ${c.x - 13} ${c.y - 4} L ${c.x - 4} ${c.y - 12} L ${c.x + 13} ${c.y - 12} L ${c.x + 13} ${c.y + 10} Z"
-                fill="${color}" stroke="#fff" stroke-width="2" />
-        `;
+        piecesHtml += `<path d="M ${c.x - 13} ${c.y + 10} L ${c.x - 13} ${c.y - 4} L ${c.x - 4} ${c.y - 12} L ${c.x + 13} ${c.y - 12} L ${c.x + 13} ${c.y + 10} Z" fill="${color}" stroke="#fff" stroke-width="2" />`;
     });
 
     let snapNodesHtml = "";
@@ -1186,15 +1495,12 @@ function buildSvgBoardHtml() {
     const current = currentSettlersPlayer();
     const playerId = current ? current.id : getMyId();
 
+    const legalNodes = legalSettlementNodes(playerId, setupMode);
     snapNodes.forEach(node => {
-        const legal = legalSettlementNodes(playerId, setupMode).some(n => pointsMatch(n, node));
+        const legal = legalNodes.some(n => pointsMatch(n, node));
         if (!legal) return;
 
-        snapNodesHtml += `
-            <circle cx="${node.x}" cy="${node.y}" r="10"
-                fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="3"
-                style="cursor:pointer;" onclick="placeSettlement(${node.x}, ${node.y})" />
-        `;
+        snapNodesHtml += `<circle cx="${node.x}" cy="${node.y}" r="10" fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="3" style="cursor:pointer;" onclick="placeSettlement(${node.x}, ${node.y})" />`;
     });
 
     let snapEdgesHtml = "";
@@ -1215,23 +1521,15 @@ function buildSvgBoardHtml() {
 
         snapEdgesHtml += `
             <g style="cursor:pointer;">
-                <line x1="${edge.x1}" y1="${edge.y1}" x2="${edge.x2}" y2="${edge.y2}"
-                    stroke="rgba(0,0,0,0)" stroke-width="18" stroke-linecap="round"
-                    pointer-events="stroke" onclick="placeRoad(${edge.x1}, ${edge.y1}, ${edge.x2}, ${edge.y2})" />
-                <line x1="${vx1}" y1="${vy1}" x2="${vx2}" y2="${vy2}"
-                    stroke="${HIGHLIGHT_PURPLE}" stroke-width="6" stroke-linecap="round" opacity="0.95"
-                    pointer-events="none" />
+                <line x1="${edge.x1}" y1="${edge.y1}" x2="${edge.x2}" y2="${edge.y2}" stroke="rgba(0,0,0,0)" stroke-width="18" stroke-linecap="round" pointer-events="stroke" onclick="placeRoad(${edge.x1}, ${edge.y1}, ${edge.x2}, ${edge.y2})" />
+                <line x1="${vx1}" y1="${vy1}" x2="${vx2}" y2="${vy2}" stroke="${HIGHLIGHT_PURPLE}" stroke-width="6" stroke-linecap="round" opacity="0.95" pointer-events="none" />
             </g>
         `;
     });
 
     let snapCitiesHtml = "";
     ownedSettlementPieces(getMyId()).forEach(s => {
-        snapCitiesHtml += `
-            <circle cx="${s.x}" cy="${s.y}" r="16"
-                fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="4"
-                style="cursor:pointer;" onclick="placeCity('${s.id}')" />
-        `;
+        snapCitiesHtml += `<circle cx="${s.x}" cy="${s.y}" r="16" fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="4" style="cursor:pointer;" onclick="placeCity('${s.id}')" />`;
     });
 
     return `
@@ -1275,10 +1573,7 @@ function initSettlersPanZoom() {
 
     function midpoint(t1, t2) {
         const rect = shell.getBoundingClientRect();
-        return {
-            x: ((t1.clientX + t2.clientX) / 2) - rect.left,
-            y: ((t1.clientY + t2.clientY) / 2) - rect.top
-        };
+        return { x: ((t1.clientX + t2.clientX) / 2) - rect.left, y: ((t1.clientY + t2.clientY) / 2) - rect.top };
     }
 
     function clampPan() {
@@ -1380,9 +1675,9 @@ function computerPickSettlement(playerId, setupMode) {
     const nodes = legalSettlementNodes(playerId, setupMode);
     if (!nodes.length) return null;
 
+    const st = window.settlersState;
     const scored = nodes.map(node => {
         let score = 0;
-        const st = window.settlersState;
         st.board.hexes.forEach(hex => {
             if (!pieceTouchesHex(node, hex)) return;
             if (hex.resource === "desert") score -= 10;
@@ -1424,6 +1719,10 @@ function computerTryBuild(player) {
         if (edge && tryPlaceRoadForPlayer(player.id, edge, { silent: true })) return true;
     }
 
+    if (hasResources(player.id, COSTS.card) && Math.random() < 0.55) {
+        if (buyDevelopmentCardForPlayer(player.id, { silent: true })) return true;
+    }
+
     return false;
 }
 
@@ -1434,7 +1733,6 @@ function computerTakeAction() {
 
     const player = currentSettlersPlayer();
     if (!player || !player.isComputer) return;
-
     if (st.pendingRoll) return;
 
     if (st.setup && st.setup.active) {
@@ -1444,7 +1742,7 @@ function computerTakeAction() {
                 tryPlaceSettlementForPlayer(player.id, node.x, node.y, { silent: true });
                 renderSettlers();
                 syncSettlers();
-                scheduleComputerIfNeeded(900);
+                scheduleComputerIfNeeded(COMPUTER_BUILD_DELAY_MS);
             }
             return;
         }
@@ -1455,7 +1753,7 @@ function computerTakeAction() {
                 tryPlaceRoadForPlayer(player.id, edge, { silent: true });
                 renderSettlers();
                 syncSettlers();
-                scheduleComputerIfNeeded(900);
+                scheduleComputerIfNeeded(COMPUTER_BUILD_DELAY_MS);
             }
             return;
         }
@@ -1476,7 +1774,7 @@ function computerTakeAction() {
             if (nowPlayer && nowPlayer.id === player.id && nowPlayer.isComputer && !window.settlersState.pendingRoll) {
                 endCurrentTurn();
             }
-        }, 900);
+        }, COMPUTER_BUILD_DELAY_MS);
     }
 }
 
@@ -1492,7 +1790,8 @@ function scheduleComputerIfNeeded(delay) {
         st.setup && st.setup.active ? st.setup.stepIndex : "play",
         st.setup && st.setup.active ? st.setup.needed : st.turnIndex,
         st.rolledThisTurn ? "rolled" : "notrolled",
-        st.pendingRoll ? "pending" : "free"
+        st.pendingRoll ? "pending" : "free",
+        st.freeRoads ? st.freeRoads.remaining : "nofree"
     ].join("|");
 
     if (computerActionKey === key && computerTimer) return;
@@ -1503,7 +1802,12 @@ function scheduleComputerIfNeeded(delay) {
     computerTimer = setTimeout(() => {
         computerTimer = null;
         computerTakeAction();
-    }, delay || 900);
+    }, delay || COMPUTER_DELAY_MS);
+}
+
+function getResourceBurstHtml(type, amount) {
+    if (!amount) return "";
+    return `<span class="set-resource-burst">+${amount}</span>`;
 }
 
 function renderSettlers() {
@@ -1519,6 +1823,7 @@ function renderSettlers() {
     const sheep = myCards.sheep || 0;
     const wood = myCards.wood || 0;
     const ore = myCards.ore || 0;
+    const myDevCount = getDevHand(getMyId()).length;
 
     const currentPlayer = currentSettlersPlayer();
     const myTurn = isMySettlersTurn();
@@ -1531,6 +1836,12 @@ function renderSettlers() {
     const rollButtonLabel = canEnd ? "End" : "Roll";
     const rollButtonIcon = canEnd ? "➡️" : "🎲";
     const rollButtonAction = canEnd ? "endSettlersTurn()" : "rollSettlersDice()";
+
+    let burst = null;
+    if (st.resourceBurst && st.resourceBurst.id !== lastResourceBurstId) {
+        lastResourceBurstId = st.resourceBurst.id;
+        burst = cloneResourceSet(st.resourceBurst.gains && st.resourceBurst.gains[getMyId()]);
+    }
 
     el.innerHTML = `
         <style>
@@ -1546,8 +1857,13 @@ function renderSettlers() {
             .set-roll-big-dice { display:flex; gap:10px; }
             .set-roll-die { width:54px; height:54px; background:#fff; border:3px solid #111; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#111; box-shadow:inset 0 0 0 2px rgba(0,0,0,0.08); }
             .set-roll-total { font-size:17px; color:${HIGHLIGHT_PURPLE}; }
-            .set-hand-ui { background:#d7e0cf; border-top:3px solid #1e4620; padding:10px 8px 42px 8px; flex-shrink:0; display:flex; flex-direction:column; gap:10px; box-sizing:border-box; }
+            .set-hand-ui { background:#d7e0cf; border-top:3px solid #1e4620; padding:10px 8px 42px 8px; flex-shrink:0; display:flex; flex-direction:column; gap:9px; box-sizing:border-box; }
             .set-resources { display:flex; justify-content:space-around; align-items:center; font-size:16px; font-weight:900; color:#1e4620; background:#f5f5f5; padding:10px 6px; border-radius:14px; border:3px solid #2d6a30; }
+            .set-res-item { position:relative; min-width:42px; text-align:center; }
+            .set-resource-burst { position:absolute; left:50%; top:-10px; transform:translateX(-50%); color:#ffd700; background:#1e4620; border:2px solid #fff; border-radius:999px; padding:1px 7px; font-size:16px; font-weight:900; animation:setFloatUp 1.25s ease-out forwards; pointer-events:none; box-shadow:0 3px 8px rgba(0,0,0,.35); }
+            @keyframes setFloatUp { 0% { opacity:0; transform:translate(-50%, 10px) scale(.75); } 18% { opacity:1; transform:translate(-50%, -10px) scale(1.2); } 100% { opacity:0; transform:translate(-50%, -48px) scale(1); } }
+            .set-dev-pile-row { display:flex; justify-content:center; margin-top:-2px; }
+            .set-dev-pile-btn { background:#102b63; color:#fff; border:2px solid #fff; border-radius:999px; padding:6px 14px; font-size:13px; font-weight:900; box-shadow:0 3px 8px rgba(0,0,0,.28); }
             .set-actions { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:8px; }
             .set-act-btn { min-height:78px; padding:7px 3px; border-radius:14px; border:2px solid #2d6a30; background:#2d6a30; color:#fff; font-weight:900; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,0.22); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-align:center; line-height:1.05; }
             .set-act-btn:active { transform:scale(0.96); }
@@ -1559,6 +1875,23 @@ function renderSettlers() {
             .set-roll-btn { background:#6b3fa0; border-color:#ffffff; }
             .set-roll-btn.active { background:#ff8c00; color:#111; border-color:#ffd700; box-shadow:0 0 0 3px #ffd700, 0 4px 10px rgba(0,0,0,0.35); }
             .set-help-btn { background:#1d4ed8; border-color:#ffffff; }
+            .set-overlay-backdrop { position:absolute; inset:0; z-index:99999; background:rgba(0,0,0,.76); display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box; }
+            .set-overlay-card { width:96%; max-width:370px; max-height:92%; overflow:auto; background:#eaf4df; border:4px solid #ffd700; border-radius:18px; padding:12px; box-sizing:border-box; color:#1e4620; font-weight:900; box-shadow:0 6px 18px rgba(0,0,0,.45); position:relative; }
+            .set-overlay-close { position:absolute; top:8px; right:8px; width:38px; height:38px; border-radius:999px; border:2px solid #fff; background:#dc3545; color:#fff; font-size:24px; font-weight:900; line-height:1; }
+            .set-overlay-title { font-family:Impact,sans-serif; font-size:28px; color:#1e4620; text-align:center; margin-bottom:10px; padding-right:34px; }
+            .set-overlay-sub { text-align:center; color:#2d6a30; font-size:14px; margin-bottom:10px; }
+            .set-help-list { display:flex; flex-direction:column; gap:8px; font-size:17px; }
+            .set-help-list div { background:#fff; border:2px solid #2d6a30; border-radius:12px; padding:9px; }
+            .set-help-note { margin-top:10px; background:#fff3cd; border:2px solid #d3b200; border-radius:12px; padding:9px; font-size:14px; }
+            .set-dev-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
+            .set-dev-card { background:#fff; border:2px solid #2d6a30; border-radius:14px; padding:9px; min-height:150px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:5px; box-sizing:border-box; }
+            .set-dev-card-icon { font-size:30px; }
+            .set-dev-card-title { font-family:Impact,sans-serif; color:#1e4620; font-size:20px; }
+            .set-dev-card-desc { font-size:12px; color:#334; line-height:1.15; }
+            .set-dev-new, .set-dev-vp { font-size:11px; color:#8a2be2; font-weight:900; }
+            .set-dev-play { margin-top:auto; width:100%; border:none; border-radius:10px; padding:7px; background:#1d4ed8; color:#fff; font-weight:900; }
+            .set-dev-play:disabled { background:#999; color:#eee; }
+            .set-resource-choice-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         </style>
 
         <div class="set-wrap">
@@ -1581,11 +1914,15 @@ function renderSettlers() {
 
                         <div class="set-hand-ui">
                             <div class="set-resources">
-                                <span>🧱 ${brick}</span>
-                                <span>🌾 ${wheat}</span>
-                                <span>🐑 ${sheep}</span>
-                                <span>🌲 ${wood}</span>
-                                <span>⛰️ ${ore}</span>
+                                <span class="set-res-item">🧱 ${brick}${getResourceBurstHtml("brick", burst && burst.brick)}</span>
+                                <span class="set-res-item">🌾 ${wheat}${getResourceBurstHtml("wheat", burst && burst.wheat)}</span>
+                                <span class="set-res-item">🐑 ${sheep}${getResourceBurstHtml("sheep", burst && burst.sheep)}</span>
+                                <span class="set-res-item">🌲 ${wood}${getResourceBurstHtml("wood", burst && burst.wood)}</span>
+                                <span class="set-res-item">⛰️ ${ore}${getResourceBurstHtml("ore", burst && burst.ore)}</span>
+                            </div>
+
+                            <div class="set-dev-pile-row">
+                                <button type="button" class="set-dev-pile-btn" onclick="showSettlersDevCards()">🃏 My Cards: ${myDevCount}</button>
                             </div>
 
                             <div class="set-actions">
@@ -1598,8 +1935,8 @@ function renderSettlers() {
                                 <button type="button" class="set-act-btn" onclick="setSettlersUiState('BUILD_CITY')" ${computerTurn || setupActive ? "disabled" : ""}>
                                     <span class="ico">🏰</span><span class="lbl">City</span>
                                 </button>
-                                <button type="button" class="set-act-btn card-btn" onclick="setSettlersMessage('Development cards are not wired up yet.')">
-                                    <span class="ico">🃏</span><span class="lbl">Card</span>
+                                <button type="button" class="set-act-btn card-btn" onclick="buySettlersDevelopmentCard()" ${computerTurn || setupActive ? "disabled" : ""}>
+                                    <span class="ico">🃏</span><span class="lbl">Buy Card</span>
                                 </button>
                                 <button type="button" class="set-act-btn set-roll-btn ${rollButtonActive ? "active" : ""}" onclick="${rollButtonAction}" ${rollButtonActive ? "" : "disabled"}>
                                     <span class="ico">${rollButtonIcon}</span><span class="lbl">${rollButtonLabel}</span>
@@ -1618,9 +1955,7 @@ function renderSettlers() {
         </div>
     `;
 
-    if (setupActive) {
-        uiState = setupExpectedNeed() === "road" ? "BUILD_ROAD" : "BUILD_SETTLEMENT";
-    }
+    if (setupActive) uiState = setupExpectedNeed() === "road" ? "BUILD_ROAD" : "BUILD_SETTLEMENT";
 
     if (!computerTurn) {
         window.setSettlersUiState(uiState);
@@ -1630,7 +1965,7 @@ function renderSettlers() {
     }
 
     initSettlersPanZoom();
-    scheduleComputerIfNeeded(900);
+    scheduleComputerIfNeeded(computerTurn ? COMPUTER_DELAY_MS : 0);
 }
 
 window.initSettlersGame = function () {
@@ -1653,6 +1988,8 @@ window.initSettlersGame = function () {
         zoomState = { scale: 1, x: 0, y: 0 };
         uiState = "BUILD_SETTLEMENT";
         computerActionKey = "";
+        lastResourceBurstId = "";
+        yearPlentyPick = null;
         if (computerTimer) clearTimeout(computerTimer);
         computerTimer = null;
         window.settlersState = createState();
@@ -1666,9 +2003,7 @@ window.initSettlersGame = function () {
 window.handleIncomingSettlersSync = function (payload) {
     if (!payload || !payload.state) return;
 
-    if (payload.roomGameId && window.chaserGame && window.chaserGame.activeGameId && payload.roomGameId !== window.chaserGame.activeGameId) {
-        return;
-    }
+    if (payload.roomGameId && window.chaserGame && window.chaserGame.activeGameId && payload.roomGameId !== window.chaserGame.activeGameId) return;
 
     window.settlersState = payload.state;
     if (window.chaserGame) window.chaserGame.activeGame = "Settlers";
