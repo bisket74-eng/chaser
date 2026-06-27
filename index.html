@@ -5048,6 +5048,326 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     document.head.appendChild(style);
 })();
 </script>
+    
+<script>
+/* CHASER PATCH — HUD final fixes: Chaser green, formatting, reset left, buddy-cycle return */
+(function () {
+    if (window.__chaserHudFinalFixInstalled) return;
+    window.__chaserHudFinalFixInstalled = true;
 
+    let hudShouldBeFollowMode = true;
+    let buddyCounterTapIndex = 0;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function inputsAreClosed() {
+        const wrapper = byId("inputsWrapper");
+        return !wrapper || wrapper.classList.contains("hidden");
+    }
+
+    function isMeName(name) {
+        return String(name || "").includes("(You)");
+    }
+
+    function hasLocation(rider) {
+        return !!(rider && rider.marker && rider.lat && rider.lng);
+    }
+
+    function getBuddyCycleLength() {
+        try {
+            const entries = Object.entries(incomingRidersCache || {}).filter(([, rider]) => hasLocation(rider));
+            const activeBuddies = entries.filter(([name, rider]) => !isMeName(name) && !rider.isGhost);
+            const dormantBuddies = entries.filter(([name, rider]) => !isMeName(name) && rider.isGhost);
+            const me = entries.filter(([name]) => isMeName(name));
+
+            return activeBuddies.concat(dormantBuddies).concat(me).length;
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function installFinalHudFixStyle() {
+        if (byId("chaser-hud-final-fix-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-hud-final-fix-style";
+        style.innerHTML = `
+            #chaserFollowStatsHud {
+                left:22px !important;
+                bottom:112px !important;
+                width:min(76vw, 350px) !important;
+                max-width:350px !important;
+                gap:10px !important;
+                background:transparent !important;
+                z-index:13 !important;
+            }
+
+            #chaserFollowStatsHud::before {
+                color:#1e4620 !important;
+                text-shadow:
+                    1px 1px 0 rgba(226,240,217,.9),
+                    0 2px 5px rgba(0,0,0,.20) !important;
+                opacity:.72 !important;
+            }
+
+            .chaser-hud-tile {
+                min-height:88px !important;
+                background:rgba(226, 240, 217, 0.48) !important;
+                border:2px solid rgba(30, 70, 32, 0.68) !important;
+                border-radius:12px !important;
+                box-shadow:
+                    inset 0 0 12px rgba(255,255,255,.18),
+                    0 7px 22px rgba(0,0,0,.24) !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+                padding:10px 10px 12px 10px !important;
+                overflow:hidden !important;
+            }
+
+            .chaser-hud-tile::after {
+                background:linear-gradient(
+                    90deg,
+                    transparent,
+                    rgba(30,70,32,.45),
+                    transparent
+                ) !important;
+            }
+
+            .chaser-hud-label,
+            .chaser-hud-number,
+            .chaser-hud-unit {
+                color:#1e4620 !important;
+                text-shadow:
+                    1px 1px 0 rgba(226,240,217,.95),
+                    0 2px 5px rgba(0,0,0,.20) !important;
+            }
+
+            .chaser-hud-number {
+                font-size:42px !important;
+                line-height:.95 !important;
+                font-weight:900 !important;
+                letter-spacing:-3px !important;
+                font-variant-numeric:tabular-nums !important;
+            }
+
+            #chaserHudSpeed::before {
+                content:"888" !important;
+                color:rgba(30,70,32,.12) !important;
+                text-shadow:none !important;
+            }
+
+            #chaserHudTrip::before {
+                content:"88.8" !important;
+                color:rgba(30,70,32,.11) !important;
+                text-shadow:none !important;
+            }
+
+            .chaser-hud-tile:nth-child(2) {
+                padding-bottom:28px !important;
+            }
+
+            #chaserHudTripReset {
+                left:8px !important;
+                right:auto !important;
+                bottom:6px !important;
+                margin:0 !important;
+                background:rgba(226, 240, 217, 0.72) !important;
+                border:1px solid rgba(30, 70, 32, 0.65) !important;
+                color:#1e4620 !important;
+                font-family:"Courier New", monospace !important;
+                font-size:9px !important;
+                font-weight:900 !important;
+                letter-spacing:.8px !important;
+                padding:3px 8px !important;
+                border-radius:999px !important;
+                box-shadow:0 2px 6px rgba(0,0,0,.22) !important;
+                text-transform:uppercase !important;
+            }
+
+            #chaserHudTripReset:active {
+                transform:scale(.92) !important;
+                background:rgba(226, 240, 217, 0.95) !important;
+            }
+
+            @media (max-width:380px) {
+                .chaser-hud-number {
+                    font-size:35px !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function formatHudNumbers() {
+        const speedEl = byId("chaserHudSpeed");
+        const tripEl = byId("chaserHudTrip");
+
+        if (speedEl) {
+            const rawSpeed = parseFloat(speedEl.innerText);
+            if (Number.isFinite(rawSpeed)) {
+                const cleanSpeed = String(Math.round(rawSpeed));
+                if (speedEl.innerText !== cleanSpeed) {
+                    speedEl.innerText = cleanSpeed;
+                }
+            }
+        }
+
+        if (tripEl) {
+            const rawTrip = parseFloat(tripEl.innerText);
+            if (Number.isFinite(rawTrip)) {
+                const cleanTrip = rawTrip.toFixed(1);
+                if (tripEl.innerText !== cleanTrip) {
+                    tripEl.innerText = cleanTrip;
+                }
+            }
+        }
+    }
+
+    function showHudAsFollowMode() {
+        hudShouldBeFollowMode = true;
+
+        setTimeout(function () {
+            if (!isSharingNow()) return;
+
+            if (typeof window.chaserEnterFollowHudMode === "function") {
+                window.chaserEnterFollowHudMode();
+            }
+
+            formatHudNumbers();
+        }, 260);
+    }
+
+    function hideHudBecauseBrowsing() {
+        hudShouldBeFollowMode = false;
+
+        setTimeout(function () {
+            if (typeof window.chaserLeaveFollowHudMode === "function") {
+                window.chaserLeaveFollowHudMode();
+            }
+
+            formatHudNumbers();
+        }, 80);
+    }
+
+    function handleBuddiesOnlineTap() {
+        if (!isSharingNow()) {
+            hideHudBecauseBrowsing();
+            return;
+        }
+
+        const listLength = getBuddyCycleLength();
+        const totalSteps = Math.max(1, listLength + 1);
+        const step = buddyCounterTapIndex % totalSteps;
+
+        buddyCounterTapIndex = (buddyCounterTapIndex + 1) % totalSteps;
+
+        if (step === listLength) {
+            showHudAsFollowMode();
+        } else {
+            hideHudBecauseBrowsing();
+        }
+    }
+
+    installFinalHudFixStyle();
+
+    document.addEventListener("click", function (e) {
+        const target = e.target;
+        if (!target || !target.closest) return;
+
+        if (target.closest("#riderCounterWidget")) {
+            handleBuddiesOnlineTap();
+            return;
+        }
+
+        if (
+            target.closest(".rider-label") ||
+            target.closest(".rider-physical-pin") ||
+            target.closest(".leaflet-control-zoom")
+        ) {
+            hideHudBecauseBrowsing();
+        }
+    }, true);
+
+    const startButton = byId("startBtn");
+    if (startButton) {
+        startButton.addEventListener("click", function () {
+            setTimeout(function () {
+                if (isSharingNow()) {
+                    showHudAsFollowMode();
+                } else {
+                    hideHudBecauseBrowsing();
+                }
+            }, 500);
+        });
+    }
+
+    const toggleButton = byId("toggleInputsBtn");
+    if (toggleButton) {
+        toggleButton.addEventListener("click", function () {
+            setTimeout(function () {
+                if (isSharingNow() && hudShouldBeFollowMode && inputsAreClosed()) {
+                    showHudAsFollowMode();
+                } else {
+                    formatHudNumbers();
+                }
+            }, 140);
+        });
+    }
+
+    const mapDiv = byId("map");
+    if (mapDiv) {
+        mapDiv.addEventListener("touchstart", function (e) {
+            if (e.touches && e.touches.length > 1) {
+                hideHudBecauseBrowsing();
+            }
+        }, { passive:true });
+    }
+
+    try {
+        if (typeof map !== "undefined" && map && typeof map.on === "function") {
+            map.on("dragstart", function () {
+                hideHudBecauseBrowsing();
+            });
+        }
+    } catch (e) {}
+
+    function watchHudText() {
+        const hud = byId("chaserFollowStatsHud");
+        if (!hud || hud.__chaserFinalFormatObserver) return;
+
+        hud.__chaserFinalFormatObserver = true;
+
+        const observer = new MutationObserver(function () {
+            formatHudNumbers();
+        });
+
+        observer.observe(hud, {
+            childList:true,
+            characterData:true,
+            subtree:true
+        });
+    }
+
+    setInterval(function () {
+        installFinalHudFixStyle();
+        watchHudText();
+        formatHudNumbers();
+
+        if (!isSharingNow()) {
+            hudShouldBeFollowMode = true;
+        }
+    }, 500);
+})();
+</script>
 </body>
 </html>
