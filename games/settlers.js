@@ -287,7 +287,32 @@ function renderSettlers() {
             .set-header { background: #1e4620; color: #ffd700; padding: 10px; text-align: center; font-weight: 900; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 10; flex-shrink: 0; }
             
             /* Magic CSS property that enables buttery smooth native mobile pinch-zoom and panning */
-            .set-map-viewport { flex: 1; overflow: auto; touch-action: pan-x pan-y pinch-zoom; display: flex; align-items: center; justify-content: center; }
+            .set-map-viewport {
+    flex: 1;
+    overflow: hidden;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #4da6ff;
+}
+
+.set-board-zoomer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+}
+
+.set-board-zoomer svg {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
             
             .set-hand-ui { background: #e2f0d9; border-top: 3px solid #1e4620; padding: 8px 6px 42px 6px; flex-shrink: 0; z-index: 10; display: flex; flex-direction: column; gap: 8px; }
             
