@@ -13,11 +13,15 @@ const ARMY_REVEAL_MS = 2800;
 const ACTION_FLASH_MS = 1500;
 const BONUS_STEP_MS = 2000;
 const SECRET_GOAL_POINTS = 5;
+const ROUND_NUMBER_MS = 3000;
+const ROUND_EVENT_MS = 3000;
+const ROUND_EFFECT_MS = 1700;
 
 let botTimer = null;
 let armyRevealTimer = null;
 let actionFlashTimer = null;
 let bonusStepTimer = null;
+let roundIntroTimer = null;
 
 const zoomView = {
 scale: 1,
@@ -56,12 +60,12 @@ return byId("gameCanvasContainer");
 }
 
 function escapeHtml(value) {
-    return String(value || "")
-        .replace(/&/g, "\u0026amp;")
-        .replace(/</g, "\u0026lt;")
-        .replace(/>/g, "\u0026gt;")
-        .replace(/"/g, "\u0026quot;")
-        .replace(/'/g, "\u0026#039;");
+return String(value || "")
+    .replace(/&/g, "\u0026amp;")
+    .replace(/</g, "\u0026lt;")
+    .replace(/>/g, "\u0026gt;")
+    .replace(/"/g, "\u0026quot;")
+    .replace(/'/g, "\u0026#039;");
 }
 
 function getMyId() {
@@ -88,7 +92,6 @@ const chatHeader = byId("chatHeader");
 if (roomDisplay) roomDisplay.innerText = "🏰 Tiny Kingdoms";
 if (headerBtns) headerBtns.style.display = "none";
 if (chatHeader) chatHeader.classList.add("game-active-mode");
-
 }
 
 function resetZoom() {
@@ -99,14 +102,14 @@ zoomView.y = 0;
 
 function syncTinyKingdoms() {
 if (typeof channel !== "undefined" && channel && window.tinyKingdomsState) {
-channel.send({
-type: "broadcast",
-event: "tinykingdoms-sync-state",
-payload: {
-state: window.tinyKingdomsState,
-roomGameId: window.chaserGame && window.chaserGame.activeGameId ? window.chaserGame.activeGameId : null
-}
-});
+    channel.send({
+        type: "broadcast",
+        event: "tinykingdoms-sync-state",
+        payload: {
+            state: window.tinyKingdomsState,
+            roomGameId: window.chaserGame && window.chaserGame.activeGameId ? window.chaserGame.activeGameId : null
+        }
+    });
 }
 }
 
@@ -160,18 +163,19 @@ return ROUND_EVENTS[idx];
 function goalForIndex(index) {
 return SECRET_GOALS[index % SECRET_GOALS.length];
 }
- function shuffledSecretGoals() {
-    const goals = SECRET_GOALS.slice();
 
-    for (let i = goals.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const temp = goals[i];
-        goals[i] = goals[j];
-        goals[j] = temp;
-    }
+function shuffledSecretGoals() {
+const goals = SECRET_GOALS.slice();
 
-    return goals;
-}   
+for (let i = goals.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = goals[i];
+    goals[i] = goals[j];
+    goals[j] = temp;
+}
+
+return goals;
+}
 
 function makePlayers() {
 const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.players) && window.chaserGame.players.length
@@ -182,6 +186,7 @@ const secretGoalOrder = shuffledSecretGoals();
 
 const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
     const goal = secretGoalOrder[idx % secretGoalOrder.length];
+
     return {
         id: p.id,
         name: p.name || "Player " + (idx + 1),
@@ -204,6 +209,7 @@ const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
 
 if (players.length === 1) {
     const goal = secretGoalOrder[1 % secretGoalOrder.length];
+
     players.push({
         id: BOT_ID,
         name: "Computer",
@@ -225,36 +231,35 @@ if (players.length === 1) {
 }
 
 return players;
-
 }
 
 function createState() {
 const roundEvents = makeRoundEventDeck(MAX_ROUNDS);
-const st = {
-phase: "playing",
-round: 1,
-maxRounds: MAX_ROUNDS,
-roundEvents: roundEvents,
-roundEvent: roundEvents[0] || roundEventFor(1),
-players: makePlayers(),
-turnIndex: 0,
-message: "Build your tiny kingdom.",
-log: [],
-finalMessage: "",
-winners: [],
-armyRevealUntil: 0,
-armyRevealIds: [],
-actionFlash: null,
-resourceFlashes: [],
-eventAppliedRound: 0,
-lastActionMeta: null,
-scoringQueue: [],
-scoringIndex: 0,
-activeScoring: null
-};
 
-applyRoundEvent(st);
-return st;
+return {
+    phase: "playing",
+    round: 1,
+    maxRounds: MAX_ROUNDS,
+    roundEvents: roundEvents,
+    roundEvent: roundEvents[0] || roundEventFor(1),
+    players: makePlayers(),
+    turnIndex: 0,
+    message: "Round 1",
+    log: [],
+    finalMessage: "",
+    winners: [],
+    armyRevealUntil: 0,
+    armyRevealIds: [],
+    actionFlash: null,
+    resourceFlashes: [],
+    eventAppliedRound: 0,
+    lastActionMeta: null,
+    scoringQueue: [],
+    scoringIndex: 0,
+    activeScoring: null,
+    roundIntroMode: "number",
+    roundIntroUntil: Date.now() + ROUND_NUMBER_MS
+};
 }
 
 function addLog(st, text) {
@@ -321,6 +326,66 @@ st.message = "Round " + st.round + ": " + ev.title;
 addLog(st, ev.title + ": " + ev.desc);
 }
 
+function startRoundIntro(st) {
+clearTimeout(roundIntroTimer);
+
+if (!st) return;
+
+st.roundIntroMode = "number";
+st.roundIntroUntil = Date.now() + ROUND_NUMBER_MS;
+st.eventAppliedRound = 0;
+st.lastActionMeta = null;
+clearResourceFlashes(st);
+st.message = "Round " + st.round;
+}
+
+function scheduleRoundIntro() {
+clearTimeout(roundIntroTimer);
+
+const st = window.tinyKingdomsState;
+
+if (!st || !st.roundIntroMode) return;
+if (!isTinyKingdomsHost()) return;
+
+const wait = Math.max(0, Number(st.roundIntroUntil || 0) - Date.now());
+
+roundIntroTimer = setTimeout(function () {
+    const current = window.tinyKingdomsState;
+
+    if (!current || !current.roundIntroMode) return;
+
+    if (current.roundIntroMode === "number") {
+        current.roundIntroMode = "event";
+        current.roundIntroUntil = Date.now() + ROUND_EVENT_MS;
+        current.message = current.roundEvent ? current.roundEvent.title : "Round Event";
+        renderTinyKingdomsNoBot();
+        syncTinyKingdoms();
+        scheduleRoundIntro();
+        return;
+    }
+
+    if (current.roundIntroMode === "event") {
+        current.roundIntroMode = "effect";
+        current.roundIntroUntil = Date.now() + ROUND_EFFECT_MS;
+        clearResourceFlashes(current);
+        applyRoundEvent(current);
+        renderTinyKingdomsNoBot();
+        syncTinyKingdoms();
+        scheduleRoundIntro();
+        return;
+    }
+
+    if (current.roundIntroMode === "effect") {
+        current.roundIntroMode = "";
+        current.roundIntroUntil = 0;
+        current.message = "Round " + current.round + ": " + (current.roundEvent ? current.roundEvent.title : "Begin");
+        renderTinyKingdomsNoBot();
+        syncTinyKingdoms();
+        maybeComputerAction();
+    }
+}, wait + 60);
+}
+
 function displayLastActionForViewer(p) {
 const st = window.tinyKingdomsState;
 const me = myPlayer();
@@ -367,7 +432,6 @@ if (
 return msg;
 }
 
-
 function myPlayer() {
 const st = window.tinyKingdomsState;
 if (!st) return null;
@@ -375,7 +439,6 @@ if (!st) return null;
 return st.players.find(function (p) {
     return p.id === getMyId();
 }) || null;
-
 }
 
 function currentPlayer() {
@@ -401,12 +464,11 @@ for (let i = 1; i <= st.players.length; i++) {
 }
 
 return fromIndex;
-
 }
 
 function allPlayersActed(st) {
 return st.players.every(function (p) {
-return p.acted;
+    return p.acted;
 });
 }
 
@@ -437,7 +499,6 @@ return st.players
         return (b.coins + b.food + b.science + b.score + b.army + b.shield) -
             (a.coins + a.food + a.science + a.score + a.army + a.shield);
     })[0] || null;
-
 }
 
 function stealOneResource(fromPlayer, toPlayer) {
@@ -482,19 +543,19 @@ if (p.id === me.id) return false;
 if (isArmyRevealed(p.id)) return false;
 
 return true;
-
 }
 
 function triggerActionFlash(st, playerId, action, label, targetId) {
 st.actionFlash = {
-playerId: playerId,
-targetId: targetId || "",
-action: action,
-label: label || "",
-until: Date.now() + ACTION_FLASH_MS
+    playerId: playerId,
+    targetId: targetId || "",
+    action: action,
+    label: label || "",
+    until: Date.now() + ACTION_FLASH_MS
 };
 
 const resource = actionResource(action);
+
 if (resource) {
     triggerResourceFlash(st, playerId, resource, label || "", action);
 }
@@ -521,6 +582,7 @@ if ((resourceName === "army" || resourceName === "shield") && shouldHideBattleSt
 
 const now = Date.now();
 const flashes = Array.isArray(st.resourceFlashes) ? st.resourceFlashes : [];
+
 const labels = flashes
     .filter(function (flash) {
         return flash.playerId === p.id && flash.resource === resourceName && flash.until > now;
@@ -567,7 +629,6 @@ armyRevealTimer = setTimeout(function () {
         syncTinyKingdoms();
     }
 }, wait + 50);
-
 }
 
 function scheduleActionFlashHide() {
@@ -577,6 +638,7 @@ const st = window.tinyKingdomsState;
 if (!st) return;
 
 const now = Date.now();
+
 if (Array.isArray(st.resourceFlashes)) {
     st.resourceFlashes = st.resourceFlashes.filter(function (flash) {
         return flash.until > now;
@@ -593,6 +655,7 @@ if (!st.resourceFlashes.length) {
 const nextUntil = Math.min.apply(null, st.resourceFlashes.map(function (flash) {
     return flash.until;
 }));
+
 const wait = nextUntil - now;
 
 actionFlashTimer = setTimeout(function () {
@@ -600,6 +663,7 @@ actionFlashTimer = setTimeout(function () {
     if (!current) return;
 
     const currentNow = Date.now();
+
     current.resourceFlashes = (current.resourceFlashes || []).filter(function (flash) {
         return flash.until > currentNow;
     });
@@ -635,7 +699,7 @@ return "Bonus";
 
 function secretGoalById(id) {
 return SECRET_GOALS.find(function (g) {
-return g.id === id;
+    return g.id === id;
 }) || SECRET_GOALS[0];
 }
 
@@ -646,7 +710,6 @@ if (!st || !st.players.length) return 0;
 return Math.max.apply(null, st.players.map(function (p) {
     return Number(p[resource] || 0);
 }));
-
 }
 
 function secretGoalMet(p) {
@@ -671,7 +734,6 @@ const canSee = reveal || (me && me.id === p.id);
 
 if (!canSee) return "Secret Goal: ???";
 return "Secret Goal: " + goal.title + " - " + goal.desc;
-
 }
 
 function mySecretGoalHtml(st) {
@@ -679,15 +741,16 @@ const me = myPlayer();
 if (!st || !me || st.phase !== "playing") return "";
 return '<div class="tk-my-secret">🎯 ' + escapeHtml(secretGoalText(me, true)) + '</div>';
 }
+
 function bottomInfoHtml(st) {
-    const me = myPlayer();
+const me = myPlayer();
 
-    if (st && st.phase === "playing" && me) {
-        return '<div class="tk-mini-log tk-secret-bottom">🎯 ' + escapeHtml(secretGoalText(me, true)) + '</div>';
-    }
+if (st && st.phase === "playing" && me) {
+    return '<div class="tk-mini-log tk-secret-bottom">🎯 ' + escapeHtml(secretGoalText(me, true)) + '</div>';
+}
 
-    return '<div class="tk-mini-log">' + escapeHtml(st.log[0] || "Tap one action.") + '</div>';
-}    
+return '<div class="tk-mini-log">' + escapeHtml(st.log[0] || "Tap one action.") + '</div>';
+}
 
 function buildScoringQueue(st) {
 const resources = ["food", "coins", "science", "army", "shield", "wonder", "secret"];
@@ -696,6 +759,7 @@ const queue = [];
 st.players.forEach(function (p) {
     resources.forEach(function (resource) {
         const points = bonusPointsFor(p, resource);
+
         if (points > 0) {
             queue.push({
                 playerId: p.id,
@@ -707,7 +771,6 @@ st.players.forEach(function (p) {
 });
 
 return queue;
-
 }
 
 function finishGame(st) {
@@ -715,11 +778,13 @@ st.phase = "scoring";
 st.armyRevealUntil = 0;
 st.armyRevealIds = [];
 st.actionFlash = null;
+st.resourceFlashes = [];
 st.finalMessage = "";
 st.winners = [];
 st.scoringQueue = buildScoringQueue(st);
 st.scoringIndex = 0;
 st.activeScoring = null;
+st.roundIntroMode = "";
 
 st.players.forEach(function (p) {
     p.endBonus = 0;
@@ -730,7 +795,6 @@ st.players.forEach(function (p) {
 st.message = "Counting bonus points...";
 addLog(st, "Counting bonus points");
 startNextScoringStep(st);
-
 }
 
 function startNextScoringStep(st) {
@@ -770,7 +834,6 @@ st.activeScoring = {
 
 st.message = p.name + ": " + resourceDisplayName(step.resource) + " +" + points;
 addLog(st, p.name + " bonus +" + points);
-
 }
 
 function completeScoring(st) {
@@ -797,7 +860,6 @@ st.finalMessage = winners.map(function (p) {
 
 st.message = st.finalMessage;
 addLog(st, st.finalMessage);
-
 }
 
 function scheduleBonusScoring() {
@@ -829,12 +891,12 @@ bonusStepTimer = setTimeout(function () {
         renderTinyKingdomsNoBot();
     }
 }, wait + 50);
-
 }
 
 function applyAction(st, p, action) {
 let text = "";
 let ok = true;
+
 clearResourceFlashes(st);
 
 if (action === "farm") {
@@ -956,11 +1018,13 @@ if (!ok) return false;
 
 p.acted = true;
 p.lastActionCode = action;
+
 st.lastActionMeta = {
     playerId: p.id,
     playerName: p.name,
     action: action
 };
+
 st.message = p.name + ": " + text;
 addLog(st, p.name + ": " + p.lastAction);
 
@@ -969,10 +1033,10 @@ return true;
 
 function advanceAfterAction(st) {
 if (allPlayersActed(st)) {
-if (st.round >= st.maxRounds) {
-finishGame(st);
-return;
-}
+    if (st.round >= st.maxRounds) {
+        finishGame(st);
+        return;
+    }
 
     st.round += 1;
     st.roundEvent = st.roundEvents && st.roundEvents[st.round - 1] ? st.roundEvents[st.round - 1] : roundEventFor(st.round);
@@ -984,13 +1048,12 @@ return;
         p.acted = false;
     });
 
-    applyRoundEvent(st);
     st.turnIndex = (st.round - 1) % st.players.length;
+    startRoundIntro(st);
     return;
 }
 
 st.turnIndex = nextTurnIndex(st.turnIndex);
-
 }
 
 window.tinyKingdomsAction = function (action) {
@@ -998,6 +1061,7 @@ const st = window.tinyKingdomsState;
 const p = myPlayer();
 
 if (!st || !p || st.phase !== "playing") return;
+if (st.roundIntroMode) return;
 if (!isMyTurn()) return;
 if (p.acted) return;
 
@@ -1012,7 +1076,6 @@ advanceAfterAction(st);
 renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
-
 };
 
 function computerPickAction(p) {
@@ -1034,7 +1097,7 @@ function computerAction() {
 const st = window.tinyKingdomsState;
 const p = currentPlayer();
 
-if (!st || st.phase !== "playing" || !p || !p.isComputer || p.acted) return;
+if (!st || st.phase !== "playing" || st.roundIntroMode || !p || !p.isComputer || p.acted) return;
 
 const action = computerPickAction(p);
 const ok = applyAction(st, p, action);
@@ -1046,7 +1109,6 @@ if (ok) {
 renderTinyKingdoms();
 syncTinyKingdoms();
 maybeComputerAction();
-
 }
 
 function maybeComputerAction() {
@@ -1055,6 +1117,11 @@ clearTimeout(botTimer);
 const st = window.tinyKingdomsState;
 if (!st || st.phase !== "playing") return;
 
+if (st.roundIntroMode) {
+    scheduleRoundIntro();
+    return;
+}
+
 const p = currentPlayer();
 if (!p || !p.isComputer) return;
 
@@ -1062,7 +1129,6 @@ st.message = "Computer thinking...";
 renderTinyKingdomsNoBot();
 
 botTimer = setTimeout(computerAction, BOT_DELAY);
-
 }
 
 function resourceTile(icon, label, value, hidden, flashLabel, bonusLabel, extraClass) {
@@ -1083,12 +1149,11 @@ return (
         (floatLabel ? '<div class="tk-float">' + escapeHtml(floatLabel) + '</div>' : '') +
     '</div>'
 );
-
 }
 
 function playerCard(p, index) {
 const st = window.tinyKingdomsState;
-const turn = st.phase === "playing" && st.turnIndex === index;
+const turn = st.phase === "playing" && st.turnIndex === index && !st.roundIntroMode;
 const winner = st.winners.indexOf(p.id) !== -1;
 const hideBattle = shouldHideBattleStat(p);
 const revealSecrets = st.phase === "gameover" || st.phase === "scoring";
@@ -1115,37 +1180,36 @@ return (
         (st.phase === "scoring" || st.phase === "gameover" ? '<div class="tk-bonus">Bonus +' + Number(p.endBonus || 0) + '</div>' : '') +
     '</div>'
 );
-
 }
 
 function actionButton(action, icon, title, sub, disabled, extraClass) {
-    return (
-        '<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction(&quot;' + action + '&quot;)" ' + (disabled ? "disabled" : "") + ' type="button">' +
-            '<span>' + icon + '</span>' +
-            '<b>' + title + '</b>' +
-            '<small>' + sub + '</small>' +
-        '</button>'
-    );
+return (
+    '<button class="tk-action ' + (extraClass || "") + '" onclick="tinyKingdomsAction(&quot;' + action + '&quot;)" ' + (disabled ? "disabled" : "") + ' type="button">' +
+        '<span>' + icon + '</span>' +
+        '<b>' + title + '</b>' +
+        '<small>' + sub + '</small>' +
+    '</button>'
+);
 }
 
 function setTinyKingdomsHelpMode(isOpen) {
-    window.__tinyKingdomsHelpOpen = isOpen;
+window.__tinyKingdomsHelpOpen = isOpen;
 
-    document.querySelectorAll("button").forEach(function (btn) {
-        const txt = (btn.textContent || "").trim();
+document.querySelectorAll("button").forEach(function (btn) {
+    const txt = (btn.textContent || "").trim();
 
-        if (txt.indexOf("Hide Board") !== -1 || txt.indexOf("Show Board") !== -1) {
-            if (isOpen) {
-                btn.setAttribute("data-tk-help-hidden", "yes");
-                btn.style.visibility = "hidden";
-                btn.style.pointerEvents = "none";
-            } else if (btn.getAttribute("data-tk-help-hidden") === "yes") {
-                btn.removeAttribute("data-tk-help-hidden");
-                btn.style.visibility = "";
-                btn.style.pointerEvents = "";
-            }
+    if (txt.indexOf("Hide Board") !== -1 || txt.indexOf("Show Board") !== -1) {
+        if (isOpen) {
+            btn.setAttribute("data-tk-help-hidden", "yes");
+            btn.style.visibility = "hidden";
+            btn.style.pointerEvents = "none";
+        } else if (btn.getAttribute("data-tk-help-hidden") === "yes") {
+            btn.removeAttribute("data-tk-help-hidden");
+            btn.style.visibility = "";
+            btn.style.pointerEvents = "";
         }
-    });
+    }
+});
 }
 
 window.openTinyKingdomsHelp = function () {
@@ -1167,7 +1231,8 @@ return (
         '<div class="tk-help-card">' +
             '<div class="tk-help-title">How to Play</div>' +
             '<p><b>Goal:</b> Earn the highest score at the end of 10 rounds.</p>' +
-            '<p><b>Round Events:</b> Every round starts with a random event that affects everyone automatically. Good events add resources. Bad events remove resources, but nobody goes below zero.</p>' +
+            '<p><b>Round Start:</b> The round number gets big first, then the round event gets big. After that, the event gives or takes resources from everyone before turns begin.</p>' +
+            '<p><b>Round Events:</b> Every round has a random event that affects everyone automatically. Good events add resources. Bad events remove resources, but nobody goes below zero.</p>' +
 
             '<h3 class="tk-help-section-title">1. Turn Actions</h3>' +
             '<div class="tk-help-row"><b>🍞 Farm:</b> Gain +3 food and +1 point.</div>' +
@@ -1374,7 +1439,6 @@ root.addEventListener("touchend", function (e) {
         }
     }
 }, { passive: false });
-
 }
 
 function renderTinyKingdomsNoBot() {
@@ -1382,23 +1446,22 @@ renderTinyKingdoms(true);
 }
 
 function roundEventHtml(st) {
-    const ev = st.roundEvent || roundEventFor(st.round);
-    const roundNum = Number(st.round || 1);
+const ev = st.roundEvent || roundEventFor(st.round);
+const roundNum = Number(st.round || 1);
 
-    return (
-        '<div class="tk-event">' +
-            '<div class="tk-event-round">' +
-                '<span>ROUND</span>' +
-                '<b>' + roundNum + '</b>' +
-            '</div>' +
-            
-            '<div class="tk-event-info">' +
-                '<div class="tk-event-label">ROUND EVENT</div>' +
-                '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
-                '<div class="tk-event-desc">' + escapeHtml(ev.desc) + '</div>' +
-            '</div>' +
-        '</div>'
-    );
+return (
+    '<div class="tk-event">' +
+        '<div class="tk-event-round">' +
+            '<span>ROUND</span>' +
+            '<b>' + roundNum + '</b>' +
+        '</div>' +
+        '<div class="tk-event-info">' +
+            '<div class="tk-event-label">ROUND EVENT</div>' +
+            '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
+            '<div class="tk-event-desc">' + escapeHtml(ev.desc) + '</div>' +
+        '</div>' +
+    '</div>'
+);
 }
 
 function renderTinyKingdoms(skipBotCheck) {
@@ -1409,7 +1472,7 @@ if (!el || !st) return;
 if (!st.roundEvent) st.roundEvent = roundEventFor(st.round || 1);
 
 const me = myPlayer();
-const canAct = st.phase === "playing" && isMyTurn() && me && !me.acted && !me.isComputer;
+const canAct = st.phase === "playing" && !st.roundIntroMode && isMyTurn() && me && !me.acted && !me.isComputer;
 const buildDisabled = !canAct || !canBuildWonder(me);
 
 const displayPlayers = st.players.map(function (p, index) {
@@ -1428,18 +1491,18 @@ let actionsHtml = "";
 
 if (st.phase === "playing") {
     const cost = wonderCost(st);
-  actionsHtml = (
-    '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
-        actionButton("farm", "🍞", "Farm", "+3 food", !canAct, "pos-farm") +
-        actionButton("sell", "🪙", "Sell", "+3 coins", !canAct, "pos-sell") +
-        actionButton("study", "📚", "Study", "+2 study", !canAct, "pos-study") +
-        actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
-        actionButton("guard", "🛡️", "Guard", "+2 shield", !canAct, "pos-guard") +
-        actionButton("train", "⚔️", "Train", "+2 army", !canAct, "pos-train") +
-        actionButton("raid", "🔥", "Raid", "army test", !canAct, "red pos-raid") +
-        '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
-    '</div>'
 
+    actionsHtml = (
+        '<div class="tk-actions ' + (canAct ? "my-turn" : "") + (st.roundIntroMode ? " tk-round-locked" : "") + '">' +
+            actionButton("farm", "🍞", "Farm", "+3 food", !canAct, "pos-farm") +
+            actionButton("sell", "🪙", "Sell", "+3 coins", !canAct, "pos-sell") +
+            actionButton("study", "📚", "Study", "+2 study", !canAct, "pos-study") +
+            actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
+            actionButton("guard", "🛡️", "Guard", "+2 shield", !canAct, "pos-guard") +
+            actionButton("train", "⚔️", "Train", "+2 army", !canAct, "pos-train") +
+            actionButton("raid", "🔥", "Raid", "army test", !canAct, "red pos-raid") +
+            '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
+        '</div>'
     );
 } else if (st.phase === "scoring") {
     actionsHtml = '<div class="tk-actions tk-scoring-actions"><button class="tk-new" disabled type="button">Scoring...</button></div>';
@@ -1453,18 +1516,16 @@ el.innerHTML = [
     '<style>',
         '.tk-wrap{position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;background:linear-gradient(180deg,#092a12,#031906);}',
         '.tk-zoom-viewport{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;box-sizing:border-box;padding:8px 8px 116px;}',
-        '.tk-zoom-content{width:100%;max-width:760px;margin:0 auto;transform-origin:top left;will-change:transform;}',        
-'.tk-help-btn{position:absolute;top:10px;left:34%;transform:translateX(-50%);z-index:30;border:2px solid #ffffff;border-radius:999px;background:#2f80ed;color:#ffffff;font-weight:900;font-size:14px;line-height:1;width:62px;height:48px;box-shadow:0 3px 9px rgba(0,0,0,.4);}',
-'.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
-'.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:22px;padding-right:48px;box-sizing:border-box;}',
-'.tk-event-round span{font-size:15px;font-weight:900;letter-spacing:2px;line-height:1;}',
-'.tk-event-round b{font-size:48px;font-weight:900;line-height:.82;margin-top:3px;}',
-'.tk-event-info{padding-left:10px;text-align:center;}',
-'.tk-event-label{display:inline-block;background:#1e4620;color:#ffd700;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;letter-spacing:.5px;margin-bottom:4px;}',
-'.tk-event-title{font-size:21px;font-weight:900;color:#1e4620;}',
-'.tk-event-desc{font-size:13px;font-weight:900;color:#1e4620;margin-top:4px;}',
+        '.tk-zoom-content{width:100%;max-width:760px;margin:0 auto;transform-origin:top left;will-change:transform;}',
+        '.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
+        '.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:22px;padding-right:48px;box-sizing:border-box;}',
+        '.tk-event-round span{font-size:15px;font-weight:900;letter-spacing:2px;line-height:1;}',
+        '.tk-event-round b{font-size:48px;font-weight:900;line-height:.82;margin-top:3px;}',
+        '.tk-event-info{padding-left:10px;text-align:center;}',
+        '.tk-event-label{display:inline-block;background:#1e4620;color:#ffd700;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;letter-spacing:.5px;margin-bottom:4px;}',
+        '.tk-event-title{font-size:21px;font-weight:900;color:#1e4620;}',
+        '.tk-event-desc{font-size:13px;font-weight:900;color:#1e4620;margin-top:4px;}',
         '.tk-message{margin:0 auto 6px;color:#ffd700;font-size:19px;font-weight:900;line-height:1.15;min-height:22px;}',
-        '.tk-my-secret{position:relative;background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:12px;margin:0 auto 8px;padding:6px 8px;font-size:12px;font-weight:900;line-height:1.15;text-align:center;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
         '.tk-board{display:grid;grid-template-columns:1fr;gap:12px;margin:0 auto;}',
         '.tk-player-card{background:#e2f0d9;color:#1e4620;border:3px solid transparent;border-radius:14px;padding:8px;box-sizing:border-box;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
         '.tk-player-card.turn{border-color:transparent;box-shadow:0 3px 8px rgba(0,0,0,.35);}',
@@ -1499,51 +1560,61 @@ el.innerHTML = [
         '.tk-secret .secret-float{top:-12px;}',
         '.tk-bonus{font-size:14px;font-weight:900;color:#1e4620;margin-top:8px;}',
         '.tk-actions{margin:8px auto 6px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:54px 54px;gap:5px;border:3px solid transparent;border-radius:15px;padding:6px;box-sizing:border-box;align-items:stretch;}',
-'.tk-actions.my-turn{border-color:#ff0000;}',
-'.tk-action,.tk-new{border:none;border-radius:12px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,.35);padding:4px 2px;min-height:0;width:100%;height:100%;}',
-'.tk-action.pos-farm{grid-column:1;grid-row:1;}',
-'.tk-action.pos-sell{grid-column:2;grid-row:1;}',
-'.tk-action.pos-study{grid-column:3;grid-row:1;}',
-'.tk-action.pos-wonder{grid-column:4;grid-row:1;}',
-'.tk-action.pos-guard{grid-column:1;grid-row:2;}',
-'.tk-action.pos-train{grid-column:2;grid-row:2;}',
-'.tk-action.pos-raid{grid-column:3;grid-row:2;}',
-'.tk-action.pos-help{grid-column:4;grid-row:2;}',
-'.tk-action span{display:block;font-size:20px;line-height:1;}',
-'.tk-action b{display:block;font-size:12px;margin-top:1px;}',
-'.tk-action small{display:block;font-size:9px;line-height:1.05;color:#3c6f41;}',
-'.tk-action.gold{background:#ffd700;}',
-'.tk-action.red{background:#ffc9c9;color:#7a1010;}',
-'.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
-'.tk-action.help{background:#0d47a1;color:#ffffff;}',
-'.tk-action.help small{color:#d9ecff;}',
-'.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
-'.tk-action.help:disabled{background:#0d47a1!important;color:#ffffff!important;opacity:1!important;}',
+        '.tk-actions.my-turn{border-color:#ff0000;}',
+        '.tk-action,.tk-new{border:none;border-radius:12px;background:#e2f0d9;color:#1e4620;font-weight:900;box-shadow:0 3px 6px rgba(0,0,0,.35);padding:4px 2px;min-height:0;width:100%;height:100%;}',
+        '.tk-action.pos-farm{grid-column:1;grid-row:1;}',
+        '.tk-action.pos-sell{grid-column:2;grid-row:1;}',
+        '.tk-action.pos-study{grid-column:3;grid-row:1;}',
+        '.tk-action.pos-wonder{grid-column:4;grid-row:1;}',
+        '.tk-action.pos-guard{grid-column:1;grid-row:2;}',
+        '.tk-action.pos-train{grid-column:2;grid-row:2;}',
+        '.tk-action.pos-raid{grid-column:3;grid-row:2;}',
+        '.tk-action.pos-help{grid-column:4;grid-row:2;}',
+        '.tk-action span{display:block;font-size:20px;line-height:1;}',
+        '.tk-action b{display:block;font-size:12px;margin-top:1px;}',
+        '.tk-action small{display:block;font-size:9px;line-height:1.05;color:#3c6f41;}',
+        '.tk-action.gold{background:#ffd700;}',
+        '.tk-action.red{background:#ffc9c9;color:#7a1010;}',
+        '.tk-action.blue{background:#cfe4ff;color:#103b6f;}',
+        '.tk-action.help{background:#0d47a1;color:#ffffff;}',
+        '.tk-action.help small{color:#d9ecff;}',
+        '.tk-action:disabled,.tk-new:disabled{background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55;}',
+        '.tk-action.help:disabled{background:#0d47a1!important;color:#ffffff!important;opacity:1!important;}',
+        '.tk-actions.tk-round-locked{border-color:#777!important;}',
+        '.tk-actions.tk-round-locked .tk-action:not(.help){background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55!important;}',
         '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
         '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
-       '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9!important;z-index:2147483000!important;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-close-x{position:fixed;bottom:20px;right:16px;border:none;background:#b00020!important;color:#ffffff!important;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:2147483001!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 90px;box-sizing:border-box;color:#1e4620!important;font-size:16px;line-height:1.4;text-shadow:none!important;filter:none!important;opacity:1!important;background:#e2f0d9!important;}',
-'.tk-help-card *{color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
-'.tk-help-card b{color:#1e4620!important;font-weight:900!important;}',
-'.tk-help-title{text-align:center;color:#1e4620!important;font-size:28px;font-weight:900;margin-bottom:12px;}',
-'.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12!important;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
-'.tk-help-card p{margin:8px 0;color:#1e4620!important;}',
-'.tk-help-row{background:#ffffff!important;color:#1e4620!important;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);text-shadow:none!important;filter:none!important;opacity:1!important;}',
-        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round{align-items:flex-start;padding-left:14px;padding-right:38px;}.tk-event-round span{font-size:12px;letter-spacing:1.5px;}.tk-event-round b{font-size:39px;line-height:.82;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 90px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
+        '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9!important;z-index:2147483000!important;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
+        '.tk-help-close-x{position:fixed;bottom:20px;right:16px;border:none;background:#b00020!important;color:#ffffff!important;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:2147483001!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
+        '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 90px;box-sizing:border-box;color:#1e4620!important;font-size:16px;line-height:1.4;text-shadow:none!important;filter:none!important;opacity:1!important;background:#e2f0d9!important;}',
+        '.tk-help-card *{color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
+        '.tk-help-card b{color:#1e4620!important;font-weight:900!important;}',
+        '.tk-help-title{text-align:center;color:#1e4620!important;font-size:28px;font-weight:900;margin-bottom:12px;}',
+        '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12!important;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
+        '.tk-help-card p{margin:8px 0;color:#1e4620!important;}',
+        '.tk-help-row{background:#ffffff!important;color:#1e4620!important;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);text-shadow:none!important;filter:none!important;opacity:1!important;}',
+        '.tk-round-intro-overlay{position:absolute;inset:0;z-index:50000;display:flex;align-items:center;justify-content:center;text-align:center;pointer-events:none;background:rgba(3,25,6,.72);animation:tkRoundIntroPop .25s ease-out;}',
+        '.tk-round-intro-box{background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:4px solid #ffffff;border-radius:24px;padding:22px 18px;box-shadow:0 8px 30px rgba(0,0,0,.65);max-width:92%;box-sizing:border-box;}',
+        '.tk-round-intro-label{font-size:28px;font-weight:900;letter-spacing:3px;line-height:1;}',
+        '.tk-round-intro-number{font-size:112px;font-weight:900;line-height:.9;font-family:Impact,Arial Black,sans-serif;}',
+        '.tk-round-intro-event-icon{font-size:62px;line-height:1;margin-bottom:4px;}',
+        '.tk-round-intro-event-title{font-size:34px;font-weight:900;line-height:1.05;}',
+        '.tk-round-intro-event-desc{font-size:18px;font-weight:900;line-height:1.2;margin-top:8px;}',
+        '@keyframes tkRoundIntroPop{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:scale(1);}}',
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round{align-items:flex-start;padding-left:14px;padding-right:38px;}.tk-event-round span{font-size:12px;letter-spacing:1.5px;}.tk-event-round b{font-size:39px;line-height:.82;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 90px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}.tk-round-intro-box{padding:18px 14px;border-radius:20px;}.tk-round-intro-label{font-size:23px;}.tk-round-intro-number{font-size:92px;}.tk-round-intro-event-icon{font-size:50px;}.tk-round-intro-event-title{font-size:27px;}.tk-round-intro-event-desc{font-size:15px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
         '<div class="tk-zoom-viewport">',
             '<div class="tk-zoom-content">',
-              roundEventHtml(st),
+                roundEventHtml(st),
                 '<div class="tk-message">' + escapeHtml(messageText) + '</div>',
-              
                 '<div class="tk-board">' + playersHtml + '</div>',
                 bottomInfoHtml(st),
                 actionsHtml,
             '</div>',
         '</div>',
+        roundIntroOverlayHtml(st),
     '</div>',
 
     helpOverlayHtml()
@@ -1554,15 +1625,46 @@ scheduleArmyRevealHide();
 scheduleActionFlashHide();
 scheduleBonusScoring();
 
-if (!skipBotCheck) {
+if (st.roundIntroMode) {
+    scheduleRoundIntro();
+} else if (!skipBotCheck) {
     maybeComputerAction();
 }
-
 }
+
+function roundIntroOverlayHtml(st) {
+if (!st || (st.roundIntroMode !== "number" && st.roundIntroMode !== "event")) return "";
+
+if (st.roundIntroMode === "number") {
+    return (
+        '<div class="tk-round-intro-overlay">' +
+            '<div class="tk-round-intro-box">' +
+                '<div class="tk-round-intro-label">ROUND</div>' +
+                '<div class="tk-round-intro-number">' + Number(st.round || 1) + '</div>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+const ev = st.roundEvent || roundEventFor(st.round);
+
+return (
+    '<div class="tk-round-intro-overlay">' +
+        '<div class="tk-round-intro-box">' +
+            '<div class="tk-round-intro-event-icon">' + escapeHtml(ev.icon) + '</div>' +
+            '<div class="tk-round-intro-event-title">' + escapeHtml(ev.title) + '</div>' +
+            '<div class="tk-round-intro-event-desc">' + escapeHtml(ev.desc) + '</div>' +
+        '</div>' +
+    '</div>'
+);
+}
+
 window.resetTinyKingdomsGame = function () {
+clearTimeout(botTimer);
 clearTimeout(armyRevealTimer);
 clearTimeout(actionFlashTimer);
 clearTimeout(bonusStepTimer);
+clearTimeout(roundIntroTimer);
 resetZoom();
 window.__tinyKingdomsHelpOpen = false;
 window.tinyKingdomsState = createState();
@@ -1591,7 +1693,6 @@ if (window.chaserGame) {
 
 renderTinyKingdoms();
 maybeComputerAction();
-
 };
 
 window.initTinyKingdomsGame = function () {
@@ -1612,7 +1713,6 @@ if (amHost || !window.tinyKingdomsState) {
 
 renderTinyKingdoms();
 maybeComputerAction();
-
 };
 
 window.startTinyKingdomsFromLobby = window.initTinyKingdomsGame;
