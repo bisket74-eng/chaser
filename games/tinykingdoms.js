@@ -26,13 +26,16 @@ y: 0
 };
 
 const ROUND_EVENTS = [
-{ id: "harvest", icon: "🌧️", title: "Rainy Season", desc: "Farm gives +4 food this round." },
-{ id: "market", icon: "🏪", title: "Busy Market", desc: "Sell gives +4 coins this round." },
-{ id: "scholar", icon: "📚", title: "Scholar Visit", desc: "Study gives +3 study this round." },
-    { id: "fortify", icon: "🛡️", title: "Fortify Walls", desc: "Guard gives +3 shield this round." },
-{ id: "training", icon: "⚔️", title: "War Drums", desc: "Train gives +3 army this round." },
-{ id: "bandits", icon: "🔥", title: "Bandits Nearby", desc: "Successful raids score +4 this round." },
-    { id: "builder", icon: "🏛️", title: "Builder Boom", desc: "Wonder costs 1 less coin this round." }
+{ id: "good_harvest", icon: "🌾", title: "Good Harvest", desc: "Everyone gains 1 food.", resource: "food", amount: 1, good: true },
+{ id: "trade_gift", icon: "🎁", title: "Trade Gift", desc: "Everyone gains 1 coin.", resource: "coins", amount: 1, good: true },
+{ id: "library_day", icon: "📚", title: "Library Day", desc: "Everyone gains 1 study.", resource: "science", amount: 1, good: true },
+{ id: "new_recruits", icon: "⚔️", title: "New Recruits", desc: "Everyone gains 1 army.", resource: "army", amount: 1, good: true },
+{ id: "stone_delivery", icon: "🛡️", title: "Stone Delivery", desc: "Everyone gains 1 shield.", resource: "shield", amount: 1, good: true },
+{ id: "drought", icon: "☀️", title: "Drought", desc: "Everyone loses 1 food.", resource: "food", amount: -1, good: false },
+{ id: "tax_day", icon: "💸", title: "Tax Day", desc: "Everyone loses 1 coin.", resource: "coins", amount: -1, good: false },
+{ id: "snow_day", icon: "❄️", title: "Snow Day", desc: "Everyone loses 1 study.", resource: "science", amount: -1, good: false },
+{ id: "desertion", icon: "🪖", title: "Desertion", desc: "Everyone loses 1 army.", resource: "army", amount: -1, good: false },
+{ id: "cracked_walls", icon: "🧱", title: "Cracked Walls", desc: "Everyone loses 1 shield.", resource: "shield", amount: -1, good: false }
 ];
 
 const SECRET_GOALS = [
@@ -112,14 +115,45 @@ if (!window.chaserGame || !window.chaserGame.hostId) return true;
 return window.chaserGame.hostId === getMyId();
 }
 
-function roundEventFor(round) {
-const r = Number(round || 1);
+function shuffleCopy(arr) {
+const copy = arr.slice();
 
-if (r <= 1 || r >= 9) {
-    return { id: "calm", icon: "☁️", title: "Calm Round", desc: "No special bonus this round." };
+for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
 }
 
-const idx = r - 2;
+return copy;
+}
+
+function makeRoundEventDeck(totalRounds) {
+const deck = [];
+
+while (deck.length < totalRounds) {
+    shuffleCopy(ROUND_EVENTS).forEach(function (event) {
+        if (deck.length < totalRounds) deck.push(event);
+    });
+}
+
+if (deck.length > 1 && deck[0] && deck[0].amount < 0) {
+    const firstGoodIndex = deck.findIndex(function (event) {
+        return event.amount > 0;
+    });
+
+    if (firstGoodIndex > 0) {
+        const temp = deck[0];
+        deck[0] = deck[firstGoodIndex];
+        deck[firstGoodIndex] = temp;
+    }
+}
+
+return deck;
+}
+
+function roundEventFor(round) {
+const idx = Math.abs((Number(round || 1) - 1) % ROUND_EVENTS.length);
 return ROUND_EVENTS[idx];
 }
 
@@ -163,7 +197,8 @@ const players = lobbyPlayers.slice(0, MAX_PLAYERS).map(function (p, idx) {
         secretBonus: 0,
         secretGoal: goal.id,
         acted: false,
-        lastAction: ""
+        lastAction: "",
+        lastActionCode: ""
     };
 });
 
@@ -184,7 +219,8 @@ if (players.length === 1) {
         secretBonus: 0,
         secretGoal: goal.id,
         acted: false,
-        lastAction: ""
+        lastAction: "",
+        lastActionCode: ""
     });
 }
 
@@ -193,11 +229,13 @@ return players;
 }
 
 function createState() {
-return {
+const roundEvents = makeRoundEventDeck(MAX_ROUNDS);
+const st = {
 phase: "playing",
 round: 1,
 maxRounds: MAX_ROUNDS,
-roundEvent: roundEventFor(1),
+roundEvents: roundEvents,
+roundEvent: roundEvents[0] || roundEventFor(1),
 players: makePlayers(),
 turnIndex: 0,
 message: "Build your tiny kingdom.",
@@ -207,16 +245,128 @@ winners: [],
 armyRevealUntil: 0,
 armyRevealIds: [],
 actionFlash: null,
+resourceFlashes: [],
+eventAppliedRound: 0,
+lastActionMeta: null,
 scoringQueue: [],
 scoringIndex: 0,
 activeScoring: null
 };
+
+applyRoundEvent(st);
+return st;
 }
 
 function addLog(st, text) {
 st.log.unshift(text);
 st.log = st.log.slice(0, 4);
 }
+
+function isHiddenMilitaryAction(action) {
+return action === "train" || action === "guard";
+}
+
+function eventFlashLabel(amount) {
+return (amount > 0 ? "+" : "") + amount;
+}
+
+function triggerResourceFlash(st, playerId, resource, label, action) {
+if (!st) return;
+if (!Array.isArray(st.resourceFlashes)) st.resourceFlashes = [];
+
+st.resourceFlashes.push({
+    playerId: playerId,
+    resource: resource,
+    label: label || "",
+    action: action || "",
+    until: Date.now() + ACTION_FLASH_MS
+});
+}
+
+function clearResourceFlashes(st) {
+if (!st) return;
+st.actionFlash = null;
+st.resourceFlashes = [];
+}
+
+function applyRoundEvent(st) {
+if (!st || !st.roundEvent || !Array.isArray(st.players)) return;
+if (st.eventAppliedRound === st.round) return;
+
+const ev = st.roundEvent;
+const resource = ev.resource;
+const amount = Number(ev.amount || 0);
+
+st.eventAppliedRound = st.round;
+
+if (!resource || !amount) {
+    st.message = "Round " + st.round + ": " + ev.title;
+    addLog(st, ev.title);
+    return;
+}
+
+st.players.forEach(function (p) {
+    const before = Number(p[resource] || 0);
+    const after = Math.max(0, before + amount);
+    const diff = after - before;
+
+    p[resource] = after;
+
+    if (diff !== 0) {
+        triggerResourceFlash(st, p.id, resource, eventFlashLabel(diff), "roundEvent");
+    }
+});
+
+st.message = "Round " + st.round + ": " + ev.title;
+addLog(st, ev.title + ": " + ev.desc);
+}
+
+function displayLastActionForViewer(p) {
+const st = window.tinyKingdomsState;
+const me = myPlayer();
+
+if (!p || !p.lastAction) return p && p.acted ? "Waiting" : "To act";
+
+if (
+    st &&
+    st.phase === "playing" &&
+    isHiddenMilitaryAction(p.lastActionCode) &&
+    me &&
+    me.id !== p.id
+) {
+    return "Military";
+}
+
+return p.lastAction;
+}
+
+function displayMessageForViewer(st) {
+const me = myPlayer();
+
+if (!st) return "";
+
+const msg = String(st.message || "");
+const meta = st.lastActionMeta || null;
+const messageIsExactMilitary =
+    msg.indexOf("Train") !== -1 ||
+    msg.indexOf("Guard") !== -1 ||
+    msg.indexOf("army") !== -1 ||
+    msg.indexOf("shield") !== -1;
+
+if (
+    st.phase === "playing" &&
+    meta &&
+    isHiddenMilitaryAction(meta.action) &&
+    messageIsExactMilitary &&
+    me &&
+    me.id !== meta.playerId
+) {
+    return meta.playerName + ": Military";
+}
+
+return msg;
+}
+
 
 function myPlayer() {
 const st = window.tinyKingdomsState;
@@ -266,8 +416,7 @@ return ev.id;
 }
 
 function wonderCost(st) {
-const coinCost = currentEventId(st) === "builder" ? 1 : 2;
-return { food: 2, coins: coinCost, science: 1 };
+return { food: 2, coins: 2, science: 1 };
 }
 
 function canBuildWonder(p) {
@@ -292,26 +441,23 @@ return st.players
 }
 
 function stealOneResource(fromPlayer, toPlayer) {
-if (fromPlayer.coins > 0) {
-fromPlayer.coins -= 1;
-toPlayer.coins += 1;
-return "coin";
+const order = [
+    { key: "coins", label: "coin" },
+    { key: "food", label: "food" },
+    { key: "science", label: "study" }
+];
+
+for (let i = 0; i < order.length; i++) {
+    const item = order[i];
+
+    if (fromPlayer[item.key] > 0) {
+        fromPlayer[item.key] -= 1;
+        toPlayer[item.key] += 1;
+        return item;
+    }
 }
 
-if (fromPlayer.food > 0) {
-    fromPlayer.food -= 1;
-    toPlayer.food += 1;
-    return "food";
-}
-
-if (fromPlayer.science > 0) {
-    fromPlayer.science -= 1;
-    toPlayer.science += 1;
-    return "study";
-}
-
-return "";
-
+return null;
 }
 
 function revealRaidArmies(st, attacker, target) {
@@ -347,6 +493,11 @@ action: action,
 label: label || "",
 until: Date.now() + ACTION_FLASH_MS
 };
+
+const resource = actionResource(action);
+if (resource) {
+    triggerResourceFlash(st, playerId, resource, label || "", action);
+}
 }
 
 function actionResource(action) {
@@ -362,22 +513,24 @@ return "";
 
 function actionFlashLabel(p, resourceName) {
 const st = window.tinyKingdomsState;
-if (!st || st.phase === "scoring" || !st.actionFlash || !st.actionFlash.until) return "";
-if (Date.now() > st.actionFlash.until) return "";
+if (!st || st.phase === "scoring") return "";
 
-const flash = st.actionFlash;
-const resource = actionResource(flash.action);
-if (resource !== resourceName) return "";
-
-if (flash.action === "raid") {
-    if (p.id === flash.playerId) return flash.label || "Raid";
-    if (p.id === flash.targetId) return "Raid";
+if ((resourceName === "army" || resourceName === "shield") && shouldHideBattleStat(p)) {
     return "";
 }
 
-if (p.id !== flash.playerId) return "";
-return flash.label || "";
+const now = Date.now();
+const flashes = Array.isArray(st.resourceFlashes) ? st.resourceFlashes : [];
+const labels = flashes
+    .filter(function (flash) {
+        return flash.playerId === p.id && flash.resource === resourceName && flash.until > now;
+    })
+    .map(function (flash) {
+        return flash.label;
+    })
+    .filter(Boolean);
 
+return labels.join(" ");
 }
 
 function scoringFlashLabel(p, resourceName) {
@@ -421,26 +574,41 @@ function scheduleActionFlashHide() {
 clearTimeout(actionFlashTimer);
 
 const st = window.tinyKingdomsState;
-if (!st || !st.actionFlash || !st.actionFlash.until) return;
+if (!st) return;
 
-const wait = st.actionFlash.until - Date.now();
+const now = Date.now();
+if (Array.isArray(st.resourceFlashes)) {
+    st.resourceFlashes = st.resourceFlashes.filter(function (flash) {
+        return flash.until > now;
+    });
+} else {
+    st.resourceFlashes = [];
+}
 
-if (wait <= 0) {
+if (!st.resourceFlashes.length) {
     st.actionFlash = null;
     return;
 }
 
+const nextUntil = Math.min.apply(null, st.resourceFlashes.map(function (flash) {
+    return flash.until;
+}));
+const wait = nextUntil - now;
+
 actionFlashTimer = setTimeout(function () {
     const current = window.tinyKingdomsState;
-    if (!current || !current.actionFlash || !current.actionFlash.until) return;
+    if (!current) return;
 
-    if (Date.now() >= current.actionFlash.until) {
-        current.actionFlash = null;
-        renderTinyKingdomsNoBot();
-        syncTinyKingdoms();
-    }
-}, wait + 50);
+    const currentNow = Date.now();
+    current.resourceFlashes = (current.resourceFlashes || []).filter(function (flash) {
+        return flash.until > currentNow;
+    });
 
+    if (!current.resourceFlashes.length) current.actionFlash = null;
+
+    renderTinyKingdomsNoBot();
+    syncTinyKingdoms();
+}, Math.max(0, wait) + 50);
 }
 
 function bonusPointsFor(p, resource) {
@@ -666,10 +834,11 @@ bonusStepTimer = setTimeout(function () {
 
 function applyAction(st, p, action) {
 let text = "";
-const eventId = currentEventId(st);
+let ok = true;
+clearResourceFlashes(st);
 
 if (action === "farm") {
-    const gain = eventId === "harvest" ? 4 : 3;
+    const gain = 3;
     p.food += gain;
     p.score += 1;
     text = "Farm +" + gain + " food";
@@ -678,7 +847,7 @@ if (action === "farm") {
 }
 
 if (action === "sell") {
-    const gain = eventId === "market" ? 4 : 3;
+    const gain = 3;
     p.coins += gain;
     p.score += 1;
     text = "Sell +" + gain + " coins";
@@ -687,7 +856,7 @@ if (action === "sell") {
 }
 
 if (action === "study") {
-    const gain = eventId === "scholar" ? 3 : 2;
+    const gain = 2;
     p.science += gain;
     p.score += 1;
     text = "Study +" + gain;
@@ -696,7 +865,7 @@ if (action === "study") {
 }
 
 if (action === "train") {
-    const gain = eventId === "training" ? 3 : 2;
+    const gain = 2;
     p.army += gain;
     p.score += 1;
     text = "Train +" + gain + " army";
@@ -705,7 +874,7 @@ if (action === "train") {
 }
 
 if (action === "guard") {
-    const gain = eventId === "fortify" ? 3 : 2;
+    const gain = 2;
     p.shield += gain;
     p.score += 1;
     text = "Guard +" + gain + " shield";
@@ -728,7 +897,10 @@ if (action === "wonder") {
     p.score += 6 + p.wonder;
     text = "Wonder +" + (6 + p.wonder);
     p.lastAction = "✨ Wonder +" + (6 + p.wonder);
-    triggerActionFlash(st, p.id, action, "+" + (6 + p.wonder), "");
+    triggerResourceFlash(st, p.id, "food", "-" + cost.food, action);
+    triggerResourceFlash(st, p.id, "coins", "-" + cost.coins, action);
+    triggerResourceFlash(st, p.id, "science", "-" + cost.science, action);
+    triggerResourceFlash(st, p.id, "wonder", "+1", action);
 }
 
 if (action === "raid") {
@@ -741,34 +913,58 @@ if (action === "raid") {
 
     revealRaidArmies(st, p, target);
 
-    if (p.army >= target.army + 2) {
-        if (target.shield > 0) {
+    if (p.army > target.army) {
+        const shielded = target.shield > 0;
+        const stealCount = shielded ? 1 : 2;
+        const scoreGain = shielded ? 2 : 3;
+        const stolen = [];
+
+        if (shielded) {
             target.shield -= 1;
-            p.score += 1;
-            text = "Raid cracked shield +1";
-            p.lastAction = "🔥 Shield cracked +1";
-            triggerActionFlash(st, p.id, action, "+1", target.id);
+            triggerResourceFlash(st, target.id, "shield", "-1", action);
+        }
+
+        for (let i = 0; i < stealCount; i++) {
+            const item = stealOneResource(target, p);
+
+            if (item) {
+                stolen.push(item.label);
+                triggerResourceFlash(st, p.id, item.key, "+1", action);
+                triggerResourceFlash(st, target.id, item.key, "-1", action);
+            }
+        }
+
+        p.score += scoreGain;
+        triggerResourceFlash(st, p.id, "army", "Raid +" + scoreGain, action);
+
+        if (shielded) {
+            text = "Raid broke shield, stole " + (stolen.length ? stolen.join(" + ") : "nothing") + ", +" + scoreGain;
+            p.lastAction = "🔥 Shield raid +" + scoreGain;
         } else {
-            stealOneResource(target, p);
-            stealOneResource(target, p);
-            const scoreGain = eventId === "bandits" ? 4 : 3;
-            p.score += scoreGain;
-            text = "Raid +" + scoreGain;
+            text = "Raid stole " + (stolen.length ? stolen.join(" + ") : "nothing") + ", +" + scoreGain;
             p.lastAction = "🔥 Raid +" + scoreGain;
-            triggerActionFlash(st, p.id, action, "+" + scoreGain, target.id);
         }
     } else {
         text = "Raid failed";
         p.lastAction = "🔥 Raid failed";
-        triggerActionFlash(st, p.id, action, "Fail", target.id);
+        triggerResourceFlash(st, p.id, "army", "Fail", action);
     }
 }
+
+if (!text) ok = false;
+if (!ok) return false;
+
 p.acted = true;
+p.lastActionCode = action;
+st.lastActionMeta = {
+    playerId: p.id,
+    playerName: p.name,
+    action: action
+};
 st.message = p.name + ": " + text;
 addLog(st, p.name + ": " + p.lastAction);
 
 return true;
-
 }
 
 function advanceAfterAction(st) {
@@ -779,15 +975,17 @@ return;
 }
 
     st.round += 1;
-    st.roundEvent = roundEventFor(st.round);
+    st.roundEvent = st.roundEvents && st.roundEvents[st.round - 1] ? st.roundEvents[st.round - 1] : roundEventFor(st.round);
+    st.eventAppliedRound = 0;
+    st.lastActionMeta = null;
+    clearResourceFlashes(st);
 
     st.players.forEach(function (p) {
         p.acted = false;
     });
 
+    applyRoundEvent(st);
     st.turnIndex = (st.round - 1) % st.players.length;
-    st.message = "Round " + st.round + ": " + st.roundEvent.title;
-    addLog(st, "Round " + st.round + ": " + st.roundEvent.title);
     return;
 }
 
@@ -821,16 +1019,15 @@ function computerPickAction(p) {
 const opponent = strongestOpponent(p);
 
 if (canBuildWonder(p) && Math.random() < 0.55) return "wonder";
-if (opponent && p.army > opponent.army + 1 && Math.random() < 0.42) return "raid";
-if (opponent && opponent.army >= p.army && p.shield < 2 && Math.random() < 0.35) return "guard";
+if (opponent && p.army > opponent.army && Math.random() < 0.38) return "raid";
+if (opponent && opponent.army >= p.army && p.shield < 2 && Math.random() < 0.33) return "guard";
 if (p.food < 2) return "farm";
 if (p.coins < 2) return "sell";
 if (p.science < 1) return "study";
-if (opponent && p.army <= opponent.army && Math.random() < 0.36) return "train";
+if (opponent && p.army <= opponent.army && Math.random() < 0.34) return "train";
 
 const choices = ["farm", "sell", "study", "train", "guard", "raid"];
 return choices[Math.floor(Math.random() * choices.length)];
-
 }
 
 function computerAction() {
@@ -901,7 +1098,7 @@ return (
     '<div class="tk-player-card ' + (turn ? "turn " : "") + (winner ? "winner " : "") + '">' +
         '<div class="tk-player-header">' +
             '<div class="tk-player-name">' + escapeHtml(p.name) + '</div>' +
-            '<div class="tk-last">' + escapeHtml(p.lastAction || (p.acted ? "Waiting" : "To act")) + '</div>' +
+            '<div class="tk-last">' + escapeHtml(displayLastActionForViewer(p)) + '</div>' +
             '<div class="tk-score">' + Number(p.score || 0) + '</div>' +
         '</div>' +
         '<div class="tk-resource-grid">' +
@@ -970,31 +1167,36 @@ return (
         '<div class="tk-help-card">' +
             '<div class="tk-help-title">How to Play</div>' +
             '<p><b>Goal:</b> Earn the highest score at the end of 10 rounds.</p>' +
-            '<p><b>Players:</b> 1 player vs computer, or up to 4 players synced.</p>' +
+            '<p><b>Round Events:</b> Every round starts with a random event that affects everyone automatically. Good events add resources. Bad events remove resources, but nobody goes below zero.</p>' +
 
             '<h3 class="tk-help-section-title">1. Turn Actions</h3>' +
-            '<div class="tk-help-row"><b>🍞 Farm:</b> Gain +3 food and +1 point. Rainy Season makes it +4 food.</div>' +
-            '<div class="tk-help-row"><b>🪙 Sell:</b> Gain +3 coins and +1 point. Busy Market makes it +4 coins.</div>' +
-            '<div class="tk-help-row"><b>📚 Study:</b> Gain +2 study and +1 point. Scholar Visit makes it +3 study.</div>' +
-            '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. War Drums makes it +3 army.</div>' +
-            '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Fortify Walls makes it +3 shield. Opponent shield is hidden like army.</div>' +
-           '<div class="tk-help-row"><b>🔥 Raid:</b> Your army must be at least 2 higher than the strongest opponent to win. If they have shield, one shield breaks, you steal nothing, and score +1. If they have no shield, you steal 2 resources and score +3. Bandits Nearby makes a full unshielded raid worth +4. If raid fails, you get nothing.</div>' +
-            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs  🍞2 food 🪙2 coin 📚1 study. Builder Boom lowers the coin cost to 🪙1. Your first Wonder scores 7, second scores 8, and so on.</div>' +
+            '<div class="tk-help-row"><b>🍞 Farm:</b> Gain +3 food and +1 point.</div>' +
+            '<div class="tk-help-row"><b>🪙 Sell:</b> Gain +3 coins and +1 point.</div>' +
+            '<div class="tk-help-row"><b>📚 Study:</b> Gain +2 study and +1 point.</div>' +
+            '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. Opponents cannot see your army unless a raid reveals it.</div>' +
+            '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Opponents cannot see your shield unless a raid reveals it.</div>' +
+            '<div class="tk-help-row"><b>🔥 Raid:</b> Your army must be higher than the strongest opponent army. If they have no shield, you steal 2 resources and score +3. If they have shield, you break 1 shield, steal 1 resource, and score +2. If your army is not higher, the raid fails.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs 🍞2 food, 🪙2 coins, and 📚1 study. Your first Wonder scores 7, second scores 8, and so on.</div>' +
 
-            '<h3 class="tk-help-section-title">2. Round Events</h3>' +
-            '<p>Each round has one event shown under the round box. Use it to decide which action is stronger that round.</p>' +
-            '<div class="tk-help-row"><b>🌧️ Rainy Season:</b> Farm gives +4 food.</div>' +
-            '<div class="tk-help-row"><b>🏪 Busy Market:</b> Sell gives +4 coins.</div>' +
-            '<div class="tk-help-row"><b>📚 Scholar Visit:</b> Study gives +3 study.</div>' +
-            '<div class="tk-help-row"><b>⚔️ War Drums:</b> Train gives +3 army.</div>' +
-            '<div class="tk-help-row"><b>🔥 Bandits Nearby:</b> Full raid scores +4.</div>' +
-            '<div class="tk-help-row"><b>🏛️ Builder Boom:</b> Wonder costs 1 less coin.</div>' +
-           '<div class="tk-help-row"><b>🛡️ Fortify Walls:</b> Guard gives +3 shield.</div>' +
+            '<h3 class="tk-help-section-title">2. Automatic Round Events</h3>' +
+            '<div class="tk-help-row"><b>🌾 Good Harvest:</b> Everyone gains 1 food.</div>' +
+            '<div class="tk-help-row"><b>🎁 Trade Gift:</b> Everyone gains 1 coin.</div>' +
+            '<div class="tk-help-row"><b>📚 Library Day:</b> Everyone gains 1 study.</div>' +
+            '<div class="tk-help-row"><b>⚔️ New Recruits:</b> Everyone gains 1 army.</div>' +
+            '<div class="tk-help-row"><b>🛡️ Stone Delivery:</b> Everyone gains 1 shield.</div>' +
+            '<div class="tk-help-row"><b>☀️ Drought:</b> Everyone loses 1 food.</div>' +
+            '<div class="tk-help-row"><b>💸 Tax Day:</b> Everyone loses 1 coin.</div>' +
+            '<div class="tk-help-row"><b>❄️ Snow Day:</b> Everyone loses 1 study.</div>' +
+            '<div class="tk-help-row"><b>🪖 Desertion:</b> Everyone loses 1 army.</div>' +
+            '<div class="tk-help-row"><b>🧱 Cracked Walls:</b> Everyone loses 1 shield.</div>' +
 
-            '<h3 class="tk-help-section-title">3. Secret Goals</h3>' +
-            '<p>Each player has a secret end-game goal worth <b>+5 points</b>. During the game, you can see yours, but opponents see question marks. At scoring time, everyone&apos;s goals reveal.</p>' +
+            '<h3 class="tk-help-section-title">3. Floating Results</h3>' +
+            '<p>Resource boxes show what changed. Round events show +1 or -1 on every affected kingdom. Raids show exactly what was stolen from the target and what the attacker gained.</p>' +
 
-            '<h3 class="tk-help-section-title">4. Ending Bonus Points</h3>' +
+            '<h3 class="tk-help-section-title">4. Secret Goals</h3>' +
+            '<p>Each player has a secret end-game goal worth <b>+5 points</b>. You can see yours during the game. Everyone&apos;s goals reveal during scoring.</p>' +
+
+            '<h3 class="tk-help-section-title">5. Ending Bonus Points</h3>' +
             '<div class="tk-help-row"><b>📚 Study:</b> Worth 2 points each.</div>' +
             '<div class="tk-help-row"><b>✨ Wonder:</b> Worth 3 points each.</div>' +
             '<div class="tk-help-row"><b>⚔️ Army:</b> Worth 1 point each.</div>' +
@@ -1005,7 +1207,6 @@ return (
         '</div>' +
     '</div>'
 );
-
 }
 
 function setupWholeGameZoom() {
@@ -1229,13 +1430,13 @@ if (st.phase === "playing") {
     const cost = wonderCost(st);
   actionsHtml = (
     '<div class="tk-actions ' + (canAct ? "my-turn" : "") + '">' +
-        actionButton("farm", "🍞", "Farm", currentEventId(st) === "harvest" ? "+4 food" : "+3 food", !canAct, "pos-farm") +
-        actionButton("sell", "🪙", "Sell", currentEventId(st) === "market" ? "+4 coins" : "+3 coins", !canAct, "pos-sell") +
-        actionButton("study", "📚", "Study", currentEventId(st) === "scholar" ? "+3 study" : "+2 study", !canAct, "pos-study") +
+        actionButton("farm", "🍞", "Farm", "+3 food", !canAct, "pos-farm") +
+        actionButton("sell", "🪙", "Sell", "+3 coins", !canAct, "pos-sell") +
+        actionButton("study", "📚", "Study", "+2 study", !canAct, "pos-study") +
         actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
-        actionButton("guard", "🛡️", "Guard", currentEventId(st) === "fortify" ? "+3 shield" : "+2 shield", !canAct, "pos-guard") +
-        actionButton("train", "⚔️", "Train", currentEventId(st) === "training" ? "+3 army" : "+2 army", !canAct, "pos-train") +
-        actionButton("raid", "🔥", "Raid", currentEventId(st) === "bandits" ? "raid +4" : "army test", !canAct, "red pos-raid") +
+        actionButton("guard", "🛡️", "Guard", "+2 shield", !canAct, "pos-guard") +
+        actionButton("train", "⚔️", "Train", "+2 army", !canAct, "pos-train") +
+        actionButton("raid", "🔥", "Raid", "army test", !canAct, "red pos-raid") +
         '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
     '</div>'
 
@@ -1246,7 +1447,7 @@ if (st.phase === "playing") {
     actionsHtml = '<div class="tk-actions"><button class="tk-new" onclick="resetTinyKingdomsGame()" type="button">New Kingdom</button></div>';
 }
 
-const messageText = st.message || "";
+const messageText = displayMessageForViewer(st);
 
 el.innerHTML = [
     '<style>',
@@ -1255,9 +1456,9 @@ el.innerHTML = [
         '.tk-zoom-content{width:100%;max-width:760px;margin:0 auto;transform-origin:top left;will-change:transform;}',        
 '.tk-help-btn{position:absolute;top:10px;left:34%;transform:translateX(-50%);z-index:30;border:2px solid #ffffff;border-radius:999px;background:#2f80ed;color:#ffffff;font-weight:900;font-size:14px;line-height:1;width:62px;height:48px;box-shadow:0 3px 9px rgba(0,0,0,.4);}',
 '.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
-'.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;align-items:center;justify-content:center;gap:7px;}',
-'.tk-event-round span{font-size:18px;font-weight:900;letter-spacing:1px;}',
-'.tk-event-round b{font-size:42px;font-weight:900;line-height:.9;}',
+'.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:22px;padding-right:48px;box-sizing:border-box;}',
+'.tk-event-round span{font-size:15px;font-weight:900;letter-spacing:2px;line-height:1;}',
+'.tk-event-round b{font-size:48px;font-weight:900;line-height:.82;margin-top:3px;}',
 '.tk-event-info{padding-left:10px;text-align:center;}',
 '.tk-event-label{display:inline-block;background:#1e4620;color:#ffd700;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;letter-spacing:.5px;margin-bottom:4px;}',
 '.tk-event-title{font-size:21px;font-weight:900;color:#1e4620;}',
@@ -1329,7 +1530,7 @@ el.innerHTML = [
 '.tk-help-section-title{font-size:18px;font-weight:900;color:#092a12!important;margin:20px 0 8px;border-bottom:2px solid #1e4620;padding-bottom:4px;}',
 '.tk-help-card p{margin:8px 0;color:#1e4620!important;}',
 '.tk-help-row{background:#ffffff!important;color:#1e4620!important;border-radius:12px;padding:10px;margin:10px 0;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.1);text-shadow:none!important;filter:none!important;opacity:1!important;}',
-        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round span{font-size:14px;}.tk-event-round b{font-size:34px;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 50px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-help-btn{top:7px;left:33%;right:auto;width:54px;height:42px;font-size:12px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round{align-items:flex-start;padding-left:14px;padding-right:38px;}.tk-event-round span{font-size:12px;letter-spacing:1.5px;}.tk-event-round b{font-size:39px;line-height:.82;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-my-secret{font-size:10px;padding:5px 6px;margin-bottom:6px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 90px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
@@ -1339,8 +1540,8 @@ el.innerHTML = [
                 '<div class="tk-message">' + escapeHtml(messageText) + '</div>',
               
                 '<div class="tk-board">' + playersHtml + '</div>',
-                actionsHtml,
                 bottomInfoHtml(st),
+                actionsHtml,
             '</div>',
         '</div>',
     '</div>',
@@ -1358,188 +1559,6 @@ if (!skipBotCheck) {
 }
 
 }
-/* === TINY KINGDOMS ONE-PASTE PATCH: HIDDEN MILITARY + ROUND HEADER FIX === */
-;(function () {
-    function tkIsHiddenMilitaryAction(action) {
-        return action === "train" || action === "guard";
-    }
-
-    function tkDisplayLastActionForViewer(p) {
-        const st = window.tinyKingdomsState;
-        const me = myPlayer();
-
-        if (!p || !p.lastAction) {
-            return p && p.acted ? "Waiting" : "To act";
-        }
-
-        if (
-            st &&
-            st.phase === "playing" &&
-            tkIsHiddenMilitaryAction(p.lastActionCode) &&
-            me &&
-            me.id !== p.id
-        ) {
-            return "Military";
-        }
-
-        return p.lastAction;
-    }
-
-    function tkDisplayMessageForViewer(st) {
-        const me = myPlayer();
-
-        if (!st) return "";
-
-        const msg = String(st.message || "");
-        const meta = st.lastActionMeta || null;
-        const messageIsExactMilitary =
-            msg.indexOf("Train") !== -1 ||
-            msg.indexOf("Guard") !== -1 ||
-            msg.indexOf("army") !== -1 ||
-            msg.indexOf("shield") !== -1;
-
-        if (
-            st.phase === "playing" &&
-            meta &&
-            tkIsHiddenMilitaryAction(meta.action) &&
-            messageIsExactMilitary &&
-            me &&
-            me.id !== meta.playerId
-        ) {
-            return meta.playerName + ": Military";
-        }
-
-        return msg;
-    }
-
-    const tkOriginalApplyAction = applyAction;
-
-    applyAction = function (st, p, action) {
-        const ok = tkOriginalApplyAction(st, p, action);
-
-        if (ok && p && st) {
-            p.lastActionCode = action;
-            st.lastActionMeta = {
-                playerId: p.id,
-                playerName: p.name,
-                action: action
-            };
-        }
-
-        return ok;
-    };
-
-    actionFlashLabel = function (p, resourceName) {
-        const st = window.tinyKingdomsState;
-        if (!st || st.phase === "scoring" || !st.actionFlash || !st.actionFlash.until) return "";
-        if (Date.now() > st.actionFlash.until) return "";
-
-        const flash = st.actionFlash;
-        const resource = actionResource(flash.action);
-        if (resource !== resourceName) return "";
-
-        const me = myPlayer();
-
-        if (tkIsHiddenMilitaryAction(flash.action)) {
-            if (!me || me.id !== flash.playerId) return "";
-        }
-
-        if (flash.action === "raid") {
-            if (p.id === flash.playerId) return flash.label || "Raid";
-            if (p.id === flash.targetId) return "Raid";
-            return "";
-        }
-
-        if (p.id !== flash.playerId) return "";
-        return flash.label || "";
-    };
-
-    roundEventHtml = function (st) {
-        const ev = st.roundEvent || roundEventFor(st.round);
-        const roundNum = Number(st.round || 1);
-
-        return (
-            '<div class="tk-event">' +
-                '<div class="tk-event-round">' +
-                    '<span>ROUND</span>' +
-                    '<b>' + roundNum + '</b>' +
-                '</div>' +
-                
-                '<div class="tk-event-info">' +
-                    '<div class="tk-event-label">ROUND EVENT</div>' +
-                    '<div class="tk-event-title">' + escapeHtml(ev.icon + ' ' + ev.title) + '</div>' +
-                    '<div class="tk-event-desc">' + escapeHtml(ev.desc) + '</div>' +
-                '</div>' +
-            '</div>'
-        );
-    };
-
-    const tkOriginalRenderTinyKingdoms = renderTinyKingdoms;
-
-    renderTinyKingdoms = function (skipBotCheck) {
-        tkOriginalRenderTinyKingdoms(skipBotCheck);
-        tkPatchTinyKingdomsDom();
-    };
-
-    renderTinyKingdomsNoBot = function () {
-        renderTinyKingdoms(true);
-    };
-
-    function tkPatchTinyKingdomsDom() {
-        const root = canvas();
-        const st = window.tinyKingdomsState;
-        if (!root || !st) return;
-
-        let patchStyle = root.querySelector("#tk-one-paste-patch-style");
-
-        if (!patchStyle) {
-            patchStyle = document.createElement("style");
-            patchStyle.id = "tk-one-paste-patch-style";
-            root.appendChild(patchStyle);
-        }
-
-        patchStyle.textContent =
-            ".tk-event-round{border-right:2px solid rgba(30,70,32,.28)!important;height:100%!important;display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:0!important;padding-left:22px!important;padding-right:48px!important;box-sizing:border-box!important;}" +
-            ".tk-event-round span{font-size:15px!important;font-weight:900!important;letter-spacing:2px!important;line-height:1!important;}" +
-            ".tk-event-round b{font-size:48px!important;font-weight:900!important;line-height:.82!important;margin-top:3px!important;}" +
-            ".tk-help-btn{position:absolute!important;top:8px!important;left:34%!important;right:auto!important;transform:translateX(-50%)!important;z-index:30!important;border:2px solid #ffffff!important;border-radius:999px!important;background:#2f80ed!important;color:#ffffff!important;font-weight:900!important;font-size:14px!important;line-height:1!important;width:62px!important;height:48px!important;box-shadow:0 3px 9px rgba(0,0,0,.4)!important;}" +
-            ".tk-secret-bottom{margin:8px auto 7px!important;}" +
-            "@media(max-width:430px){.tk-event-round{align-items:flex-start!important;padding-left:14px!important;padding-right:38px!important;}.tk-event-round span{font-size:12px!important;letter-spacing:1.5px!important;}.tk-event-round b{font-size:39px!important;line-height:.82!important;}.tk-help-btn{top:7px!important;left:33%!important;right:auto!important;width:54px!important;height:42px!important;font-size:12px!important;}}";
-
-        const messageEl = root.querySelector(".tk-message");
-        if (messageEl) {
-            messageEl.textContent = tkDisplayMessageForViewer(st);
-        }
-
-        const me = myPlayer();
-
-        const displayPlayers = st.players.map(function (p, index) {
-            return { p: p, index: index };
-        }).sort(function (a, b) {
-            if (me && a.p.id === me.id && b.p.id !== me.id) return 1;
-            if (me && b.p.id === me.id && a.p.id !== me.id) return -1;
-            return a.index - b.index;
-        });
-
-        const lastEls = root.querySelectorAll(".tk-player-card .tk-last");
-
-        displayPlayers.forEach(function (item, index) {
-            if (lastEls[index]) {
-                lastEls[index].textContent = tkDisplayLastActionForViewer(item.p);
-            }
-        });
-
-        const secretGoal = root.querySelector(".tk-secret-bottom");
-        const actions = root.querySelector(".tk-actions");
-
-        if (secretGoal && actions && actions.parentNode && secretGoal.parentNode !== actions.parentNode) {
-            actions.parentNode.insertBefore(secretGoal, actions);
-        } else if (secretGoal && actions && actions.parentNode) {
-            actions.parentNode.insertBefore(secretGoal, actions);
-        }
-    }
-})();
-/* === END TINY KINGDOMS ONE-PASTE PATCH === */
 window.resetTinyKingdomsGame = function () {
 clearTimeout(armyRevealTimer);
 clearTimeout(actionFlashTimer);
