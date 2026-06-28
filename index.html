@@ -8023,10 +8023,11 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 </script>
     
 <script>
-/* CHASER PATCH — clean small Bike/Car mode button repair */
+<script>
+/* CHASER PATCH — round icon-only Bike/Car mode button */
 (function () {
-    if (window.__chaserCleanSmallBikeCarRepairInstalled) return;
-    window.__chaserCleanSmallBikeCarRepairInstalled = true;
+    if (window.__chaserRoundIconBikeCarButtonInstalled) return;
+    window.__chaserRoundIconBikeCarButtonInstalled = true;
 
     let lastTap = 0;
 
@@ -8057,12 +8058,12 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 
     function installStyle() {
-        if (byId("chaser-clean-bike-car-repair-style")) return;
+        if (byId("chaser-round-bike-car-style")) return;
 
         const style = document.createElement("style");
-        style.id = "chaser-clean-bike-car-repair-style";
+        style.id = "chaser-round-bike-car-style";
         style.innerHTML = `
-            /* Kill only the two bad replacement buttons */
+            /* Kill the two bad replacement buttons if they still exist */
             #chaserReliableRouteModeBtn,
             #chaserSmallRouteModeBtn {
                 display:none !important;
@@ -8071,60 +8072,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 width:0 !important;
                 height:0 !important;
                 overflow:hidden !important;
-            }
-
-            /* Restore the original route button size/look */
-            #chaserRouteModeBtn {
-                width:92px !important;
-                height:44px !important;
-                min-width:92px !important;
-                max-width:92px !important;
-                min-height:44px !important;
-                max-height:44px !important;
-                border-radius:999px !important;
-                border:3px solid #e2f0d9 !important;
-                background:#e2f0d9 !important;
-                color:#1e4620 !important;
-                display:flex !important;
-                align-items:center !important;
-                justify-content:center !important;
-                gap:5px !important;
-                padding:0 9px !important;
-                box-sizing:border-box !important;
-                box-shadow:0 4px 14px rgba(0,0,0,.34) !important;
-                cursor:pointer !important;
-                pointer-events:auto !important;
-                touch-action:manipulation !important;
-                user-select:none !important;
-                -webkit-user-select:none !important;
-                -webkit-tap-highlight-color:transparent !important;
-                font-family:Arial,sans-serif !important;
-                opacity:1 !important;
-            }
-
-            #chaserRouteModeBtn.car-mode {
-                background:#1e4620 !important;
-                color:#ffd700 !important;
-                border-color:#e2f0d9 !important;
-            }
-
-            #chaserRouteModeBtn:active {
-                transform:scale(.94) !important;
-            }
-
-            #chaserRouteModeBtn svg {
-                width:24px !important;
-                height:24px !important;
-                flex:0 0 auto !important;
-                display:block !important;
-            }
-
-            #chaserRouteModeLabel {
-                font-size:12px !important;
-                font-weight:900 !important;
-                line-height:1 !important;
-                letter-spacing:.4px !important;
-                text-transform:uppercase !important;
             }
 
             .chaser-route-mode-control {
@@ -8139,6 +8086,62 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 background:transparent !important;
                 box-shadow:none !important;
             }
+
+            #chaserRouteModeBtn {
+                width:42px !important;
+                height:42px !important;
+                min-width:42px !important;
+                max-width:42px !important;
+                min-height:42px !important;
+                max-height:42px !important;
+                border-radius:50% !important;
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                background:rgba(226, 240, 217, 0.82) !important;
+                color:#1e4620 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:0 !important;
+                margin:0 !important;
+                box-sizing:border-box !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                cursor:pointer !important;
+                pointer-events:auto !important;
+                touch-action:manipulation !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+                opacity:1 !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+            }
+
+            #chaserRouteModeBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            #chaserRouteModeIcon {
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                width:30px !important;
+                height:30px !important;
+            }
+
+            #chaserRouteModeIcon svg {
+                width:30px !important;
+                height:30px !important;
+                display:block !important;
+                color:#1e4620 !important;
+            }
+
+            #chaserRouteModeLabel {
+                display:none !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserRouteModeBtn {
+                display:none !important;
+            }
         `;
         document.head.appendChild(style);
     }
@@ -8148,8 +8151,12 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
                 <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
                 <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
-                <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M39 17h8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M39 17h8"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round"></path>
                 <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
             </svg>
         `;
@@ -8158,11 +8165,17 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     function carSvg() {
         return `
             <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linejoin="round"></path>
                 <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
                 <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
-                <path d="M22 28h20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+                <path d="M22 28h20"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round"></path>
             </svg>
         `;
     }
@@ -8176,13 +8189,16 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         const icon = byId("chaserRouteModeIcon");
         const label = byId("chaserRouteModeLabel");
 
-        if (!btn || !icon || !label) return;
+        if (!btn || !icon) return;
 
         const mode = getMode();
 
-        btn.classList.toggle("car-mode", mode === "car");
         icon.innerHTML = mode === "car" ? carSvg() : bikeSvg();
-        label.innerText = mode === "car" ? "Car" : "Bike";
+
+        if (label) {
+            label.innerText = mode === "car" ? "Car" : "Bike";
+        }
+
         btn.title = mode === "car" ? "Car route mode" : "Bike route mode";
         btn.setAttribute("aria-label", mode === "car" ? "Car route mode" : "Bike route mode");
     }
@@ -8216,30 +8232,27 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         const btn = getButton();
         if (!btn) return;
 
-        if (btn.__chaserCleanBikeCarClickRepaired) {
-            renderButton();
-            return;
-        }
+        if (!btn.__chaserRoundBikeCarClickRepaired) {
+            btn.__chaserRoundBikeCarClickRepaired = true;
 
-        btn.__chaserCleanBikeCarClickRepaired = true;
+            btn.onclick = toggleMode;
 
-        btn.onclick = toggleMode;
+            btn.addEventListener("pointerup", toggleMode, true);
+            btn.addEventListener("touchend", toggleMode, true);
+            btn.addEventListener("click", toggleMode, true);
 
-        btn.addEventListener("pointerup", toggleMode, true);
-        btn.addEventListener("touchend", toggleMode, true);
-        btn.addEventListener("click", toggleMode, true);
+            btn.addEventListener("pointerdown", function (e) {
+                e.stopPropagation();
+            }, true);
 
-        btn.addEventListener("pointerdown", function (e) {
-            e.stopPropagation();
-        }, true);
+            btn.addEventListener("touchstart", function (e) {
+                e.stopPropagation();
+            }, true);
 
-        btn.addEventListener("touchstart", function (e) {
-            e.stopPropagation();
-        }, true);
-
-        if (typeof L !== "undefined" && L.DomEvent) {
-            try { L.DomEvent.disableClickPropagation(btn); } catch (e) {}
-            try { L.DomEvent.disableScrollPropagation(btn); } catch (e) {}
+            if (typeof L !== "undefined" && L.DomEvent) {
+                try { L.DomEvent.disableClickPropagation(btn); } catch (e) {}
+                try { L.DomEvent.disableScrollPropagation(btn); } catch (e) {}
+            }
         }
 
         renderButton();
@@ -8254,7 +8267,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 
     function forceRouteRequestsToUseMode() {
-        if (window.fetch.__chaserCleanBikeCarModeWrapped) return;
+        if (window.fetch.__chaserRoundBikeCarModeWrapped) return;
 
         const oldFetch = window.fetch;
 
@@ -8275,7 +8288,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                     body.mode = getMode();
                     init = {
                         ...init,
-                        body: JSON.stringify(body)
+                        body:JSON.stringify(body)
                     };
                 } catch (e) {}
             }
@@ -8283,7 +8296,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             return oldFetch.call(this, input, init);
         };
 
-        window.fetch.__chaserCleanBikeCarModeWrapped = true;
+        window.fetch.__chaserRoundBikeCarModeWrapped = true;
     }
 
     installStyle();
