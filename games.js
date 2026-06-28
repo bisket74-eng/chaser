@@ -248,7 +248,7 @@
        "Scrabble": {
     icon: "🔤",
     displayName: "Scrabble",
-    minPlayers: 2,
+    minPlayers: 1,
     maxPlayers: 4,
     multiplayer: true,
     init: () => {
