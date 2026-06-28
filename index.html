@@ -7043,6 +7043,319 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }, 800);
 })();
 </script>
+    <script>
+/* CHASER PATCH — single clean round Bike/Car route mode button */
+(function () {
+    if (window.__chaserSingleCleanBikeCarButtonInstalled) return;
+    window.__chaserSingleCleanBikeCarButtonInstalled = true;
+
+    let lastTapAt = 0;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function getMode() {
+        return localStorage.getItem("chaser_route_mode") === "car" ? "car" : "bike";
+    }
+
+    function setMode(mode) {
+        const safeMode = mode === "car" ? "car" : "bike";
+        localStorage.setItem("chaser_route_mode", safeMode);
+        renderButton();
+        fixRouteWords();
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function destinationText() {
+        const input = byId("destination");
+        return input ? input.value.trim() : "";
+    }
+
+    function installStyle() {
+        if (byId("chaser-single-clean-bike-car-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-single-clean-bike-car-style";
+        style.innerHTML = `
+            /* Hide every older route mode button/control so only this one works */
+            #chaserRouteModeBtn,
+            #chaserReliableRouteModeBtn,
+            #chaserSmallRouteModeBtn,
+            .chaser-route-mode-control {
+                display:none !important;
+                pointer-events:none !important;
+                opacity:0 !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserCleanRouteModeBtn {
+                position:fixed !important;
+                width:42px !important;
+                height:42px !important;
+                min-width:42px !important;
+                max-width:42px !important;
+                min-height:42px !important;
+                max-height:42px !important;
+                border-radius:50% !important;
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                background:rgba(226, 240, 217, 0.82) !important;
+                color:#1e4620 !important;
+                z-index:50080 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:0 !important;
+                margin:0 !important;
+                box-sizing:border-box !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                cursor:pointer !important;
+                touch-action:manipulation !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+            }
+
+            #chaserCleanRouteModeBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            #chaserCleanRouteModeBtn svg {
+                width:30px !important;
+                height:30px !important;
+                display:block !important;
+                color:#1e4620 !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserCleanRouteModeBtn {
+                display:none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function bikeSvg() {
+        return `
+            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+                <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M39 17h8"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round"></path>
+                <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
+            </svg>
+        `;
+    }
+
+    function carSvg() {
+        return `
+            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linejoin="round"></path>
+                <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
+                <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
+                <path d="M22 28h20"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round"></path>
+            </svg>
+        `;
+    }
+
+    function ensureButton() {
+        installStyle();
+
+        let btn = byId("chaserCleanRouteModeBtn");
+
+        if (!btn) {
+            btn = document.createElement("button");
+            btn.id = "chaserCleanRouteModeBtn";
+            btn.type = "button";
+            document.body.appendChild(btn);
+
+            btn.addEventListener("pointerdown", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            }, true);
+
+            btn.addEventListener("pointerup", toggleMode, true);
+            btn.addEventListener("click", toggleMode, true);
+
+            btn.addEventListener("touchstart", function (e) {
+                e.stopPropagation();
+            }, true);
+
+            if (typeof L !== "undefined" && L.DomEvent) {
+                try { L.DomEvent.disableClickPropagation(btn); } catch (e) {}
+                try { L.DomEvent.disableScrollPropagation(btn); } catch (e) {}
+            }
+        }
+
+        renderButton();
+        return btn;
+    }
+
+    function renderButton() {
+        const btn = byId("chaserCleanRouteModeBtn");
+        if (!btn) return;
+
+        const mode = getMode();
+
+        btn.innerHTML = mode === "car" ? carSvg() : bikeSvg();
+        btn.title = mode === "car" ? "Car route mode" : "Bike route mode";
+        btn.setAttribute("aria-label", btn.title);
+    }
+
+    function toggleMode(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        }
+
+        const now = Date.now();
+        if (now - lastTapAt < 450) return;
+        lastTapAt = now;
+
+        const nextMode = getMode() === "bike" ? "car" : "bike";
+        setMode(nextMode);
+
+        if (typeof window.chaserClearRoute === "function") {
+            window.chaserClearRoute();
+        }
+
+        if (isSharingNow() && destinationText() && typeof window.chaserRefreshRoute === "function") {
+            setTimeout(function () {
+                window.chaserRefreshRoute();
+            }, 250);
+        }
+    }
+
+    function positionButton() {
+        const btn = ensureButton();
+        const zoom = document.querySelector(".leaflet-control-zoom");
+
+        if (!btn || !zoom) return;
+
+        const z = zoom.getBoundingClientRect();
+        const size = 42;
+
+        /*
+           Adjust these if needed:
+           - plusTop moves it down/up
+           - plusLeft moves it right/left
+        */
+        const plusTop = 10;
+        const plusLeft = 0;
+
+        let left = z.left + (z.width / 2) - (size / 2) + plusLeft;
+        let top = z.bottom + plusTop;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(80, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    function removeOldButtons() {
+        ["chaserReliableRouteModeBtn", "chaserSmallRouteModeBtn"].forEach(id => {
+            const node = byId(id);
+            if (node) node.remove();
+        });
+    }
+
+    function forceRouteRequestsToUseSelectedMode() {
+        if (window.fetch.__chaserSingleCleanBikeCarFetchWrapped) return;
+
+        const oldFetch = window.fetch;
+
+        window.fetch = function (input, init) {
+            let url = "";
+
+            try {
+                url = typeof input === "string" ? input : String(input && input.url || "");
+            } catch (e) {}
+
+            if (
+                url.includes("/functions/v1/chaser-route") &&
+                init &&
+                typeof init.body === "string"
+            ) {
+                try {
+                    const body = JSON.parse(init.body);
+                    body.mode = getMode();
+                    init = {
+                        ...init,
+                        body:JSON.stringify(body)
+                    };
+                } catch (e) {}
+            }
+
+            return oldFetch.call(this, input, init);
+        };
+
+        window.fetch.__chaserSingleCleanBikeCarFetchWrapped = true;
+    }
+
+    function fixRouteWords() {
+        const modeText = getMode() === "car" ? "Car" : "Bike";
+        const lower = modeText.toLowerCase();
+
+        const sub = byId("chaserRouteChoiceSub");
+        if (sub && sub.innerText) {
+            sub.innerText = modeText + " route — tap the right place";
+        }
+
+        const status = byId("chaserRouteStatus");
+        if (status && status.innerText) {
+            status.innerText = status.innerText
+                .replace(/^Finding bike route/i, "Finding " + lower + " route")
+                .replace(/^Finding car route/i, "Finding " + lower + " route")
+                .replace(/^Bike route/i, modeText + " route")
+                .replace(/^Car route/i, modeText + " route");
+        }
+    }
+
+    installStyle();
+    removeOldButtons();
+    ensureButton();
+    positionButton();
+    forceRouteRequestsToUseSelectedMode();
+    fixRouteWords();
+
+    setInterval(function () {
+        installStyle();
+        removeOldButtons();
+        ensureButton();
+        positionButton();
+        fixRouteWords();
+    }, 700);
+
+    window.addEventListener("resize", positionButton);
+    window.addEventListener("orientationchange", function () {
+        setTimeout(positionButton, 500);
+    });
+})();
+</script>
     
 
 
