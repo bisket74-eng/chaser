@@ -7141,6 +7141,332 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }, 250);
 })();
 </script>
+    <script>
+/* CHASER PATCH — combined compass under radius + remove NSEW + closer route follow zoom */
+(function () {
+    if (window.__chaserCombinedCompassRouteZoomInstalled) return;
+    window.__chaserCombinedCompassRouteZoomInstalled = true;
+
+    const ROUTE_FOLLOW_ZOOM = 15;
+
+    let lastCompassLat = null;
+    let lastCompassLng = null;
+    let headingDeg = null;
+    let lastRouteZoomAt = 0;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function currentLat() {
+        try {
+            return Number(lastLat || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function currentLng() {
+        try {
+            return Number(lastLng || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function destinationText() {
+        const input = byId("destination");
+        return input ? input.value.trim() : "";
+    }
+
+    function chatIsOpen() {
+        const chat = byId("chatOverlay");
+        return !!(chat && chat.classList.contains("open"));
+    }
+
+    function pickerIsOpen() {
+        const picker = byId("chaserRouteChoiceOverlay");
+        return !!(picker && picker.classList.contains("show"));
+    }
+
+    function followHudIsShowing() {
+        const hud = byId("chaserFollowStatsHud");
+        return !!(hud && hud.classList.contains("show"));
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+
+        const lat1 = toRad(aLat);
+        const lat2 = toRad(bLat);
+        const dLng = toRad(bLng - aLng);
+
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x =
+            Math.cos(lat1) * Math.sin(lat2) -
+            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function installStyle() {
+        if (byId("chaser-combined-compass-routezoom-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-combined-compass-routezoom-style";
+        style.innerHTML = `
+            /* Remove old NSEW letters above the speed/trip HUD */
+            #chaserFollowStatsHud::before {
+                content:none !important;
+                display:none !important;
+            }
+
+            /* Hide the old blue NSEW compass if that earlier patch exists */
+            #chaserCompassHud {
+                display:none !important;
+                opacity:0 !important;
+                pointer-events:none !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserSpinCompass {
+                position:fixed !important;
+                width:42px !important;
+                height:42px !important;
+                border-radius:50% !important;
+                z-index:16 !important;
+                display:none !important;
+                align-items:center !important;
+                justify-content:center !important;
+                pointer-events:none !important;
+                background:rgba(226, 240, 217, 0.78) !important;
+                border:2px solid rgba(30, 70, 32, 0.80) !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.28) !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserSpinCompass.show {
+                display:flex !important;
+            }
+
+            #chaserSpinCompassN {
+                position:absolute !important;
+                top:3px !important;
+                left:0 !important;
+                right:0 !important;
+                text-align:center !important;
+                color:#1e4620 !important;
+                font-family:Arial Black, Arial, sans-serif !important;
+                font-size:8px !important;
+                font-weight:900 !important;
+                line-height:1 !important;
+                opacity:.85 !important;
+            }
+
+            #chaserSpinCompassArrow {
+                width:24px !important;
+                height:24px !important;
+                transform-origin:50% 50% !important;
+                transition:transform .25s ease !important;
+                color:#0077ff !important;
+                filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)) !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserSpinCompass {
+                display:none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureCompass() {
+        installStyle();
+
+        let compass = byId("chaserSpinCompass");
+
+        if (!compass) {
+            compass = document.createElement("div");
+            compass.id = "chaserSpinCompass";
+            compass.innerHTML = `
+                <div id="chaserSpinCompassN">N</div>
+                <svg id="chaserSpinCompassArrow" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                    <path d="M50 8 L68 58 L52 50 L50 92 L48 50 L32 58 Z"
+                          fill="currentColor"></path>
+                </svg>
+            `;
+            document.body.appendChild(compass);
+        }
+
+        return compass;
+    }
+
+    function updateHeadingFromGpsMovement() {
+        const lat = currentLat();
+        const lng = currentLng();
+
+        if (!isSharingNow() || !lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return;
+        }
+
+        if (lastCompassLat !== null && lastCompassLng !== null) {
+            const moved = distanceMeters(lastCompassLat, lastCompassLng, lat, lng);
+
+            if (moved >= 4) {
+                headingDeg = bearingDegrees(lastCompassLat, lastCompassLng, lat, lng);
+            }
+        }
+
+        lastCompassLat = lat;
+        lastCompassLng = lng;
+    }
+
+    function positionCompassUnderRadiusButton() {
+        const compass = ensureCompass();
+        const radius = document.querySelector(".radius-toggle-container");
+
+        if (!isSharingNow() || chatIsOpen()) {
+            compass.classList.remove("show");
+            compass.style.display = "none";
+            return;
+        }
+
+        if (!radius) {
+            compass.classList.remove("show");
+            compass.style.display = "none";
+            return;
+        }
+
+        const r = radius.getBoundingClientRect();
+        const size = 42;
+
+        /*
+           Position:
+           - under the 50 Mi Only button
+           - slightly right of center
+           - above the next-turn arrow area
+        */
+        let left = r.left + (r.width * 0.72) - (size / 2);
+        let top = r.bottom + 9;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(82, Math.min(window.innerHeight - size - 8, top));
+
+        compass.style.setProperty("left", left + "px", "important");
+        compass.style.setProperty("top", top + "px", "important");
+        compass.style.setProperty("display", "flex", "important");
+
+        compass.classList.add("show");
+    }
+
+    function renderCompassArrow() {
+        const arrow = byId("chaserSpinCompassArrow");
+
+        if (arrow && Number.isFinite(headingDeg)) {
+            arrow.style.transform = "rotate(" + headingDeg + "deg)";
+        }
+    }
+
+    function shouldRouteZoomFollow() {
+        return (
+            isSharingNow() &&
+            !!destinationText() &&
+            followHudIsShowing() &&
+            !chatIsOpen() &&
+            !pickerIsOpen()
+        );
+    }
+
+    function keepRouteFollowZoomCloser() {
+        if (!shouldRouteZoomFollow()) return;
+        if (typeof map === "undefined" || !map) return;
+
+        const lat = currentLat();
+        const lng = currentLng();
+
+        if (!lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const now = Date.now();
+        if (now - lastRouteZoomAt < 1200) return;
+
+        const zoom = map.getZoom();
+        const center = map.getCenter();
+        const movedFromCenter = distanceMeters(center.lat, center.lng, lat, lng);
+
+        if (zoom < ROUTE_FOLLOW_ZOOM) {
+            lastRouteZoomAt = now;
+
+            try {
+                map.setView([lat, lng], ROUTE_FOLLOW_ZOOM, {
+                    animate:true
+                });
+            } catch (e) {}
+
+            return;
+        }
+
+        if (movedFromCenter > 35) {
+            lastRouteZoomAt = now;
+
+            try {
+                map.panTo([lat, lng], {
+                    animate:true
+                });
+            } catch (e) {}
+        }
+    }
+
+    installStyle();
+    ensureCompass();
+
+    setInterval(function () {
+        updateHeadingFromGpsMovement();
+        positionCompassUnderRadiusButton();
+        renderCompassArrow();
+        keepRouteFollowZoomCloser();
+    }, 500);
+
+    window.addEventListener("resize", positionCompassUnderRadiusButton);
+    window.addEventListener("orientationchange", function () {
+        setTimeout(positionCompassUnderRadiusButton, 500);
+    });
+})();
+</script>
     
 </body>
 </html>
