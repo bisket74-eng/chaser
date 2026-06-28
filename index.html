@@ -8022,48 +8022,23 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 })();
 </script>
     
-<script>
-
-/* CHASER PATCH — round icon-only Bike/Car mode button */
+><script>
+/* CHASER PATCH — icon-only original Bike/Car button style, no extra toggle logic */
 (function () {
-    if (window.__chaserRoundIconBikeCarButtonInstalled) return;
-    window.__chaserRoundIconBikeCarButtonInstalled = true;
-
-    let lastTap = 0;
+    if (window.__chaserIconOnlyOriginalBikeCarStyleInstalled) return;
+    window.__chaserIconOnlyOriginalBikeCarStyleInstalled = true;
 
     function byId(id) {
         return document.getElementById(id);
     }
 
-    function getMode() {
-        return localStorage.getItem("chaser_route_mode") === "car" ? "car" : "bike";
-    }
-
-    function setMode(mode) {
-        localStorage.setItem("chaser_route_mode", mode === "car" ? "car" : "bike");
-        renderButton();
-    }
-
-    function isSharingNow() {
-        try {
-            return typeof isSharing !== "undefined" && !!isSharing;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    function destinationText() {
-        const input = byId("destination");
-        return input ? input.value.trim() : "";
-    }
-
     function installStyle() {
-        if (byId("chaser-round-bike-car-style")) return;
+        if (byId("chaser-icon-only-original-bike-car-style")) return;
 
         const style = document.createElement("style");
-        style.id = "chaser-round-bike-car-style";
+        style.id = "chaser-icon-only-original-bike-car-style";
         style.innerHTML = `
-            /* Kill the two bad replacement buttons if they still exist */
+            /* Remove bad replacement buttons if they still exist */
             #chaserReliableRouteModeBtn,
             #chaserSmallRouteModeBtn {
                 display:none !important;
@@ -8074,6 +8049,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 overflow:hidden !important;
             }
 
+            /* Keep the original Leaflet route mode control alive */
             .chaser-route-mode-control {
                 display:block !important;
                 pointer-events:auto !important;
@@ -8081,13 +8057,17 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 width:auto !important;
                 height:auto !important;
                 overflow:visible !important;
-               margin-top:18px !important;
-               margin-left:10px !important;
+
+                margin-top:8px !important;   /* bigger = lower, smaller/negative = higher */
+                margin-left:0px !important;  /* bigger = right, negative = left */
+
                 border:none !important;
                 background:transparent !important;
                 box-shadow:none !important;
+                z-index:50000 !important;
             }
 
+            /* Round button to match compass */
             #chaserRouteModeBtn {
                 width:42px !important;
                 height:42px !important;
@@ -8102,6 +8082,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 display:flex !important;
                 align-items:center !important;
                 justify-content:center !important;
+                gap:0 !important;
                 padding:0 !important;
                 margin:0 !important;
                 box-sizing:border-box !important;
@@ -8115,6 +8096,12 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 opacity:1 !important;
                 backdrop-filter:blur(3px) !important;
                 -webkit-backdrop-filter:blur(3px) !important;
+            }
+
+            #chaserRouteModeBtn.car-mode {
+                background:rgba(226, 240, 217, 0.82) !important;
+                color:#1e4620 !important;
+                border-color:rgba(30, 70, 32, 0.85) !important;
             }
 
             #chaserRouteModeBtn:active {
@@ -8136,6 +8123,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 color:#1e4620 !important;
             }
 
+            /* Hide words. Icon tells mode. */
             #chaserRouteModeLabel {
                 display:none !important;
             }
@@ -8147,119 +8135,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         document.head.appendChild(style);
     }
 
-    function bikeSvg() {
-        return `
-            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-                <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
-                <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
-                <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M39 17h8"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round"></path>
-                <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
-            </svg>
-        `;
-    }
-
-    function carSvg() {
-        return `
-            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linejoin="round"></path>
-                <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
-                <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
-                <path d="M22 28h20"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round"></path>
-            </svg>
-        `;
-    }
-
-    function getButton() {
-        return byId("chaserRouteModeBtn");
-    }
-
-    function renderButton() {
-        const btn = getButton();
-        const icon = byId("chaserRouteModeIcon");
-        const label = byId("chaserRouteModeLabel");
-
-        if (!btn || !icon) return;
-
-        const mode = getMode();
-
-        icon.innerHTML = mode === "car" ? carSvg() : bikeSvg();
-
-        if (label) {
-            label.innerText = mode === "car" ? "Car" : "Bike";
-        }
-
-        btn.title = mode === "car" ? "Car route mode" : "Bike route mode";
-        btn.setAttribute("aria-label", mode === "car" ? "Car route mode" : "Bike route mode");
-    }
-
-    function toggleMode(e) {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        }
-
-        const now = Date.now();
-        if (now - lastTap < 450) return;
-        lastTap = now;
-
-        const newMode = getMode() === "bike" ? "car" : "bike";
-        setMode(newMode);
-
-        if (typeof window.chaserClearRoute === "function") {
-            window.chaserClearRoute();
-        }
-
-        if (isSharingNow() && destinationText() && typeof window.chaserRefreshRoute === "function") {
-            setTimeout(function () {
-                window.chaserRefreshRoute();
-            }, 250);
-        }
-    }
-
-    function repairButtonClick() {
-        const btn = getButton();
-        if (!btn) return;
-
-        if (!btn.__chaserRoundBikeCarClickRepaired) {
-            btn.__chaserRoundBikeCarClickRepaired = true;
-
-            btn.onclick = toggleMode;
-
-            btn.addEventListener("pointerup", toggleMode, true);
-            btn.addEventListener("touchend", toggleMode, true);
-            btn.addEventListener("click", toggleMode, true);
-
-            btn.addEventListener("pointerdown", function (e) {
-                e.stopPropagation();
-            }, true);
-
-            btn.addEventListener("touchstart", function (e) {
-                e.stopPropagation();
-            }, true);
-
-            if (typeof L !== "undefined" && L.DomEvent) {
-                try { L.DomEvent.disableClickPropagation(btn); } catch (e) {}
-                try { L.DomEvent.disableScrollPropagation(btn); } catch (e) {}
-            }
-        }
-
-        renderButton();
-    }
-
-    function removeBadButtonsFromPage() {
+    function removeBadButtons() {
         const badOne = byId("chaserReliableRouteModeBtn");
         const badTwo = byId("chaserSmallRouteModeBtn");
 
@@ -8267,51 +8143,45 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         if (badTwo) badTwo.remove();
     }
 
-    function forceRouteRequestsToUseMode() {
-        if (window.fetch.__chaserRoundBikeCarModeWrapped) return;
+    function protectOriginalButtonOnly() {
+        const btn = byId("chaserRouteModeBtn");
+        if (!btn || btn.__chaserOriginalButtonProtected) return;
 
-        const oldFetch = window.fetch;
+        btn.__chaserOriginalButtonProtected = true;
 
-        window.fetch = function (input, init) {
-            let url = "";
+        /*
+           Important:
+           This does NOT toggle Bike/Car.
+           The original route patch already does that.
+           This only stops map dragging from stealing the touch.
+        */
+        btn.addEventListener("pointerdown", function (e) {
+            e.stopPropagation();
+        }, true);
 
-            try {
-                url = typeof input === "string" ? input : String(input && input.url || "");
-            } catch (e) {}
+        btn.addEventListener("touchstart", function (e) {
+            e.stopPropagation();
+        }, true);
 
-            if (
-                url.includes("/functions/v1/chaser-route") &&
-                init &&
-                typeof init.body === "string"
-            ) {
-                try {
-                    const body = JSON.parse(init.body);
-                    body.mode = getMode();
-                    init = {
-                        ...init,
-                        body:JSON.stringify(body)
-                    };
-                } catch (e) {}
-            }
-
-            return oldFetch.call(this, input, init);
-        };
-
-        window.fetch.__chaserRoundBikeCarModeWrapped = true;
+        if (typeof L !== "undefined" && L.DomEvent) {
+            try { L.DomEvent.disableClickPropagation(btn); } catch (e) {}
+            try { L.DomEvent.disableScrollPropagation(btn); } catch (e) {}
+        }
     }
 
     installStyle();
-    removeBadButtonsFromPage();
-    repairButtonClick();
-    forceRouteRequestsToUseMode();
+    removeBadButtons();
+    protectOriginalButtonOnly();
 
     setInterval(function () {
         installStyle();
-        removeBadButtonsFromPage();
-        repairButtonClick();
-        renderButton();
-    }, 700);
+        removeBadButtons();
+        protectOriginalButtonOnly();
+    }, 800);
 })();
 </script>
+    
+
+
 </body>
 </html>
