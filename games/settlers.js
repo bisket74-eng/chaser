@@ -2649,3 +2649,394 @@ window.startSettlersFromLobby = window.initSettlersGame;
 window.startSettlersGame = window.initSettlersGame;
 
 })();
+
+/* ============================================================
+   CHASER SETTLERS PATCH — HOST SHUFFLE / START + WHITE ROAD OUTLINE
+   Paste at the VERY BOTTOM of settlers.js
+   ============================================================ */
+(function () {
+    "use strict";
+
+    if (window.__settlersShuffleStartRoadOutlinePatch) return;
+    window.__settlersShuffleStartRoadOutlinePatch = true;
+
+    function myId() {
+        if (typeof window.myId === "function") return window.myId();
+        if (typeof window.myId === "string") return window.myId;
+        return localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return !window.chaserGame || !window.chaserGame.hostId || window.chaserGame.hostId === myId();
+    }
+
+    function sendSettlersSync() {
+        if (
+            typeof channel !== "undefined" &&
+            channel &&
+            typeof channel.send === "function" &&
+            window.settlersState
+        ) {
+            channel.send({
+                type: "broadcast",
+                event: "settlers-sync-state",
+                payload: {
+                    state: window.settlersState,
+                    roomGameId:
+                        window.chaserGame && window.chaserGame.activeGameId
+                            ? window.chaserGame.activeGameId
+                            : null
+                }
+            });
+        }
+    }
+
+    function shuffleCopy(array) {
+        const arr = array.slice();
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const temp = arr[i];
+            arr[i] = arr[j];
+            arr[j] = temp;
+        }
+        return arr;
+    }
+
+    function getHexCorners(hex) {
+        const size = 48;
+        const width = Math.sqrt(3) * size;
+
+        return [
+            { x: hex.x, y: hex.y - size },
+            { x: hex.x + width / 2, y: hex.y - size / 2 },
+            { x: hex.x + width / 2, y: hex.y + size / 2 },
+            { x: hex.x, y: hex.y + size },
+            { x: hex.x - width / 2, y: hex.y + size / 2 },
+            { x: hex.x - width / 2, y: hex.y - size / 2 }
+        ];
+    }
+
+    function areHexesTouching(a, b) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        return dist < 88 && dist > 70;
+    }
+
+    function scoreBoard(hexes) {
+        let score = 0;
+
+        for (let i = 0; i < hexes.length; i++) {
+            for (let j = i + 1; j < hexes.length; j++) {
+                if (!areHexesTouching(hexes[i], hexes[j])) continue;
+
+                const a = hexes[i];
+                const b = hexes[j];
+
+                if (a.resource && b.resource && a.resource === b.resource && a.resource !== "desert") {
+                    score -= 150;
+                }
+
+                if (a.token && b.token && a.token === b.token) {
+                    score -= 220;
+                }
+
+                if ((a.token === 6 || a.token === 8) && (b.token === 6 || b.token === 8)) {
+                    score -= 300;
+                }
+
+                if (a.token && b.token && Math.abs(a.token - b.token) === 1) {
+                    score -= 25;
+                }
+            }
+        }
+
+        return score;
+    }
+
+    function betterShuffleBoard() {
+        const st = window.settlersState;
+        if (!st || !st.board || !Array.isArray(st.board.hexes)) return;
+
+        const resources = [
+            "desert",
+            "wood", "wood", "wood", "wood",
+            "sheep", "sheep", "sheep", "sheep",
+            "wheat", "wheat", "wheat", "wheat",
+            "brick", "brick", "brick",
+            "ore", "ore", "ore"
+        ];
+
+        const tokens = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
+
+        let bestHexes = null;
+        let bestScore = -999999;
+
+        for (let attempt = 0; attempt < 1500; attempt++) {
+            const res = shuffleCopy(resources);
+            const tok = shuffleCopy(tokens);
+            let tokenIndex = 0;
+
+            const candidate = st.board.hexes.map((oldHex, idx) => {
+                const resource = res[idx];
+                const token = resource === "desert" ? null : tok[tokenIndex++];
+
+                return {
+                    ...oldHex,
+                    resource,
+                    token
+                };
+            });
+
+            const score = scoreBoard(candidate);
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestHexes = candidate;
+            }
+        }
+
+        if (bestHexes) {
+            st.board.hexes = bestHexes;
+        }
+
+        if (Array.isArray(st.board.ports)) {
+            const portTypes = ["3:1", "3:1", "3:1", "3:1", "wood", "sheep", "wheat", "brick", "ore"];
+            const shuffledPorts = shuffleCopy(portTypes);
+            st.board.ports.forEach((p, i) => {
+                p.type = shuffledPorts[i % shuffledPorts.length];
+            });
+        }
+    }
+
+    window.shuffleSettlersBoard = function () {
+        const st = window.settlersState;
+        if (!st) return;
+
+        if (!isHost()) {
+            alert("Only the host can shuffle the board.");
+            return;
+        }
+
+        if (
+            st.pieces &&
+            (
+                (st.pieces.settlements && st.pieces.settlements.length) ||
+                (st.pieces.roads && st.pieces.roads.length) ||
+                (st.pieces.cities && st.pieces.cities.length)
+            )
+        ) {
+            alert("You can only shuffle before anyone places pieces.");
+            return;
+        }
+
+        st.phase = "prestart";
+        if (st.setup) {
+            st.setup.active = false;
+            st.setup.stepIndex = 0;
+            st.setup.needed = "settlement";
+            st.setup.pendingSettlement = null;
+        }
+
+        betterShuffleBoard();
+
+        st.message = "Board shuffled. Hit Start Game when ready.";
+
+        if (typeof renderSettlers === "function") {
+            renderSettlers();
+        }
+
+        sendSettlersSync();
+    };
+
+    window.startSettlersSetupGame = function () {
+        const st = window.settlersState;
+        if (!st) return;
+
+        if (!isHost()) {
+            alert("Only the host can start the game.");
+            return;
+        }
+
+        if (
+            st.pieces &&
+            (
+                (st.pieces.settlements && st.pieces.settlements.length) ||
+                (st.pieces.roads && st.pieces.roads.length) ||
+                (st.pieces.cities && st.pieces.cities.length)
+            )
+        ) {
+            return;
+        }
+
+        const playerCount = st.players && st.players.length ? st.players.length : 3;
+        const order = [];
+
+        for (let i = 0; i < playerCount; i++) order.push(i);
+        for (let i = playerCount - 1; i >= 0; i--) order.push(i);
+
+        st.phase = "setup";
+        st.turnIndex = order[0] || 0;
+        st.setup = {
+            active: true,
+            order: order,
+            stepIndex: 0,
+            needed: "settlement",
+            pendingSettlement: null
+        };
+
+        const current = st.players && st.players[st.turnIndex] ? st.players[st.turnIndex] : { name: "Player 1" };
+        st.message = current.name + ": choose Settle below for your first settlement.";
+
+        if (typeof renderSettlers === "function") {
+            renderSettlers();
+        }
+
+        sendSettlersSync();
+    };
+
+    function addPrestartButtons() {
+        const st = window.settlersState;
+        const boardArea = document.querySelector(".set-map-viewport");
+        if (!st || !boardArea) return;
+
+        let old = document.getElementById("settlersShuffleStartControls");
+        if (old) old.remove();
+
+        const hasPieces =
+            st.pieces &&
+            (
+                (st.pieces.settlements && st.pieces.settlements.length) ||
+                (st.pieces.roads && st.pieces.roads.length) ||
+                (st.pieces.cities && st.pieces.cities.length)
+            );
+
+        if (!isHost() || hasPieces) return;
+
+        if (st.phase !== "prestart" && st.phase !== "waiting" && !(st.setup && st.setup.active === false)) {
+            return;
+        }
+
+        const controls = document.createElement("div");
+        controls.id = "settlersShuffleStartControls";
+        controls.innerHTML = `
+            <button type="button" onclick="shuffleSettlersBoard()" style="
+                border:2px solid #ffffff;
+                border-radius:999px;
+                padding:8px 11px;
+                background:#1d4ed8;
+                color:#ffffff;
+                font-size:13px;
+                font-weight:900;
+                box-shadow:0 3px 10px rgba(0,0,0,.35);
+            ">Shuffle</button>
+
+            <button type="button" onclick="startSettlersSetupGame()" style="
+                border:2px solid #ffffff;
+                border-radius:999px;
+                padding:8px 11px;
+                background:#ffd700;
+                color:#1e4620;
+                font-size:13px;
+                font-weight:900;
+                box-shadow:0 3px 10px rgba(0,0,0,.35);
+            ">Start Game</button>
+        `;
+
+        controls.style.position = "absolute";
+        controls.style.right = "10px";
+        controls.style.bottom = "10px";
+        controls.style.zIndex = "9999";
+        controls.style.display = "flex";
+        controls.style.gap = "7px";
+        controls.style.alignItems = "center";
+
+        boardArea.style.position = "relative";
+        boardArea.appendChild(controls);
+    }
+
+    function addRoadWhiteOutlines() {
+        const st = window.settlersState;
+        if (!st || !st.pieces || !Array.isArray(st.pieces.roads)) return;
+
+        const svg = document.querySelector(".set-board-zoomer svg");
+        if (!svg) return;
+
+        svg.querySelectorAll(".settlers-road-outline-added").forEach(el => el.remove());
+
+        st.pieces.roads.forEach(r => {
+            const outline = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            outline.setAttribute("class", "settlers-road-outline-added");
+            outline.setAttribute("x1", r.x1);
+            outline.setAttribute("y1", r.y1);
+            outline.setAttribute("x2", r.x2);
+            outline.setAttribute("y2", r.y2);
+            outline.setAttribute("stroke", "#ffffff");
+            outline.setAttribute("stroke-width", "13");
+            outline.setAttribute("stroke-linecap", "round");
+            outline.setAttribute("pointer-events", "none");
+
+            const placedPieces = svg.querySelector("#placed-pieces");
+            if (placedPieces && placedPieces.firstChild) {
+                placedPieces.insertBefore(outline, placedPieces.firstChild);
+            } else if (placedPieces) {
+                placedPieces.appendChild(outline);
+            }
+        });
+    }
+
+    const observer = new MutationObserver(() => {
+        addPrestartButtons();
+        addRoadWhiteOutlines();
+    });
+
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (canvas) {
+        observer.observe(canvas, { childList: true, subtree: true });
+    }
+
+    const oldInit = window.initSettlersGame;
+    if (typeof oldInit === "function" && !oldInit.__shuffleStartWrapped) {
+        window.initSettlersGame = function () {
+            const result = oldInit.apply(this, arguments);
+
+            const st = window.settlersState;
+            if (st && !st.__shuffleStartInitialized) {
+                st.__shuffleStartInitialized = true;
+
+                if (
+                    !st.pieces ||
+                    (
+                        (!st.pieces.settlements || !st.pieces.settlements.length) &&
+                        (!st.pieces.roads || !st.pieces.roads.length) &&
+                        (!st.pieces.cities || !st.pieces.cities.length)
+                    )
+                ) {
+                    st.phase = "prestart";
+                    if (st.setup) st.setup.active = false;
+                    st.message = isHost()
+                        ? "Shuffle the board until you like it, then start the game."
+                        : "Waiting for the host to start the game.";
+                }
+            }
+
+            if (typeof renderSettlers === "function") {
+                renderSettlers();
+            }
+
+            setTimeout(addPrestartButtons, 50);
+            setTimeout(addRoadWhiteOutlines, 80);
+
+            return result;
+        };
+
+        window.initSettlersGame.__shuffleStartWrapped = true;
+        window.startSettlersFromLobby = window.initSettlersGame;
+        window.startSettlersGame = window.initSettlersGame;
+    }
+
+    setInterval(() => {
+        addPrestartButtons();
+        addRoadWhiteOutlines();
+    }, 700);
+})();
