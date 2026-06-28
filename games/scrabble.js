@@ -69,10 +69,21 @@ roomGameId: window.chaserGame && window.chaserGame.activeGameId ? window.chaserG
 }
 }
 
+const VOWELS = new Set(["A", "E", "I", "O", "U"]);
+
+function isVowelTile(letter) {
+return VOWELS.has(letter);
+}
+
 function shuffle(a) {
-return a.sort(function () {
-return Math.random() - 0.5;
-});
+for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = a[i];
+    a[i] = a[j];
+    a[j] = temp;
+}
+
+return a;
 }
 
 function makeBoard() {
@@ -81,9 +92,55 @@ return Array(15).fill(null);
 });
 }
 
+function rackVowelCount(rack) {
+return rack.filter(function (letter) {
+    return isVowelTile(letter);
+}).length;
+}
+
+function takeTileFromBag(s, wantVowel) {
+if (!s.bag.length) return null;
+
+if (wantVowel === null || wantVowel === undefined) {
+    return s.bag.pop();
+}
+
+for (let i = s.bag.length - 1; i >= 0; i--) {
+    if (isVowelTile(s.bag[i]) === wantVowel) {
+        return s.bag.splice(i, 1)[0];
+    }
+}
+
+return s.bag.pop();
+}
+
 function drawTiles(s, player) {
 while (player.rack.length < 7 && s.bag.length) {
-player.rack.push(s.bag.pop());
+    const vowels = rackVowelCount(player.rack);
+    const rackSize = player.rack.length;
+    const remainingSlots = 7 - rackSize;
+    const roomAfterThisDraw = remainingSlots - 1;
+
+    let wantVowel = null;
+
+    if (vowels >= 4) {
+        wantVowel = false;
+    } else if ((2 - vowels) > roomAfterThisDraw) {
+        wantVowel = true;
+    } else if (vowels === 0 && rackSize >= 3) {
+        wantVowel = true;
+    } else if (vowels <= 1 && Math.random() < 0.65) {
+        wantVowel = true;
+    } else if (vowels >= 3 && Math.random() < 0.75) {
+        wantVowel = false;
+    }
+
+    const tile = takeTileFromBag(s, wantVowel);
+
+    if (tile) {
+        player.rack.push(tile);
+    }
+
 }
 }
 
