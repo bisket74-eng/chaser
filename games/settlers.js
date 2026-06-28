@@ -1,6 +1,6 @@
 /* CHASER SETTLERS - SEPARATE GAME FILE - ASCII ICON SAFE
 Mobile-optimized Hex Resource Game
-3-4 player setup with named computer players, dice, resource cards, development cards, ports, trading, and action availability
+3-4 player setup with named computer players, dice, resource cards, development cards, ports, trading, robber, and action availability
 */
 ;(function () {
 "use strict";
@@ -16,6 +16,10 @@ const COMPUTER_DELAY_MS = 2600;
 const COMPUTER_ROLL_DELAY_MS = 3100;
 const COMPUTER_BUILD_DELAY_MS = 3200;
 const ROLL_REVEAL_MS = 3000;
+
+// Board generation tuning - higher attempt count + harsher penalties means
+// number/color tiles are kept apart far more reliably than a single quick pass.
+const BOARD_GEN_ATTEMPTS = 1500;
 
 const RESOURCES = [
     "desert",
@@ -83,6 +87,53 @@ let computerTimer = null;
 let computerActionKey = "";
 let lastResourceBurstId = "";
 let yearPlentyPick = null;
+
+// --- Dice support ---------------------------------------------------------
+// Math.random() is fine statistically, but its low bits can be weaker and
+// some environments seed it in ways that feel "streaky" over a long game.
+// rollDie() pulls from crypto.getRandomValues when available (better entropy)
+// and falls back to Math.random() otherwise. recentRollTotals tracks the last
+// few totals purely so we can gently break up an improbable run of the same
+// total in a row (a real die doesn't avoid repeats, but folks notice streaks
+// in a way that feels "off" in a digital game, so we nudge against them).
+const recentRollTotals = [];
+const MAX_SAME_TOTAL_STREAK = 2; // after this many repeats in a row, reroll once
+
+function rollDie() {
+    if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+        const buf = new Uint32Array(1);
+        window.crypto.getRandomValues(buf);
+        return (buf[0] % 6) + 1;
+    }
+    return Math.floor(Math.random() * 6) + 1;
+}
+
+function rollTwoDice() {
+    let d1 = rollDie();
+    let d2 = rollDie();
+    let total = d1 + d2;
+
+    // Break up long identical-total streaks (e.g. three 7s in a row) by
+    // rerolling once. This does not change the long-run probabilities in any
+    // meaningful way over a full game, it just smooths out short-term streaks
+    // that read as "the dice are broken" even though they are mathematically fine.
+    let streak = 0;
+    for (let i = recentRollTotals.length - 1; i >= 0; i--) {
+        if (recentRollTotals[i] === total) streak++;
+        else break;
+    }
+
+    if (streak >= MAX_SAME_TOTAL_STREAK) {
+        d1 = rollDie();
+        d2 = rollDie();
+        total = d1 + d2;
+    }
+
+    recentRollTotals.push(total);
+    if (recentRollTotals.length > 8) recentRollTotals.shift();
+
+    return { d1, d2, total };
+}
 
 function getMyId() {
     if (typeof window.myId === "function") return window.myId();
@@ -207,6 +258,11 @@ function hexesAreAdjacent(a, b) {
     return Math.abs(dist - HEX_WIDTH) < 5;
 }
 
+// Single, unified scoring function for board candidates. This replaces the
+// two separate (and inconsistent) scorers that used to exist - one in the
+// main file, one in the bottom patch. The patch's harsher penalties are used
+// here since they did a noticeably better job keeping same-color tiles and
+// 6/8 tokens apart.
 function scoreBoardCandidate(hexes) {
     let score = 0;
 
@@ -214,9 +270,24 @@ function scoreBoardCandidate(hexes) {
         for (let j = i + 1; j < hexes.length; j++) {
             if (!hexesAreAdjacent(hexes[i], hexes[j])) continue;
 
-            if (hexes[i].resource === hexes[j].resource && hexes[i].resource !== "desert") score -= 8;
-            if ((hexes[i].token === 6 || hexes[i].token === 8) && (hexes[j].token === 6 || hexes[j].token === 8)) score -= 20;
-            if (hexes[i].token && hexes[j].token && Math.abs(hexes[i].token - hexes[j].token) === 0) score -= 4;
+            const a = hexes[i];
+            const b = hexes[j];
+
+            if (a.resource && b.resource && a.resource === b.resource && a.resource !== "desert") {
+                score -= 150;
+            }
+
+            if (a.token && b.token && a.token === b.token) {
+                score -= 220;
+            }
+
+            if ((a.token === 6 || a.token === 8) && (b.token === 6 || b.token === 8)) {
+                score -= 300;
+            }
+
+            if (a.token && b.token && Math.abs(a.token - b.token) === 1) {
+                score -= 25;
+            }
         }
     }
 
@@ -302,12 +373,15 @@ function pickPortEdges(hexes, portTypes) {
     return chosen;
 }
 
-function generateBoard() {
+// Generates a fresh randomized set of hexes (resources + tokens) using the
+// unified scorer above, trying many candidates and keeping the best one.
+// Used both for first board creation and for the Shuffle button.
+function generateScoredHexes(basePositions) {
     let best = null;
     let bestScore = -Infinity;
 
-    for (let attempt = 0; attempt < 450; attempt++) {
-        const positions = makeBoardPositions();
+    for (let attempt = 0; attempt < BOARD_GEN_ATTEMPTS; attempt++) {
+        const positions = basePositions.map(h => ({ ...h }));
         const resources = shuffle(RESOURCES);
         const tokens = shuffle(TOKENS);
         let tokenIndex = 0;
@@ -320,16 +394,25 @@ function generateBoard() {
         const score = scoreBoardCandidate(positions);
         if (score > bestScore) {
             bestScore = score;
-            best = positions.map(h => ({ ...h }));
+            best = positions;
         }
     }
 
-    const finalHexes = best || makeBoardPositions();
+    return best || basePositions.map(h => ({ ...h }));
+}
+
+function generateBoard() {
+    const basePositions = makeBoardPositions();
+    const finalHexes = generateScoredHexes(basePositions);
 
     return {
         hexes: finalHexes,
         ports: pickPortEdges(finalHexes, PORTS)
     };
+}
+
+function findDesertHex(hexes) {
+    return (hexes || []).find(h => h.resource === "desert") || null;
 }
 
 function createState() {
@@ -342,12 +425,18 @@ function createState() {
         devHands[p.id] = [];
     });
 
+    const board = generateBoard();
+    const desertHex = findDesertHex(board.hexes);
+
     const setupOrder = buildSetupOrder(players.length);
     const firstPlayer = players[setupOrder[0] || 0] || players[0];
 
     return {
-        phase: "setup",
-        board: generateBoard(),
+        // Game starts in "prestart" so the host can shuffle the board as many
+        // times as they like before locking it in with Start Game.
+        phase: "prestart",
+        board,
+        robber: desertHex ? { row: desertHex.row, col: desertHex.col } : null,
         players,
         turnIndex: setupOrder[0] || 0,
         turnNumber: 1,
@@ -355,9 +444,12 @@ function createState() {
         lastRoll: null,
         highlightedRoll: null,
         pendingRoll: null,
+        pendingRobberMove: null,
         resourceBurst: null,
         pendingTrade: null,
-        message: `${firstPlayer.name}: choose Settle below for your first settlement.`,
+        message: isHostPlayer()
+            ? "Shuffle the board until you like it, then hit Start Game."
+            : "Waiting for the host to start the game.",
         resources,
         devDeck: buildDevelopmentDeck(),
         devHands,
@@ -365,7 +457,7 @@ function createState() {
         playedKnights: {},
         freeRoads: null,
         setup: {
-            active: true,
+            active: false,
             order: setupOrder,
             stepIndex: 0,
             needed: "settlement",
@@ -412,6 +504,18 @@ function ensureDevelopmentState() {
     });
 }
 
+function ensureRobberState() {
+    const st = window.settlersState;
+    if (!st) return;
+
+    if (!st.robber || typeof st.robber.row !== "number" || typeof st.robber.col !== "number") {
+        const desertHex = findDesertHex(st.board && st.board.hexes);
+        st.robber = desertHex ? { row: desertHex.row, col: desertHex.col } : null;
+    }
+
+    if (typeof st.pendingRobberMove === "undefined") st.pendingRobberMove = null;
+}
+
 function normalizeSettlersState() {
     const st = window.settlersState;
     if (!st) return;
@@ -431,13 +535,25 @@ function normalizeSettlersState() {
 
     if (typeof st.turnNumber !== "number") st.turnNumber = 1;
     if (typeof st.rolledThisTurn !== "boolean") st.rolledThisTurn = false;
+    if (!st.phase) st.phase = "prestart";
 
     ensureResourceBank();
     ensureDevelopmentState();
+    ensureRobberState();
 
     if (st.phase === "setup" && !st.setup) {
         st.setup = {
             active: true,
+            order: buildSetupOrder(st.players.length),
+            stepIndex: 0,
+            needed: "settlement",
+            pendingSettlement: null
+        };
+    }
+
+    if (!st.setup) {
+        st.setup = {
+            active: false,
             order: buildSetupOrder(st.players.length),
             stepIndex: 0,
             needed: "settlement",
@@ -635,6 +751,12 @@ function ownedSettlementPieces(playerId) {
     return st.pieces.settlements.filter(s => s.owner === playerId);
 }
 
+function isRobberOnHex(hex) {
+    const st = window.settlersState;
+    if (!st || !st.robber || !hex) return false;
+    return st.robber.row === hex.row && st.robber.col === hex.col;
+}
+
 function addResourceToPlayer(ownerId, resource, amount, gains) {
     const st = window.settlersState;
     if (!st || !resource || resource === "desert" || !amount) return;
@@ -663,6 +785,7 @@ function calculateResourcesForRoll(total) {
 
     st.board.hexes.forEach(hex => {
         if (hex.token !== total || hex.resource === "desert") return;
+        if (isRobberOnHex(hex)) return; // robber blocks this tile's payout entirely
 
         st.pieces.settlements.forEach(settlement => {
             if (pieceTouchesHex(settlement, hex)) addGain(settlement.owner, hex.resource, 1);
@@ -797,6 +920,14 @@ function getSettlersHeaderText() {
     const current = currentSettlersPlayer();
     const name = current && current.name ? current.name : "Player";
 
+    if (st.phase === "prestart") {
+        return isHostPlayer() ? "Shuffle the board, then hit Start Game." : "Waiting for the host to start the game.";
+    }
+
+    if (st.pendingRobberMove) {
+        return `${playerName(st.pendingRobberMove.playerId)} rolled a 7 - move the robber.`;
+    }
+
     if (st.setup && st.setup.active) {
         return `${name}'s setup turn.`;
     }
@@ -843,7 +974,7 @@ function bestTradeRate(playerId, giveType) {
 
 function canTradeNow(playerId) {
     const st = window.settlersState;
-    return !!(st && st.phase === "playing" && isMySettlersTurn() && playerId === getMyId() && st.rolledThisTurn && !st.pendingRoll);
+    return !!(st && st.phase === "playing" && isMySettlersTurn() && playerId === getMyId() && st.rolledThisTurn && !st.pendingRoll && !st.pendingRobberMove);
 }
 
 window.openSettlersTrade = function (giveType) {
@@ -898,7 +1029,7 @@ window.completeSettlersTrade = function (giveType, receiveType) {
 
 function canPlayerTradeNow() {
     const st = window.settlersState;
-    return !!(st && st.phase === "playing" && isMySettlersTurn() && st.rolledThisTurn && !st.pendingRoll);
+    return !!(st && st.phase === "playing" && isMySettlersTurn() && st.rolledThisTurn && !st.pendingRoll && !st.pendingRobberMove);
 }
 
 function resourceOptionsHtml(selected) {
@@ -1096,6 +1227,25 @@ function applyPendingSettlersRoll(rollId) {
     if (st.pendingRoll.id !== rollId) return;
     if (st.pendingRoll.applied) return;
 
+    const total = st.pendingRoll.total;
+    st.pendingRoll.applied = true;
+    st.highlightedRoll = null;
+
+    if (total === 7) {
+        // Robber activation: no resources change hands from tiles this turn.
+        // Whoever rolled must move the robber before anything else can happen.
+        const roller = currentSettlersPlayer();
+        st.pendingRobberMove = { playerId: roller.id };
+        st.message = `Rolled ${st.pendingRoll.d1} + ${st.pendingRoll.d2} = 7. ${roller.name} must move the robber.`;
+        st.pendingRoll = null;
+
+        renderSettlers();
+        syncSettlers();
+
+        if (roller.isComputer && isHostPlayer()) scheduleComputerIfNeeded(COMPUTER_BUILD_DELAY_MS);
+        return;
+    }
+
     const gains = st.pendingRoll.gains || {};
     applyResourceGains(gains);
 
@@ -1104,9 +1254,7 @@ function applyPendingSettlersRoll(rollId) {
         gains: JSON.parse(JSON.stringify(gains))
     };
 
-    st.pendingRoll.applied = true;
-    st.highlightedRoll = null;
-    st.message = `Rolled ${st.pendingRoll.d1} + ${st.pendingRoll.d2} = ${st.pendingRoll.total}. ${summarizeMyGains(gains)}`;
+    st.message = `Rolled ${st.pendingRoll.d1} + ${st.pendingRoll.d2} = ${total}. ${summarizeMyGains(gains)}`;
     st.pendingRoll = null;
 
     renderSettlers();
@@ -1118,12 +1266,10 @@ function applyPendingSettlersRoll(rollId) {
 
 function rollForCurrentPlayer() {
     const st = window.settlersState;
-    if (!st || st.pendingRoll || st.rolledThisTurn) return;
+    if (!st || st.pendingRoll || st.rolledThisTurn || st.pendingRobberMove) return;
 
-    const d1 = Math.floor(Math.random() * 6) + 1;
-    const d2 = Math.floor(Math.random() * 6) + 1;
-    const total = d1 + d2;
-    const gains = calculateResourcesForRoll(total);
+    const { d1, d2, total } = rollTwoDice();
+    const gains = total === 7 ? {} : calculateResourcesForRoll(total);
     const rollId = `roll-${Date.now()}-${Math.floor(Math.random() * 9999)}`;
 
     st.lastRoll = { d1, d2, total };
@@ -1143,8 +1289,18 @@ window.rollSettlersDice = function () {
     if (!st) return;
     normalizeSettlersState();
 
+    if (st.phase === "prestart") {
+        setMessage("Start the game first.");
+        return;
+    }
+
     if (st.setup && st.setup.active) {
         setMessage("Finish setup before rolling dice.");
+        return;
+    }
+
+    if (st.pendingRobberMove) {
+        setMessage("The robber needs to be moved first.");
         return;
     }
 
@@ -1198,6 +1354,11 @@ window.endSettlersTurn = function () {
         return;
     }
 
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
+        return;
+    }
+
     if (st.pendingRoll) {
         setMessage("Wait for the dice roll to finish first.");
         return;
@@ -1210,6 +1371,98 @@ window.endSettlersTurn = function () {
 
     endCurrentTurn();
 };
+
+// --- Robber ----------------------------------------------------------------
+// The robber starts parked on the desert tile. Whenever any player rolls a 7,
+// that roll yields no resources and the roller must move the robber onto a
+// different hex before play continues. While the robber sits on a hex, that
+// hex's number is shown with a dark overlay and a robber icon, and it pays
+// out nothing on future rolls until someone moves the robber off of it again.
+function tryMoveRobberForPlayer(playerId, hex, options) {
+    const st = window.settlersState;
+    const opts = options || {};
+    if (!st || !hex) return false;
+
+    if (!st.pendingRobberMove || st.pendingRobberMove.playerId !== playerId) {
+        if (!opts.silent) setMessage("It is not time to move the robber.");
+        return false;
+    }
+
+    if (st.robber && st.robber.row === hex.row && st.robber.col === hex.col) {
+        if (!opts.silent) setMessage("The robber is already there. Pick a different tile.");
+        return false;
+    }
+
+    st.robber = { row: hex.row, col: hex.col };
+    st.pendingRobberMove = null;
+
+    const resourceLabel = hex.resource === "desert" ? "the desert" : RESOURCE_NAMES[hex.resource] || hex.resource;
+    st.message = `${playerName(playerId)} moved the robber onto ${resourceLabel}.`;
+    uiState = "IDLE";
+    return true;
+}
+
+window.moveSettlersRobber = function (row, col) {
+    const st = window.settlersState;
+    if (!st) return;
+    normalizeSettlersState();
+
+    if (!st.pendingRobberMove) return;
+
+    if (st.pendingRobberMove.playerId !== getMyId()) {
+        setMessage(`Waiting for ${playerName(st.pendingRobberMove.playerId)} to move the robber.`);
+        return;
+    }
+
+    const hex = (st.board.hexes || []).find(h => h.row === row && h.col === col);
+    if (!hex) return;
+
+    if (tryMoveRobberForPlayer(getMyId(), hex, { silent: false })) {
+        renderSettlers();
+        syncSettlers();
+    }
+};
+
+function computerPickRobberHex(playerId) {
+    const st = window.settlersState;
+    if (!st || !st.board || !Array.isArray(st.board.hexes)) return null;
+
+    const candidates = st.board.hexes.filter(h => !(st.robber && st.robber.row === h.row && st.robber.col === h.col));
+    if (!candidates.length) return null;
+
+    // Prefer a hex that touches an opponent's settlement/city, favoring
+    // higher-value tokens (6/8) to make the robber placement feel purposeful
+    // rather than random.
+    const scored = candidates.map(hex => {
+        let score = Math.random();
+        const touchesOpponent = st.pieces.settlements.concat(st.pieces.cities || []).some(p => p.owner !== playerId && pieceTouchesHex(p, hex));
+        const touchesSelf = st.pieces.settlements.concat(st.pieces.cities || []).some(p => p.owner === playerId && pieceTouchesHex(p, hex));
+
+        if (touchesOpponent) score += 6;
+        if (touchesSelf) score -= 8;
+        if (hex.token === 6 || hex.token === 8) score += 2;
+
+        return { hex, score };
+    }).sort((a, b) => b.score - a.score);
+
+    return scored[0].hex;
+}
+
+function computerHandleRobberIfNeeded() {
+    const st = window.settlersState;
+    if (!st || !st.pendingRobberMove || !isHostPlayer()) return false;
+
+    const mover = st.players.find(p => p.id === st.pendingRobberMove.playerId);
+    if (!mover || !mover.isComputer) return false;
+
+    const hex = computerPickRobberHex(mover.id);
+    if (hex && tryMoveRobberForPlayer(mover.id, hex, { silent: true })) {
+        renderSettlers();
+        syncSettlers();
+        scheduleComputerIfNeeded(COMPUTER_BUILD_DELAY_MS);
+    }
+    return true;
+}
 
 function tryPlaceSettlementForPlayer(playerId, x, y, options) {
     const st = window.settlersState;
@@ -1433,6 +1686,11 @@ window.buySettlersDevelopmentCard = function () {
         return;
     }
 
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
+        return;
+    }
+
     if (buyDevelopmentCardForPlayer(getMyId(), { silent: false })) {
         renderSettlers();
         syncSettlers();
@@ -1452,6 +1710,11 @@ window.placeSettlement = function (x, y) {
 
     if (!isMySettlersTurn()) {
         setMessage(`Waiting for ${current.name}.`);
+        return;
+    }
+
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
         return;
     }
 
@@ -1482,6 +1745,11 @@ window.placeRoad = function (x1, y1, x2, y2) {
         return;
     }
 
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
+        return;
+    }
+
     if (st.phase === "playing" && !st.rolledThisTurn && !(st.freeRoads && st.freeRoads.playerId === getMyId())) {
         setMessage("Roll first, then build.");
         return;
@@ -1506,6 +1774,11 @@ window.placeCity = function (settlementId) {
 
     if (!isMySettlersTurn()) {
         setMessage(`Waiting for ${current.name}.`);
+        return;
+    }
+
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
         return;
     }
 
@@ -1546,6 +1819,11 @@ window.playSettlersDevCard = function (cardId) {
 
     if (st.pendingRoll) {
         setMessage("Wait for the roll to finish first.");
+        return;
+    }
+
+    if (st.pendingRobberMove) {
+        setMessage("Move the robber first.");
         return;
     }
 
@@ -1774,7 +2052,7 @@ window.showSettlersDevCards = function () {
 
     const cardsHtml = hand.length ? hand.map(card => {
         const info = DEV_CARD_INFO[card.type] || DEV_CARD_INFO.knight;
-        const playable = canPlayDevCard(card) && isMySettlersTurn() && !st.pendingRoll;
+        const playable = canPlayDevCard(card) && isMySettlersTurn() && !st.pendingRoll && !st.pendingRobberMove;
         const isNew = card.boughtTurn === st.turnNumber;
         const isVictory = card.type === "victory";
 
@@ -1811,6 +2089,7 @@ window.showSettlersDevCards = function () {
 function canSelectRoadAction(playerId) {
     const st = window.settlersState;
     if (!st) return false;
+    if (st.pendingRobberMove) return false;
     const current = currentSettlersPlayer();
     if (!current || current.id !== playerId || current.isComputer) return false;
     if (st.pendingRoll) return false;
@@ -1824,6 +2103,7 @@ function canSelectRoadAction(playerId) {
 function canSelectSettlementAction(playerId) {
     const st = window.settlersState;
     if (!st) return false;
+    if (st.pendingRobberMove) return false;
     const current = currentSettlersPlayer();
     if (!current || current.id !== playerId || current.isComputer) return false;
     if (st.pendingRoll) return false;
@@ -1836,6 +2116,7 @@ function canSelectSettlementAction(playerId) {
 function canSelectCityAction(playerId) {
     const st = window.settlersState;
     if (!st) return false;
+    if (st.pendingRobberMove) return false;
     const current = currentSettlersPlayer();
     if (!current || current.id !== playerId || current.isComputer) return false;
     if (st.setup && st.setup.active) return false;
@@ -1846,6 +2127,7 @@ function canSelectCityAction(playerId) {
 function canBuyCardAction(playerId) {
     const st = window.settlersState;
     if (!st) return false;
+    if (st.pendingRobberMove) return false;
     const current = currentSettlersPlayer();
     if (!current || current.id !== playerId || current.isComputer) return false;
     if (st.setup && st.setup.active) return false;
@@ -1887,6 +2169,14 @@ window.setSettlersUiState = function (newState) {
     const st = window.settlersState;
     const current = currentSettlersPlayer();
     const requestedState = newState || "IDLE";
+
+    if (st && st.pendingRobberMove) {
+        uiState = "IDLE";
+        hideSettlersBuildMarkers();
+        refreshSettlersActionSelection();
+        setMessage(getSettlersHeaderText());
+        return;
+    }
 
     if (current && current.isComputer) {
         uiState = "IDLE";
@@ -1975,6 +2265,7 @@ window.showSettlersHelp = function () {
                     <div>Ports = build on a port corner to trade better.</div>
                     <div>3:1 port = any 3 same resources for 1 resource.</div>
                     <div>2:1 port = two matching resources for 1 resource.</div>
+                    <div>Rolling a 7 moves the robber. The tile it sits on pays out nothing until moved again.</div>
                 </div>
                 <div class="set-help-note">Setup goes forward, then backward. Starting resources come only from your second settlement.</div>
             </div>
@@ -1997,6 +2288,7 @@ function buildSvgBoardHtml() {
 
     st.board.hexes.forEach(hex => {
         const rollHighlighted = st.highlightedRoll && hex.token === st.highlightedRoll;
+        const robberHere = isRobberOnHex(hex);
         const hexStroke = rollHighlighted ? HIGHLIGHT_PURPLE : "#1e4620";
         const hexStrokeWidth = rollHighlighted ? 7 : 2;
 
@@ -2015,11 +2307,35 @@ function buildSvgBoardHtml() {
                 />
         `;
 
+        if (robberHere) {
+            // Dim the blocked tile and draw a simple robber token (dark circle + hat shape).
+            hexHtml += `<polygon points="
+                    0,${-HEX_SIZE}
+                    ${HEX_WIDTH / 2},${-HEX_SIZE / 2}
+                    ${HEX_WIDTH / 2},${HEX_SIZE / 2}
+                    0,${HEX_SIZE}
+                    ${-HEX_WIDTH / 2},${HEX_SIZE / 2}
+                    ${-HEX_WIDTH / 2},${-HEX_SIZE / 2}"
+                    fill="rgba(0,0,0,0.38)"
+                    pointer-events="none"
+                />`;
+        }
+
         if (hex.token) {
             const isRed = hex.token === 6 || hex.token === 8;
             hexHtml += `
                 <circle cx="0" cy="0" r="19" fill="#fff" stroke="#333" stroke-width="1.5"/>
                 <text x="0" y="7" font-family="Arial" font-weight="900" font-size="21" text-anchor="middle" fill="${isRed ? "#dc3545" : "#111"}">${hex.token}</text>
+            `;
+        }
+
+        if (robberHere) {
+            hexHtml += `
+                <g pointer-events="none">
+                    <ellipse cx="0" cy="14" rx="13" ry="6" fill="#1b1b1b" opacity="0.5"/>
+                    <circle cx="0" cy="2" r="13" fill="#3a3a3a" stroke="#000" stroke-width="2"/>
+                    <circle cx="0" cy="-9" r="7" fill="#3a3a3a" stroke="#000" stroke-width="2"/>
+                </g>
             `;
         }
 
@@ -2075,7 +2391,14 @@ function buildSvgBoardHtml() {
         `;
     });
 
+    // Roads are drawn with a white outline underneath the player-colored
+    // line so they read clearly against every hex color, matching how
+    // settlements/cities already get a white border.
     let piecesHtml = "";
+
+    st.pieces.roads.forEach(r => {
+        piecesHtml += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />`;
+    });
 
     st.pieces.roads.forEach(r => {
         piecesHtml += `<line x1="${r.x1}" y1="${r.y1}" x2="${r.x2}" y2="${r.y2}" stroke="${playerColor(r.owner)}" stroke-width="8" stroke-linecap="round" />`;
@@ -2095,8 +2418,9 @@ function buildSvgBoardHtml() {
     const setupMode = !!(st.setup && st.setup.active);
     const current = currentSettlersPlayer();
     const playerId = current ? current.id : getMyId();
+    const robberMoveActive = !!st.pendingRobberMove;
 
-    const legalNodes = legalSettlementNodes(playerId, setupMode);
+    const legalNodes = robberMoveActive ? [] : legalSettlementNodes(playerId, setupMode);
     snapNodes.forEach(node => {
         const legal = legalNodes.some(n => pointsMatch(n, node));
         if (!legal) return;
@@ -2106,32 +2430,56 @@ function buildSvgBoardHtml() {
 
     let snapEdgesHtml = "";
     const pendingSettlement = st.setup && st.setup.active ? st.setup.pendingSettlement : null;
-    legalRoadEdges(playerId, setupMode, pendingSettlement).forEach(edge => {
-        const mx = (edge.x1 + edge.x2) / 2;
-        const my = (edge.y1 + edge.y2) / 2;
-        const dx = edge.x2 - edge.x1;
-        const dy = edge.y2 - edge.y1;
-        const len = Math.hypot(dx, dy) || 1;
-        const ux = dx / len;
-        const uy = dy / len;
-        const halfVisible = 10;
-        const vx1 = mx - ux * halfVisible;
-        const vy1 = my - uy * halfVisible;
-        const vx2 = mx + ux * halfVisible;
-        const vy2 = my + uy * halfVisible;
+    if (!robberMoveActive) {
+        legalRoadEdges(playerId, setupMode, pendingSettlement).forEach(edge => {
+            const mx = (edge.x1 + edge.x2) / 2;
+            const my = (edge.y1 + edge.y2) / 2;
+            const dx = edge.x2 - edge.x1;
+            const dy = edge.y2 - edge.y1;
+            const len = Math.hypot(dx, dy) || 1;
+            const ux = dx / len;
+            const uy = dy / len;
+            const halfVisible = 10;
+            const vx1 = mx - ux * halfVisible;
+            const vy1 = my - uy * halfVisible;
+            const vx2 = mx + ux * halfVisible;
+            const vy2 = my + uy * halfVisible;
 
-        snapEdgesHtml += `
-            <g style="cursor:pointer;">
-                <line x1="${edge.x1}" y1="${edge.y1}" x2="${edge.x2}" y2="${edge.y2}" stroke="rgba(0,0,0,0)" stroke-width="18" stroke-linecap="round" pointer-events="stroke" onclick="placeRoad(${edge.x1}, ${edge.y1}, ${edge.x2}, ${edge.y2})" />
-                <line x1="${vx1}" y1="${vy1}" x2="${vx2}" y2="${vy2}" stroke="${HIGHLIGHT_PURPLE}" stroke-width="6" stroke-linecap="round" opacity="0.95" pointer-events="none" />
-            </g>
-        `;
-    });
+            snapEdgesHtml += `
+                <g style="cursor:pointer;">
+                    <line x1="${edge.x1}" y1="${edge.y1}" x2="${edge.x2}" y2="${edge.y2}" stroke="rgba(0,0,0,0)" stroke-width="18" stroke-linecap="round" pointer-events="stroke" onclick="placeRoad(${edge.x1}, ${edge.y1}, ${edge.x2}, ${edge.y2})" />
+                    <line x1="${vx1}" y1="${vy1}" x2="${vx2}" y2="${vy2}" stroke="${HIGHLIGHT_PURPLE}" stroke-width="6" stroke-linecap="round" opacity="0.95" pointer-events="none" />
+                </g>
+            `;
+        });
+    }
 
     let snapCitiesHtml = "";
-    ownedSettlementPieces(getMyId()).forEach(s => {
-        snapCitiesHtml += `<circle cx="${s.x}" cy="${s.y}" r="16" fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="4" style="cursor:pointer;" onclick="placeCity('${s.id}')" />`;
-    });
+    if (!robberMoveActive) {
+        ownedSettlementPieces(getMyId()).forEach(s => {
+            snapCitiesHtml += `<circle cx="${s.x}" cy="${s.y}" r="16" fill="rgba(138, 43, 226, 0.20)" stroke="${HIGHLIGHT_PURPLE}" stroke-width="4" style="cursor:pointer;" onclick="placeCity('${s.id}')" />`;
+        });
+    }
+
+    let robberTargetsHtml = "";
+    if (robberMoveActive && st.pendingRobberMove.playerId === getMyId()) {
+        st.board.hexes.forEach(hex => {
+            if (isRobberOnHex(hex)) return;
+            robberTargetsHtml += `<polygon points="
+                    ${hex.x},${hex.y - HEX_SIZE}
+                    ${hex.x + HEX_WIDTH / 2},${hex.y - HEX_SIZE / 2}
+                    ${hex.x + HEX_WIDTH / 2},${hex.y + HEX_SIZE / 2}
+                    ${hex.x},${hex.y + HEX_SIZE}
+                    ${hex.x - HEX_WIDTH / 2},${hex.y + HEX_SIZE / 2}
+                    ${hex.x - HEX_WIDTH / 2},${hex.y - HEX_SIZE / 2}"
+                    fill="rgba(138, 43, 226, 0.28)"
+                    stroke="${HIGHLIGHT_PURPLE}"
+                    stroke-width="4"
+                    style="cursor:pointer;"
+                    onclick="moveSettlersRobber(${hex.row}, ${hex.col})"
+                />`;
+        });
+    }
 
     return `
         <div class="set-board-zoomer">
@@ -2142,6 +2490,7 @@ function buildSvgBoardHtml() {
                 <g id="snap-edges" style="opacity:0; pointer-events:none;">${snapEdgesHtml}</g>
                 <g id="snap-nodes" style="opacity:0; pointer-events:none;">${snapNodesHtml}</g>
                 <g id="snap-cities" style="opacity:0; pointer-events:none;">${snapCitiesHtml}</g>
+                <g id="robber-targets">${robberTargetsHtml}</g>
             </svg>
         </div>
     `;
@@ -2333,6 +2682,9 @@ function computerTakeAction() {
     if (!st || !isHostPlayer()) return;
     normalizeSettlersState();
 
+    if (computerHandleRobberIfNeeded()) return;
+    if (st.pendingRobberMove) return; // waiting on a human to move the robber
+
     const player = currentSettlersPlayer();
     if (!player || !player.isComputer) return;
     if (st.pendingRoll) return;
@@ -2373,7 +2725,7 @@ function computerTakeAction() {
 
         setTimeout(() => {
             const nowPlayer = currentSettlersPlayer();
-            if (nowPlayer && nowPlayer.id === player.id && nowPlayer.isComputer && !window.settlersState.pendingRoll) {
+            if (nowPlayer && nowPlayer.id === player.id && nowPlayer.isComputer && !window.settlersState.pendingRoll && !window.settlersState.pendingRobberMove) {
                 endCurrentTurn();
             }
         }, COMPUTER_BUILD_DELAY_MS);
@@ -2383,6 +2735,19 @@ function computerTakeAction() {
 function scheduleComputerIfNeeded(delay) {
     const st = window.settlersState;
     if (!st || !isHostPlayer()) return;
+
+    if (st.pendingRobberMove) {
+        const mover = st.players.find(p => p.id === st.pendingRobberMove.playerId);
+        if (mover && mover.isComputer) {
+            if (computerTimer) clearTimeout(computerTimer);
+            computerActionKey = "robber|" + st.pendingRobberMove.playerId;
+            computerTimer = setTimeout(() => {
+                computerTimer = null;
+                computerTakeAction();
+            }, delay || COMPUTER_DELAY_MS);
+        }
+        return;
+    }
 
     const player = currentSettlersPlayer();
     if (!player || !player.isComputer) return;
@@ -2420,6 +2785,93 @@ function buttonClass(enabled, selected, extra) {
     return parts.join(" ");
 }
 
+// --- Shuffle / Start (host pre-game controls) -------------------------------
+window.shuffleSettlersBoard = function () {
+    const st = window.settlersState;
+    if (!st) return;
+    normalizeSettlersState();
+
+    if (!isHostPlayer()) {
+        setMessage("Only the host can shuffle the board.");
+        return;
+    }
+
+    const hasPieces = st.pieces && (
+        (st.pieces.settlements && st.pieces.settlements.length) ||
+        (st.pieces.roads && st.pieces.roads.length) ||
+        (st.pieces.cities && st.pieces.cities.length)
+    );
+
+    if (hasPieces) {
+        setMessage("You can only shuffle before anyone places pieces.");
+        return;
+    }
+
+    const basePositions = st.board.hexes.map(h => ({ row: h.row, col: h.col, x: h.x, y: h.y }));
+    const newHexes = generateScoredHexes(basePositions);
+
+    st.board.hexes = newHexes;
+    st.board.ports = pickPortEdges(newHexes, PORTS);
+
+    const desertHex = findDesertHex(newHexes);
+    st.robber = desertHex ? { row: desertHex.row, col: desertHex.col } : null;
+
+    st.phase = "prestart";
+    st.message = "Board shuffled. Hit Start Game when ready.";
+
+    renderSettlers();
+    syncSettlers();
+};
+
+window.startSettlersSetupGame = function () {
+    const st = window.settlersState;
+    if (!st) return;
+    normalizeSettlersState();
+
+    if (!isHostPlayer()) {
+        setMessage("Only the host can start the game.");
+        return;
+    }
+
+    const hasPieces = st.pieces && (
+        (st.pieces.settlements && st.pieces.settlements.length) ||
+        (st.pieces.roads && st.pieces.roads.length) ||
+        (st.pieces.cities && st.pieces.cities.length)
+    );
+
+    if (hasPieces) return;
+
+    const order = buildSetupOrder(st.players.length);
+
+    st.phase = "setup";
+    st.turnIndex = order[0] || 0;
+    st.setup = {
+        active: true,
+        order,
+        stepIndex: 0,
+        needed: "settlement",
+        pendingSettlement: null
+    };
+
+    const current = st.players[st.turnIndex] || { name: "Player 1" };
+    st.message = `${current.name}: choose Settle below for your first settlement.`;
+
+    renderSettlers();
+    syncSettlers();
+};
+
+function prestartControlsHtml() {
+    const st = window.settlersState;
+    if (!st || st.phase !== "prestart" || !isHostPlayer()) return "";
+
+    return `
+        <div id="settlersShuffleStartControls" class="set-prestart-controls">
+            <button type="button" onclick="shuffleSettlersBoard()" class="set-prestart-btn set-shuffle-btn">Shuffle</button>
+            <button type="button" onclick="startSettlersSetupGame()" class="set-prestart-btn set-start-btn">Start Game</button>
+        </div>
+    `;
+}
+
 function renderSettlers() {
     normalizeSettlersState();
 
@@ -2439,14 +2891,16 @@ function renderSettlers() {
     const myTurn = isMySettlersTurn();
     const computerTurn = currentPlayer && currentPlayer.isComputer;
     const setupActive = !!(st.setup && st.setup.active);
+    const robberMoveActive = !!st.pendingRobberMove;
     const pendingRoll = st.pendingRoll && !st.pendingRoll.applied ? st.pendingRoll : null;
+    const prestart = st.phase === "prestart";
 
     const roadEnabled = canSelectRoadAction(getMyId());
     const settleEnabled = canSelectSettlementAction(getMyId());
     const cityEnabled = canSelectCityAction(getMyId());
     const buyEnabled = canBuyCardAction(getMyId());
-    const canRoll = myTurn && !st.rolledThisTurn && !setupActive && !pendingRoll && !computerTurn;
-    const canEnd = myTurn && st.rolledThisTurn && !setupActive && !pendingRoll && !computerTurn;
+    const canRoll = myTurn && !st.rolledThisTurn && !setupActive && !pendingRoll && !computerTurn && !prestart && !robberMoveActive;
+    const canEnd = myTurn && st.rolledThisTurn && !setupActive && !pendingRoll && !computerTurn && !robberMoveActive;
     const rollButtonActive = canRoll || canEnd;
     const rollButtonLabel = canEnd ? "End" : "Roll";
     const rollButtonIcon = canEnd ? "&rarr;" : "&#127922;";
@@ -2472,6 +2926,10 @@ function renderSettlers() {
             .set-roll-big-dice { display:flex; gap:10px; }
             .set-roll-die { width:54px; height:54px; background:#fff; border:3px solid #111; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#111; box-shadow:inset 0 0 0 2px rgba(0,0,0,0.08); }
             .set-roll-total { font-size:17px; color:${HIGHLIGHT_PURPLE}; }
+            .set-prestart-controls { position:absolute; right:10px; bottom:10px; z-index:50; display:flex; gap:7px; align-items:center; }
+            .set-prestart-btn { border:2px solid #ffffff; border-radius:999px; padding:9px 14px; font-size:13px; font-weight:900; box-shadow:0 3px 10px rgba(0,0,0,.35); }
+            .set-shuffle-btn { background:#1d4ed8; color:#ffffff; }
+            .set-start-btn { background:#ffd700; color:#1e4620; }
             .set-hand-ui { background:#d7e0cf; border-top:3px solid #1e4620; padding:8px 8px 42px 8px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; box-sizing:border-box; }
             .set-resources { display:flex; justify-content:space-between; align-items:center; gap:3px; font-size:16px; font-weight:900; color:#1e4620; background:#f5f5f5; padding:8px 6px; border-radius:14px; border:3px solid #2d6a30; }
             .set-res-item { position:relative; min-width:34px; text-align:center; white-space:nowrap; }
@@ -2549,6 +3007,7 @@ function renderSettlers() {
                                 </div>
                             ` : ""}
                             ${buildSvgBoardHtml()}
+                            ${prestartControlsHtml()}
                         </div>
 
                         <div class="set-hand-ui">
@@ -2589,9 +3048,12 @@ function renderSettlers() {
         </div>
     `;
 
-    if (computerTurn) {
+    if (computerTurn && !robberMoveActive) {
         uiState = "IDLE";
         setMessage(st.message || `${currentPlayer.name} is thinking...`);
+    } else if (robberMoveActive) {
+        uiState = "IDLE";
+        setMessage(getSettlersHeaderText());
     } else if (uiState !== "IDLE") {
         const keep = uiState;
         uiState = "IDLE";
@@ -2599,7 +3061,12 @@ function renderSettlers() {
     }
 
     initSettlersPanZoom();
-    scheduleComputerIfNeeded(computerTurn ? COMPUTER_DELAY_MS : 0);
+
+    if (robberMoveActive) {
+        scheduleComputerIfNeeded(COMPUTER_DELAY_MS);
+    } else {
+        scheduleComputerIfNeeded(computerTurn ? COMPUTER_DELAY_MS : 0);
+    }
 }
 
 window.initSettlersGame = function () {
@@ -2648,395 +3115,4 @@ window.handleIncomingSettlersSync = function (payload) {
 window.startSettlersFromLobby = window.initSettlersGame;
 window.startSettlersGame = window.initSettlersGame;
 
-})();
-
-/* ============================================================
-   CHASER SETTLERS PATCH — HOST SHUFFLE / START + WHITE ROAD OUTLINE
-   Paste at the VERY BOTTOM of settlers.js
-   ============================================================ */
-(function () {
-    "use strict";
-
-    if (window.__settlersShuffleStartRoadOutlinePatch) return;
-    window.__settlersShuffleStartRoadOutlinePatch = true;
-
-    function myId() {
-        if (typeof window.myId === "function") return window.myId();
-        if (typeof window.myId === "string") return window.myId;
-        return localStorage.getItem("rider_id") || "local-player";
-    }
-
-    function isHost() {
-        return !window.chaserGame || !window.chaserGame.hostId || window.chaserGame.hostId === myId();
-    }
-
-    function sendSettlersSync() {
-        if (
-            typeof channel !== "undefined" &&
-            channel &&
-            typeof channel.send === "function" &&
-            window.settlersState
-        ) {
-            channel.send({
-                type: "broadcast",
-                event: "settlers-sync-state",
-                payload: {
-                    state: window.settlersState,
-                    roomGameId:
-                        window.chaserGame && window.chaserGame.activeGameId
-                            ? window.chaserGame.activeGameId
-                            : null
-                }
-            });
-        }
-    }
-
-    function shuffleCopy(array) {
-        const arr = array.slice();
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
-        }
-        return arr;
-    }
-
-    function getHexCorners(hex) {
-        const size = 48;
-        const width = Math.sqrt(3) * size;
-
-        return [
-            { x: hex.x, y: hex.y - size },
-            { x: hex.x + width / 2, y: hex.y - size / 2 },
-            { x: hex.x + width / 2, y: hex.y + size / 2 },
-            { x: hex.x, y: hex.y + size },
-            { x: hex.x - width / 2, y: hex.y + size / 2 },
-            { x: hex.x - width / 2, y: hex.y - size / 2 }
-        ];
-    }
-
-    function areHexesTouching(a, b) {
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        return dist < 88 && dist > 70;
-    }
-
-    function scoreBoard(hexes) {
-        let score = 0;
-
-        for (let i = 0; i < hexes.length; i++) {
-            for (let j = i + 1; j < hexes.length; j++) {
-                if (!areHexesTouching(hexes[i], hexes[j])) continue;
-
-                const a = hexes[i];
-                const b = hexes[j];
-
-                if (a.resource && b.resource && a.resource === b.resource && a.resource !== "desert") {
-                    score -= 150;
-                }
-
-                if (a.token && b.token && a.token === b.token) {
-                    score -= 220;
-                }
-
-                if ((a.token === 6 || a.token === 8) && (b.token === 6 || b.token === 8)) {
-                    score -= 300;
-                }
-
-                if (a.token && b.token && Math.abs(a.token - b.token) === 1) {
-                    score -= 25;
-                }
-            }
-        }
-
-        return score;
-    }
-
-    function betterShuffleBoard() {
-        const st = window.settlersState;
-        if (!st || !st.board || !Array.isArray(st.board.hexes)) return;
-
-        const resources = [
-            "desert",
-            "wood", "wood", "wood", "wood",
-            "sheep", "sheep", "sheep", "sheep",
-            "wheat", "wheat", "wheat", "wheat",
-            "brick", "brick", "brick",
-            "ore", "ore", "ore"
-        ];
-
-        const tokens = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
-
-        let bestHexes = null;
-        let bestScore = -999999;
-
-        for (let attempt = 0; attempt < 1500; attempt++) {
-            const res = shuffleCopy(resources);
-            const tok = shuffleCopy(tokens);
-            let tokenIndex = 0;
-
-            const candidate = st.board.hexes.map((oldHex, idx) => {
-                const resource = res[idx];
-                const token = resource === "desert" ? null : tok[tokenIndex++];
-
-                return {
-                    ...oldHex,
-                    resource,
-                    token
-                };
-            });
-
-            const score = scoreBoard(candidate);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestHexes = candidate;
-            }
-        }
-
-        if (bestHexes) {
-            st.board.hexes = bestHexes;
-        }
-
-        if (Array.isArray(st.board.ports)) {
-            const portTypes = ["3:1", "3:1", "3:1", "3:1", "wood", "sheep", "wheat", "brick", "ore"];
-            const shuffledPorts = shuffleCopy(portTypes);
-            st.board.ports.forEach((p, i) => {
-                p.type = shuffledPorts[i % shuffledPorts.length];
-            });
-        }
-    }
-
-    window.shuffleSettlersBoard = function () {
-        const st = window.settlersState;
-        if (!st) return;
-
-        if (!isHost()) {
-            alert("Only the host can shuffle the board.");
-            return;
-        }
-
-        if (
-            st.pieces &&
-            (
-                (st.pieces.settlements && st.pieces.settlements.length) ||
-                (st.pieces.roads && st.pieces.roads.length) ||
-                (st.pieces.cities && st.pieces.cities.length)
-            )
-        ) {
-            alert("You can only shuffle before anyone places pieces.");
-            return;
-        }
-
-        st.phase = "prestart";
-        if (st.setup) {
-            st.setup.active = false;
-            st.setup.stepIndex = 0;
-            st.setup.needed = "settlement";
-            st.setup.pendingSettlement = null;
-        }
-
-        betterShuffleBoard();
-
-        st.message = "Board shuffled. Hit Start Game when ready.";
-
-        if (typeof renderSettlers === "function") {
-            renderSettlers();
-        }
-
-        sendSettlersSync();
-    };
-
-    window.startSettlersSetupGame = function () {
-        const st = window.settlersState;
-        if (!st) return;
-
-        if (!isHost()) {
-            alert("Only the host can start the game.");
-            return;
-        }
-
-        if (
-            st.pieces &&
-            (
-                (st.pieces.settlements && st.pieces.settlements.length) ||
-                (st.pieces.roads && st.pieces.roads.length) ||
-                (st.pieces.cities && st.pieces.cities.length)
-            )
-        ) {
-            return;
-        }
-
-        const playerCount = st.players && st.players.length ? st.players.length : 3;
-        const order = [];
-
-        for (let i = 0; i < playerCount; i++) order.push(i);
-        for (let i = playerCount - 1; i >= 0; i--) order.push(i);
-
-        st.phase = "setup";
-        st.turnIndex = order[0] || 0;
-        st.setup = {
-            active: true,
-            order: order,
-            stepIndex: 0,
-            needed: "settlement",
-            pendingSettlement: null
-        };
-
-        const current = st.players && st.players[st.turnIndex] ? st.players[st.turnIndex] : { name: "Player 1" };
-        st.message = current.name + ": choose Settle below for your first settlement.";
-
-        if (typeof renderSettlers === "function") {
-            renderSettlers();
-        }
-
-        sendSettlersSync();
-    };
-
-    function addPrestartButtons() {
-        const st = window.settlersState;
-        const boardArea = document.querySelector(".set-map-viewport");
-        if (!st || !boardArea) return;
-
-        let old = document.getElementById("settlersShuffleStartControls");
-        if (old) old.remove();
-
-        const hasPieces =
-            st.pieces &&
-            (
-                (st.pieces.settlements && st.pieces.settlements.length) ||
-                (st.pieces.roads && st.pieces.roads.length) ||
-                (st.pieces.cities && st.pieces.cities.length)
-            );
-
-        if (!isHost() || hasPieces) return;
-
-        if (st.phase !== "prestart" && st.phase !== "waiting" && !(st.setup && st.setup.active === false)) {
-            return;
-        }
-
-        const controls = document.createElement("div");
-        controls.id = "settlersShuffleStartControls";
-        controls.innerHTML = `
-            <button type="button" onclick="shuffleSettlersBoard()" style="
-                border:2px solid #ffffff;
-                border-radius:999px;
-                padding:8px 11px;
-                background:#1d4ed8;
-                color:#ffffff;
-                font-size:13px;
-                font-weight:900;
-                box-shadow:0 3px 10px rgba(0,0,0,.35);
-            ">Shuffle</button>
-
-            <button type="button" onclick="startSettlersSetupGame()" style="
-                border:2px solid #ffffff;
-                border-radius:999px;
-                padding:8px 11px;
-                background:#ffd700;
-                color:#1e4620;
-                font-size:13px;
-                font-weight:900;
-                box-shadow:0 3px 10px rgba(0,0,0,.35);
-            ">Start Game</button>
-        `;
-
-        controls.style.position = "absolute";
-        controls.style.right = "10px";
-        controls.style.bottom = "10px";
-        controls.style.zIndex = "9999";
-        controls.style.display = "flex";
-        controls.style.gap = "7px";
-        controls.style.alignItems = "center";
-
-        boardArea.style.position = "relative";
-        boardArea.appendChild(controls);
-    }
-
-    function addRoadWhiteOutlines() {
-        const st = window.settlersState;
-        if (!st || !st.pieces || !Array.isArray(st.pieces.roads)) return;
-
-        const svg = document.querySelector(".set-board-zoomer svg");
-        if (!svg) return;
-
-        svg.querySelectorAll(".settlers-road-outline-added").forEach(el => el.remove());
-
-        st.pieces.roads.forEach(r => {
-            const outline = document.createElementNS("http://www.w3.org/2000/svg", "line");
-            outline.setAttribute("class", "settlers-road-outline-added");
-            outline.setAttribute("x1", r.x1);
-            outline.setAttribute("y1", r.y1);
-            outline.setAttribute("x2", r.x2);
-            outline.setAttribute("y2", r.y2);
-            outline.setAttribute("stroke", "#ffffff");
-            outline.setAttribute("stroke-width", "13");
-            outline.setAttribute("stroke-linecap", "round");
-            outline.setAttribute("pointer-events", "none");
-
-            const placedPieces = svg.querySelector("#placed-pieces");
-            if (placedPieces && placedPieces.firstChild) {
-                placedPieces.insertBefore(outline, placedPieces.firstChild);
-            } else if (placedPieces) {
-                placedPieces.appendChild(outline);
-            }
-        });
-    }
-
-    const observer = new MutationObserver(() => {
-        addPrestartButtons();
-        addRoadWhiteOutlines();
-    });
-
-    const canvas = document.getElementById("gameCanvasContainer");
-    if (canvas) {
-        observer.observe(canvas, { childList: true, subtree: true });
-    }
-
-    const oldInit = window.initSettlersGame;
-    if (typeof oldInit === "function" && !oldInit.__shuffleStartWrapped) {
-        window.initSettlersGame = function () {
-            const result = oldInit.apply(this, arguments);
-
-            const st = window.settlersState;
-            if (st && !st.__shuffleStartInitialized) {
-                st.__shuffleStartInitialized = true;
-
-                if (
-                    !st.pieces ||
-                    (
-                        (!st.pieces.settlements || !st.pieces.settlements.length) &&
-                        (!st.pieces.roads || !st.pieces.roads.length) &&
-                        (!st.pieces.cities || !st.pieces.cities.length)
-                    )
-                ) {
-                    st.phase = "prestart";
-                    if (st.setup) st.setup.active = false;
-                    st.message = isHost()
-                        ? "Shuffle the board until you like it, then start the game."
-                        : "Waiting for the host to start the game.";
-                }
-            }
-
-            if (typeof renderSettlers === "function") {
-                renderSettlers();
-            }
-
-            setTimeout(addPrestartButtons, 50);
-            setTimeout(addRoadWhiteOutlines, 80);
-
-            return result;
-        };
-
-        window.initSettlersGame.__shuffleStartWrapped = true;
-        window.startSettlersFromLobby = window.initSettlersGame;
-        window.startSettlersGame = window.initSettlersGame;
-    }
-
-    setInterval(() => {
-        addPrestartButtons();
-        addRoadWhiteOutlines();
-    }, 700);
 })();
