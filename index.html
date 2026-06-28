@@ -7766,7 +7766,261 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }, 12000);
 })();
 </script>
-    
+    <script>
+/* CHASER PATCH — stable compass replacement, no jumping */
+(function () {
+    if (window.__chaserStableCompassReplacementInstalled) return;
+    window.__chaserStableCompassReplacementInstalled = true;
+
+    const COMPASS_SIZE = 42;
+
+    let lastLatForCompass = null;
+    let lastLngForCompass = null;
+    let stableHeadingDeg = null;
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    function isSharingNow() {
+        try {
+            return typeof isSharing !== "undefined" && !!isSharing;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function currentLat() {
+        try {
+            return Number(lastLat || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function currentLng() {
+        try {
+            return Number(lastLng || 0);
+        } catch (e) {
+            return 0;
+        }
+    }
+
+    function chatIsOpen() {
+        const chat = byId("chatOverlay");
+        return !!(chat && chat.classList.contains("open"));
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        try {
+            if (typeof map !== "undefined" && map && typeof map.distance === "function") {
+                return map.distance([aLat, aLng], [bLat, bLng]);
+            }
+        } catch (e) {}
+
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+
+        const lat1 = toRad(aLat);
+        const lat2 = toRad(bLat);
+        const dLng = toRad(bLng - aLng);
+
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x =
+            Math.cos(lat1) * Math.sin(lat2) -
+            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function installStyle() {
+        if (byId("chaser-stable-compass-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-stable-compass-style";
+        style.innerHTML = `
+            /* Hide old compass completely so old patches cannot make it jump */
+            #chaserSpinCompass,
+            #chaserCompassHud {
+                display:none !important;
+                opacity:0 !important;
+                pointer-events:none !important;
+                width:0 !important;
+                height:0 !important;
+                overflow:hidden !important;
+            }
+
+            #chaserStableCompass {
+                position:fixed !important;
+                width:42px !important;
+                height:42px !important;
+                border-radius:50% !important;
+                z-index:50010 !important;
+                display:none !important;
+                align-items:center !important;
+                justify-content:center !important;
+                pointer-events:none !important;
+                background:rgba(226, 240, 217, 0.82) !important;
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserStableCompass.show {
+                display:flex !important;
+            }
+
+            #chaserStableCompassN {
+                position:absolute !important;
+                top:3px !important;
+                left:0 !important;
+                right:0 !important;
+                text-align:center !important;
+                color:#1e4620 !important;
+                font-family:Arial Black, Arial, sans-serif !important;
+                font-size:8px !important;
+                font-weight:900 !important;
+                line-height:1 !important;
+                opacity:.9 !important;
+            }
+
+            #chaserStableCompassArrow {
+                width:24px !important;
+                height:24px !important;
+                transform-origin:50% 50% !important;
+                transition:transform .25s ease !important;
+                color:#0077ff !important;
+                filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)) !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserStableCompass {
+                display:none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureStableCompass() {
+        installStyle();
+
+        let compass = byId("chaserStableCompass");
+
+        if (!compass) {
+            compass = document.createElement("div");
+            compass.id = "chaserStableCompass";
+            compass.innerHTML = `
+                <div id="chaserStableCompassN">N</div>
+                <svg id="chaserStableCompassArrow" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                    <path d="M50 8 L68 58 L52 50 L50 92 L48 50 L32 58 Z"
+                          fill="currentColor"></path>
+                </svg>
+            `;
+            document.body.appendChild(compass);
+        }
+
+        return compass;
+    }
+
+    function updateHeading() {
+        const lat = currentLat();
+        const lng = currentLng();
+
+        if (!isSharingNow() || !lat || !lng || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+            return;
+        }
+
+        if (lastLatForCompass !== null && lastLngForCompass !== null) {
+            const moved = distanceMeters(lastLatForCompass, lastLngForCompass, lat, lng);
+
+            if (moved >= 4) {
+                stableHeadingDeg = bearingDegrees(lastLatForCompass, lastLngForCompass, lat, lng);
+            }
+        }
+
+        lastLatForCompass = lat;
+        lastLngForCompass = lng;
+    }
+
+    function positionStableCompass() {
+        const compass = ensureStableCompass();
+        const radius = document.querySelector(".radius-toggle-container");
+
+        if (!isSharingNow() || chatIsOpen()) {
+            compass.classList.remove("show");
+            compass.style.display = "none";
+            return;
+        }
+
+        if (!radius) {
+            compass.classList.remove("show");
+            compass.style.display = "none";
+            return;
+        }
+
+        const r = radius.getBoundingClientRect();
+
+        /*
+           These are the two numbers to fine-tune:
+           - rightOffset smaller = compass moves RIGHT
+           - topOffset smaller/negative = compass moves UP
+        */
+        const rightOffset = 18;
+        const topOffset = -6;
+
+        let left = r.right - COMPASS_SIZE - rightOffset;
+        let top = r.bottom + topOffset;
+
+        left = Math.max(8, Math.min(window.innerWidth - COMPASS_SIZE - 8, left));
+        top = Math.max(72, Math.min(window.innerHeight - COMPASS_SIZE - 8, top));
+
+        compass.style.left = left + "px";
+        compass.style.top = top + "px";
+        compass.style.display = "flex";
+        compass.classList.add("show");
+    }
+
+    function renderCompass() {
+        const arrow = byId("chaserStableCompassArrow");
+
+        if (arrow && Number.isFinite(stableHeadingDeg)) {
+            arrow.style.transform = "rotate(" + stableHeadingDeg + "deg)";
+        }
+    }
+
+    installStyle();
+    ensureStableCompass();
+
+    setInterval(function () {
+        updateHeading();
+        positionStableCompass();
+        renderCompass();
+    }, 350);
+
+    window.addEventListener("resize", positionStableCompass);
+    window.addEventListener("orientationchange", function () {
+        setTimeout(positionStableCompass, 500);
+    });
+})();
+</script>
     
 </body>
 </html>
