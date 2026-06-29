@@ -298,6 +298,20 @@
                 if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
             }
         },
+       "7 Wonders": {
+    icon: "🏛️",
+    displayName: "7 Wonders",
+    minPlayers: 3,
+    maxPlayers: 7,
+    multiplayer: true,
+    init: () => {
+        if (typeof window.initSevenWondersGame === "function") {
+            window.initSevenWondersGame();
+        } else {
+            alert("7 Wonders file did not load. Check /games/sevenwonders.js and the script tag in index.html.");
+        }
+    }
+},
        "Texas Holdem": {
 icon: "♠️",
 displayName: "Texas Hold'em",
