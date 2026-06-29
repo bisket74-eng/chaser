@@ -7253,4 +7253,82 @@ installGuards();
 nativeSetInterval(installGuards, 700);
 
 })();
+(function () {
+    "use strict";
+
+    function myId() {
+        return window.myId || localStorage.getItem("rider_id") || "local-player";
+    }
+
+    function isHost() {
+        return window.chaserGame && window.chaserGame.hostId === myId();
+    }
+
+    function isSevenWondersLobby() {
+        return window.chaserGame &&
+            window.chaserGame.currentLobby &&
+            window.chaserGame.currentLobby.gameName === "7 Wonders";
+    }
+
+    function injectAiFillButton() {
+        if (!isSevenWondersLobby() || !isHost()) return;
+
+        const canvas = document.getElementById("gameCanvasContainer");
+        if (!canvas) return;
+
+        if (canvas.querySelector("#sw-ai-fill-btn")) return;
+
+        const startBtn = Array.from(canvas.querySelectorAll("button")).find(function (b) {
+            return /START/i.test(b.textContent || "");
+        });
+
+        if (!startBtn) return;
+
+        const aiBtn = document.createElement("button");
+        aiBtn.id = "sw-ai-fill-btn";
+        aiBtn.type = "button";
+        aiBtn.textContent = "Start with AI Leaders";
+        aiBtn.style.cssText =
+            "background:#7b4397;color:#ffffff;border:none;border-radius:10px;" +
+            "padding:12px 22px;font-size:16px;font-weight:900;cursor:pointer;" +
+            "font-family:Impact,sans-serif;box-shadow:0 4px 10px rgba(0,0,0,.35);" +
+            "margin-top:8px;";
+
+        aiBtn.onclick = function () {
+            const lobby = window.chaserGame.currentLobby;
+            if (!lobby || !lobby.config) return;
+
+            sendGameEventSafe("chaser-game-lobby-start", {
+                gameName: lobby.gameName,
+                roomGameId: window.chaserGame.activeGameId,
+                expectedPlayers: window.chaserGame.expectedPlayers,
+                players: window.chaserGame.players,
+                hostId: window.chaserGame.hostId
+            });
+
+            lobby.config.init();
+        };
+
+        startBtn.insertAdjacentElement("afterend", aiBtn);
+    }
+
+    function sendGameEventSafe(event, payload) {
+        if (typeof channel !== "undefined" && channel && typeof channel.send === "function") {
+            channel.send({
+                type: "broadcast",
+                event: event,
+                payload: Object.assign({}, payload, {
+                    senderId: myId(),
+                    roomGameId: window.chaserGame ? window.chaserGame.activeGameId : null
+                })
+            });
+        }
+    }
+
+    const observer = new MutationObserver(injectAiFillButton);
+    const canvas = document.getElementById("gameCanvasContainer");
+    if (canvas) observer.observe(canvas, { childList: true, subtree: true });
+
+    setInterval(injectAiFillButton, 600);
+})();
 
