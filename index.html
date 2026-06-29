@@ -1833,6 +1833,10 @@ margin-left:0 !important;
 if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
      
 })
+  .on('broadcast', { event:'sevenwonders-sync-state' }, ({ payload }) => {
+if (window.handleIncomingSevenWondersSync) window.handleIncomingSevenWondersync(payload);
+     
+})           
             .on('broadcast', { event:'settlers-sync-state' }, ({ payload }) => {
     if (window.handleIncomingSettlersSync) window.handleIncomingSettlersSync(payload);
 })
