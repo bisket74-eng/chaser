@@ -141,67 +141,43 @@ window.initEucDriftGame = function () {
                 box-sizing: border-box;
             }
 
-            /* Left thumb: vertical dodge pad (up/down lane switch) with a
-               center action button for tricks while airborne. */
-            .eucPadZone {
-                position: relative;
-                width: 96px; height: 168px;
-            }
-            .eucPadRing {
-                position: absolute;
-                left: 50%; top: 0;
-                transform: translateX(-50%);
-                width: 64px; height: 168px;
-                border-radius: 32px;
-                background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+            /* Left thumb: vertical dodge pad (up/down lane switch).
+               Right thumb: horizontal speed pad (forward/back).
+               Both are the exact same component, just rotated — same
+               pill shape, same divider, same button styling. */
+            .eucDodgePad {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                background: rgba(255,255,255,0.04);
                 border: 1.5px solid rgba(255,255,255,0.12);
+                border-radius: 18px;
+                overflow: hidden;
+                width: 64px;
             }
-            .eucPadArrow {
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
-                width: 56px; height: 52px;
+            .eucDodgeArrow {
+                width: 64px; height: 64px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                color: rgba(234,242,248,0.55);
-                transition: background 0.08s, color 0.08s, transform 0.08s;
-                border-radius: 14px;
-                gap: 2px;
-            }
-            .eucPadArrow.active {
-                background: rgba(255,255,255,0.16);
-                color: #fff;
-                transform: translateX(-50%) scale(1.08);
-            }
-            .eucPadArrow svg { width: 20px; height: 20px; }
-            .eucPadArrow .eucDodgeLabel {
-                font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
-            }
-            #eucPadUp   { top: 0; }
-            #eucPadDown { bottom: 0; }
-
-            .eucActionCenter {
-                position: absolute;
-                left: 50%; top: 50%;
-                transform: translate(-50%, -50%);
-                width: 64px; height: 64px;
-                border-radius: 50%;
-                background: radial-gradient(circle at 35% 30%, rgba(255,180,90,0.4), rgba(255,140,60,0.2));
-                border: 1.5px solid rgba(255,170,90,0.45);
-                color: #ffd9a8;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: 0.6px;
-                text-transform: uppercase;
+                gap: 3px;
+                background: transparent;
+                border: none;
+                color: rgba(234,242,248,0.6);
                 font-family: inherit;
                 padding: 0;
-                transition: transform 0.08s, background 0.08s;
+                transition: background 0.08s, color 0.08s;
             }
-            .eucActionCenter.active {
-                transform: translate(-50%, -50%) scale(0.9);
-                background: radial-gradient(circle at 35% 30%, rgba(255,200,110,0.6), rgba(255,150,70,0.32));
+            .eucDodgeArrow.active {
+                background: rgba(255,255,255,0.16);
+                color: #fff;
+            }
+            .eucDodgeArrow svg { width: 22px; height: 22px; }
+            .eucDodgeLabel { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; }
+            .eucDodgeDivider {
+                width: 38px; height: 1.5px;
+                background: rgba(255,255,255,0.14);
             }
 
             /* Right thumb: simple two-way speed control (forward/back only) */
@@ -358,17 +334,16 @@ window.initEucDriftGame = function () {
             </button>
 
             <div id="eucControls">
-                <div class="eucPadZone" id="eucDodgePad">
-                    <div class="eucPadRing"></div>
-                    <button class="eucActionCenter" id="eucJumpZone" type="button">TRICK</button>
-                    <div class="eucPadArrow" id="eucPadUp">
+                <div class="eucDodgePad" id="eucDodgePad">
+                    <button class="eucDodgeArrow" id="eucPadUp" type="button">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
                         <span class="eucDodgeLabel">DODGE</span>
-                    </div>
-                    <div class="eucPadArrow" id="eucPadDown">
+                    </button>
+                    <div class="eucDodgeDivider"></div>
+                    <button class="eucDodgeArrow" id="eucPadDown" type="button">
                         <span class="eucDodgeLabel">DODGE</span>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
-                    </div>
+                    </button>
                 </div>
 
                 <div class="eucSpeedPad" id="eucSpeedPad">
@@ -568,18 +543,6 @@ window.__eucDriftRunGame = function () {
             on(el, "mouseup", up);
             on(el, "mouseleave", up);
         });
-
-        const actionEl = document.getElementById("eucJumpZone");
-        if (actionEl) {
-            const actionDown = (e) => { e.preventDefault(); actionEl.classList.add("active"); triggerTrickButton(); };
-            const actionUp = (e) => { if (e) e.preventDefault(); actionEl.classList.remove("active"); };
-            on(actionEl, "touchstart", actionDown, { passive: false });
-            on(actionEl, "touchend", actionUp, { passive: false });
-            on(actionEl, "touchcancel", actionUp, { passive: false });
-            on(actionEl, "mousedown", actionDown);
-            on(actionEl, "mouseup", actionUp);
-            on(actionEl, "mouseleave", actionUp);
-        }
     }
 
     function keydownHandler(e) {
@@ -588,7 +551,6 @@ window.__eucDriftRunGame = function () {
         if (e.code === "ArrowRight" || e.code === "KeyD") input.leanRight = true;
         if (e.code === "ArrowDown" || e.code === "KeyS") triggerDodge(-1);
         if (e.code === "ArrowUp" || e.code === "KeyW") triggerDodge(1);
-        if (e.code === "Space") triggerTrickButton();
     }
     function keyupHandler(e) {
         if (e.code === "ArrowLeft" || e.code === "KeyA") input.leanLeft = false;
@@ -645,7 +607,7 @@ window.__eucDriftRunGame = function () {
 
     const JUMP_GRAVITY = 1900;
     const RIDER_HEIGHT = 118;
-    const WHEEL_RADIUS = 29;
+    const WHEEL_RADIUS = 24;
 
     // Speed conversion must match updateHUD's mph formula (mph = 11 + speedNorm*40)
     function speedNormToMph(norm) { return 11 + norm * 40; }
@@ -714,10 +676,12 @@ window.__eucDriftRunGame = function () {
         rider.targetLaneT = newLane === LANE_TOP ? 0 : 1;
     }
 
-    function triggerTrickButton() {
-        if (gameState !== STATE.PLAY) return;
-        if (rider.crashed) return;
-        if (!rider.airborne) return; // ground press does nothing now — tricks are air-only
+    function maybeAutoTrick(dt) {
+        // tricks now fire automatically while airborne (no button) — a
+        // higher/longer jump naturally racks up more of them
+        rider.trickTimer = (rider.trickTimer || 0) + dt;
+        if (rider.trickTimer < 0.45) return;
+        rider.trickTimer = 0;
 
         const name = TRICK_NAMES[Math.floor(Math.random() * TRICK_NAMES.length)];
         rider.tricks.push({ name, t: 0 });
@@ -874,6 +838,8 @@ window.__eucDriftRunGame = function () {
         if (rider.airborne) {
             rider.vy += JUMP_GRAVITY * dt;
             rider.y += rider.vy * dt;
+
+            maybeAutoTrick(dt);
 
             if (rider.y >= 0) {
                 rider.y = 0;
@@ -1122,6 +1088,20 @@ window.__eucDriftRunGame = function () {
             ctx.restore();
         }
 
+        // saddle — a small colored seat peeking up between the legs right
+        // above the wheel, so the EUC reads as "tucked between the thighs"
+        // up to about mid-thigh height rather than a bare wheel below the body
+        const saddleY = wheelY - 9 * scale;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-5 * scale, saddleY + 6 * scale);
+        ctx.quadraticCurveTo(-6 * scale, saddleY - 4 * scale, 0, saddleY - 7 * scale);
+        ctx.quadraticCurveTo(6 * scale, saddleY - 4 * scale, 5 * scale, saddleY + 6 * scale);
+        ctx.closePath();
+        ctx.fillStyle = clothColor;
+        ctx.fill();
+        ctx.restore();
+
         // ---------------- POSE POINTS ----------------
         // True side-profile: the rider faces right (direction of travel).
         // Only ONE leg and ONE arm are drawn as the visible "near" limb;
@@ -1163,17 +1143,17 @@ window.__eucDriftRunGame = function () {
         ctx.ellipse(8 * scale, footY + 1.5 * scale, 8 * scale, 4.2 * scale, 0.1, 0, Math.PI * 2);
         ctx.fill();
 
-        // torso (single stroke, leans with input — same as before)
-        ctx.strokeStyle = "#212b33";
-        ctx.lineWidth = 12 * scale;
+        // torso (filled jacket in the chosen color — full fill, not just a stripe)
+        ctx.strokeStyle = clothColor;
+        ctx.lineWidth = 13 * scale;
         ctx.beginPath();
         ctx.moveTo(0, hipY);
         ctx.quadraticCurveTo(torsoLean * 0.5, (hipY + shoulderY) / 2, torsoLean, shoulderY);
         ctx.stroke();
 
-        // jacket accent stripe (color)
-        ctx.strokeStyle = clothColor;
-        ctx.lineWidth = 3 * scale;
+        // dark center seam/zip line down the jacket for a bit of definition
+        ctx.strokeStyle = "rgba(0,0,0,0.28)";
+        ctx.lineWidth = 2 * scale;
         ctx.beginPath();
         ctx.moveTo(2 * scale, hipY - 4 * scale);
         ctx.quadraticCurveTo(torsoLean * 0.5 + 2 * scale, (hipY + shoulderY) / 2, torsoLean + 2 * scale, shoulderY + 4 * scale);
@@ -1215,16 +1195,19 @@ window.__eucDriftRunGame = function () {
         ctx.arc(armHandX, armHandY, 3.6 * scale, 0, Math.PI * 2);
         ctx.fill();
 
-        // ---------------- HEAD ----------------
+        // ---------------- HEAD / HELMET ----------------
+        // whole helmet shell in the chosen color; the face shield is the
+        // dark contrasting cutout, not the other way around
         ctx.beginPath();
         ctx.arc(headX, headY, 10.2 * scale, 0, Math.PI * 2);
-        ctx.fillStyle = "#27323b";
+        ctx.fillStyle = clothColor;
         ctx.fill();
 
-        // visor / helmet accent stripe, facing forward (right)
-        ctx.fillStyle = clothColor;
+        // dark face shield / visor, facing forward (right) — the one part
+        // of the helmet that's NOT the rider color
+        ctx.fillStyle = "#1a2024";
         ctx.beginPath();
-        ctx.ellipse(headX + 3.8 * scale, headY - 1 * scale, 5 * scale, 2.8 * scale, 0.3, 0, Math.PI * 2);
+        ctx.ellipse(headX + 3.6 * scale, headY - 0.5 * scale, 5.4 * scale, 3.4 * scale, 0.25, 0, Math.PI * 2);
         ctx.fill();
 
         if (rider.hitFlash > 0) {
@@ -1271,11 +1254,27 @@ window.__eucDriftRunGame = function () {
         }
     }
 
-    const cityFar = makeLayer([90, 160], (x, w) => ({ x, w, h: 80 + Math.random() * 160, hue: 200 + Math.random() * 20 }));
-    const cityNear = makeLayer([60, 110], (x, w) => ({ x, w, h: 60 + Math.random() * 220, windows: Math.random() > 0.3 }));
-    const hillsFar = makeLayer([220, 340], (x, w) => ({ x, w, h: 60 + Math.random() * 70 }));
-    const treesNear = makeLayer([50, 90], (x, w) => ({ x, w, h: 70 + Math.random() * 60, type: Math.random() > 0.5 ? "round" : "tall" }));
-    const trackPylons = makeLayer([140, 220], (x, w) => ({ x, w, stripe: Math.random() > 0.5 }));
+    // City: far skyline silhouette, mid-distance buildings, and a dense
+    // near row right behind the road so it actually reads as a city.
+    const cityFarSkyline = makeLayer([50, 90], (x, w) => ({ x, w, h: 100 + Math.random() * 200, hue: 205 + Math.random() * 25 }));
+    const cityMid = makeLayer([40, 70], (x, w) => ({ x, w, h: 90 + Math.random() * 170, windows: Math.random() > 0.15 }));
+    const cityNear = makeLayer([30, 55], (x, w) => ({ x, w, h: 70 + Math.random() * 230, windows: Math.random() > 0.1, antenna: Math.random() > 0.7 }));
+
+    // Countryside: rolling hills far back, a dense mid row of trees, and a
+    // packed near row of trees/bushes/sticks right behind the road.
+    const hillsFar = makeLayer([200, 320], (x, w) => ({ x, w, h: 60 + Math.random() * 70 }));
+    const treesMid = makeLayer([34, 56], (x, w) => ({ x, w, h: 80 + Math.random() * 70, type: Math.random() > 0.5 ? "round" : "tall" }));
+    const treesNear = makeLayer([22, 38], (x, w) => ({
+        x, w,
+        h: 60 + Math.random() * 90,
+        type: Math.random() < 0.45 ? "round" : (Math.random() < 0.8 ? "tall" : "stick"),
+    }));
+
+    // Track: distant stadium structure, bleacher crowd rows, and the
+    // pylon/flag line right at trackside.
+    const trackStadiumFar = makeLayer([70, 110], (x, w) => ({ x, w, h: 70 + Math.random() * 60 }));
+    const trackCrowd = makeLayer([26, 40], (x, w) => ({ x, w, seed: Math.random() }));
+    const trackPylons = makeLayer([90, 140], (x, w) => ({ x, w, stripe: Math.random() > 0.5 }));
 
     function currentZoneName() {
         return game.zoneNames[game.zoneIndex % game.zoneNames.length];
@@ -1314,31 +1313,66 @@ window.__eucDriftRunGame = function () {
     }
 
     function drawCityLayers() {
-        ensureLayer(cityFar, W, 0.25);
-        ensureLayer(cityNear, W, 0.55);
+        ensureLayer(cityFarSkyline, W, 0.18);
+        ensureLayer(cityMid, W, 0.4);
+        ensureLayer(cityNear, W, 0.65);
 
-        cityFar.pieces.forEach(p => {
-            const sx = p.x - world.scrollX * 0.25;
-            if (sx > W || sx + p.w < 0) return;
+        // far skyline silhouette — dense, dark, low contrast
+        cityFarSkyline.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.18;
+            if (sx > W + 20 || sx + p.w < -20) return;
             const top = groundY() - p.h;
-            ctx.fillStyle = `hsl(${p.hue}, 22%, 22%)`;
-            ctx.fillRect(sx, top, p.w - 4, p.h);
+            ctx.fillStyle = `hsl(${p.hue}, 20%, 16%)`;
+            ctx.fillRect(sx, top, p.w - 2, p.h);
         });
 
-        cityNear.pieces.forEach(p => {
-            const sx = p.x - world.scrollX * 0.55;
-            if (sx > W || sx + p.w < 0) return;
+        // mid buildings — more saturated, lit windows
+        cityMid.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.4;
+            if (sx > W + 20 || sx + p.w < -20) return;
             const top = groundY() - p.h;
-            ctx.fillStyle = "#2e4257";
-            ctx.fillRect(sx, top, p.w - 6, p.h);
+            ctx.fillStyle = "#283c4f";
+            ctx.fillRect(sx, top, p.w - 3, p.h);
             if (p.windows) {
-                ctx.fillStyle = "rgba(255, 214, 130, 0.55)";
-                const cols = Math.max(1, Math.floor((p.w - 6) / 14));
-                const rows = Math.max(1, Math.floor(p.h / 18));
+                ctx.fillStyle = "rgba(255, 214, 130, 0.4)";
+                const cols = Math.max(1, Math.floor((p.w - 3) / 10));
+                const rows = Math.max(1, Math.floor(p.h / 14));
                 for (let cx = 0; cx < cols; cx++) {
                     for (let cy = 0; cy < rows; cy++) {
-                        if ((cx * 7 + cy * 13 + Math.floor(p.x)) % 5 === 0) continue;
-                        ctx.fillRect(sx + 5 + cx * 14, top + 8 + cy * 18, 5, 7);
+                        if ((cx * 7 + cy * 13 + Math.floor(p.x)) % 4 === 0) continue;
+                        ctx.fillRect(sx + 3 + cx * 10, top + 6 + cy * 14, 4, 6);
+                    }
+                }
+            }
+        });
+
+        // near buildings — tall, dense, packed right behind the road
+        cityNear.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.65;
+            if (sx > W + 20 || sx + p.w < -20) return;
+            const top = groundY() - p.h;
+            ctx.fillStyle = "#2e4257";
+            ctx.fillRect(sx, top, p.w - 4, p.h);
+            if (p.antenna) {
+                ctx.strokeStyle = "#2e4257";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(sx + (p.w - 4) / 2, top);
+                ctx.lineTo(sx + (p.w - 4) / 2, top - 16);
+                ctx.stroke();
+                ctx.fillStyle = "#ff5a5a";
+                ctx.beginPath();
+                ctx.arc(sx + (p.w - 4) / 2, top - 16, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            if (p.windows) {
+                ctx.fillStyle = "rgba(255, 214, 130, 0.55)";
+                const cols = Math.max(1, Math.floor((p.w - 4) / 11));
+                const rows = Math.max(1, Math.floor(p.h / 16));
+                for (let cx = 0; cx < cols; cx++) {
+                    for (let cy = 0; cy < rows; cy++) {
+                        if ((cx * 5 + cy * 11 + Math.floor(p.x)) % 5 === 0) continue;
+                        ctx.fillRect(sx + 4 + cx * 11, top + 7 + cy * 16, 5, 7);
                     }
                 }
             }
@@ -1347,7 +1381,8 @@ window.__eucDriftRunGame = function () {
 
     function drawCountrysideLayers() {
         ensureLayer(hillsFar, W, 0.2);
-        ensureLayer(treesNear, W, 0.5);
+        ensureLayer(treesMid, W, 0.38);
+        ensureLayer(treesNear, W, 0.58);
 
         hillsFar.pieces.forEach(p => {
             const sx = p.x - world.scrollX * 0.2;
@@ -1360,45 +1395,109 @@ window.__eucDriftRunGame = function () {
             ctx.fill();
         });
 
-        treesNear.pieces.forEach(p => {
-            const sx = p.x - world.scrollX * 0.5;
-            if (sx > W || sx + p.w < 0) return;
+        function drawTree(sx, w, h, type, leafColor, trunkColor) {
             const baseY = groundY();
-            ctx.strokeStyle = "#3f3327";
-            ctx.lineWidth = 5;
+            ctx.strokeStyle = trunkColor;
+            ctx.lineWidth = Math.max(3, w * 0.12);
             ctx.beginPath();
-            ctx.moveTo(sx + p.w / 2, baseY);
-            ctx.lineTo(sx + p.w / 2, baseY - p.h * 0.45);
+            ctx.moveTo(sx + w / 2, baseY);
+            ctx.lineTo(sx + w / 2, baseY - h * 0.45);
             ctx.stroke();
-            ctx.fillStyle = "#456b3e";
-            if (p.type === "round") {
+            ctx.fillStyle = leafColor;
+            if (type === "round") {
                 ctx.beginPath();
-                ctx.arc(sx + p.w / 2, baseY - p.h * 0.6, p.h * 0.32, 0, Math.PI * 2);
+                ctx.arc(sx + w / 2, baseY - h * 0.6, h * 0.32, 0, Math.PI * 2);
                 ctx.fill();
-            } else {
+            } else if (type === "tall") {
                 ctx.beginPath();
-                ctx.moveTo(sx + p.w / 2, baseY - p.h);
-                ctx.lineTo(sx + p.w / 2 - p.h * 0.18, baseY - p.h * 0.4);
-                ctx.lineTo(sx + p.w / 2 + p.h * 0.18, baseY - p.h * 0.4);
+                ctx.moveTo(sx + w / 2, baseY - h);
+                ctx.lineTo(sx + w / 2 - h * 0.18, baseY - h * 0.4);
+                ctx.lineTo(sx + w / 2 + h * 0.18, baseY - h * 0.4);
                 ctx.closePath();
                 ctx.fill();
+            } else {
+                // bare stick/branch silhouette — no canopy, just a thin
+                // trunk with a few angled twigs, for forest-floor clutter
+                ctx.strokeStyle = trunkColor;
+                ctx.lineWidth = Math.max(2, w * 0.08);
+                ctx.beginPath();
+                ctx.moveTo(sx + w / 2, baseY - h * 0.45);
+                ctx.lineTo(sx + w / 2, baseY - h * 0.85);
+                ctx.moveTo(sx + w / 2, baseY - h * 0.65);
+                ctx.lineTo(sx + w / 2 - w * 0.4, baseY - h * 0.8);
+                ctx.moveTo(sx + w / 2, baseY - h * 0.75);
+                ctx.lineTo(sx + w / 2 + w * 0.4, baseY - h * 0.9);
+                ctx.stroke();
             }
+        }
+
+        treesMid.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.38;
+            if (sx > W + 20 || sx + p.w < -20) return;
+            drawTree(sx, p.w, p.h, p.type, "#3c5c38", "#33291f");
+        });
+
+        treesNear.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.58;
+            if (sx > W + 20 || sx + p.w < -20) return;
+            drawTree(sx, p.w, p.h, p.type, "#456b3e", "#3f3327");
         });
     }
 
     function drawTrackLayers() {
-        ensureLayer(trackPylons, W, 0.4);
+        ensureLayer(trackStadiumFar, W, 0.22);
+        ensureLayer(trackCrowd, W, 0.42);
+        ensureLayer(trackPylons, W, 0.55);
+
+        // distant stadium/grandstand structure silhouette
+        trackStadiumFar.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.22;
+            if (sx > W + 20 || sx + p.w < -20) return;
+            const top = groundY() - p.h;
+            ctx.fillStyle = "#2a2040";
+            ctx.fillRect(sx, top, p.w - 3, p.h);
+            ctx.fillStyle = "#3d2f55";
+            ctx.fillRect(sx, top, p.w - 3, 6);
+        });
+
+        // fake crowd: a packed band of small colored dot "heads" along a
+        // bleacher row, dense enough to read as a stand full of people
+        trackCrowd.pieces.forEach(p => {
+            const sx = p.x - world.scrollX * 0.42;
+            if (sx > W + 20 || sx + p.w < -20) return;
+            const bandTop = groundY() - 86;
+            const bandH = 40;
+            ctx.fillStyle = "#352a4a";
+            ctx.fillRect(sx, bandTop, p.w, bandH);
+            const hueOptions = [355, 40, 200, 95, 280, 0];
+            const cols = Math.max(2, Math.floor(p.w / 7));
+            const rows = 3;
+            for (let cy = 0; cy < rows; cy++) {
+                for (let cx = 0; cx < cols; cx++) {
+                    const seed = (cx * 13 + cy * 7 + p.seed * 1000) % 11;
+                    if (seed < 2) continue; // gaps so it's not a solid block
+                    const hue = hueOptions[Math.floor(seed) % hueOptions.length];
+                    ctx.fillStyle = `hsl(${hue}, 55%, ${45 + (cy * 6)}%)`;
+                    ctx.beginPath();
+                    ctx.arc(sx + 4 + cx * 7, bandTop + 8 + cy * 11, 2.6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        });
+
+        // trackside pylons/flags
         trackPylons.pieces.forEach(p => {
-            const sx = p.x - world.scrollX * 0.4;
-            if (sx > W || sx + p.w < 0) return;
+            const sx = p.x - world.scrollX * 0.55;
+            if (sx > W + 20 || sx + p.w < -20) return;
             ctx.fillStyle = p.stripe ? "#5a3d7a" : "#41305c";
-            ctx.fillRect(sx, groundY() - 70, 10, 70);
+            ctx.fillRect(sx, groundY() - 70, 8, 70);
             ctx.fillStyle = "#caa6ff";
-            ctx.fillRect(sx, groundY() - 70, 10, 6);
+            ctx.fillRect(sx, groundY() - 70, 8, 6);
         });
         ctx.fillStyle = "rgba(120, 80, 200, 0.18)";
         ctx.fillRect(0, groundY() - 110, W, 40);
     }
+
 
     function laneBandTop() {
         const spacing = Math.max(54, H * 0.16);
@@ -2097,9 +2196,8 @@ window.__eucDriftRunGame = function () {
     }
 
     function updateTrickButtonLabel() {
-        const actionEl = document.getElementById("eucJumpZone");
-        if (!actionEl) return;
-        actionEl.style.opacity = rider.airborne ? "1" : "0.45";
+        // no-op: the manual trick/action button has been removed —
+        // tricks now fire automatically while airborne (see maybeAutoTrick)
     }
 
     function loop(now) {
