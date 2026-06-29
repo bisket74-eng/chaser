@@ -312,7 +312,7 @@
             alert("EUC Drift file did not load. Check /games/eucdrift.js and the script tag in index.html.");
         }
     }
-}
+},
        "7 Wonders": {
     icon: "🏛️",
     displayName: "7 Wonders",
