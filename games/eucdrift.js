@@ -104,6 +104,30 @@ window.initEucDriftGame = function () {
             }
             #eucPauseBtn svg { width: 100%; height: 100%; }
 
+            #eucOverheatBanner {
+                position: absolute;
+                top: 40px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 12;
+                background: rgba(40,8,8,0.88);
+                border: 1.5px solid #ff3a3a;
+                color: #ff6b6b;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.6px;
+                padding: 6px 14px;
+                border-radius: 100px;
+                white-space: nowrap;
+                pointer-events: none;
+                animation: eucOverheatPulse 0.4s infinite;
+            }
+            #eucOverheatBanner.eucHidden { display: none; }
+            @keyframes eucOverheatPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.4; }
+            }
+
             #eucControls {
                 position: absolute;
                 bottom: 0; left: 0; right: 0;
@@ -327,6 +351,8 @@ window.initEucDriftGame = function () {
                 </div>
             </div>
 
+            <div id="eucOverheatBanner" class="eucHidden">⚠ BATTERY LOW — EASE OFF</div>
+
             <button id="eucPauseBtn" type="button" aria-label="Pause">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
             </button>
@@ -443,14 +469,14 @@ window.__eucDriftRunGame = function () {
     // Rider color customization
     // ------------------------------------------------------------
     const RIDER_COLOR_PALETTE = [
-        "#4fd1c5", // teal (default)
-        "#ff6b6b", // red
-        "#ffb238", // amber
-        "#9b6bff", // purple
-        "#5da9ff", // blue
-        "#ff7ad9", // pink
-        "#7ee787", // green
-        "#f4f4f4", // white
+        "#ee1c25", // bright red (default)
+        "#a020f0", // bright purple
+        "#ff6a00", // bright orange
+        "#ffe600", // bright yellow
+        "#0074ff", // bright blue
+        "#00c200", // bright green
+        "#ffffff", // bright white
+        "#111111", // black
     ];
 
     function shadeHex(hex, amt) {
@@ -625,10 +651,10 @@ window.__eucDriftRunGame = function () {
     function speedNormToMph(norm) { return 11 + norm * 40; }
     function mphToSpeedNorm(mph) { return (mph - 11) / 40; }
 
-    // Landing window: hit the ramp going 40-50 mph to land clean.
-    // Below 40 = too slow (drop off the front). Above 50 = too fast (flip).
-    const LANDING_MPH_MIN = 40;
-    const LANDING_MPH_MAX = 50;
+    // Landing check: hit the ramp going 45 mph or faster to land clean.
+    // Below 45 = too slow, you drop off the front. No upper limit anymore —
+    // going faster than 45 is always safe (and looks more impressive).
+    const LANDING_MPH_MIN = 45;
 
     // Brake strength when leaning back hard (lets you nearly stop for a lane hazard).
     const BRAKE_STRENGTH = 1.35;
@@ -642,7 +668,7 @@ window.__eucDriftRunGame = function () {
         rider.vy = 0;
         rider.airborne = false;
         rider.launchSpeedNorm = 0;
-        rider.landingOutcome = null; // 'clean' | 'tooSlow' | 'tooFast'
+        rider.landingOutcome = null; // 'clean' | 'tooSlow'
         rider.lean = 0;
         rider.targetLean = 0;
         rider.wheelAngle = 0;
@@ -653,6 +679,16 @@ window.__eucDriftRunGame = function () {
         rider.trickFlashTimer = 0;
         rider.crashed = false;
         rider.crashTimer = 0;
+        rider.skidTimer = 0;
+        rider.throttleHeldTime = 0;
+        rider.letOffTime = 0;
+        rider.overheatWarning = false;
+        rider.overheatWarnTimer = 0;
+        rider.beepIndex = 0;
+        rider.lastBeepAt = -1;
+        rider.beepFlash = 0;
+        rider.cutoutFlying = false;
+        rider.cutoutTimer = 0;
     }
 
     function laneCenterOffset(laneT) {
@@ -666,6 +702,11 @@ window.__eucDriftRunGame = function () {
     function triggerDodge(dir) {
         if (gameState !== STATE.PLAY) return;
         if (rider.crashed) return;
+
+        // shaky controls while skidding on an oil slick — dodge input has
+        // a real chance of just not responding in time
+        if (rider.skidTimer > 0 && Math.random() < 0.45) return;
+
         // dir +1 = dodge "up" input -> top lane, dir -1 = dodge "down" input -> bottom lane
         const newLane = dir > 0 ? LANE_TOP : LANE_BOTTOM;
         if (newLane === rider.lane) return;
@@ -699,19 +740,83 @@ window.__eucDriftRunGame = function () {
         rider.airborne = true;
         rider.tricks = [];
         rider.sitting = false;
-
-        if (mph < LANDING_MPH_MIN) {
-            rider.landingOutcome = "tooSlow";
-        } else if (mph > LANDING_MPH_MAX) {
-            rider.landingOutcome = "tooFast";
-        } else {
-            rider.landingOutcome = "clean";
-        }
+        rider.landingOutcome = (mph < LANDING_MPH_MIN) ? "tooSlow" : "clean";
 
         // height/arc still scales with speed so fast jumps visibly go
         // higher and farther than slow ones, independent of the outcome
         const speedFactor = Math.min(1.4, game.speedNorm / 0.6);
         rider.vy = -(620 + speedFactor * 420);
+    }
+
+    // ------------------------------------------------------------
+    // Overheat / speed cutout — holding full throttle too long trips a
+    // real-EUC-style low-battery safety cutout: 10s sustained full lean-forward
+    // triggers a 5-beep, ~2s warning (blinking red light), and unless
+    // you genuinely let off the throttle for a full second within that
+    // window, the battery cuts out and you go flying forward into a crash.
+    // ------------------------------------------------------------
+    const OVERHEAT_TRIGGER_SECONDS = 10;
+    const OVERHEAT_WARNING_SECONDS = 2;
+    const OVERHEAT_BEEP_COUNT = 5;
+    const OVERHEAT_LETOFF_SECONDS = 1;
+
+    function updateOverheatState(dt) {
+        const fullThrottle = input.leanRight && !input.leanLeft;
+
+        if (fullThrottle) {
+            rider.throttleHeldTime += dt;
+            rider.letOffTime = 0;
+        } else {
+            rider.letOffTime += dt;
+            if (!rider.overheatWarning) {
+                // not currently in the danger window — any let-off at all
+                // starts easing the held-time back down
+                rider.throttleHeldTime = Math.max(0, rider.throttleHeldTime - dt * 2);
+            }
+        }
+
+        if (!rider.overheatWarning && rider.throttleHeldTime >= OVERHEAT_TRIGGER_SECONDS) {
+            rider.overheatWarning = true;
+            rider.overheatWarnTimer = 0;
+            rider.beepIndex = 0;
+            rider.lastBeepAt = -1;
+        }
+
+        if (rider.overheatWarning) {
+            rider.overheatWarnTimer += dt;
+
+            // a genuine 1-second let-off cancels the whole sequence
+            if (rider.letOffTime >= OVERHEAT_LETOFF_SECONDS) {
+                rider.overheatWarning = false;
+                rider.overheatWarnTimer = 0;
+                rider.throttleHeldTime = 0;
+                rider.beepIndex = 0;
+                return;
+            }
+
+            // fire beeps at evenly spaced points across the warning window
+            const beepSlot = Math.floor((rider.overheatWarnTimer / OVERHEAT_WARNING_SECONDS) * OVERHEAT_BEEP_COUNT);
+            if (beepSlot > rider.lastBeepAt && beepSlot < OVERHEAT_BEEP_COUNT) {
+                rider.lastBeepAt = beepSlot;
+                rider.beepIndex = beepSlot + 1;
+                rider.beepFlash = 0.25; // brief visual flash per beep
+            }
+
+            if (rider.overheatWarnTimer >= OVERHEAT_WARNING_SECONDS) {
+                // out of time without a real let-off — battery cuts out
+                rider.overheatWarning = false;
+                triggerOverheatCutout();
+            }
+        }
+
+        if (rider.beepFlash > 0) rider.beepFlash -= dt;
+    }
+
+    function triggerOverheatCutout() {
+        if (rider.crashed) return;
+        rider.cutoutFlying = true;
+        rider.cutoutTimer = 0.5; // brief Superman-forward fling before impact
+        rider.cutoutSpeedNorm = game.speedNorm;
     }
 
     function updateRider(dt) {
@@ -721,12 +826,39 @@ window.__eucDriftRunGame = function () {
             return;
         }
 
+        if (rider.cutoutFlying) {
+            // battery's cut out — no more steering, just sailing forward
+            // (Superman pose) until impact
+            rider.cutoutTimer -= dt;
+            rider.wheelAngle += dt * 25; // wheel spins freely now, no traction
+            if (rider.cutoutTimer <= 0) {
+                rider.cutoutFlying = false;
+                crashRider("cutout");
+            }
+            return;
+        }
+
+        if (rider.skidTimer > 0) {
+            rider.skidTimer = Math.max(0, rider.skidTimer - dt);
+        }
+
         // lean target from input (back = brake/-1, forward = accelerate/+1)
         let leanTarget = 0;
         if (input.leanLeft) leanTarget -= 1;
         if (input.leanRight) leanTarget += 1;
+
+        if (rider.skidTimer > 0) {
+            // jittery/unreliable steering while skidding on the oil slick —
+            // the lean target randomly wobbles away from what you're
+            // actually holding, making fine control unreliable for a beat
+            leanTarget += (Math.random() - 0.5) * 1.6;
+            leanTarget = Math.max(-1, Math.min(1, leanTarget));
+        }
+
         rider.targetLean = leanTarget;
         rider.lean += (rider.targetLean - rider.lean) * Math.min(1, dt * 6);
+
+        updateOverheatState(dt);
 
         // lane slide (dodge)
         rider.laneT += (rider.targetLaneT - rider.laneT) * Math.min(1, dt * 10);
@@ -751,8 +883,8 @@ window.__eucDriftRunGame = function () {
                     rider.airborne = false;
                     rider.tricks = [];
                 } else {
-                    // tooSlow or tooFast — the takeoff speed already decided
-                    // this, tricks performed mid-air don't change it
+                    // tooSlow — the takeoff speed already decided this,
+                    // tricks performed mid-air don't change it
                     crashRider(rider.landingOutcome);
                 }
             }
@@ -773,7 +905,7 @@ window.__eucDriftRunGame = function () {
     }
 
     function crashRider(reason) {
-        // reason: 'tooSlow' (drop off the front) | 'tooFast' (flip over) | 'hit' (obstacle)
+        // reason: 'tooSlow' (drop off the front) | 'hit' (obstacle) | 'cutout' (overheat motor cutout)
         rider.crashed = true;
         rider.crashReason = reason || "hit";
         rider.crashTimer = 0.9;
@@ -804,13 +936,117 @@ window.__eucDriftRunGame = function () {
         };
     }
 
+    // Drawn during the brief cutout fling — the rider has left the wheel
+    // entirely and is sailing forward arms-out (Superman pose) toward an
+    // impact. The wheel itself tumbles/skids away separately beneath them.
+    function drawCutoutFlyingPose() {
+        const scale = riderScale();
+        const baseY = riderGroundY();
+        const progress = 1 - Math.max(0, rider.cutoutTimer) / 0.5; // 0..1 across the fling
+        const forwardDrift = progress * 70 * scale;
+        const riseFall = Math.sin(progress * Math.PI) * -26 * scale; // small arc: up then down toward impact
+
+        // tumbling wheel, left behind and spinning out
+        ctx.save();
+        ctx.translate(rider.x - forwardDrift * 0.4, baseY - WHEEL_RADIUS * scale + 6 * scale * progress);
+        ctx.rotate(rider.wheelAngle);
+        ctx.beginPath();
+        ctx.arc(0, 0, WHEEL_RADIUS * scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#1a2126";
+        ctx.fill();
+        ctx.strokeStyle = "#0a0d0f";
+        ctx.lineWidth = 2.2 * scale;
+        ctx.stroke();
+        ctx.restore();
+
+        // flying rider
+        ctx.save();
+        ctx.translate(rider.x + forwardDrift, baseY - 30 * scale + riseFall);
+        ctx.rotate(0.18 + progress * 0.25); // pitching forward as it goes
+
+        const clothColor = riderColor;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        // back leg, trailing
+        ctx.strokeStyle = "#1c252c";
+        ctx.lineWidth = 9 * scale;
+        ctx.beginPath();
+        ctx.moveTo(-4 * scale, 6 * scale);
+        ctx.quadraticCurveTo(-22 * scale, 10 * scale, -34 * scale, 4 * scale);
+        ctx.stroke();
+
+        // front leg, trailing slightly higher
+        ctx.beginPath();
+        ctx.moveTo(2 * scale, 4 * scale);
+        ctx.quadraticCurveTo(-14 * scale, -4 * scale, -28 * scale, -10 * scale);
+        ctx.stroke();
+
+        // torso, horizontal-ish, pitched forward
+        ctx.strokeStyle = "#212b33";
+        ctx.lineWidth = 13 * scale;
+        ctx.beginPath();
+        ctx.moveTo(0, 4 * scale);
+        ctx.lineTo(24 * scale, -8 * scale);
+        ctx.stroke();
+
+        ctx.strokeStyle = clothColor;
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(2 * scale, 2 * scale);
+        ctx.lineTo(22 * scale, -8 * scale);
+        ctx.stroke();
+
+        // both arms thrown forward, Superman-style
+        ctx.strokeStyle = "#1c252c";
+        ctx.lineWidth = 7 * scale;
+        ctx.beginPath();
+        ctx.moveTo(20 * scale, -9 * scale);
+        ctx.quadraticCurveTo(34 * scale, -14 * scale, 46 * scale, -16 * scale);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(18 * scale, -6 * scale);
+        ctx.quadraticCurveTo(32 * scale, -8 * scale, 44 * scale, -9 * scale);
+        ctx.stroke();
+
+        // head, looking forward toward impact
+        const headX = 28 * scale, headY = -12 * scale;
+        ctx.beginPath();
+        ctx.arc(headX, headY, 10.2 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#27323b";
+        ctx.fill();
+        ctx.fillStyle = clothColor;
+        ctx.beginPath();
+        ctx.ellipse(headX + 4 * scale, headY - 1 * scale, 5 * scale, 2.8 * scale, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // motion streaks behind
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 2 * scale;
+        for (let i = 0; i < 4; i++) {
+            const ly = -6 * scale + i * 6 * scale;
+            ctx.beginPath();
+            ctx.moveTo(-40 * scale - i * 8 * scale, ly);
+            ctx.lineTo(-60 * scale - i * 8 * scale, ly);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
     function drawRider() {
         if (rider.crashed && rider.crashTimer <= 0) return;
+
+        if (rider.cutoutFlying) {
+            drawCutoutFlyingPose();
+            return;
+        }
 
         const scale = riderScale();
         const baseY = riderGroundY();
         ctx.save();
-        ctx.translate(rider.x, baseY + rider.y);
+        const skidJitterX = rider.skidTimer > 0 ? (Math.random() - 0.5) * 6 * scale : 0;
+        ctx.translate(rider.x + skidJitterX, baseY + rider.y);
 
         if (rider.crashed) {
             // simple tumble effect
@@ -828,12 +1064,7 @@ window.__eucDriftRunGame = function () {
 
         const sit = rider.sitT;
         const crouch = sit * 20 * scale;
-
         const clothColor = riderColor;
-        const clothDark = shadeHex(clothColor, -0.45);
-        const clothLight = shadeHex(clothColor, 0.35);
-        const skinColor = "#e0a878";
-        const skinShade = shadeHex(skinColor, -0.25);
 
         // ---------------- WHEEL ----------------
         const wheelY = -WHEEL_RADIUS * scale;
@@ -872,161 +1103,147 @@ window.__eucDriftRunGame = function () {
         ctx.fillRect(-WHEEL_RADIUS * scale * 1.05, -3.8 * scale, WHEEL_RADIUS * scale * 2.1, 5.5 * scale);
         ctx.restore();
 
-        // ---------------- KEY POSE POINTS ----------------
-        const hipY = wheelY - 40 * scale + crouch * 0.5;
-        const kneeY = wheelY - 14 * scale + crouch * 0.7;
-        const ankleY = wheelY + 2 * scale;
-        const legSpread = 11 * scale;
-        const shoulderY = hipY - 42 * scale * (1 - sit * 0.4);
-        const torsoLean = rider.lean * 6 * scale;
-        const torsoMidX = torsoLean * 0.5;
-        const torsoMidY = (hipY + shoulderY) / 2;
-        const headY = shoulderY - 19 * scale;
-        const headX = torsoLean + rider.lean * 3 * scale;
-
-        function limbSegment(x0, y0, x1, y1, x2, y2, width, color) {
-            // a filled capsule-ish limb: draw as a thick rounded stroke
-            ctx.lineCap = "round";
-            ctx.lineJoin = "round";
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
+        // front warning light — sits on the leading edge of the footplate,
+        // blinks bright red on each overheat beep
+        if (rider.overheatWarning && rider.beepFlash > 0) {
+            ctx.save();
+            ctx.translate(0, wheelY);
             ctx.beginPath();
-            ctx.moveTo(x0, y0);
-            ctx.quadraticCurveTo(x1, y1, x2, y2);
-            ctx.stroke();
+            ctx.arc(WHEEL_RADIUS * scale * 1.05, 0, 4.2 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = "#ff2a2a";
+            ctx.globalAlpha = Math.min(1, rider.beepFlash / 0.25);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            // glow halo
+            ctx.beginPath();
+            ctx.arc(WHEEL_RADIUS * scale * 1.05, 0, 8 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,42,42,0.25)";
+            ctx.fill();
+            ctx.restore();
         }
 
-        // ---------------- BACK LEG (thigh + shin, jacket-color thigh, skin shin) ----------------
-        const backKneeX = -legSpread * 1.3, backFootX = -legSpread * 0.65;
-        limbSegment(-legSpread * 0.35, hipY, backKneeX, kneeY, backKneeX * 0.92, kneeY + 4 * scale, 11 * scale, clothDark);
-        limbSegment(backKneeX * 0.92, kneeY + 4 * scale, backFootX, ankleY - 6 * scale, backFootX, ankleY, 8 * scale, skinShade);
+        // ---------------- POSE POINTS ----------------
+        // True side-profile: the rider faces right (direction of travel).
+        // Only ONE leg and ONE arm are drawn as the visible "near" limb;
+        // a short, mostly-hidden hint of the far leg peeks out at the hip
+        // so it doesn't look like a single peg leg, but there is no
+        // second symmetric limb mirrored out the other side of the wheel.
+        const hipY = wheelY - 34 * scale + crouch * 0.5;
+        const kneeY = wheelY - 11 * scale + crouch * 0.7;
+        const footY = wheelY + 2 * scale;
+        const shoulderY = hipY - 36 * scale * (1 - sit * 0.4);
+        const torsoLean = rider.lean * 6 * scale;
+        const headY = shoulderY - 15 * scale;
+        const headX = torsoLean + rider.lean * 3 * scale;
 
-        // back foot
-        ctx.fillStyle = "#171c20";
-        ctx.beginPath();
-        ctx.ellipse(backFootX, ankleY + 1 * scale, 9 * scale, 5 * scale, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // ---------------- TORSO (filled rounded shape, jacket-colored) ----------------
-        const torsoWtop = 17 * scale;
-        const torsoWbot = 14 * scale;
-        ctx.beginPath();
-        ctx.moveTo(-torsoWbot, hipY);
-        ctx.quadraticCurveTo(-torsoWtop - 2 * scale, torsoMidY, torsoMidX - torsoWtop, shoulderY);
-        ctx.lineTo(torsoMidX + torsoWtop, shoulderY);
-        ctx.quadraticCurveTo(torsoWbot + 2 * scale, torsoMidY, torsoWbot, hipY);
-        ctx.closePath();
-        ctx.fillStyle = clothColor;
-        ctx.fill();
-        ctx.strokeStyle = clothDark;
-        ctx.lineWidth = 1.5 * scale;
-        ctx.stroke();
-
-        // jacket center zip / accent stripe
-        ctx.strokeStyle = clothLight;
-        ctx.lineWidth = 2.2 * scale;
-        ctx.beginPath();
-        ctx.moveTo(0, hipY - 3 * scale);
-        ctx.quadraticCurveTo(torsoMidX, torsoMidY, torsoMidX, shoulderY + 3 * scale);
-        ctx.stroke();
-
-        // ---------------- BACK ARM (jacket sleeve + skin forearm) ----------------
-        const armBackElbowX = torsoLean - 13 * scale - rider.lean * 3 * scale;
-        const armBackElbowY = shoulderY + 13 * scale;
-        const armBackHandX = torsoLean - 16 * scale - rider.lean * 5 * scale;
-        const armBackHandY = shoulderY + 24 * scale;
-        limbSegment(torsoLean - 6 * scale, shoulderY + 1 * scale, armBackElbowX, armBackElbowY, armBackElbowX * 0.96, armBackElbowY + 2 * scale, 9 * scale, clothDark);
-        limbSegment(armBackElbowX * 0.96, armBackElbowY + 2 * scale, armBackHandX, armBackHandY - 4 * scale, armBackHandX, armBackHandY, 6.5 * scale, skinColor);
-
-        // ---------------- FRONT LEG (drawn after torso so it sits on top) ----------------
-        const frontKneeX = legSpread * 1.3, frontFootX = legSpread * 0.65;
-        limbSegment(legSpread * 0.35, hipY, frontKneeX, kneeY, frontKneeX * 0.92, kneeY + 4 * scale, 12 * scale, clothColor);
-        limbSegment(frontKneeX * 0.92, kneeY + 4 * scale, frontFootX, ankleY - 6 * scale, frontFootX, ankleY, 8.5 * scale, skinShade);
-
-        ctx.fillStyle = "#171c20";
-        ctx.beginPath();
-        ctx.ellipse(frontFootX, ankleY + 1 * scale, 9.5 * scale, 5.5 * scale, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // knee/thigh accent highlight on front leg
-        ctx.strokeStyle = clothLight;
-        ctx.lineWidth = 1.6 * scale;
-        ctx.beginPath();
-        ctx.moveTo(legSpread * 0.5, hipY + 2 * scale);
-        ctx.lineTo(frontKneeX * 0.9, kneeY);
-        ctx.stroke();
-
-        // ---------------- FRONT ARM ----------------
-        const armFrontElbowX = torsoLean + 15 * scale + rider.lean * 4 * scale;
-        const armFrontElbowY = shoulderY + 12 * scale;
-        const armFrontHandX = torsoLean + 19 * scale + rider.lean * 7 * scale;
-        const armFrontHandY = shoulderY + 22 * scale;
-        limbSegment(torsoLean + 7 * scale, shoulderY + 1 * scale, armFrontElbowX, armFrontElbowY, armFrontElbowX * 1.02, armFrontElbowY + 2 * scale, 9.5 * scale, clothColor);
-        limbSegment(armFrontElbowX * 1.02, armFrontElbowY + 2 * scale, armFrontHandX, armFrontHandY - 4 * scale, armFrontHandX, armFrontHandY, 7 * scale, skinColor);
-
-        // ---------------- HEAD + HELMET ----------------
-        const headR = 13.5 * scale;
-        // neck
-        ctx.strokeStyle = skinShade;
-        ctx.lineWidth = 7 * scale;
         ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        // far leg hint: a short dark stub right at the hip, barely peeking
+        // out behind the near leg — implies depth without drawing a full
+        // second leg out to the side.
+        ctx.strokeStyle = "#161c20";
+        ctx.lineWidth = 7 * scale;
         ctx.beginPath();
-        ctx.moveTo(torsoMidX, shoulderY - 1 * scale);
-        ctx.lineTo(headX, headY + headR * 0.6);
+        ctx.moveTo(2 * scale, hipY + 2 * scale);
+        ctx.quadraticCurveTo(7 * scale, kneeY + 6 * scale, 5 * scale, footY - 2 * scale);
         ctx.stroke();
 
-        // face (skin circle)
+        // near leg (the one fully visible, slightly forward toward travel direction)
+        ctx.strokeStyle = "#1c252c";
+        ctx.lineWidth = 10 * scale;
         ctx.beginPath();
-        ctx.arc(headX, headY, headR, 0, Math.PI * 2);
-        ctx.fillStyle = skinColor;
+        ctx.moveTo(1 * scale, hipY);
+        ctx.quadraticCurveTo(13 * scale, kneeY, 7 * scale, footY);
+        ctx.stroke();
+
+        // foot
+        ctx.fillStyle = "#11151a";
+        ctx.beginPath();
+        ctx.ellipse(8 * scale, footY + 1.5 * scale, 8 * scale, 4.2 * scale, 0.1, 0, Math.PI * 2);
         ctx.fill();
 
-        // simple facial hint: a small jaw shadow + brow, so it reads as a face
-        // not just a blank disc, without going into heavy detail
-        ctx.fillStyle = skinShade;
+        // torso (single stroke, leans with input — same as before)
+        ctx.strokeStyle = "#212b33";
+        ctx.lineWidth = 12 * scale;
         ctx.beginPath();
-        ctx.ellipse(headX + headR * 0.15, headY + headR * 0.55, headR * 0.55, headR * 0.32, 0, 0, Math.PI);
+        ctx.moveTo(0, hipY);
+        ctx.quadraticCurveTo(torsoLean * 0.5, (hipY + shoulderY) / 2, torsoLean, shoulderY);
+        ctx.stroke();
+
+        // jacket accent stripe (color)
+        ctx.strokeStyle = clothColor;
+        ctx.lineWidth = 3 * scale;
+        ctx.beginPath();
+        ctx.moveTo(2 * scale, hipY - 4 * scale);
+        ctx.quadraticCurveTo(torsoLean * 0.5 + 2 * scale, (hipY + shoulderY) / 2, torsoLean + 2 * scale, shoulderY + 4 * scale);
+        ctx.stroke();
+
+        // ---------------- ARM POSE — driven by lean ----------------
+        // Forward lean -> arm reaches out front (racing tuck).
+        // Backward lean (braking) -> arm tucks in close to the side.
+        // Neutral -> arm relaxed, slightly forward, natural riding pose.
+        const leanT = Math.max(-1, Math.min(1, rider.lean)); // -1 back .. 0 neutral .. +1 forward
+        let armElbowX, armElbowY, armHandX, armHandY;
+
+        if (leanT >= 0) {
+            // neutral -> forward: elbow/hand extend further out front as lean increases
+            const reach = leanT; // 0..1
+            armElbowX = torsoLean + (9 + reach * 10) * scale;
+            armElbowY = shoulderY + (10 - reach * 2) * scale;
+            armHandX = torsoLean + (14 + reach * 22) * scale;
+            armHandY = shoulderY + (16 - reach * 6) * scale;
+        } else {
+            // tucking back toward the side as brake lean increases
+            const tuck = -leanT; // 0..1
+            armElbowX = torsoLean + (9 - tuck * 6) * scale;
+            armElbowY = shoulderY + (10 + tuck * 4) * scale;
+            armHandX = torsoLean + (14 - tuck * 11) * scale;
+            armHandY = shoulderY + (16 + tuck * 14) * scale;
+        }
+
+        ctx.strokeStyle = "#1c252c";
+        ctx.lineWidth = 7.5 * scale;
+        ctx.beginPath();
+        ctx.moveTo(torsoLean, shoulderY + 2 * scale);
+        ctx.quadraticCurveTo(armElbowX, armElbowY, armHandX, armHandY);
+        ctx.stroke();
+
+        // hand
+        ctx.fillStyle = "#1c252c";
+        ctx.beginPath();
+        ctx.arc(armHandX, armHandY, 3.6 * scale, 0, Math.PI * 2);
         ctx.fill();
 
-        // helmet (covers top ~60% of head, jacket-colored)
+        // ---------------- HEAD ----------------
         ctx.beginPath();
-        ctx.arc(headX, headY - headR * 0.08, headR * 1.04, Math.PI * 1.0, Math.PI * 2.0);
-        ctx.closePath();
+        ctx.arc(headX, headY, 10.2 * scale, 0, Math.PI * 2);
+        ctx.fillStyle = "#27323b";
+        ctx.fill();
+
+        // visor / helmet accent stripe, facing forward (right)
         ctx.fillStyle = clothColor;
-        ctx.fill();
-        ctx.strokeStyle = clothDark;
-        ctx.lineWidth = 1.4 * scale;
-        ctx.stroke();
-
-        // helmet brim
         ctx.beginPath();
-        ctx.ellipse(headX, headY - headR * 0.06, headR * 1.08, headR * 0.22, 0, 0, Math.PI * 2, false);
-        ctx.fillStyle = clothDark;
-        ctx.fill();
-
-        // visor/goggle stripe accent
-        ctx.fillStyle = clothLight;
-        ctx.beginPath();
-        ctx.ellipse(headX + headR * 0.32, headY - headR * 0.18, headR * 0.42, headR * 0.22, 0.25, 0, Math.PI * 2);
+        ctx.ellipse(headX + 3.8 * scale, headY - 1 * scale, 5 * scale, 2.8 * scale, 0.3, 0, Math.PI * 2);
         ctx.fill();
 
         if (rider.hitFlash > 0) {
             ctx.globalAlpha = Math.max(0, rider.hitFlash) * 0.6;
             ctx.beginPath();
-            ctx.arc(headX, (headY + hipY) / 2, 50 * scale, 0, Math.PI * 2);
+            ctx.arc(headX, (headY + hipY) / 2, 44 * scale, 0, Math.PI * 2);
             ctx.fillStyle = "#ff4d4d";
             ctx.fill();
             ctx.globalAlpha = 1;
         }
 
         if (!rider.airborne && rider.lean > 0.4) {
-            ctx.strokeStyle = "rgba(79,209,197," + ((rider.lean - 0.4) * 0.5) + ")";
+            ctx.strokeStyle = "rgba(255,255,255," + ((rider.lean - 0.4) * 0.4) + ")";
             ctx.lineWidth = 2.2 * scale;
             for (let i = 0; i < 3; i++) {
-                const ly = hipY - 22 * scale + i * 15 * scale;
+                const ly = hipY - 20 * scale + i * 14 * scale;
                 ctx.beginPath();
-                ctx.moveTo(-36 * scale - i * 6 * scale, ly);
-                ctx.lineTo(-60 * scale - i * 6 * scale, ly);
+                ctx.moveTo(-32 * scale - i * 6 * scale, ly);
+                ctx.lineTo(-54 * scale - i * 6 * scale, ly);
                 ctx.stroke();
             }
         }
@@ -1241,38 +1458,74 @@ window.__eucDriftRunGame = function () {
     let obstacleIdSeq = 0;
 
     const OBSTACLE_DEFS = {
-        crate:   { w: 44, h: 44, color: "#d8553a" },
-        barrier: { w: 28, h: 50, color: "#c9a23b" },
-        ramp:    { w: 92, h: 46, color: "#ffb238" },
+        crate:        { w: 44, h: 44 },
+        smallBarrier: { w: 26, h: 40 },
+        fullBarrier:  { w: 30, h: 50 },
+        ramp:         { w: 92, h: 46, color: "#ffb238" },
     };
+
+    // Zone-themed visual variants. Mechanical behavior (dodge vs jump vs
+    // crate-rules) is identical within a type — only the look (and, for
+    // the oil slick, a bonus non-fatal skid effect) differs by zone.
+    const ZONE_VARIANTS = {
+        city: {
+            crate: "trashcan",
+            smallBarrier: "barrelCone",
+            fullBarrier: "tape",
+            ramp: "ramp",
+        },
+        countryside: {
+            crate: ["rock", "twigs"],
+            smallBarrier: ["rock", "twigs"],
+            fullBarrier: "log",
+            ramp: "dirtRamp",
+        },
+        track: {
+            crate: "tireStack",
+            smallBarrier: "trafficCone",
+            fullBarrier: "oilSlick",
+            ramp: "ramp",
+        },
+    };
+
+    function pickVariant(zone, type) {
+        const v = (ZONE_VARIANTS[zone] || ZONE_VARIANTS.city)[type];
+        if (Array.isArray(v)) return v[Math.floor(Math.random() * v.length)];
+        return v;
+    }
 
     function spawnObstacle() {
         const r = Math.random();
         let type;
-        if (r < 0.42) type = "crate";
-        else if (r < 0.62) type = "barrier";
+        if (r < 0.38) type = "crate";
+        else if (r < 0.58) type = "smallBarrier";
+        else if (r < 0.74) type = "fullBarrier";
         else type = "ramp";
 
+        const zone = currentZoneName();
         const def = OBSTACLE_DEFS[type];
         const lane = Math.random() < 0.5 ? LANE_TOP : LANE_BOTTOM;
 
         const entry = {
             id: obstacleIdSeq++, type,
+            variant: pickVariant(zone, type),
             x: world.scrollX + W + 80,
             w: def.w, h: def.h,
-            lane: type === "barrier" ? null : lane, // barriers span both lanes
+            lane: type === "fullBarrier" ? null : lane, // full barriers span both lanes
             triggered: false, // ramps: only launch once per pass
         };
 
         obstacles.push(entry);
 
-        // Place a ramp shortly before most barriers so a fast rider has a
-        // natural way to already be airborne when it arrives. Skipped at
-        // low chance to keep some barriers a real "must already be flying" test.
-        if (type === "barrier" && Math.random() < 0.6) {
+        // Full barriers can ONLY be cleared by jumping (no dodge works on
+        // something spanning both lanes), so they ALWAYS get a guaranteed
+        // setup ramp placed shortly before them, in one lane, so there is
+        // always a way to already be airborne when the barrier arrives.
+        if (type === "fullBarrier") {
             obstacles.push({
                 id: obstacleIdSeq++, type: "ramp",
-                x: entry.x - 170,
+                variant: pickVariant(zone, "ramp"),
+                x: entry.x - 190,
                 w: OBSTACLE_DEFS.ramp.w, h: OBSTACLE_DEFS.ramp.h,
                 lane: Math.random() < 0.5 ? LANE_TOP : LANE_BOTTOM,
                 triggered: false,
@@ -1319,94 +1572,297 @@ window.__eucDriftRunGame = function () {
         obstacles.forEach(o => {
             const sx = obstacleScreenX(o);
             if (sx > W + 60 || sx < -140) return;
-            const def = OBSTACLE_DEFS[o.type];
 
-            if (o.type === "crate") {
-                const gy = obstacleLaneY(o);
-                ctx.fillStyle = def.color;
-                ctx.fillRect(sx, gy - o.h, o.w, o.h);
-                ctx.strokeStyle = "rgba(0,0,0,0.3)";
-                ctx.lineWidth = 2.5;
-                ctx.strokeRect(sx + 3, gy - o.h + 3, o.w - 6, o.h - 6);
-                ctx.beginPath();
-                ctx.moveTo(sx, gy - o.h); ctx.lineTo(sx + o.w, gy);
-                ctx.moveTo(sx + o.w, gy - o.h); ctx.lineTo(sx, gy);
-                ctx.strokeStyle = "rgba(0,0,0,0.22)";
-                ctx.stroke();
-            } else if (o.type === "barrier") {
-                const bandTop = laneBandTop();
-                const bandH = laneBandHeight();
-                ctx.fillStyle = def.color;
-                ctx.fillRect(sx, bandTop + 4, o.w, bandH - 8);
-                ctx.fillStyle = "rgba(0,0,0,0.25)";
-                for (let stripeY = bandTop + 8; stripeY < bandTop + bandH - 6; stripeY += 14) {
-                    ctx.fillRect(sx + 2, stripeY, o.w - 4, 6);
-                }
+            if (o.type === "crate" || o.type === "smallBarrier") {
+                drawLaneObstacleVariant(o, sx);
+            } else if (o.type === "fullBarrier") {
+                drawFullBarrierVariant(o, sx);
             } else if (o.type === "ramp") {
-                const gy = obstacleLaneY(o);
-                const rampW = o.w;
-                const rampH = o.h;
-
-                // solid ground-colored base wedge — a real right-triangle
-                // ramp shape: flat on the ground, rising to a peak on the
-                // approach side, vertical drop-off on the far side.
-                ctx.beginPath();
-                ctx.moveTo(sx, gy);                       // bottom-left (ground, approach side)
-                ctx.lineTo(sx + rampW, gy);                // bottom-right (ground, far side)
-                ctx.lineTo(sx + rampW, gy - rampH * 0.18); // small kick lip on far side
-                ctx.lineTo(sx, gy - rampH);                 // peak at approach side
-                ctx.closePath();
-                ctx.fillStyle = "#3a4046";
-                ctx.fill();
-
-                // bright ramp surface (the sloped face you actually ride up)
-                ctx.beginPath();
-                ctx.moveTo(sx, gy);
-                ctx.lineTo(sx, gy - rampH);
-                ctx.lineTo(sx + rampW, gy - rampH * 0.18);
-                ctx.lineTo(sx + rampW * 0.86, gy - rampH * 0.06);
-                ctx.closePath();
-                ctx.fillStyle = "#ffb238";
-                ctx.fill();
-
-                // hazard stripes across the ramp face so it reads as
-                // "ride up this", not a random shape
-                ctx.strokeStyle = "rgba(20,16,8,0.55)";
-                ctx.lineWidth = 3;
-                const stripeCount = 4;
-                for (let i = 1; i <= stripeCount; i++) {
-                    const t = i / (stripeCount + 1); // 0..1 along the slope, approach->peak
-                    // a line running perpendicular-ish across the ramp face at height t
-                    const topX = sx + rampW * 0.0;
-                    const topY = gy - rampH * t;
-                    const botX = sx + rampW * Math.min(0.95, 0.25 + t * 0.7);
-                    const botY = gy - rampH * 0.18 * t;
-                    ctx.beginPath();
-                    ctx.moveTo(topX, topY);
-                    ctx.lineTo(botX, botY);
-                    ctx.stroke();
-                }
-
-                // bright edge outline so the silhouette is unmistakable
-                ctx.strokeStyle = "#fff3d6";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(sx, gy);
-                ctx.lineTo(sx, gy - rampH);
-                ctx.lineTo(sx + rampW, gy - rampH * 0.18);
-                ctx.lineTo(sx + rampW, gy);
-                ctx.stroke();
-
-                // small "launch" chevron above it as an extra readability cue
-                ctx.fillStyle = "rgba(255,178,56,0.85)";
-                ctx.beginPath();
-                ctx.moveTo(sx + rampW * 0.12, gy - rampH - 10);
-                ctx.lineTo(sx + rampW * 0.12 + 9, gy - rampH - 20);
-                ctx.lineTo(sx + rampW * 0.12 + 18, gy - rampH - 10);
-                ctx.closePath();
-                ctx.fill();
+                drawRampVariant(o, sx);
             }
         });
+    }
+
+    // ---------------- ONE-LANE OBSTACLES (crate + smallBarrier) ----------------
+    // All of these are dodge-or-jump obstacles; only the look changes.
+    function drawLaneObstacleVariant(o, sx) {
+        const gy = obstacleLaneY(o);
+        const w = o.w, h = o.h;
+
+        switch (o.variant) {
+            case "trashcan": {
+                ctx.fillStyle = "#5a6a6e";
+                ctx.fillRect(sx, gy - h, w, h);
+                ctx.fillStyle = "#3f4d50";
+                ctx.fillRect(sx, gy - h, w, 6);
+                ctx.strokeStyle = "rgba(0,0,0,0.35)";
+                ctx.lineWidth = 2;
+                for (let lx = sx + w * 0.25; lx < sx + w; lx += w * 0.25) {
+                    ctx.beginPath();
+                    ctx.moveTo(lx, gy - h + 8);
+                    ctx.lineTo(lx, gy - 3);
+                    ctx.stroke();
+                }
+                break;
+            }
+            case "barrelCone": {
+                // big orange/black striped barrel
+                const r = w / 2;
+                ctx.fillStyle = "#e2611c";
+                ctx.beginPath();
+                ctx.ellipse(sx + r, gy - h / 2, r, h / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = "#1a1a1a";
+                [0.25, 0.5, 0.75].forEach(t => {
+                    ctx.fillRect(sx + 2, gy - h + h * t - 3, w - 4, 6);
+                });
+                ctx.strokeStyle = "rgba(255,255,255,0.5)";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(sx + r, gy - h / 2, r, h / 2, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                break;
+            }
+            case "tireStack": {
+                const tireR = w / 2;
+                [0, 1, 2].forEach(i => {
+                    const ty = gy - tireR - i * tireR * 1.15;
+                    ctx.fillStyle = "#181818";
+                    ctx.beginPath();
+                    ctx.ellipse(sx + tireR, ty, tireR, tireR * 0.78, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = "#0d0d0d";
+                    ctx.beginPath();
+                    ctx.ellipse(sx + tireR, ty, tireR * 0.45, tireR * 0.36, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+                break;
+            }
+            case "trafficCone": {
+                const baseW = w, topW = w * 0.18;
+                const topY = gy - h, baseY = gy;
+                ctx.beginPath();
+                ctx.moveTo(sx + w / 2 - topW / 2, topY);
+                ctx.lineTo(sx + w / 2 + topW / 2, topY);
+                ctx.lineTo(sx + baseW, baseY);
+                ctx.lineTo(sx, baseY);
+                ctx.closePath();
+                ctx.fillStyle = "#ff5a1f";
+                ctx.fill();
+                ctx.fillStyle = "#fff";
+                const stripeY = gy - h * 0.42;
+                const stripeTopW = topW + (baseW - topW) * 0.42;
+                ctx.fillRect(sx + (w - stripeTopW) / 2, stripeY, stripeTopW, h * 0.16);
+                ctx.fillStyle = "#cc4416";
+                ctx.fillRect(sx, baseY - 5, baseW, 5);
+                break;
+            }
+            case "rock": {
+                ctx.fillStyle = "#6e6a63";
+                ctx.beginPath();
+                ctx.moveTo(sx, gy);
+                ctx.lineTo(sx + w * 0.1, gy - h * 0.7);
+                ctx.lineTo(sx + w * 0.4, gy - h);
+                ctx.lineTo(sx + w * 0.75, gy - h * 0.75);
+                ctx.lineTo(sx + w, gy - h * 0.2);
+                ctx.lineTo(sx + w, gy);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = "rgba(255,255,255,0.12)";
+                ctx.beginPath();
+                ctx.moveTo(sx + w * 0.4, gy - h);
+                ctx.lineTo(sx + w * 0.75, gy - h * 0.75);
+                ctx.lineTo(sx + w * 0.55, gy - h * 0.55);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = "rgba(0,0,0,0.3)";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                break;
+            }
+            case "twigs": {
+                ctx.fillStyle = "#4a3320";
+                ctx.beginPath();
+                ctx.ellipse(sx + w / 2, gy - 4, w / 2, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "#6b4a2a";
+                ctx.lineWidth = 4;
+                ctx.lineCap = "round";
+                for (let i = 0; i < 4; i++) {
+                    const x0 = sx + 4 + i * (w - 8) / 3;
+                    ctx.beginPath();
+                    ctx.moveTo(x0, gy - 2);
+                    ctx.lineTo(x0 + 8 - i * 2, gy - h * (0.5 + i * 0.08));
+                    ctx.stroke();
+                }
+                break;
+            }
+            default: {
+                // fallback generic crate (shouldn't normally hit this)
+                ctx.fillStyle = "#d8553a";
+                ctx.fillRect(sx, gy - h, w, h);
+            }
+        }
+    }
+
+    // ---------------- FULL-WIDTH BARRIERS (span both lanes, jump-only) ----------------
+    function drawFullBarrierVariant(o, sx) {
+        const bandTop = laneBandTop();
+        const bandH = laneBandHeight();
+        const w = o.w;
+
+        switch (o.variant) {
+            case "tape": {
+                // construction/caution tape strung across both lanes,
+                // sagging slightly between two posts
+                const postW = 5;
+                ctx.fillStyle = "#3a3a3a";
+                ctx.fillRect(sx, bandTop - 4, postW, bandH + 8);
+                ctx.fillStyle = "#ffd400";
+                const sagY = bandTop + bandH * 0.5;
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(sx, bandTop + 6);
+                ctx.quadraticCurveTo(sx + w / 2, sagY + 10, sx + w, bandTop + 6);
+                ctx.lineTo(sx + w, bandTop + 6 + 16);
+                ctx.quadraticCurveTo(sx + w / 2, sagY + 26, sx, bandTop + 6 + 16);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+                ctx.fillStyle = "#1a1a1a";
+                ctx.font = "bold 10px sans-serif";
+                // simple diagonal hazard ticks instead of text (cheaper, reads fine at speed)
+                for (let tx = sx + 6; tx < sx + w - 4; tx += 14) {
+                    ctx.fillRect(tx, bandTop + 8, 7, 12);
+                }
+                break;
+            }
+            case "log": {
+                // big downed tree trunk across both lanes
+                ctx.fillStyle = "#5c4226";
+                ctx.fillRect(sx, bandTop + 6, w, bandH - 12);
+                ctx.fillStyle = "#3e2c19";
+                ctx.fillRect(sx, bandTop + 6, w, 6);
+                // bark rings / texture
+                ctx.strokeStyle = "rgba(0,0,0,0.25)";
+                ctx.lineWidth = 2;
+                for (let ly = bandTop + 16; ly < bandTop + bandH - 8; ly += 10) {
+                    ctx.beginPath();
+                    ctx.moveTo(sx + 2, ly);
+                    ctx.lineTo(sx + w - 2, ly + 2);
+                    ctx.stroke();
+                }
+                // cut-end rings at the near edge for readability
+                ctx.strokeStyle = "rgba(255,255,255,0.18)";
+                ctx.beginPath();
+                ctx.ellipse(sx + 4, bandTop + bandH / 2, 3, bandH / 2 - 6, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                break;
+            }
+            case "oilSlick": {
+                // glossy black slick across the whole track width
+                ctx.fillStyle = "#0a0a0c";
+                ctx.fillRect(sx, bandTop + 4, w, bandH - 8);
+                // glossy highlight streaks
+                ctx.fillStyle = "rgba(255,255,255,0.14)";
+                ctx.beginPath();
+                ctx.ellipse(sx + w * 0.3, bandTop + bandH * 0.35, w * 0.22, bandH * 0.12, 0.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(sx + w * 0.65, bandTop + bandH * 0.62, w * 0.16, bandH * 0.08, -0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = "rgba(120,80,200,0.35)"; // faint purple sheen, oily look
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(sx, bandTop + 4, w, bandH - 8);
+                break;
+            }
+            default: {
+                ctx.fillStyle = "#c9a23b";
+                ctx.fillRect(sx, bandTop + 4, w, bandH - 8);
+            }
+        }
+    }
+
+    // ---------------- RAMPS ----------------
+    function drawRampVariant(o, sx) {
+        const gy = obstacleLaneY(o);
+        const rampW = o.w;
+        const rampH = o.h;
+
+        // The world scrolls right-to-left past the rider (who sits fixed
+        // on screen), so the rider always meets an obstacle's LEFT edge
+        // first. Every ramp variant is low/flat on the left (entry) and
+        // rises to its peak on the right (launch point).
+
+        const surfaceColor = o.variant === "dirtRamp" ? "#8a5a2e" : "#ffb238";
+        const baseColor = o.variant === "dirtRamp" ? "#4a3318" : "#3a4046";
+        const edgeColor = o.variant === "dirtRamp" ? "#d9b27a" : "#fff3d6";
+
+        // base/shadow wedge
+        ctx.beginPath();
+        ctx.moveTo(sx, gy);
+        ctx.lineTo(sx + rampW, gy);
+        ctx.lineTo(sx + rampW, gy - rampH);
+        ctx.lineTo(sx + rampW * 0.82, gy - rampH * 0.18);
+        ctx.closePath();
+        ctx.fillStyle = baseColor;
+        ctx.fill();
+
+        // sloped riding surface
+        ctx.beginPath();
+        ctx.moveTo(sx, gy);
+        ctx.lineTo(sx + rampW, gy - rampH);
+        ctx.lineTo(sx + rampW, gy);
+        ctx.closePath();
+        ctx.fillStyle = surfaceColor;
+        ctx.fill();
+
+        if (o.variant === "dirtRamp") {
+            // clumpy dirt texture instead of hazard stripes
+            ctx.fillStyle = "rgba(0,0,0,0.18)";
+            for (let i = 0; i < 6; i++) {
+                const t = (i + 0.5) / 6;
+                const x = sx + rampW * t;
+                const y = gy - rampH * t * 0.92;
+                ctx.beginPath();
+                ctx.ellipse(x, y + 4, 5, 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            // hazard stripes across the ramp face
+            ctx.strokeStyle = "rgba(20,16,8,0.55)";
+            ctx.lineWidth = 3;
+            const stripeCount = 4;
+            for (let i = 1; i <= stripeCount; i++) {
+                const t = i / (stripeCount + 1);
+                const x = sx + rampW * t;
+                ctx.beginPath();
+                ctx.moveTo(x, gy - rampH * t);
+                ctx.lineTo(x, gy);
+                ctx.stroke();
+            }
+        }
+
+        // bright edge outline so the silhouette is unmistakable
+        ctx.strokeStyle = edgeColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(sx, gy);
+        ctx.lineTo(sx + rampW, gy - rampH);
+        ctx.lineTo(sx + rampW, gy);
+        ctx.stroke();
+
+        // small "launch" chevron above the peak
+        ctx.fillStyle = o.variant === "dirtRamp" ? "rgba(217,178,122,0.85)" : "rgba(255,178,56,0.85)";
+        ctx.beginPath();
+        ctx.moveTo(sx + rampW * 0.78, gy - rampH - 10);
+        ctx.lineTo(sx + rampW * 0.78 + 9, gy - rampH - 20);
+        ctx.lineTo(sx + rampW * 0.78 + 18, gy - rampH - 10);
+        ctx.closePath();
+        ctx.fill();
     }
 
     function checkCollisions() {
@@ -1420,18 +1876,36 @@ window.__eucDriftRunGame = function () {
             const oLeft = sx, oRight = sx + o.w;
             if (oRight < riderLeft || oLeft > riderRight) continue;
 
-            if (o.type === "crate") {
-                if (hb.airborne) continue;       // jumping clears any crate too
-                if (o.lane !== hb.lane) continue; // safe if in the other lane
+            if (o.type === "crate" || o.type === "smallBarrier") {
+                if (hb.airborne) continue;        // jumping clears it too
+                if (o.lane !== hb.lane) continue;  // safe if in the other lane
                 registerHit();
                 return;
             }
-            if (o.type === "barrier") {
-                if (hb.airborne) continue; // must be jumping — lane doesn't matter
+            if (o.type === "fullBarrier") {
+                if (hb.airborne) continue; // must be jumping — lane doesn't matter, dodge can't help
+
+                if (o.variant === "oilSlick") {
+                    // non-fatal: a skid instead of a crash, but only
+                    // triggers once per pass through the same slick
+                    if (!o.triggered) {
+                        o.triggered = true;
+                        triggerOilSkid();
+                    }
+                    continue;
+                }
+
                 registerHit();
                 return;
             }
         }
+    }
+
+    function triggerOilSkid() {
+        // brief, non-fatal penalty: lose a chunk of speed immediately,
+        // plus jittery/unreliable steering for about a second
+        game.speedNorm = Math.max(0.15, game.speedNorm - 0.35);
+        rider.skidTimer = 1.0;
     }
 
     function registerHit() {
@@ -1457,6 +1931,7 @@ window.__eucDriftRunGame = function () {
         retryBtn: document.getElementById("eucRetryBtn"),
         resumeBtn: document.getElementById("eucResumeBtn"),
         pauseBtn: document.getElementById("eucPauseBtn"),
+        overheatBanner: document.getElementById("eucOverheatBanner"),
         jumpZone: document.getElementById("eucJumpZone"),
     };
 
@@ -1466,6 +1941,10 @@ window.__eucDriftRunGame = function () {
         el.speedVal.innerHTML = mph + ' <span style="font-size:10px;font-weight:600;">mph</span>';
         if (mph > game.topSpeedDisplay) game.topSpeedDisplay = mph;
         el.zoneLabel.textContent = currentZoneName();
+
+        if (el.overheatBanner) {
+            el.overheatBanner.classList.toggle("eucHidden", !rider.overheatWarning);
+        }
     }
 
     // ============================================================
@@ -1508,8 +1987,8 @@ window.__eucDriftRunGame = function () {
         if (el.crashReason) {
             const reasonText = {
                 tooSlow: "Too slow off the ramp — you dropped off the front.",
-                tooFast: "Too fast off the ramp — you flipped over the bars.",
                 hit: "You hit an obstacle.",
+                cutout: "Battery cut out — you went flying at full speed.",
             }[rider.crashReason] || "";
             el.crashReason.textContent = reasonText;
         }
@@ -1541,6 +2020,14 @@ window.__eucDriftRunGame = function () {
     on(el.pauseBtn, "click", pauseGame);
 
     function update(dt) {
+        if (rider.cutoutFlying) {
+            // battery's already cut out — no steering, no scrolling, just
+            // playing out the forward fling until impact
+            updateRider(dt);
+            updateHUD();
+            return;
+        }
+
         // Speed control: lean forward accelerates, lean back BRAKES (can
         // pull you down near a stop if held), no input drifts gently back
         // toward a comfortable cruise speed.
@@ -1597,6 +2084,14 @@ window.__eucDriftRunGame = function () {
             ctx.font = "bold " + Math.round(18 * riderScale()) + "px -apple-system, sans-serif";
             ctx.textAlign = "center";
             ctx.fillText("+" + Math.round(game.trickScoreFlash.amount), rider.x, riderGroundY() - 90);
+            ctx.globalAlpha = 1;
+        }
+        if (rider.skidTimer > 0) {
+            ctx.globalAlpha = 0.85;
+            ctx.fillStyle = "#ff6b5a";
+            ctx.font = "bold " + Math.round(15 * riderScale()) + "px -apple-system, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("SKIDDING!", rider.x, riderGroundY() - RIDER_HEIGHT * riderScale() - 50);
             ctx.globalAlpha = 1;
         }
     }
