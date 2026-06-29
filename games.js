@@ -309,7 +309,7 @@
         if (typeof window.initEucDriftGame === "function") {
             window.initEucDriftGame();
         } else {
-            alert("EUC Drift file did not load. Check /games/eucwheels.js and the script tag in index.html.");
+            alert("EUC Drift file did not load. Check /games/eucdrift.js and the script tag in index.html.");
         }
     }
 }
