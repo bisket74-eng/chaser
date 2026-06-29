@@ -298,6 +298,21 @@
                 if (typeof window.initSolitaireGame === "function") window.initSolitaireGame();
             }
         },
+       "EUC Drift": {
+    icon: "🚴",
+    displayName: "EUC Drift",
+    minPlayers: 1,
+    maxPlayers: 1,
+    fixedPlayers: 1,
+    multiplayer: false,
+    init: () => {
+        if (typeof window.initEucDriftGame === "function") {
+            window.initEucDriftGame();
+        } else {
+            alert("EUC Drift file did not load. Check /games/eucwheels.js and the script tag in index.html.");
+        }
+    }
+}
        "7 Wonders": {
     icon: "🏛️",
     displayName: "7 Wonders",
