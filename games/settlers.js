@@ -3195,6 +3195,12 @@ window.startSettlersSetupGame = function () {
 // at a glance, but positioned off in the corner where it won't be confused
 // with anything actually placed on the board.
 function mySettlersColorSwatchHtml() {
+    const st = window.settlersState;
+    // Skip during prestart: the Start Game button sits in this same
+    // bottom-right corner while shuffling, and the player's color isn't
+    // really "in play" yet anyway. The swatch appears once the game starts.
+    if (st && st.phase === "prestart") return "";
+
     const myId = getMyId();
     const color = playerColor(myId);
     if (!color) return "";
@@ -3354,7 +3360,7 @@ function renderSettlers() {
             .set-roll-big-dice { display:flex; gap:10px; }
             .set-roll-die { width:54px; height:54px; background:#fff; border:3px solid #111; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:900; color:#111; box-shadow:inset 0 0 0 2px rgba(0,0,0,0.08); }
             .set-roll-total { font-size:17px; color:${HIGHLIGHT_PURPLE}; }
-            .set-my-color-swatch { position:absolute; left:14px; bottom:58px; width:22px; height:22px; border-radius:4px; border:2.5px solid #ffffff; box-shadow:0 2px 6px rgba(0,0,0,.35); z-index:45; }
+            .set-my-color-swatch { position:absolute; right:10px; bottom:10px; width:22px; height:22px; border-radius:4px; border:2.5px solid #ffffff; box-shadow:0 2px 6px rgba(0,0,0,.35); z-index:45; }
             .set-prestart-btn { position:absolute; bottom:14px; border:2px solid #ffffff; border-radius:999px; font-weight:900; box-shadow:0 3px 10px rgba(0,0,0,.35); z-index:50; }
             .set-shuffle-btn { left:14px; background:#1d4ed8; color:#ffffff; padding:9px 14px; font-size:13px; }
             .set-start-btn { right:14px; background:#ffd700; color:#1e4620; padding:7px 11px; font-size:12px; }
