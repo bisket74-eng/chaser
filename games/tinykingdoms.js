@@ -496,8 +496,7 @@ return st.players
         return p.id !== player.id;
     })
     .sort(function (a, b) {
-        return (b.coins + b.food + b.science + b.score + b.army + b.shield) -
-            (a.coins + a.food + a.science + a.score + a.army + a.shield);
+        return b.score - a.score;
     })[0] || null;
 }
 
@@ -678,7 +677,7 @@ actionFlashTimer = setTimeout(function () {
 function bonusPointsFor(p, resource) {
 if (resource === "food") return Math.floor(p.food / 2);
 if (resource === "coins") return Math.floor(p.coins / 2);
-if (resource === "science") return p.science * 2;
+if (resource === "science") return p.science * 1;
 if (resource === "army") return p.army;
 if (resource === "shield") return p.shield;
 if (resource === "wonder") return p.wonder * 3;
@@ -975,10 +974,15 @@ if (action === "raid") {
 
     revealRaidArmies(st, p, target);
 
-    if (p.army > target.army) {
+    const effectiveDefense = target.army + target.shield * 0.5;
+    const margin = p.army - effectiveDefense;
+    const successChance = Math.max(0.05, Math.min(0.92, 0.5 + margin * 0.1));
+    const succeeded = Math.random() < successChance;
+
+    if (succeeded) {
         const shielded = target.shield > 0;
         const stealCount = shielded ? 1 : 2;
-        const scoreGain = shielded ? 2 : 3;
+        const scoreGain = 1;
         const stolen = [];
 
         if (shielded) {
@@ -1240,7 +1244,7 @@ return (
             '<div class="tk-help-row"><b>📚 Study:</b> Gain +2 study and +1 point.</div>' +
             '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. Opponents cannot see your army unless a raid reveals it.</div>' +
             '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Opponents cannot see your shield unless a raid reveals it.</div>' +
-            '<div class="tk-help-row"><b>🔥 Raid:</b> Your army must be higher than the strongest opponent army. If they have no shield, you steal 2 resources and score +3. If they have shield, you break 1 shield, steal 1 resource, and score +2. If your army is not higher, the raid fails.</div>' +
+            '<div class="tk-help-row"><b>🔥 Raid:</b> The higher your army is above the current score leader\'s army (and their shield, which counts as partial defense), the better your odds of success - but it is never a guaranteed win or loss. If you succeed and they have no shield, you steal 2 resources and score +1. If they have shield, you break 1 shield, steal 1 resource, and score +1. If the raid fails, nothing happens.</div>' +
             '<div class="tk-help-row"><b>✨ Wonder:</b> Costs 🍞2 food, 🪙2 coins, and 📚1 study. Your first Wonder scores 7, second scores 8, and so on.</div>' +
 
             '<h3 class="tk-help-section-title">2. Automatic Round Events</h3>' +
@@ -1262,7 +1266,7 @@ return (
             '<p>Each player has a secret end-game goal worth <b>+5 points</b>. You can see yours during the game. Everyone&apos;s goals reveal during scoring.</p>' +
 
             '<h3 class="tk-help-section-title">5. Ending Bonus Points</h3>' +
-            '<div class="tk-help-row"><b>📚 Study:</b> Worth 2 points each.</div>' +
+            '<div class="tk-help-row"><b>📚 Study:</b> Worth 1 point each.</div>' +
             '<div class="tk-help-row"><b>✨ Wonder:</b> Worth 3 points each.</div>' +
             '<div class="tk-help-row"><b>⚔️ Army:</b> Worth 1 point each.</div>' +
             '<div class="tk-help-row"><b>🛡️ Shield:</b> Worth 1 point each.</div>' +
@@ -1500,7 +1504,7 @@ if (st.phase === "playing") {
             actionButton("wonder", "✨", "Wonder", "cost " + cost.food + "/" + cost.coins + "/" + cost.science, buildDisabled, "gold pos-wonder") +
             actionButton("guard", "🛡️", "Guard", "+2 shield", !canAct, "pos-guard") +
             actionButton("train", "⚔️", "Train", "+2 army", !canAct, "pos-train") +
-            actionButton("raid", "🔥", "Raid", "army test", !canAct, "red pos-raid") +
+            actionButton("raid", "🔥", "Raid", "odds-based", !canAct, "red pos-raid") +
             '<button class="tk-action help pos-help" onclick="openTinyKingdomsHelp()" type="button"><span>?</span><b>Help</b><small>rules</small></button>' +
         '</div>'
     );
