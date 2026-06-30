@@ -23,7 +23,7 @@ const BOARD_GEN_ATTEMPTS = 1500;
 
 const RESOURCES = [
     "desert",
-    "wood", "wood", "wood", "wood",
+    "lumber", "lumber", "lumber", "lumber",
     "sheep", "sheep", "sheep", "sheep",
     "wheat", "wheat", "wheat", "wheat",
     "brick", "brick", "brick",
@@ -31,10 +31,10 @@ const RESOURCES = [
 ];
 
 const TOKENS = [2, 3, 3, 4, 4, 5, 5, 6, 6, 8, 8, 9, 9, 10, 10, 11, 11, 12];
-const PORTS = ["3:1", "3:1", "3:1", "3:1", "wood", "sheep", "wheat", "brick", "ore"];
+const PORTS = ["3:1", "3:1", "3:1", "3:1", "lumber", "sheep", "wheat", "brick", "ore"];
 
 const COLORS = {
-    wood: "#2d6a30",
+    lumber: "#2d6a30",
     sheep: "#f7f7f7",
     wheat: "#f2d21b",
     brick: "#b5543a",
@@ -45,12 +45,12 @@ const COLORS = {
 
 const PLAYER_COLORS = ["#dc3545", "#1d4ed8", "#f59e0b", "#7c3aed"];
 const HIGHLIGHT_PURPLE = "#8a2be2";
-const RESOURCE_TYPES = ["brick", "wheat", "sheep", "wood", "ore"];
+const RESOURCE_TYPES = ["brick", "wheat", "sheep", "lumber", "ore"];
 const COMPUTER_NAMES = ["Shep", "Sterling"];
 
 const COSTS = {
-    road: { brick: 1, wood: 1 },
-    settlement: { brick: 1, wood: 1, sheep: 1, wheat: 1 },
+    road: { brick: 1, lumber: 1 },
+    settlement: { brick: 1, lumber: 1, sheep: 1, wheat: 1 },
     city: { wheat: 2, ore: 3 },
     card: { sheep: 1, wheat: 1, ore: 1 }
 };
@@ -59,7 +59,7 @@ const ICONS = {
     brick: "&#129521;",
     wheat: "&#127806;",
     sheep: "&#128017;",
-    wood: "&#127794;",
+    lumber: "&#127794;",
     ore: "&#129704;",
     desert: "Desert"
 };
@@ -68,7 +68,7 @@ const RESOURCE_NAMES = {
     brick: "Brick",
     wheat: "Wheat",
     sheep: "Wool",
-    wood: "Lumber",
+    lumber: "Lumber",
     ore: "Ore",
     desert: "Desert"
 };
@@ -212,7 +212,7 @@ function randomItem(items) {
 }
 
 function emptyResourceSet() {
-    return { brick: 0, wheat: 0, sheep: 0, wood: 0, ore: 0 };
+    return { brick: 0, wheat: 0, sheep: 0, lumber: 0, ore: 0 };
 }
 
 function cloneResourceSet(cards) {
@@ -220,7 +220,7 @@ function cloneResourceSet(cards) {
         brick: cards && cards.brick ? cards.brick : 0,
         wheat: cards && cards.wheat ? cards.wheat : 0,
         sheep: cards && cards.sheep ? cards.sheep : 0,
-        wood: cards && cards.wood ? cards.wood : 0,
+        lumber: cards && cards.lumber ? cards.lumber : 0,
         ore: cards && cards.ore ? cards.ore : 0
     };
 }
@@ -871,7 +871,7 @@ function resourceParts(cards) {
     if (cards.brick) parts.push(`brick +${cards.brick}`);
     if (cards.wheat) parts.push(`wheat +${cards.wheat}`);
     if (cards.sheep) parts.push(`wool +${cards.sheep}`);
-    if (cards.wood) parts.push(`wood +${cards.wood}`);
+    if (cards.lumber) parts.push(`lumber +${cards.lumber}`);
     if (cards.ore) parts.push(`ore +${cards.ore}`);
     return parts;
 }
@@ -1250,7 +1250,7 @@ window.openSettlersPlayerTrade = function () {
                     <label>Trade with<select id="setTradeTarget">${otherPlayerOptionsHtml()}</select></label>
                     <label>You give<select id="setTradeGiveType" onchange="refreshSettlersGiveAmountOptions()" ${canGiveAnything ? "" : "disabled"}>${myGiveableResourceOptionsHtml(defaultGiveType)}</select></label>
                     <label>Give amount<select id="setTradeGiveAmount" ${canGiveAnything ? "" : "disabled"}>${giveAmountOptionsHtml(defaultGiveType, 1)}</select></label>
-                    <label>You want<select id="setTradeWantType">${resourceOptionsHtml("wood")}</select></label>
+                    <label>You want<select id="setTradeWantType">${resourceOptionsHtml("lumber")}</select></label>
                     <label>Want amount<select id="setTradeWantAmount">${amountOptionsHtml(1)}</select></label>
                 </div>
 
@@ -1713,7 +1713,7 @@ function tryPlaceSettlementForPlayer(playerId, x, y, options) {
     }
 
     if (!setupActive && !spendResources(playerId, COSTS.settlement)) {
-        if (!opts.silent) setMessage("Settlement costs brick + wood + wool + wheat.");
+        if (!opts.silent) setMessage("Settlement costs brick + lumber + wool + wheat.");
         return false;
     }
 
@@ -1772,7 +1772,7 @@ function tryPlaceRoadForPlayer(playerId, edge, options) {
     }
 
     if (!setupActive && !usingFreeRoad && !spendResources(playerId, COSTS.road)) {
-        if (!opts.silent) setMessage("Road costs brick + wood.");
+        if (!opts.silent) setMessage("Road costs brick + lumber.");
         return false;
     }
 
@@ -2164,7 +2164,7 @@ window.chooseMonopolyResource = function (cardId, resource) {
 };
 
 function resourceChoiceButtons(onclickName, cardId) {
-    const labels = { brick: ICONS.brick + " Brick", wheat: ICONS.wheat + " Wheat", sheep: ICONS.sheep + " Wool", wood: ICONS.wood + " Wood", ore: ICONS.ore + " Ore" };
+    const labels = { brick: ICONS.brick + " Brick", wheat: ICONS.wheat + " Wheat", sheep: ICONS.sheep + " Wool", lumber: ICONS.lumber + " lumber", ore: ICONS.ore + " Ore" };
     return RESOURCE_TYPES.map(type => `
         <button type="button" onclick="${onclickName}('${cardId}', '${type}')" style="
             background:#fff;
@@ -2571,8 +2571,8 @@ function buildResourcePatternDefs() {
                 </g>
             </pattern>
 
-            <pattern id="pat-wood" width="26" height="26" patternUnits="userSpaceOnUse">
-                <rect width="26" height="26" fill="${COLORS.wood}"/>
+            <pattern id="pat-lumber" width="26" height="26" patternUnits="userSpaceOnUse">
+                <rect width="26" height="26" fill="${COLORS.lumber}"/>
                 <g fill="#1e4f21" opacity="0.4">
                     <ellipse cx="7" cy="8" rx="5" ry="7"/>
                     <ellipse cx="19" cy="17" rx="5.5" ry="7.5"/>
@@ -2594,7 +2594,7 @@ const RESOURCE_PATTERN_IDS = {
     sheep: "pat-sheep",
     ore: "pat-ore",
     brick: "pat-brick",
-    wood: "pat-wood",
+    lumber: "pat-lumber",
     desert: "pat-desert"
 };
 
@@ -3252,7 +3252,7 @@ function buildSettlersLogHeaderHtml() {
         }
     }
 
-    // Only show the freshly logged action ("Beverly rolls 12.", "Wood +1...")
+    // Only show the freshly logged action ("Beverly rolls 12.", "lumber +1...")
     // for LOG_POP_DURATION_MS after it was logged. Otherwise the header
     // always reverts to the live "whose turn / what's happening" status,
     // which is what carries the persistent dotted "X's turn" line.
@@ -3303,7 +3303,7 @@ function renderSettlers() {
     const brick = myCards.brick || 0;
     const wheat = myCards.wheat || 0;
     const sheep = myCards.sheep || 0;
-    const wood = myCards.wood || 0;
+    const lumber = myCards.lumber || 0;
     const ore = myCards.ore || 0;
     const myDevCount = getDevHand(getMyId()).length;
 
@@ -3448,7 +3448,7 @@ function renderSettlers() {
                         <div class="set-hand-ui">
                             <div class="set-resources">
                                 <span class="set-res-item">&#129521; ${brick}${getResourceBurstHtml(burst && burst.brick)}</span>
-                                <span class="set-res-item">&#127794; ${wood}${getResourceBurstHtml(burst && burst.wood)}</span>
+                                <span class="set-res-item">&#127794; ${lumber}${getResourceBurstHtml(burst && burst.lumber)}</span>
                                 <span class="set-res-item">&#128017; ${sheep}${getResourceBurstHtml(burst && burst.sheep)}</span>
                                 <span class="set-res-item">&#127806; ${wheat}${getResourceBurstHtml(burst && burst.wheat)}</span>
                                 <span class="set-res-item">&#129704; ${ore}${getResourceBurstHtml(burst && burst.ore)}</span>
