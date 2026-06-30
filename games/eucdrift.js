@@ -535,7 +535,7 @@ window.__eucDriftRunGame = function () {
     const HILL_CREST_LENGTH = 40;     // flat-ish top between climb and descent
     const HILL_DESCENT_LENGTH = 150;  // distance of the downhill
     const HILL_GRAVITY_FORWARD = 0.85; // how hard downhill gravity accelerates you (per second, speedNorm units)
-    const HILL_GRAVITY_BRAKE = 0.7;    // how hard uphill gravity decelerates you if you're not compensating
+    const HILL_GRAVITY_BRAKE = 0.35;    // how hard uphill gravity decelerates you if you're not compensating — must stay well below the 0.55/s FAST acceleration rate, or climbing becomes mathematically impossible even at full throttle
 
     // Returns a slope value for the given world distance:
     //  0          = flat ground
@@ -793,17 +793,23 @@ window.__eucDriftRunGame = function () {
 
         const mph = speedNormToMph(game.speedNorm);
         rider.launchSpeedNorm = game.speedNorm;
+
+        // Carry the peak height the slope had already lifted the rider to
+        // straight into the launch — no snap back to ground level. The
+        // wheel leaves from the very edge of the ramp, already elevated,
+        // then gets a clear upward pop on top of that.
+        const peakHeight = o.h; // o.h is the ramp's full height at its peak (t=1)
+        rider.y = -peakHeight;
+
         rider.airborne = true;
         rider.onRamp = null;
         rider.tricks = [];
         rider.sitting = false;
         rider.landingOutcome = (mph < LANDING_MPH_MIN) ? "tooSlow" : "clean";
 
-        // Launch from wherever the slope had already lifted the rider to
-        // (so there's no sudden vertical snap at takeoff), with only a
-        // modest extra upward kick — speed still scales how much air you
-        // get, but it now reads as "rolling off the end of a ramp" rather
-        // than a trampoline bounce straight up.
+        // Pop up off the edge — speed still scales how much air you get,
+        // but it now reads as "rolling off the end of a ramp and popping
+        // up" rather than a trampoline bounce straight up from the ground.
         const speedFactor = Math.min(1.4, game.speedNorm / 0.6);
         rider.vy = -(180 + speedFactor * 200);
     }
@@ -957,7 +963,13 @@ window.__eucDriftRunGame = function () {
                     crashRider(rider.landingOutcome);
                 }
             }
-        } else {
+        } else if (!rider.onRamp) {
+            // Ground level — but NOT while actively riding up a ramp's
+            // slope (rider.onRamp is set), since that height is owned by
+            // the ramp-riding logic in updateObstacles. Stomping it to 0
+            // here every frame was causing the rider to visually snap
+            // down to ground level for one frame right at the moment of
+            // launch, instead of taking off from the ramp's peak height.
             rider.y = 0;
         }
 
@@ -1805,10 +1817,13 @@ window.__eucDriftRunGame = function () {
                 }
             }
 
-            if (!onAnyRamp && rider.onRamp === null) {
-                // not riding a ramp right now — make sure height resets
-                // to ground level if it was left elevated from a slope
-                // that despawned mid-ride (edge case safety net)
+            if (!onAnyRamp) {
+                // not riding any ramp right now — clear a stale reference
+                // and make sure height resets to ground level if it was
+                // left elevated from a slope that despawned mid-ride
+                // (edge case safety net; also covers an orphaned onRamp
+                // pointing at an obstacle no longer in the array at all)
+                rider.onRamp = null;
                 if (!rider.airborne) rider.y = 0;
             }
         }
@@ -1825,7 +1840,12 @@ window.__eucDriftRunGame = function () {
     function drawObstacles() {
         obstacles.forEach(o => {
             const sx = obstacleScreenX(o);
-            if (sx > W + 60 || sx < -140) return;
+            // Some variants (tape, oil slick) are drawn considerably wider
+            // than their narrow collision hitbox for visual clarity, so
+            // the on-screen cull needs extra margin or they'd pop in/out
+            // or get asymmetrically clipped while still technically
+            // within the old, hitbox-sized bounds.
+            if (sx > W + 160 || sx < -260) return;
 
             if (o.type === "crate" || o.type === "smallBarrier") {
                 drawLaneObstacleVariant(o, sx);
@@ -1952,39 +1972,57 @@ window.__eucDriftRunGame = function () {
 
         switch (o.variant) {
             case "tape": {
-                // construction/caution tape strung across both lanes between
-                // two posts. The hitbox (o.w) is narrow, so — same fix as
-                // the oil slick — we draw the tape considerably wider than
-                // the hitbox, centered on it, so the sag actually reads as
-                // a rope strung across the road instead of collapsing into
-                // a tight loop.
+                // A taut caution-tape barrier strung tight between two
+                // posts, spanning the full road width. Drawn as a solid
+                // hazard-striped band (not a deep sagging rope) so it
+                // reads as "this blocks the road, jump it" rather than a
+                // finish-line ribbon you're meant to ride through.
                 const tapeCenterX = sx + w / 2;
                 const tapeSpan = Math.max(w, 150);
                 const postLeftX = tapeCenterX - tapeSpan / 2;
                 const postRightX = tapeCenterX + tapeSpan / 2;
                 const postW = 5;
+                const tapeTop = bandTop + bandH * 0.32;
+                const tapeBandH = bandH * 0.22;
+                const tapeSag = bandH * 0.06; // just a slight, realistic sag — not a deep U
 
                 ctx.fillStyle = "#3a3a3a";
                 ctx.fillRect(postLeftX - postW / 2, bandTop - 4, postW, bandH + 8);
                 ctx.fillRect(postRightX - postW / 2, bandTop - 4, postW, bandH + 8);
 
-                ctx.fillStyle = "#ffd400";
-                const sagY = bandTop + bandH * 0.5;
+                // taut tape band — nearly straight, only a slight sag
                 ctx.beginPath();
-                ctx.moveTo(postLeftX, bandTop + 6);
-                ctx.quadraticCurveTo(tapeCenterX, sagY + 16, postRightX, bandTop + 6);
-                ctx.lineTo(postRightX, bandTop + 6 + 16);
-                ctx.quadraticCurveTo(tapeCenterX, sagY + 32, postLeftX, bandTop + 6 + 16);
+                ctx.moveTo(postLeftX, tapeTop);
+                ctx.quadraticCurveTo(tapeCenterX, tapeTop + tapeSag, postRightX, tapeTop);
+                ctx.lineTo(postRightX, tapeTop + tapeBandH);
+                ctx.quadraticCurveTo(tapeCenterX, tapeTop + tapeBandH + tapeSag, postLeftX, tapeTop + tapeBandH);
                 ctx.closePath();
+                ctx.fillStyle = "#ffd400";
                 ctx.fill();
+                ctx.strokeStyle = "#cc9f00";
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
 
+                // bold diagonal black hazard stripes across the taut band —
+                // the classic caution-tape look, clipped to the band shape
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(postLeftX, tapeTop);
+                ctx.quadraticCurveTo(tapeCenterX, tapeTop + tapeSag, postRightX, tapeTop);
+                ctx.lineTo(postRightX, tapeTop + tapeBandH);
+                ctx.quadraticCurveTo(tapeCenterX, tapeTop + tapeBandH + tapeSag, postLeftX, tapeTop + tapeBandH);
+                ctx.closePath();
+                ctx.clip();
                 ctx.fillStyle = "#1a1a1a";
-                // diagonal hazard ticks along the tape instead of text (cheaper, reads fine at speed)
-                for (let tx = postLeftX + 8; tx < postRightX - 6; tx += 16) {
-                    const localT = (tx - postLeftX) / tapeSpan;
-                    const tickY = bandTop + 6 + 8 + Math.sin(localT * Math.PI) * 10;
-                    ctx.fillRect(tx, tickY, 8, 12);
+                const stripeW = 14;
+                for (let tx = postLeftX - tapeBandH; tx < postRightX + tapeBandH; tx += stripeW * 2) {
+                    ctx.save();
+                    ctx.translate(tx, tapeTop);
+                    ctx.rotate(0.6);
+                    ctx.fillRect(0, -10, stripeW, tapeBandH + 40);
+                    ctx.restore();
                 }
+                ctx.restore();
                 break;
             }
             case "log": {
@@ -2400,13 +2438,39 @@ window.__eucDriftRunGame = function () {
         }
     }
 
+    // Maximum visual tilt applied to the whole scene during the steepest
+    // part of a hill (radians). The camera rotates around the rider's
+    // fixed screen position, so the road and background visibly slope
+    // while the rider itself stays anchored where the controls expect it.
+    const HILL_MAX_TILT_RADIANS = 0.22;
+
     function render() {
         ctx.clearRect(0, 0, W, H);
+
+        const slope = (!rider.airborne && !rider.crashed) ? hillSlopeAt(game.distance) : 0;
+        const tilt = slope * HILL_MAX_TILT_RADIANS;
+
+        if (tilt !== 0) {
+            ctx.save();
+            const pivotX = rider.x;
+            const pivotY = riderGroundY();
+            ctx.translate(pivotX, pivotY);
+            // climbing (slope>0) tilts the horizon down to the right,
+            // i.e. the road rises ahead of the rider; descending tilts
+            // the other way, road dropping away ahead
+            ctx.rotate(-tilt);
+            ctx.translate(-pivotX, -pivotY);
+        }
+
         drawBackground();
         drawObstacles();
         drawRider();
         drawTrickFlash();
         updateTrickButtonLabel();
+
+        if (tilt !== 0) {
+            ctx.restore();
+        }
     }
 
     function drawTrickFlash() {
