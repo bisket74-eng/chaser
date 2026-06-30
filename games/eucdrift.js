@@ -128,6 +128,32 @@ window.initEucDriftGame = function () {
                 50% { opacity: 0.4; }
             }
 
+            #eucHillBanner {
+                position: absolute;
+                top: 40px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 12;
+                font-size: 11px;
+                font-weight: 800;
+                letter-spacing: 0.6px;
+                padding: 6px 14px;
+                border-radius: 100px;
+                white-space: nowrap;
+                pointer-events: none;
+            }
+            #eucHillBanner.eucHidden { display: none; }
+            #eucHillBanner.eucHillClimb {
+                background: rgba(60,38,8,0.88);
+                border: 1.5px solid #ffaa3c;
+                color: #ffc77a;
+            }
+            #eucHillBanner.eucHillDescent {
+                background: rgba(8,28,48,0.88);
+                border: 1.5px solid #50a0ff;
+                color: #8cc4ff;
+            }
+
             #eucControls {
                 position: absolute;
                 bottom: 0; left: 0; right: 0;
@@ -328,6 +354,7 @@ window.initEucDriftGame = function () {
             </div>
 
             <div id="eucOverheatBanner" class="eucHidden">⚠ BATTERY LOW — EASE OFF</div>
+            <div id="eucHillBanner" class="eucHidden"></div>
 
             <button id="eucPauseBtn" type="button" aria-label="Pause">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
@@ -496,6 +523,51 @@ window.__eucDriftRunGame = function () {
     };
 
     // ------------------------------------------------------------
+    // Hills — steep, obstacle-free climb/descent interludes that occur
+    // once per zone cycle. Modeled as a physics-only slope (affects
+    // speedNorm via gravity) with a visual tilt/pitch cue, rather than
+    // actually reshaping the road geometry — keeps this self-contained
+    // instead of touching every lane/obstacle Y-position calculation.
+    // ------------------------------------------------------------
+    const HILL_PERIOD = 700;          // matches ZONE_LENGTH — one hill per zone
+    const HILL_START_OFFSET = 380;    // hill begins this far into each zone cycle
+    const HILL_CLIMB_LENGTH = 130;    // distance (ft-equivalent) of the uphill
+    const HILL_CREST_LENGTH = 40;     // flat-ish top between climb and descent
+    const HILL_DESCENT_LENGTH = 150;  // distance of the downhill
+    const HILL_GRAVITY_FORWARD = 0.85; // how hard downhill gravity accelerates you (per second, speedNorm units)
+    const HILL_GRAVITY_BRAKE = 0.7;    // how hard uphill gravity decelerates you if you're not compensating
+
+    // Returns a slope value for the given world distance:
+    //  0          = flat ground
+    //  positive   = climbing (uphill, gravity opposes forward motion)
+    //  negative   = descending (downhill, gravity adds to forward motion)
+    // Magnitude is 0..1 (steepness), smoothly eased in/out at the edges
+    // of the climb/descent so it doesn't feel like a sudden wall.
+    function hillSlopeAt(distance) {
+        const posInCycle = ((distance % HILL_PERIOD) + HILL_PERIOD) % HILL_PERIOD;
+        const climbStart = HILL_START_OFFSET;
+        const climbEnd = climbStart + HILL_CLIMB_LENGTH;
+        const crestEnd = climbEnd + HILL_CREST_LENGTH;
+        const descentEnd = crestEnd + HILL_DESCENT_LENGTH;
+
+        if (posInCycle < climbStart || posInCycle >= descentEnd) return 0;
+
+        if (posInCycle < climbEnd) {
+            const t = (posInCycle - climbStart) / HILL_CLIMB_LENGTH;
+            return Math.sin(t * Math.PI); // eases up then back down to 0 at the crest
+        }
+        if (posInCycle < crestEnd) {
+            return 0; // flat crest
+        }
+        const t = (posInCycle - crestEnd) / HILL_DESCENT_LENGTH;
+        return -Math.sin(t * Math.PI); // eases into the descent and back to flat at the bottom
+    }
+
+    function onHillRightNow() {
+        return Math.abs(hillSlopeAt(game.distance)) > 0.02;
+    }
+
+    // ------------------------------------------------------------
     // Input
     // ------------------------------------------------------------
     const input = {
@@ -622,7 +694,7 @@ window.__eucDriftRunGame = function () {
 
     // Brake strength when leaning back hard (lets you nearly stop for a lane hazard).
     const BRAKE_STRENGTH = 1.35;
-    const MAX_REVERSE_SPEED_NORM = -0.7; // reverse caps out well below forward top speed
+    const MAX_REVERSE_SPEED_NORM = -0.35; // reverse caps out well below forward top speed
     const STATIONARY_FALL_SECONDS = 2; // standing still with no input this long -> you fall
 
     const TRICK_NAMES = ["360 spin", "tabletop", "one-foot grab", "superman lean", "tailwhip"];
@@ -749,7 +821,14 @@ window.__eucDriftRunGame = function () {
     const OVERHEAT_LETOFF_SECONDS = 1;
 
     function updateOverheatState(dt) {
-        const fullThrottle = input.leanRight && !input.leanLeft;
+        // Holding full forward throttle counts, same as always. So does
+        // barreling down a steep hill under gravity alone — the motor has
+        // to work just as hard holding you back as it does pushing you
+        // forward, so going fast downhill burns into the same risk window
+        // even with no input held at all. Actively braking (SLOW) counts
+        // as managing the descent correctly and does NOT trigger this.
+        const onSteepDescent = hillSlopeAt(game.distance) < -0.3 && game.speedNorm > 0.5 && !input.leanLeft;
+        const fullThrottle = (input.leanRight && !input.leanLeft) || onSteepDescent;
 
         if (fullThrottle) {
             rider.throttleHeldTime += dt;
@@ -1045,9 +1124,10 @@ window.__eucDriftRunGame = function () {
             ctx.globalAlpha = Math.max(0.15, rider.crashTimer / 0.9);
         }
 
+        const hillPitch = (!rider.airborne && !rider.crashed) ? hillSlopeAt(game.distance) * 0.16 : 0;
         const leanAngle = rider.airborne
             ? Math.min(0.5, (rider.tricks.length * 0.35)) * Math.sin(performance.now() / 120)
-            : rider.lean * 0.22;
+            : rider.lean * 0.22 + hillPitch;
         const bob = (!rider.airborne && !rider.crashed) ? Math.sin(rider.wobble) * 1.6 * scale : 0;
         ctx.translate(0, bob);
         ctx.rotate(leanAngle);
@@ -1278,7 +1358,13 @@ window.__eucDriftRunGame = function () {
             layer.pieces.push(layer.generator(layer.cursor, w));
             layer.cursor += w;
         }
-        while (layer.pieces.length && (layer.pieces[0].x + layer.pieces[0].w) < world.scrollX * parallax - 200) {
+        // Same reverse-safety fix as the obstacle pruning: only drop
+        // pieces once they're FAR behind, not just past the screen edge,
+        // since layer.cursor never rewinds — once a piece is dropped here
+        // it can never be regenerated, so a small buffer left permanent
+        // empty gaps in the scenery whenever the player backed up.
+        const pruneBuffer = Math.max(viewWidth * 3, 1800);
+        while (layer.pieces.length && (layer.pieces[0].x + layer.pieces[0].w) < world.scrollX * parallax - pruneBuffer) {
             layer.pieces.shift();
         }
     }
@@ -1568,6 +1654,18 @@ window.__eucDriftRunGame = function () {
         for (let x = -offset; x < W; x += period) {
             ctx.fillRect(x, bandMid - 2, dashW, 4);
         }
+
+        // hill tint — a subtle color wash over the road so a climb/descent
+        // is visually obvious even without checking the HUD indicator.
+        // Amber for climbing (effort), cool blue for descending (caution).
+        const slope = hillSlopeAt(game.distance);
+        if (slope > 0.02) {
+            ctx.fillStyle = `rgba(255,170,60,${Math.min(0.22, slope * 0.26)})`;
+            ctx.fillRect(0, bandTop, W, bandH);
+        } else if (slope < -0.02) {
+            ctx.fillStyle = `rgba(80,160,255,${Math.min(0.22, -slope * 0.26)})`;
+            ctx.fillRect(0, bandTop, W, bandH);
+        }
     }
 
 
@@ -1670,8 +1768,16 @@ window.__eucDriftRunGame = function () {
             nextObstacleAt = world.scrollX + W + minGap + Math.random() * (maxGap - minGap);
         }
 
+        // Prune obstacles only once they're FAR behind — not just past
+        // the screen edge — so reversing back into recently-passed
+        // obstacles (crates, barriers, ramps) still finds them there.
+        // The old 100px buffer was deleting anything you'd reverse back
+        // toward; this is now generous enough to support real backing up
+        // while still eventually cleaning up very old, truly-unreachable
+        // obstacles so the array doesn't grow forever on a long run.
+        const PRUNE_BEHIND_BUFFER = Math.max(W * 3, 1800);
         for (let i = obstacles.length - 1; i >= 0; i--) {
-            if (obstacles[i].x + obstacles[i].w < world.scrollX - 100) obstacles.splice(i, 1);
+            if (obstacles[i].x + obstacles[i].w < world.scrollX - PRUNE_BEHIND_BUFFER) obstacles.splice(i, 1);
         }
 
         // ramp riding: while the rider's x overlaps a ramp in their lane
@@ -1846,27 +1952,38 @@ window.__eucDriftRunGame = function () {
 
         switch (o.variant) {
             case "tape": {
-                // construction/caution tape strung across both lanes,
-                // sagging slightly between two posts
+                // construction/caution tape strung across both lanes between
+                // two posts. The hitbox (o.w) is narrow, so — same fix as
+                // the oil slick — we draw the tape considerably wider than
+                // the hitbox, centered on it, so the sag actually reads as
+                // a rope strung across the road instead of collapsing into
+                // a tight loop.
+                const tapeCenterX = sx + w / 2;
+                const tapeSpan = Math.max(w, 150);
+                const postLeftX = tapeCenterX - tapeSpan / 2;
+                const postRightX = tapeCenterX + tapeSpan / 2;
                 const postW = 5;
+
                 ctx.fillStyle = "#3a3a3a";
-                ctx.fillRect(sx, bandTop - 4, postW, bandH + 8);
+                ctx.fillRect(postLeftX - postW / 2, bandTop - 4, postW, bandH + 8);
+                ctx.fillRect(postRightX - postW / 2, bandTop - 4, postW, bandH + 8);
+
                 ctx.fillStyle = "#ffd400";
                 const sagY = bandTop + bandH * 0.5;
-                ctx.save();
                 ctx.beginPath();
-                ctx.moveTo(sx, bandTop + 6);
-                ctx.quadraticCurveTo(sx + w / 2, sagY + 10, sx + w, bandTop + 6);
-                ctx.lineTo(sx + w, bandTop + 6 + 16);
-                ctx.quadraticCurveTo(sx + w / 2, sagY + 26, sx, bandTop + 6 + 16);
+                ctx.moveTo(postLeftX, bandTop + 6);
+                ctx.quadraticCurveTo(tapeCenterX, sagY + 16, postRightX, bandTop + 6);
+                ctx.lineTo(postRightX, bandTop + 6 + 16);
+                ctx.quadraticCurveTo(tapeCenterX, sagY + 32, postLeftX, bandTop + 6 + 16);
                 ctx.closePath();
                 ctx.fill();
-                ctx.restore();
+
                 ctx.fillStyle = "#1a1a1a";
-                ctx.font = "bold 10px sans-serif";
-                // simple diagonal hazard ticks instead of text (cheaper, reads fine at speed)
-                for (let tx = sx + 6; tx < sx + w - 4; tx += 14) {
-                    ctx.fillRect(tx, bandTop + 8, 7, 12);
+                // diagonal hazard ticks along the tape instead of text (cheaper, reads fine at speed)
+                for (let tx = postLeftX + 8; tx < postRightX - 6; tx += 16) {
+                    const localT = (tx - postLeftX) / tapeSpan;
+                    const tickY = bandTop + 6 + 8 + Math.sin(localT * Math.PI) * 10;
+                    ctx.fillRect(tx, tickY, 8, 12);
                 }
                 break;
             }
@@ -1893,38 +2010,48 @@ window.__eucDriftRunGame = function () {
                 break;
             }
             case "oilSlick": {
-                // a flat, glossy puddle lying ON the road surface — wide
-                // and low, not a vertical wall like the log/tape barriers.
-                // The hitbox (o.w) is narrow, so we visually spread the
-                // puddle wider than the hitbox for readability while
-                // keeping it centered on the actual collision width.
+                // A flat, glossy puddle that spans the FULL road width
+                // (both lanes), same footprint as the tape/log barriers,
+                // so it unmistakably reads as "blocks the whole street."
+                // High-contrast neon edge so it doesn't just blend into
+                // the dark track surface.
+                const puddleSpan = Math.max(w, 130);
                 const puddleCenterX = sx + w / 2;
-                const puddleW = w * 2.6;
-                const puddleH = bandH * 0.4;
-                const puddleY = bandTop + bandH * 0.62;
+                const puddleLeft = puddleCenterX - puddleSpan / 2;
+                const puddleTop = bandTop + bandH * 0.18;
+                const puddleH = bandH * 0.64;
 
-                ctx.fillStyle = "#0a0a0c";
+                ctx.fillStyle = "#070708";
                 ctx.beginPath();
-                ctx.ellipse(puddleCenterX, puddleY, puddleW / 2, puddleH / 2, 0, 0, Math.PI * 2);
+                ctx.ellipse(puddleCenterX, puddleTop + puddleH / 2, puddleSpan / 2, puddleH / 2, 0, 0, Math.PI * 2);
                 ctx.fill();
+
+                // bright neon-purple rim so the puddle's edge is unmistakable
+                // against the dark track surface, even at speed
+                ctx.strokeStyle = "rgba(190,110,255,0.85)";
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(puddleCenterX, puddleTop + puddleH / 2, puddleSpan / 2 - 1.5, puddleH / 2 - 1.5, 0, 0, Math.PI * 2);
+                ctx.stroke();
 
                 // glossy highlight streaks across the puddle surface
-                ctx.fillStyle = "rgba(255,255,255,0.16)";
+                ctx.fillStyle = "rgba(255,255,255,0.22)";
                 ctx.beginPath();
-                ctx.ellipse(puddleCenterX - puddleW * 0.18, puddleY - puddleH * 0.12, puddleW * 0.16, puddleH * 0.18, 0.3, 0, Math.PI * 2);
+                ctx.ellipse(puddleLeft + puddleSpan * 0.3, puddleTop + puddleH * 0.4, puddleSpan * 0.16, puddleH * 0.16, 0.3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.ellipse(puddleCenterX + puddleW * 0.2, puddleY + puddleH * 0.08, puddleW * 0.1, puddleH * 0.12, -0.2, 0, Math.PI * 2);
+                ctx.ellipse(puddleLeft + puddleSpan * 0.68, puddleTop + puddleH * 0.6, puddleSpan * 0.1, puddleH * 0.1, -0.2, 0, Math.PI * 2);
                 ctx.fill();
 
-                // faint purple/rainbow oily sheen ring
-                ctx.strokeStyle = "rgba(120,80,200,0.4)";
+                // rainbow oily sheen bands
+                ctx.strokeStyle = "rgba(120,200,255,0.3)";
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                ctx.ellipse(puddleCenterX, puddleY, puddleW / 2 - 1, puddleH / 2 - 1, 0, 0, Math.PI * 2);
+                ctx.ellipse(puddleCenterX, puddleTop + puddleH / 2, puddleSpan / 2 - 6, puddleH / 2 - 6, 0, 0, Math.PI * 2);
                 ctx.stroke();
                 break;
             }
+
             default: {
                 ctx.fillStyle = "#c9a23b";
                 ctx.fillRect(sx, bandTop + 4, w, bandH - 8);
@@ -2080,6 +2207,7 @@ window.__eucDriftRunGame = function () {
         resumeBtn: document.getElementById("eucResumeBtn"),
         pauseBtn: document.getElementById("eucPauseBtn"),
         overheatBanner: document.getElementById("eucOverheatBanner"),
+        hillBanner: document.getElementById("eucHillBanner"),
         jumpZone: document.getElementById("eucJumpZone"),
     };
 
@@ -2096,6 +2224,19 @@ window.__eucDriftRunGame = function () {
 
         if (el.overheatBanner) {
             el.overheatBanner.classList.toggle("eucHidden", !rider.overheatWarning);
+        }
+
+        if (el.hillBanner) {
+            const slope = hillSlopeAt(game.distance);
+            if (slope > 0.05) {
+                el.hillBanner.textContent = "▲ CLIMBING — HOLD FAST";
+                el.hillBanner.className = "eucHillClimb";
+            } else if (slope < -0.05) {
+                el.hillBanner.textContent = "▼ DESCENDING — EASE OFF";
+                el.hillBanner.className = "eucHillDescent";
+            } else {
+                el.hillBanner.className = "eucHidden";
+            }
         }
     }
 
@@ -2212,6 +2353,22 @@ window.__eucDriftRunGame = function () {
             const decay = Math.sign(game.speedNorm) * Math.min(Math.abs(game.speedNorm), 0.9 * dt);
             game.speedNorm -= decay;
         }
+
+        // Hill gravity — applies on top of whatever the player is doing.
+        // Uphill (positive slope) fights forward motion, so you have to
+        // actively hold FAST to keep climbing or you'll stall out.
+        // Downhill (negative slope) accelerates you forward automatically,
+        // even with no input at all, so you have to actively brake or
+        // you'll keep speeding up.
+        const slope = hillSlopeAt(game.distance);
+        if (slope > 0) {
+            // uphill: gravity pulls speed down, proportional to steepness
+            game.speedNorm -= slope * HILL_GRAVITY_BRAKE * dt;
+        } else if (slope < 0) {
+            // downhill: gravity pushes speed up, proportional to steepness
+            game.speedNorm += (-slope) * HILL_GRAVITY_FORWARD * dt;
+        }
+
         game.speedNorm = Math.max(MAX_REVERSE_SPEED_NORM, Math.min(1.3, game.speedNorm));
 
         // Stationary-fall: only once you're truly at a dead stop (0mph)
