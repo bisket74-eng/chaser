@@ -46,7 +46,7 @@ const COLORS = {
 const PLAYER_COLORS = ["#dc3545", "#1d4ed8", "#f59e0b", "#7c3aed"];
 const HIGHLIGHT_PURPLE = "#8a2be2";
 const RESOURCE_TYPES = ["brick", "wheat", "sheep", "lumber", "ore"];
-const COMPUTER_NAMES = ["Shep", "Sterling"];
+const COMPUTER_NAMES = ["Shep", "Tazo"];
 
 const COSTS = {
     road: { brick: 1, lumber: 1 },
