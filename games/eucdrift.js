@@ -50,17 +50,17 @@ window.initEucDriftGame = function () {
 
             #eucScore {
                 color: #eaf2f8;
-                font-size: 24px;
-                font-weight: 700;
+                font-size: 32px;
+                font-weight: 800;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.5);
                 letter-spacing: 0.5px;
             }
 
             #eucScoreLabel {
-                font-size: 9px;
-                font-weight: 600;
-                color: #8fa3b3;
-                letter-spacing: 1.2px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #b8c8d4;
+                letter-spacing: 1.4px;
                 text-transform: uppercase;
             }
 
@@ -73,16 +73,16 @@ window.initEucDriftGame = function () {
             }
 
             #eucSpeedVal {
-                font-size: 19px;
-                font-weight: 700;
+                font-size: 26px;
+                font-weight: 800;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.5);
             }
 
             #eucZoneLabel {
-                font-size: 9px;
-                font-weight: 600;
-                color: #8fa3b3;
-                letter-spacing: 1.2px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #b8c8d4;
+                letter-spacing: 1.4px;
                 text-transform: uppercase;
                 margin-top: 2px;
             }
@@ -322,7 +322,7 @@ window.initEucDriftGame = function () {
                     <div id="eucScoreLabel">feet</div>
                 </div>
                 <div id="eucSpeedWrap">
-                    <div id="eucSpeedVal">0 <span style="font-size:10px;font-weight:600;">mph</span></div>
+                    <div id="eucSpeedVal">0 <span style="font-size:13px;font-weight:700;">mph</span></div>
                     <div id="eucZoneLabel">city</div>
                 </div>
             </div>
@@ -610,8 +610,10 @@ window.__eucDriftRunGame = function () {
     const WHEEL_RADIUS = 24;
 
     // Speed conversion must match updateHUD's mph formula (mph = 11 + speedNorm*40)
-    function speedNormToMph(norm) { return 11 + norm * 40; }
-    function mphToSpeedNorm(mph) { return (mph - 11) / 40; }
+    // speedNorm is now a true signed velocity scale: 0 = stopped,
+    // positive = forward, negative = reverse (EUCs can ride backward).
+    function speedNormToMph(norm) { return norm * 50; }
+    function mphToSpeedNorm(mph) { return mph / 50; }
 
     // Landing check: hit the ramp going 45 mph or faster to land clean.
     // Below 45 = too slow, you drop off the front. No upper limit anymore —
@@ -620,6 +622,8 @@ window.__eucDriftRunGame = function () {
 
     // Brake strength when leaning back hard (lets you nearly stop for a lane hazard).
     const BRAKE_STRENGTH = 1.35;
+    const MAX_REVERSE_SPEED_NORM = -0.7; // reverse caps out well below forward top speed
+    const STATIONARY_FALL_SECONDS = 2; // standing still with no input this long -> you fall
 
     const TRICK_NAMES = ["360 spin", "tabletop", "one-foot grab", "superman lean", "tailwhip"];
 
@@ -649,8 +653,10 @@ window.__eucDriftRunGame = function () {
         rider.beepIndex = 0;
         rider.lastBeepAt = -1;
         rider.beepFlash = 0;
+        rider.onRamp = null;
         rider.cutoutFlying = false;
         rider.cutoutTimer = 0;
+        rider.stationaryTimer = 0;
     }
 
     function laneCenterOffset(laneT) {
@@ -696,20 +702,38 @@ window.__eucDriftRunGame = function () {
     // Called when the rider's lane-center crosses a ramp's x position
     // while in the ramp's lane and on the ground — launches a jump.
     // Landing safety is locked in right here, based on takeoff speed only.
-    function launchFromRamp() {
+    // Rolling up a ramp: instead of an instant vertical "pop" the moment
+    // the rider touches the ramp, the rider's height is locked to follow
+    // the ramp's slope as they cross its width, and the actual airborne
+    // launch only happens once they reach the peak (the far/right edge),
+    // with a much smaller, mostly-horizontal-feeling kick instead of a
+    // huge vertical trampoline bounce.
+    function rampSurfaceYAtRiderX(o) {
+        // Returns how far ABOVE the lane's ground line (in px, positive =
+        // higher) the ramp surface is at the rider's current x position.
+        const sx = obstacleScreenX(o);
+        const t = Math.max(0, Math.min(1, (rider.x - sx) / o.w)); // 0 at entry (left), 1 at peak (right)
+        return t * o.h;
+    }
+
+    function launchFromRamp(o) {
         if (rider.airborne || rider.crashed) return;
 
         const mph = speedNormToMph(game.speedNorm);
         rider.launchSpeedNorm = game.speedNorm;
         rider.airborne = true;
+        rider.onRamp = null;
         rider.tricks = [];
         rider.sitting = false;
         rider.landingOutcome = (mph < LANDING_MPH_MIN) ? "tooSlow" : "clean";
 
-        // height/arc still scales with speed so fast jumps visibly go
-        // higher and farther than slow ones, independent of the outcome
+        // Launch from wherever the slope had already lifted the rider to
+        // (so there's no sudden vertical snap at takeoff), with only a
+        // modest extra upward kick — speed still scales how much air you
+        // get, but it now reads as "rolling off the end of a ramp" rather
+        // than a trampoline bounce straight up.
         const speedFactor = Math.min(1.4, game.speedNorm / 0.6);
-        rider.vy = -(620 + speedFactor * 420);
+        rider.vy = -(180 + speedFactor * 200);
     }
 
     // ------------------------------------------------------------
@@ -865,13 +889,13 @@ window.__eucDriftRunGame = function () {
         if (rider.trickFlashTimer > 0) rider.trickFlashTimer -= dt;
 
         rider.wobble += dt * 5.2;
-        rider.wheelAngle += dt * (6 + game.speedNorm * 16);
+        rider.wheelAngle += dt * (game.speedNorm * 16 + (game.speedNorm >= 0 ? 6 : -6));
 
         if (rider.hitFlash > 0) rider.hitFlash -= dt;
     }
 
     function crashRider(reason) {
-        // reason: 'tooSlow' (drop off the front) | 'hit' (obstacle) | 'cutout' (overheat motor cutout)
+        // reason: 'tooSlow' (drop off the front) | 'hit' (obstacle) | 'cutout' (battery cutout) | 'fellOver' (stood still too long)
         rider.crashed = true;
         rider.crashReason = reason || "hit";
         rider.crashTimer = 0.9;
@@ -1031,6 +1055,8 @@ window.__eucDriftRunGame = function () {
         const sit = rider.sitT;
         const crouch = sit * 20 * scale;
         const clothColor = riderColor;
+        const denimColor = "#3a5a8c";   // fixed blue-denim jeans, not user-selectable
+        const denimDark = "#2a4368";    // shaded side of the denim (far leg / seams)
 
         // ---------------- WHEEL ----------------
         const wheelY = -WHEEL_RADIUS * scale;
@@ -1039,16 +1065,19 @@ window.__eucDriftRunGame = function () {
         ctx.rotate(rider.wheelAngle);
         ctx.beginPath();
         ctx.arc(0, 0, WHEEL_RADIUS * scale, 0, Math.PI * 2);
-        ctx.fillStyle = "#1a2126";
+        ctx.fillStyle = "#2a333b";
         ctx.fill();
-        ctx.strokeStyle = "#0a0d0f";
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 1.6 * scale;
+        ctx.stroke();
+        ctx.strokeStyle = "#11161a";
         ctx.lineWidth = 2.2 * scale;
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(0, 0, WHEEL_RADIUS * scale * 0.6, 0, Math.PI * 2);
-        ctx.fillStyle = "#3a4753";
+        ctx.fillStyle = "#52606c";
         ctx.fill();
-        ctx.strokeStyle = "#26303a";
+        ctx.strokeStyle = "#33404a";
         ctx.lineWidth = 1.8 * scale;
         for (let i = 0; i < 5; i++) {
             const a = (i / 5) * Math.PI * 2;
@@ -1065,7 +1094,7 @@ window.__eucDriftRunGame = function () {
 
         ctx.save();
         ctx.translate(0, wheelY);
-        ctx.fillStyle = "#0d1114";
+        ctx.fillStyle = "#22282e";
         ctx.fillRect(-WHEEL_RADIUS * scale * 1.05, -3.8 * scale, WHEEL_RADIUS * scale * 2.1, 5.5 * scale);
         ctx.restore();
 
@@ -1119,26 +1148,26 @@ window.__eucDriftRunGame = function () {
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
-        // far leg hint: a short dark stub right at the hip, barely peeking
-        // out behind the near leg — implies depth without drawing a full
-        // second leg out to the side.
-        ctx.strokeStyle = "#161c20";
+        // far leg hint: a short denim-shaded stub right at the hip, barely
+        // peeking out behind the near leg — implies depth without drawing
+        // a full second leg out to the side.
+        ctx.strokeStyle = denimDark;
         ctx.lineWidth = 7 * scale;
         ctx.beginPath();
         ctx.moveTo(2 * scale, hipY + 2 * scale);
         ctx.quadraticCurveTo(7 * scale, kneeY + 6 * scale, 5 * scale, footY - 2 * scale);
         ctx.stroke();
 
-        // near leg (the one fully visible, slightly forward toward travel direction)
-        ctx.strokeStyle = "#1c252c";
+        // near leg (the one fully visible, slightly forward toward travel direction) — blue jeans
+        ctx.strokeStyle = denimColor;
         ctx.lineWidth = 10 * scale;
         ctx.beginPath();
         ctx.moveTo(1 * scale, hipY);
         ctx.quadraticCurveTo(13 * scale, kneeY, 7 * scale, footY);
         ctx.stroke();
 
-        // foot
-        ctx.fillStyle = "#11151a";
+        // foot — dark boot, but lighter than pure black so it doesn't vanish
+        ctx.fillStyle = "#2b3338";
         ctx.beginPath();
         ctx.ellipse(8 * scale, footY + 1.5 * scale, 8 * scale, 4.2 * scale, 0.1, 0, Math.PI * 2);
         ctx.fill();
@@ -1182,15 +1211,15 @@ window.__eucDriftRunGame = function () {
             armHandY = shoulderY + (16 + tuck * 14) * scale;
         }
 
-        ctx.strokeStyle = "#1c252c";
+        ctx.strokeStyle = clothColor;
         ctx.lineWidth = 7.5 * scale;
         ctx.beginPath();
         ctx.moveTo(torsoLean, shoulderY + 2 * scale);
         ctx.quadraticCurveTo(armElbowX, armElbowY, armHandX, armHandY);
         ctx.stroke();
 
-        // hand
-        ctx.fillStyle = "#1c252c";
+        // hand — skin tone so it doesn't just blend into the sleeve
+        ctx.fillStyle = "#e0a878";
         ctx.beginPath();
         ctx.arc(armHandX, armHandY, 3.6 * scale, 0, Math.PI * 2);
         ctx.fill();
@@ -1569,7 +1598,7 @@ window.__eucDriftRunGame = function () {
     const ZONE_VARIANTS = {
         city: {
             crate: "trashcan",
-            smallBarrier: "barrelCone",
+            smallBarrier: "trafficCone",
             fullBarrier: "tape",
             ramp: "ramp",
         },
@@ -1645,19 +1674,39 @@ window.__eucDriftRunGame = function () {
             if (obstacles[i].x + obstacles[i].w < world.scrollX - 100) obstacles.splice(i, 1);
         }
 
-        // ramp launch check: rider must be on ground, in the ramp's lane,
-        // and overlapping it horizontally
+        // ramp riding: while the rider's x overlaps a ramp in their lane
+        // and they're on the ground, their height follows the ramp's
+        // slope. Only once they pass the ramp's far/peak edge do they
+        // actually launch airborne.
         if (!rider.airborne && !rider.crashed) {
+            let onAnyRamp = false;
+
             for (const o of obstacles) {
                 if (o.type !== "ramp" || o.triggered) continue;
                 if (o.lane !== rider.lane) continue;
                 const sx = obstacleScreenX(o);
-                if (sx <= rider.x && sx + o.w >= rider.x - 6) {
+
+                if (sx <= rider.x && sx + o.w > rider.x) {
+                    // currently riding up the slope — lock height to it
+                    onAnyRamp = true;
+                    rider.onRamp = o;
+                    rider.y = -rampSurfaceYAtRiderX(o);
+                } else if (rider.onRamp === o && rider.x >= sx + o.w) {
+                    // just passed the peak — launch
                     o.triggered = true;
-                    launchFromRamp();
+                    rider.onRamp = null;
+                    launchFromRamp(o);
                 }
             }
+
+            if (!onAnyRamp && rider.onRamp === null) {
+                // not riding a ramp right now — make sure height resets
+                // to ground level if it was left elevated from a slope
+                // that despawned mid-ride (edge case safety net)
+                if (!rider.airborne) rider.y = 0;
+            }
         }
+
     }
 
     function obstacleScreenX(o) { return o.x - world.scrollX; }
@@ -1702,24 +1751,6 @@ window.__eucDriftRunGame = function () {
                     ctx.lineTo(lx, gy - 3);
                     ctx.stroke();
                 }
-                break;
-            }
-            case "barrelCone": {
-                // big orange/black striped barrel
-                const r = w / 2;
-                ctx.fillStyle = "#e2611c";
-                ctx.beginPath();
-                ctx.ellipse(sx + r, gy - h / 2, r, h / 2, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = "#1a1a1a";
-                [0.25, 0.5, 0.75].forEach(t => {
-                    ctx.fillRect(sx + 2, gy - h + h * t - 3, w - 4, 6);
-                });
-                ctx.strokeStyle = "rgba(255,255,255,0.5)";
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.ellipse(sx + r, gy - h / 2, r, h / 2, 0, 0, Math.PI * 2);
-                ctx.stroke();
                 break;
             }
             case "tireStack": {
@@ -1862,20 +1893,36 @@ window.__eucDriftRunGame = function () {
                 break;
             }
             case "oilSlick": {
-                // glossy black slick across the whole track width
+                // a flat, glossy puddle lying ON the road surface — wide
+                // and low, not a vertical wall like the log/tape barriers.
+                // The hitbox (o.w) is narrow, so we visually spread the
+                // puddle wider than the hitbox for readability while
+                // keeping it centered on the actual collision width.
+                const puddleCenterX = sx + w / 2;
+                const puddleW = w * 2.6;
+                const puddleH = bandH * 0.4;
+                const puddleY = bandTop + bandH * 0.62;
+
                 ctx.fillStyle = "#0a0a0c";
-                ctx.fillRect(sx, bandTop + 4, w, bandH - 8);
-                // glossy highlight streaks
-                ctx.fillStyle = "rgba(255,255,255,0.14)";
                 ctx.beginPath();
-                ctx.ellipse(sx + w * 0.3, bandTop + bandH * 0.35, w * 0.22, bandH * 0.12, 0.3, 0, Math.PI * 2);
+                ctx.ellipse(puddleCenterX, puddleY, puddleW / 2, puddleH / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // glossy highlight streaks across the puddle surface
+                ctx.fillStyle = "rgba(255,255,255,0.16)";
+                ctx.beginPath();
+                ctx.ellipse(puddleCenterX - puddleW * 0.18, puddleY - puddleH * 0.12, puddleW * 0.16, puddleH * 0.18, 0.3, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.beginPath();
-                ctx.ellipse(sx + w * 0.65, bandTop + bandH * 0.62, w * 0.16, bandH * 0.08, -0.2, 0, Math.PI * 2);
+                ctx.ellipse(puddleCenterX + puddleW * 0.2, puddleY + puddleH * 0.08, puddleW * 0.1, puddleH * 0.12, -0.2, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.strokeStyle = "rgba(120,80,200,0.35)"; // faint purple sheen, oily look
+
+                // faint purple/rainbow oily sheen ring
+                ctx.strokeStyle = "rgba(120,80,200,0.4)";
                 ctx.lineWidth = 1.5;
-                ctx.strokeRect(sx, bandTop + 4, w, bandH - 8);
+                ctx.beginPath();
+                ctx.ellipse(puddleCenterX, puddleY, puddleW / 2 - 1, puddleH / 2 - 1, 0, 0, Math.PI * 2);
+                ctx.stroke();
                 break;
             }
             default: {
@@ -2002,8 +2049,10 @@ window.__eucDriftRunGame = function () {
 
     function triggerOilSkid() {
         // brief, non-fatal penalty: lose a chunk of speed immediately,
-        // plus jittery/unreliable steering for about a second
-        game.speedNorm = Math.max(0.15, game.speedNorm - 0.35);
+        // plus jittery/unreliable steering for about a second. Can now
+        // genuinely slow you toward a stop — if you don't get back on
+        // the throttle you risk the stationary-fall timer too.
+        game.speedNorm = Math.max(0, game.speedNorm - 0.35);
         rider.skidTimer = 1.0;
     }
 
@@ -2036,8 +2085,12 @@ window.__eucDriftRunGame = function () {
 
     function updateHUD() {
         el.score.textContent = Math.floor(game.distance);
-        const mph = Math.round(11 + game.speedNorm * 40);
-        el.speedVal.innerHTML = mph + ' <span style="font-size:10px;font-weight:600;">mph</span>';
+        const mph = Math.round(speedNormToMph(game.speedNorm));
+        if (mph < 0) {
+            el.speedVal.innerHTML = Math.abs(mph) + ' <span style="font-size:13px;font-weight:700;">mph REV</span>';
+        } else {
+            el.speedVal.innerHTML = mph + ' <span style="font-size:13px;font-weight:700;">mph</span>';
+        }
         if (mph > game.topSpeedDisplay) game.topSpeedDisplay = mph;
         el.zoneLabel.textContent = currentZoneName();
 
@@ -2052,14 +2105,27 @@ window.__eucDriftRunGame = function () {
     let lastTime = 0;
     let rafId = null;
 
+    function resetBackgroundLayers() {
+        // Layers only ever grow forward and never rewind, so without this
+        // a second playthrough would have its scenery cursors far ahead
+        // of the freshly-reset world.scrollX = 0, leaving a long empty
+        // gap before anything scrolls into view (looked like "the city
+        // doesn't start for several hundred feet" on repeat plays).
+        [cityFarSkyline, cityMid, cityNear, hillsFar, treesMid, treesNear, trackStadiumFar, trackCrowd, trackPylons].forEach(layer => {
+            layer.pieces.length = 0;
+            layer.cursor = 0;
+        });
+    }
+
     function startGame() {
         game.distance = 0;
-        game.speedNorm = 0.45;
+        game.speedNorm = 0.25;
         game.topSpeedDisplay = 0;
         game.trickScoreFlash = null;
         world.scrollX = 0;
         obstacles.length = 0;
         nextObstacleAt = 900;
+        resetBackgroundLayers();
         resetRider();
         rider.y = 0;
         rider.x = Math.min(110, W * 0.22);
@@ -2088,6 +2154,7 @@ window.__eucDriftRunGame = function () {
                 tooSlow: "Too slow off the ramp — you dropped off the front.",
                 hit: "You hit an obstacle.",
                 cutout: "Battery cut out — you went flying at full speed.",
+                fellOver: "You stood still too long and the wheel tipped over.",
             }[rider.crashReason] || "";
             el.crashReason.textContent = reasonText;
         }
@@ -2127,19 +2194,39 @@ window.__eucDriftRunGame = function () {
             return;
         }
 
-        // Speed control: lean forward accelerates, lean back BRAKES (can
-        // pull you down near a stop if held), no input drifts gently back
-        // toward a comfortable cruise speed.
-        if (rider.lean > 0.02) {
-            game.speedNorm += rider.lean * 0.55 * dt;
-        } else if (rider.lean < -0.02) {
-            // braking is strong and proportional to how hard you lean back,
-            // so holding it can actually bring you to a near-stop in time
-            game.speedNorm += rider.lean * BRAKE_STRENGTH * dt;
-        } else {
-            game.speedNorm += (0.45 - game.speedNorm) * dt * 0.5;
+        // Speed control: lean forward accelerates forward, lean back
+        // brakes and (if held through zero) reverses — an EUC's wheel
+        // works the same either direction. With NO input at all, speed
+        // decays toward true zero (not a cruise speed) since an EUC
+        // can't balance itself with no rider input.
+        const activeInput = input.leanLeft || input.leanRight;
+
+        if (input.leanRight && !input.leanLeft) {
+            game.speedNorm += 0.55 * dt;
+        } else if (input.leanLeft && !input.leanRight) {
+            // braking is strong; held through zero it carries on into
+            // reverse, capped at a slower max than forward
+            game.speedNorm -= BRAKE_STRENGTH * dt;
+        } else if (!activeInput) {
+            // no input held at all: decay toward a dead stop
+            const decay = Math.sign(game.speedNorm) * Math.min(Math.abs(game.speedNorm), 0.9 * dt);
+            game.speedNorm -= decay;
         }
-        game.speedNorm = Math.max(0.05, Math.min(1.3, game.speedNorm));
+        game.speedNorm = Math.max(MAX_REVERSE_SPEED_NORM, Math.min(1.3, game.speedNorm));
+
+        // Stationary-fall: only once you're truly at a dead stop (0mph)
+        // AND holding neither button does the clock start. Holding
+        // either FAST or SLOW — even at 0mph — counts as active
+        // balancing input and keeps you up indefinitely.
+        const atFullStop = Math.abs(game.speedNorm) < 0.01;
+        if (atFullStop && !activeInput && !rider.airborne && !rider.crashed) {
+            rider.stationaryTimer = (rider.stationaryTimer || 0) + dt;
+            if (rider.stationaryTimer >= STATIONARY_FALL_SECONDS) {
+                crashRider("fellOver");
+            }
+        } else {
+            rider.stationaryTimer = 0;
+        }
 
         const scrollSpeed = game.baseScroll * game.speedNorm;
         world.scrollX += scrollSpeed * dt;
