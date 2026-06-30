@@ -2040,7 +2040,7 @@ window.initSolitaireGame = function () {
     // The downward facing card back
     if (!card.open) {
         return `<div class="sol-card sol-card-back ${selected ? 'sol-selected' : ''}" style="display:flex;align-items:center;justify-content:center;background:#003300;border:${backBorderStyle};box-shadow:${backShadowStyle};border-radius:6px;width:100%;height:100%;box-sizing:border-box;">
-                    <div style="font-family:Impact,sans-serif;font-size:18px;color:#fff;transform:rotate(-90deg);letter-spacing:2px;">CHASER</div>
+                    <div style="font-family:Impact,sans-serif;font-size:14px;color:#fff;transform:rotate(-90deg);letter-spacing:2px;">CHASER</div>
                 </div>`;
     }
     
