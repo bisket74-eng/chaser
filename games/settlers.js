@@ -12,9 +12,9 @@ const HEX_WIDTH = Math.sqrt(3) * HEX_SIZE;
 const HEX_HEIGHT = 2 * HEX_SIZE;
 const NODE_KEY_PRECISION = 1;
 
-const COMPUTER_DELAY_MS = 2600;
+const COMPUTER_DELAY_MS = 4000;
 const COMPUTER_ROLL_DELAY_MS = 3100;
-const COMPUTER_BUILD_DELAY_MS = 3200;
+const COMPUTER_BUILD_DELAY_MS = 4000;
 const ROLL_REVEAL_MS = 3000;
 
 // Board generation tuning - higher attempt count + harsher penalties means
