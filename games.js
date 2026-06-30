@@ -2537,7 +2537,7 @@ window.initSolitaireGame = function () {
                     }
 
                     .sol-back-text {
-                        font-size:19px;
+                        font-size:15px;
                         letter-spacing:3px;
                     }
 
