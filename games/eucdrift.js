@@ -824,7 +824,7 @@ window.__eucDriftRunGame = function () {
     const OVERHEAT_TRIGGER_SECONDS = 10;
     const OVERHEAT_WARNING_SECONDS = 2;
     const OVERHEAT_BEEP_COUNT = 5;
-    const OVERHEAT_LETOFF_SECONDS = 1;
+    const OVERHEAT_LETOFF_SECONDS = .5;
 
     function updateOverheatState(dt) {
         // Holding full forward throttle counts, same as always. So does
