@@ -694,7 +694,7 @@ window.__eucDriftRunGame = function () {
 
     // Brake strength when leaning back hard (lets you nearly stop for a lane hazard).
     const BRAKE_STRENGTH = 1.35;
-    const MAX_REVERSE_SPEED_NORM = -0.35; // reverse caps out well below forward top speed
+    const MAX_REVERSE_SPEED_NORM = -1.00; // reverse caps out well below forward top speed
     const STATIONARY_FALL_SECONDS = 2; // standing still with no input this long -> you fall
 
     const TRICK_NAMES = ["360 spin", "tabletop", "one-foot grab", "superman lean", "tailwhip"];
