@@ -18,12 +18,26 @@ const RES_ICONS = {
 
 const SCIENCE_SYMBOLS = { compass: "🧭", gear: "⚙️", tablet: "📐" };
 
-/* ---- Wonder boards: starting resource + 3 build stages each ---- */
+/* ---- Wonder boards: starting resource + 3 build stages each (side A) ----
+   Corrected against cross-referenced retail rules/strategy sources. The
+   real pattern on side A for six of the seven boards is: Stage 1 = 3 VP,
+   Stage 2 = the wonder's unique special power, Stage 3 = 7 VP. Giza is
+   the outlier — no special power, just 3/5/7 VP across all three stages.
+   Several of these were previously assigned to the wrong stage (e.g.
+   Babylon's science-symbol power and Halikarnassos's discard-pull power
+   were both spread across all 3 stages instead of just stage 2; Rhodes'
+   and Alexandria's stage 1 was giving coins instead of the correct 3 VP).
+   One honest caveat: the *resource costs* on each stage (the exact
+   "how many wood/clay/etc." numbers) are printed only on the physical
+   card art, not in any text rulebook I can pull from search — so those
+   are my best-sourced estimate rather than a verified transcription. If
+   you want those numbers pixel-perfect, a photo of your boards would let
+   me nail them exactly. */
 const WONDER_BOARDS = {
     Alexandria: {
         startResource: "glass",
         stages: [
-            { cost: { stone: 2 }, effect: "+2 Coins" },
+            { cost: { stone: 2 }, effect: "3 VP" },
             { cost: { ore: 2 }, effect: "+1 any resource/turn" },
             { cost: { papyrus: 1, cloth: 1, glass: 1 }, effect: "7 VP" }
         ]
@@ -32,15 +46,15 @@ const WONDER_BOARDS = {
         startResource: "clay",
         stages: [
             { cost: { clay: 2 }, effect: "3 VP" },
-            { cost: { wood: 1, papyrus: 1 }, effect: "Play last card of Age" },
+            { cost: { wood: 1, papyrus: 1 }, effect: "Choose a Science symbol" },
             { cost: { clay: 1, glass: 1, papyrus: 1 }, effect: "7 VP" }
         ]
     },
     Ephesos: {
         startResource: "papyrus",
         stages: [
-            { cost: { stone: 2 }, effect: "+3 Coins, 2 VP" },
-            { cost: { wood: 2 }, effect: "+4 Coins, 1 VP" },
+            { cost: { stone: 2 }, effect: "3 VP" },
+            { cost: { wood: 2 }, effect: "+4 Coins" },
             { cost: { papyrus: 1, cloth: 1, glass: 1 }, effect: "7 VP" }
         ]
     },
@@ -55,25 +69,25 @@ const WONDER_BOARDS = {
     Halikarnassos: {
         startResource: "ore",
         stages: [
-            { cost: { ore: 2 }, effect: "Build free from discard" },
+            { cost: { ore: 2 }, effect: "3 VP" },
             { cost: { clay: 3 }, effect: "Build free from discard" },
-            { cost: { cloth: 1, glass: 1, papyrus: 1 }, effect: "Build free from discard" }
+            { cost: { cloth: 1, glass: 1, papyrus: 1 }, effect: "7 VP" }
         ]
     },
     Olympia: {
         startResource: "wood",
         stages: [
-            { cost: { wood: 2 }, effect: "Build 1 free/Age" },
-            { cost: { stone: 2 }, effect: "+1 free Science symbol" },
+            { cost: { wood: 2 }, effect: "3 VP" },
+            { cost: { stone: 2 }, effect: "Build 1 free/Age" },
             { cost: { ore: 2, cloth: 1 }, effect: "7 VP" }
         ]
     },
     Rhodos: {
         startResource: "ore",
         stages: [
-            { cost: { wood: 2 }, effect: "+2 Shields, 3 VP" },
-            { cost: { clay: 3 }, effect: "+2 Shields, 4 VP" },
-            { cost: { ore: 4 }, effect: "+2 Shields, 5 VP" }
+            { cost: { wood: 2 }, effect: "3 VP" },
+            { cost: { clay: 3 }, effect: "+2 Shields" },
+            { cost: { ore: 4 }, effect: "7 VP" }
         ]
     }
 };
@@ -94,55 +108,89 @@ const AI_LEADER_NAMES = {
     Rhodos: ["Chares", "Helios"]
 };
 
-/* ---- Card pool per Age. Trimmed but representative set. ---- */
+/* ---- Card pool per Age. -----------------------------------------
+   Each entry carries a `qty` (how many copies exist in the physical
+   deck) instead of relying on a single copy per unique card, which
+   is what was silently starving hands in games with more than 2
+   players. buildAgeDeck() below expands qty into real instances and,
+   as a safety net, tops the deck up with extra shuffled copies if a
+   given table size still needs more than the base pool provides
+   (7-player games need 49 cards in Age I alone). This is a curated
+   set inspired by the retail game's categories/colors/costs rather
+   than a guaranteed exact reprint of the official print run — happy
+   to tighten specific cards to match your physical set if you want
+   to send me the numbers off the cards themselves.
+------------------------------------------------------------------ */
 const CARD_POOL = {
     1: [
-        { name: "Lumber Yard", type: "raw", produces: { wood: 1 }, cost: {} },
-        { name: "Clay Pool", type: "raw", produces: { clay: 1 }, cost: {} },
-        { name: "Stone Pit", type: "raw", produces: { stone: 1 }, cost: {} },
-        { name: "Ore Vein", type: "raw", produces: { ore: 1 }, cost: {} },
-        { name: "Glassworks", type: "manufactured", produces: { glass: 1 }, cost: {} },
-        { name: "Press", type: "manufactured", produces: { papyrus: 1 }, cost: {} },
-        { name: "Loom", type: "manufactured", produces: { cloth: 1 }, cost: {} },
-        { name: "Theater", type: "civilian", cost: {}, vp: 3, chainTo: "Statue" },
-        { name: "Baths", type: "civilian", cost: { stone: 1 }, vp: 3, chainTo: "Aqueduct" },
-        { name: "Altar", type: "civilian", cost: {}, vp: 2, chainTo: "Temple" },
-        { name: "Tavern", type: "commercial", cost: {}, coins: 4 },
-        { name: "Stockade", type: "military", cost: { wood: 1 }, shields: 1 },
-        { name: "Barracks", type: "military", cost: { ore: 1 }, shields: 1 },
-        { name: "Apothecary", type: "science", cost: { cloth: 1 }, science: "compass", chainTo: "Dispensary" },
-        { name: "Workshop", type: "science", cost: { glass: 1 }, science: "gear", chainTo: "School" },
-        { name: "Scriptorium", type: "science", cost: { papyrus: 1 }, science: "tablet", chainTo: "Library" }
+        { name: "Lumber Yard", type: "raw", produces: { wood: 1 }, cost: {}, qty: 3 },
+        { name: "Clay Pool", type: "raw", produces: { clay: 1 }, cost: {}, qty: 3 },
+        { name: "Stone Pit", type: "raw", produces: { stone: 1 }, cost: {}, qty: 3 },
+        { name: "Ore Vein", type: "raw", produces: { ore: 1 }, cost: {}, qty: 3 },
+        { name: "Glassworks", type: "manufactured", produces: { glass: 1 }, cost: {}, qty: 2 },
+        { name: "Press", type: "manufactured", produces: { papyrus: 1 }, cost: {}, qty: 2 },
+        { name: "Loom", type: "manufactured", produces: { cloth: 1 }, cost: {}, qty: 2 },
+        { name: "Pawnshop", type: "civilian", cost: {}, vp: 3, qty: 2 },
+        { name: "Theater", type: "civilian", cost: {}, vp: 3, chainTo: "Statue", qty: 2 },
+        { name: "Baths", type: "civilian", cost: { stone: 1 }, vp: 3, chainTo: "Aqueduct", qty: 2 },
+        { name: "Altar", type: "civilian", cost: {}, vp: 2, chainTo: "Temple", qty: 2 },
+        { name: "Tavern", type: "commercial", cost: {}, coins: 4, qty: 3 },
+        { name: "Stockade", type: "military", cost: { wood: 1 }, shields: 1, qty: 2 },
+        { name: "Barracks", type: "military", cost: { ore: 1 }, shields: 1, qty: 2 },
+        { name: "Guard Tower", type: "military", cost: { clay: 1 }, shields: 1, qty: 2 },
+        { name: "Apothecary", type: "science", cost: { cloth: 1 }, science: "compass", chainTo: "Dispensary", qty: 2 },
+        { name: "Workshop", type: "science", cost: { glass: 1 }, science: "gear", chainTo: "School", qty: 2 },
+        { name: "Scriptorium", type: "science", cost: { papyrus: 1 }, science: "tablet", chainTo: "Library", qty: 2 }
     ],
     2: [
-        { name: "Sawmill", type: "raw", produces: { wood: 2 }, cost: { coins: 1 } },
-        { name: "Brickyard", type: "raw", produces: { clay: 2 }, cost: { coins: 1 } },
-        { name: "Quarry", type: "raw", produces: { stone: 2 }, cost: { coins: 1 } },
-        { name: "Aqueduct", type: "civilian", cost: { stone: 3 }, vp: 5 },
-        { name: "Temple", type: "civilian", cost: { wood: 1, clay: 1, glass: 1 }, vp: 4, chainTo: "Pantheon" },
-        { name: "Statue", type: "civilian", cost: { ore: 2, wood: 1 }, vp: 4, chainTo: "Gardens" },
-        { name: "Courthouse", type: "civilian", cost: { clay: 2, cloth: 1 }, vp: 4 },
-        { name: "Forum", type: "commercial", cost: { clay: 2 }, coins: 3 },
-        { name: "Caravansery", type: "commercial", cost: { wood: 2 }, coins: 2 },
-        { name: "Walls", type: "military", cost: { stone: 3 }, shields: 2 },
-        { name: "Training Ground", type: "military", cost: { ore: 2, wood: 1 }, shields: 2 },
-        { name: "Dispensary", type: "science", cost: { ore: 2, glass: 1 }, science: "compass", chainTo: "Arsenal" },
-        { name: "Library", type: "science", cost: { stone: 2, cloth: 1 }, science: "tablet", chainTo: "University" },
-        { name: "School", type: "science", cost: { wood: 1, papyrus: 1 }, science: "gear", chainTo: "Academy" }
+        { name: "Sawmill", type: "raw", produces: { wood: 2 }, cost: { coins: 1 }, qty: 2 },
+        { name: "Brickyard", type: "raw", produces: { clay: 2 }, cost: { coins: 1 }, qty: 2 },
+        { name: "Quarry", type: "raw", produces: { stone: 2 }, cost: { coins: 1 }, qty: 2 },
+        { name: "Foundry", type: "raw", produces: { ore: 2 }, cost: { coins: 1 }, qty: 2 },
+        { name: "Glass Furnace", type: "manufactured", produces: { glass: 1 }, cost: {}, qty: 2 },
+        { name: "Drying Room", type: "manufactured", produces: { papyrus: 1 }, cost: {}, qty: 2 },
+        { name: "Weaver's Guild", type: "manufactured", produces: { cloth: 1 }, cost: {}, qty: 2 },
+        { name: "Aqueduct", type: "civilian", cost: { stone: 3 }, vp: 5, qty: 2 },
+        { name: "Temple", type: "civilian", cost: { wood: 1, clay: 1, glass: 1 }, vp: 4, chainTo: "Pantheon", qty: 2 },
+        { name: "Statue", type: "civilian", cost: { ore: 2, wood: 1 }, vp: 4, chainTo: "Gardens", qty: 2 },
+        { name: "Courthouse", type: "civilian", cost: { clay: 2, cloth: 1 }, vp: 4, qty: 2 },
+        { name: "Amphitheater", type: "civilian", cost: { stone: 2, papyrus: 1 }, vp: 5, qty: 2 },
+        { name: "Forum", type: "commercial", cost: { clay: 2 }, coins: 3, qty: 2 },
+        { name: "Caravansery", type: "commercial", cost: { wood: 2 }, coins: 2, qty: 2 },
+        { name: "Walls", type: "military", cost: { stone: 3 }, shields: 2, qty: 2 },
+        { name: "Training Ground", type: "military", cost: { ore: 2, wood: 1 }, shields: 2, qty: 2 },
+        { name: "Dispensary", type: "science", cost: { ore: 2, glass: 1 }, science: "compass", chainTo: "Arsenal", qty: 2 },
+        { name: "Library", type: "science", cost: { stone: 2, cloth: 1 }, science: "tablet", chainTo: "University", qty: 2 },
+        { name: "School", type: "science", cost: { wood: 1, papyrus: 1 }, science: "gear", chainTo: "Academy", qty: 2 }
     ],
     3: [
-        { name: "Pantheon", type: "civilian", cost: { clay: 2, ore: 1, papyrus: 1, cloth: 1, glass: 1 }, vp: 7 },
-        { name: "Gardens", type: "civilian", cost: { clay: 2, wood: 1 }, vp: 6 },
-        { name: "Town Hall", type: "civilian", cost: { stone: 2, ore: 1, glass: 1 }, vp: 6 },
-        { name: "Palace", type: "civilian", cost: { wood: 1, stone: 1, clay: 1, ore: 1, glass: 1, papyrus: 1, cloth: 1 }, vp: 8 },
-        { name: "Arsenal", type: "military", cost: { ore: 3, wood: 2 }, shields: 3 },
-        { name: "Fortifications", type: "military", cost: { ore: 3, stone: 1 }, shields: 3 },
-        { name: "Siege Workshop", type: "military", cost: { wood: 3, clay: 1 }, shields: 3 },
-        { name: "Lodge", type: "science", cost: { clay: 2, papyrus: 1 }, science: "compass" },
-        { name: "Observatory", type: "science", cost: { ore: 2, glass: 1, papyrus: 1 }, science: "gear" },
-        { name: "University", type: "science", cost: { wood: 2, papyrus: 1, glass: 1 }, science: "tablet" },
-        { name: "Merchants Guild", type: "guild", cost: { stone: 1, clay: 1, cloth: 1 }, vp: 1 },
-        { name: "Builders Guild", type: "guild", cost: { stone: 2, clay: 2, glass: 1 }, vp: 1 }
+        { name: "Pantheon", type: "civilian", cost: { clay: 2, ore: 1, papyrus: 1, cloth: 1, glass: 1 }, vp: 7, qty: 2 },
+        { name: "Gardens", type: "civilian", cost: { clay: 2, wood: 1 }, vp: 6, qty: 2 },
+        { name: "Town Hall", type: "civilian", cost: { stone: 2, ore: 1, glass: 1 }, vp: 6, qty: 2 },
+        { name: "Palace", type: "civilian", cost: { wood: 1, stone: 1, clay: 1, ore: 1, glass: 1, papyrus: 1, cloth: 1 }, vp: 8, qty: 2 },
+        { name: "Senate", type: "civilian", cost: { wood: 2, stone: 1, ore: 1 }, vp: 6, qty: 2 },
+        { name: "Arsenal", type: "military", cost: { ore: 3, wood: 2 }, shields: 3, qty: 2 },
+        { name: "Fortifications", type: "military", cost: { ore: 3, stone: 1 }, shields: 3, qty: 2 },
+        { name: "Siege Workshop", type: "military", cost: { wood: 3, clay: 1 }, shields: 3, qty: 2 },
+        { name: "Lodge", type: "science", cost: { clay: 2, papyrus: 1 }, science: "compass", qty: 2 },
+        { name: "Observatory", type: "science", cost: { ore: 2, glass: 1, papyrus: 1 }, science: "gear", qty: 2 },
+        { name: "University", type: "science", cost: { wood: 2, papyrus: 1, glass: 1 }, science: "tablet", qty: 2 },
+        {
+            name: "Merchants Guild", type: "guild", cost: { stone: 1, clay: 1, cloth: 1 }, qty: 2,
+            guild: { countType: "commercial", perCard: 1, scope: "neighbors" }
+        },
+        {
+            name: "Builders Guild", type: "guild", cost: { stone: 2, clay: 2, glass: 1 }, qty: 2,
+            guild: { countType: "wonderStage", perCard: 1, scope: "neighbors" }
+        },
+        {
+            name: "Craftsmen's Guild", type: "guild", cost: { ore: 2, stone: 2 }, qty: 2,
+            guild: { countType: "manufactured", perCard: 2, scope: "neighbors" }
+        },
+        {
+            name: "Magistrates Guild", type: "guild", cost: { wood: 3, stone: 1, cloth: 1 }, qty: 2,
+            guild: { countType: "civilian", perCard: 1, scope: "neighbors" }
+        }
     ]
 };
 
@@ -207,6 +255,44 @@ function shuffle(arr) {
         a[j] = t;
     }
     return a;
+}
+
+/* ---- THE CORE FIX ---------------------------------------------
+   Old code did: shuffle(CARD_POOL[age]).slice(0, 7 * seats)
+   CARD_POOL[1] only had 15 *unique* card definitions (1 copy each),
+   so with 3+ players it needed 21+ cards but the pool only ever had
+   15 to give out. .slice() on a too-short array just quietly hands
+   back whatever's left — so whichever seat came last in the deal
+   order got a tiny leftover hand (sometimes just 1 card), and every
+   other seat that rotates a hand in from them inherits that same
+   shortfall on later turns. That's exactly the "7 cards, then 1
+   card" bug.
+
+   Fix: expand each card's `qty` into real copies, and if the table
+   still needs more than that (e.g. a full 7-player game), keep
+   adding shuffled full copies of the pool until there's enough for
+   everyone. This makes it structurally impossible to run out.
+------------------------------------------------------------------ */
+function buildAgeDeck(ageNum, playerCount) {
+    const base = CARD_POOL[ageNum];
+    let expanded = [];
+    base.forEach(function (card) {
+        const copies = card.qty || 1;
+        for (let i = 0; i < copies; i++) {
+            expanded.push(Object.assign({}, card));
+        }
+    });
+
+    const needed = CARDS_PER_HAND * playerCount;
+    let safety = 0;
+    while (expanded.length < needed && safety < 20) {
+        base.forEach(function (card) {
+            expanded.push(Object.assign({}, card));
+        });
+        safety++;
+    }
+
+    return shuffle(expanded).slice(0, needed);
 }
 
 /* Fills any seats beyond the human players already in the lobby with
@@ -316,26 +402,10 @@ function hasWonderStage(player, stageIndex) {
     return player.wonderStage > stageIndex;
 }
 
-/* Babylon stage 2 (index 1): normally, when 2 cards remain in everyone's
-   hand, each player plays one and the other is discarded unseen forever.
-   A player with this stage built gets to play (build/wonder/sell) that
-   final card too, instead of losing it automatically. */
-function hasBabylonLastCardPerk(player) {
-    return player.wonder === "Babylon" && hasWonderStage(player, 1);
-}
-
-/* Olympia stage 1 (index 0): build one card per Age completely free,
-   regardless of cost. Tracked via usedFreeBuildThisAge, reset each Age
-   in dealAge(). */
 function canUseOlympiaFreeBuild(player) {
-    return player.wonder === "Olympia" && hasWonderStage(player, 0) && !player.usedFreeBuildThisAge;
+    return player.wonder === "Olympia" && hasWonderStage(player, 1) && !player.usedFreeBuildThisAge;
 }
 
-/* Alexandria stage 1 (index 1, the SECOND stage): produces one extra
-   resource of the player's choice every turn, on top of the wonder's
-   normal starting resource. For the AI and for simplicity we grant
-   the resource the player currently holds the least of, so it tends
-   to plug their biggest gap. */
 function applyAlexandriaFlexResource(player) {
     if (player.wonder !== "Alexandria" || !hasWonderStage(player, 1)) return;
 
@@ -372,7 +442,7 @@ function buildCard(player, card, viaFreeOlympia) {
 
 function dealAge(st, ageNum) {
     const seats = st.players.length;
-    const pool = shuffle(CARD_POOL[ageNum]).slice(0, CARDS_PER_HAND * seats);
+    const pool = buildAgeDeck(ageNum, seats);
 
     st.players.forEach(function (p, idx) {
         p.hand = pool.slice(idx * CARDS_PER_HAND, (idx + 1) * CARDS_PER_HAND);
@@ -398,14 +468,11 @@ function computerChoose(player, st) {
         return { action: "build", cardIdx: idx };
     }
 
-    // Nothing affordable from hand — try Olympia's free build if available.
     if (canUseOlympiaFreeBuild(player) && hand.length) {
         return { action: "build", cardIdx: 0 };
     }
 
-    // Try pulling a buildable card from the shared discard pile
-    // (Halikarnassos only).
-    if (player.wonder === "Halikarnassos" && hasWonderStage(player, 0) && st && st.discardPile.length && hand.length) {
+    if (player.wonder === "Halikarnassos" && hasWonderStage(player, 1) && st && st.discardPile.length && hand.length) {
         for (let i = 0; i < st.discardPile.length; i++) {
             const pileCard = st.discardPile[i];
             if (canAfford(player, pileCard.cost) || hasChainInto(player, pileCard.name)) {
@@ -424,10 +491,6 @@ function computerChoose(player, st) {
     return { action: "discard", cardIdx: 0 };
 }
 
-/* Applies Alexandria's flex resource and any other "every turn"
-   passive effects. Called once per player per round, regardless of
-   what action they took, since the wonder boards' passive resource
-   production happens every turn in the real game. */
 function applyPerTurnWonderEffects(player) {
     applyAlexandriaFlexResource(player);
 }
@@ -450,15 +513,13 @@ function applyChoice(st, player, choice) {
 
     } else if (choice.action === "wonder") {
         const board = WONDER_BOARDS[player.wonder];
-        const stage = board.stages[player.wonderStage];
+        const stageIndexBuilt = player.wonderStage;
+        const stage = board.stages[stageIndexBuilt];
         if (!stage) return;
 
         payCost(player, stage.cost);
-        const builtStageIndex = player.wonderStage;
         player.wonderStage += 1;
 
-        // The card used to build the wonder stage is discarded face down,
-        // same as in the real game — it does not enter the tableau.
         const usedCard = player.hand[choice.cardIdx];
         if (usedCard) {
             st.discardPile.push(usedCard);
@@ -467,10 +528,12 @@ function applyChoice(st, player, choice) {
 
         st.message = player.name + " built a Wonder stage: " + stage.effect + ".";
 
-        // Olympia stage 2 (index 1): immediately grants one free Science
-        // symbol of the player's choice. We auto-pick whichever symbol
-        // the player has fewest of, so it helps complete a set.
-        if (player.wonder === "Olympia" && builtStageIndex === 1) {
+        // Babylon Stage 2 (the real A-side power): grants one Science
+        // symbol of the player's choice, once, immediately. There's no
+        // in-UI picker for this yet, so it auto-picks whichever symbol
+        // the player has the fewest of — which tends to help complete a
+        // matching set, the strongest way to spend it.
+        if (player.wonder === "Babylon" && stageIndexBuilt === 1) {
             let weakest = "compass";
             ["compass", "gear", "tablet"].forEach(function (s) {
                 if (player.science[s] < player.science[weakest]) weakest = s;
@@ -480,8 +543,6 @@ function applyChoice(st, player, choice) {
         }
 
     } else if (choice.action === "discardFromPile") {
-        // Halikarnassos: build a card pulled from the shared discard
-        // pile for free, instead of from your own hand.
         const card = st.discardPile[choice.discardIdx];
         if (!card) return;
 
@@ -489,10 +550,6 @@ function applyChoice(st, player, choice) {
         st.discardPile.splice(choice.discardIdx, 1);
         st.message = player.name + " pulled " + card.name + " from the discard pile (Halikarnassos).";
 
-        // The hand card chosen alongside this action is still discarded,
-        // matching how Halikarnassos works in the real game: you still
-        // use up one of your hand cards' turn, you just build from the
-        // pile instead of building/discarding that hand card directly.
         const handCard = player.hand[choice.cardIdx];
         if (handCard) {
             st.discardPile.push(handCard);
@@ -500,7 +557,6 @@ function applyChoice(st, player, choice) {
         }
 
     } else {
-        // discard for coins
         const card = player.hand[choice.cardIdx];
         player.coins += 3;
         st.message = player.name + " sold a card for 3 coins.";
@@ -522,9 +578,6 @@ function resolveRound() {
     const st = window.sevenWondersState;
     if (!st) return;
 
-    // Detect whether this round began with exactly 2 cards in hand —
-    // the final pick of the Age. Normally the 2nd card vanishes
-    // unseen; Babylon's last stage lets that player build it instead.
     const isFinalPickOfAge = st.players[0].hand.length === 2;
 
     st.players.forEach(function (p) {
@@ -542,20 +595,7 @@ function resolveRound() {
             const leftoverCard = p.hand[0];
             if (!leftoverCard) return;
 
-            if (hasBabylonLastCardPerk(p)) {
-                // Auto-build if affordable/chainable, otherwise sell it
-                // for coins rather than losing it for nothing.
-                if (canAfford(p, leftoverCard.cost) || hasChainInto(p, leftoverCard.name)) {
-                    buildCard(p, leftoverCard, false);
-                    st.message = (st.message || "") + " " + p.name + " played their last card via Babylon!";
-                } else {
-                    p.coins += 3;
-                    st.message = (st.message || "") + " " + p.name + " sold their last card via Babylon.";
-                }
-            } else {
-                st.discardPile.push(leftoverCard);
-            }
-
+            st.discardPile.push(leftoverCard);
             p.hand = [];
         });
     }
@@ -593,11 +633,6 @@ function rotateHands(st) {
     });
 }
 
-/* Resolves military conflict for the Age that just ended. Real rules:
-   compare shields against BOTH neighbors for THIS age only, award
-   conflict tokens (+1/+3/+5 VP by age) for wins, -1 VP for losses,
-   ties give nothing. Tokens accumulate across ages, this just adds
-   this age's result to the running total. */
 function scoreMilitaryForAge(st, ageJustEnded) {
     const n = st.players.length;
     const ageMultiplier = { 1: 1, 2: 3, 3: 5 };
@@ -626,15 +661,52 @@ function scoreMilitaryForAge(st, ageJustEnded) {
     });
 }
 
+/* Guild (purple) cards score based on neighbors' and/or your own
+   tableau at game end. countType matches against a card's `type`
+   field, except "wonderStage" which counts built wonder stages. */
+function scoreGuilds(st) {
+    const n = st.players.length;
+
+    st.players.forEach(function (p, idx) {
+        let guildVP = 0;
+
+        p.tableau.forEach(function (card) {
+            if (card.type !== "guild" || !card.guild) return;
+
+            const targets = [];
+            if (card.guild.scope === "neighbors" || card.guild.scope === "all") {
+                const leftIdx = (idx - 1 + n) % n;
+                const rightIdx = (idx + 1) % n;
+                targets.push(st.players[leftIdx], st.players[rightIdx]);
+            }
+            if (card.guild.scope === "self" || card.guild.scope === "all") {
+                targets.push(p);
+            }
+
+            targets.forEach(function (target) {
+                if (!target) return;
+                let count = 0;
+                if (card.guild.countType === "wonderStage") {
+                    count = target.wonderStage;
+                } else {
+                    count = target.tableau.filter(function (c) { return c.type === card.guild.countType; }).length;
+                }
+                guildVP += count * card.guild.perCard;
+            });
+        });
+
+        p.guildVP = guildVP;
+    });
+}
+
 function finishGame(st) {
-    // Military is already scored per-Age via scoreMilitaryForAge, called
-    // from resolveRound each time an Age ends. Nothing more to add here.
+    scoreGuilds(st);
 
     st.players.forEach(function (p) {
         const civilianVP = p.tableau.reduce(function (sum, c) { return sum + (c.vp || 0); }, 0);
         const coinVP = Math.floor(p.coins / 3);
         const scienceVP = scoreScience(p.science);
-        p.finalScore = civilianVP + coinVP + scienceVP + (p.militaryVP || 0);
+        p.finalScore = civilianVP + coinVP + scienceVP + (p.militaryVP || 0) + (p.guildVP || 0);
     });
 
     const ranked = st.players.slice().sort(function (a, b) { return b.finalScore - a.finalScore; });
@@ -662,6 +734,7 @@ window.sevenWondersChooseCard = function (idx) {
     const st = window.sevenWondersState;
     const me = myPlayer();
     if (!st || !me || me.pendingChoice) return;
+    if (!me.hand[idx]) return;
 
     me.pendingChoice = { action: "select", cardIdx: idx };
     renderSevenWonders();
@@ -706,17 +779,10 @@ window.sevenWondersConfirmOlympiaFree = function () {
     const me = myPlayer();
     if (!me || !me.pendingChoice || !canUseOlympiaFreeBuild(me)) return;
 
-    // Mark this as a build action; applyChoice() detects Olympia's free
-    // build automatically when the card isn't otherwise affordable, but
-    // since the player explicitly tapped this button we want it to
-    // apply even if they happen to also be able to afford it normally.
     me.pendingChoice = { action: "build", cardIdx: me.pendingChoice.cardIdx, forceOlympiaFree: true };
     finishMyTurnIfHost();
 };
 
-/* Halikarnassos: opens a small inline picker over the discard pile so
-   the player can choose which card to pull, since unlike Build/Wonder/
-   Discard there's more than one possible target. */
 window.sevenWondersOpenDiscardPile = function () {
     const st = window.sevenWondersState;
     const me = myPlayer();
@@ -816,10 +882,10 @@ function cardMainIcon(card) {
     }
     if (card.science) return SCIENCE_SYMBOLS[card.science];
     if (card.shields) return "⚔️".repeat(Math.min(card.shields, 3));
+    if (card.type === "guild") return "👑";
     if (card.type === "civilian") return "🏛️";
     if (card.coins) return "💰";
     if (card.type === "commercial") return "🤝";
-    if (card.type === "guild") return "👑";
     return "❔";
 }
 
@@ -831,22 +897,26 @@ function costLabel(cost) {
     return parts.join(" ");
 }
 
-function effectLabel(card) {
+/* The prominent value line shown directly under the card name —
+   VP for civilian/guild cards, coin gain for commercial, shield
+   count for military, science symbol count for science. */
+function valueLabel(card) {
+    if (card.type === "guild" && card.guild) return "👑 Guild";
+    if (card.vp) return "🏆 " + card.vp + " VP";
+    if (card.coins) return "+" + card.coins + " 💰";
+    if (card.shields) return "+" + card.shields + " ⚔️";
+    if (card.science) return "+1 " + SCIENCE_SYMBOLS[card.science];
     if (card.produces) {
         const entries = Object.entries(card.produces);
-        if (entries.length === 1 && entries[0][1] === 1) return "";
-        return entries.map(function (e) { return "×" + e[1]; }).join(" ");
+        if (entries.length === 1 && entries[0][1] > 1) return "×" + entries[0][1];
     }
-    if (card.science || card.shields) return "";
-    if (card.vp) return card.vp + " VP";
-    if (card.coins) return "+" + card.coins + " 💰";
     return "";
 }
 
 function swCardHtml(card, idx, me, selected) {
     const freeChain = hasChainInto(me, card.name);
     const affordable = freeChain || canAfford(me, card.cost);
-    const eff = effectLabel(card);
+    const val = valueLabel(card);
 
     return (
         "<div class=\"sw-card sw-type-" + card.type + (selected ? " sw-selected" : "") + (affordable ? "" : " sw-unafford") + "\" onclick=\"window.sevenWondersChooseCard(" + idx + ")\">" +
@@ -856,18 +926,20 @@ function swCardHtml(card, idx, me, selected) {
             "</div>" +
             "<div class=\"sw-card-body\">" +
                 "<div class=\"sw-card-icon\">" + cardMainIcon(card) + "</div>" +
-                (eff ? "<div class=\"sw-card-effect\">" + escapeHtml(eff) + "</div>" : "") +
             "</div>" +
             "<div class=\"sw-card-name\">" + escapeHtml(card.name) + "</div>" +
+            (val ? "<div class=\"sw-card-value\">" + escapeHtml(val) + "</div>" : "") +
         "</div>"
     );
 }
 
 function swTabCardHtml(card) {
+    const val = valueLabel(card);
     return (
         "<div class=\"sw-tab-card sw-type-" + card.type + "\">" +
             "<div class=\"sw-tab-icon\">" + cardMainIcon(card) + "</div>" +
             "<div class=\"sw-tab-name\">" + escapeHtml(card.name) + "</div>" +
+            (val ? "<div class=\"sw-tab-value\">" + escapeHtml(val) + "</div>" : "") +
         "</div>"
     );
 }
@@ -924,9 +996,9 @@ function swOpponentsHtml(st, me) {
 
 function swActionBarHtml(me, st) {
     const choice = me.pendingChoice;
-    const hasSelection = choice && choice.action === "select";
+    const hasSelection = !!(choice && choice.action === "select" && me.hand[choice.cardIdx]);
     const card = hasSelection ? me.hand[choice.cardIdx] : null;
-    const locked = choice && choice.action !== "select";
+    const locked = !!(choice && choice.action !== "select");
 
     const buildDisabled = !hasSelection || locked || !(canAfford(me, card.cost) || hasChainInto(me, card.name));
     const board = WONDER_BOARDS[me.wonder];
@@ -940,16 +1012,12 @@ function swActionBarHtml(me, st) {
 
     let extraButtons = "";
 
-    // Olympia stage 1: build the selected card completely free, once
-    // per Age, regardless of its normal cost.
     const olympiaAvailable = hasSelection && canUseOlympiaFreeBuild(me) && card && !hasChainInto(me, card.name);
     if (olympiaAvailable) {
         extraButtons += "<button class=\"sw-btn sw-btn-olympia\" onclick=\"window.sevenWondersConfirmOlympiaFree()\">Build Free (Olympia)</button>";
     }
 
-    // Halikarnassos: pull any buildable card from the shared discard
-    // pile, using up the selected hand card in the process.
-    const halikarnassosAvailable = hasSelection && me.wonder === "Halikarnassos" && hasWonderStage(me, 0) &&
+    const halikarnassosAvailable = hasSelection && me.wonder === "Halikarnassos" && hasWonderStage(me, 1) &&
         st && st.discardPile && st.discardPile.length > 0;
 
     if (halikarnassosAvailable) {
@@ -966,51 +1034,55 @@ function swActionBarHtml(me, st) {
     );
 }
 
+/* ---- Styles: sized up considerably ("zoomed in") vs. the original.
+   Base font bumped, wonder board/card/hand card dimensions increased,
+   so the whole table reads clearly on a phone screen. ---- */
 function swStyles() {
     return (
         "<style>" +
-            ".sw-wrap{height:100%;overflow:auto;box-sizing:border-box;font-family:Georgia,'Times New Roman',serif;color:#e8dcc4;background:linear-gradient(180deg,#1d1611,#2b2017);padding-bottom:70px;}" +
-            ".sw-topbar{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(201,162,39,.3);}" +
-            ".sw-opponents{display:flex;gap:6px;flex-wrap:wrap;}" +
-            ".sw-opp-avatar{width:34px;height:34px;border-radius:50%;border:2px solid #c9a227;display:flex;align-items:center;justify-content:center;font-size:14px;background:#6b6359;position:relative;cursor:pointer;color:#fff;}" +
-            ".sw-mil-badge{position:absolute;bottom:-4px;right:-4px;background:#b3342c;border-radius:50%;width:15px;height:15px;font-size:9px;display:flex;align-items:center;justify-content:center;border:1px solid #1d1611;}" +
-            ".sw-age-indicator{text-align:right;font-size:11px;color:#c9a227;text-transform:uppercase;}" +
-            ".sw-age-line{font-size:15px;font-weight:bold;color:#e8dcc4;}" +
-            ".sw-age-line .sw-age-label{color:#c9a227;font-size:11px;margin-right:4px;}" +
-            ".sw-round-line{font-size:10px;opacity:.7;margin-top:2px;}" +
-            ".sw-wonder-board{margin:8px 10px 0;border-radius:8px;background:linear-gradient(160deg,#d9c89a,#c4b07e);border:2px solid #8a6f1c;padding:8px;color:#2b2017;}" +
-            ".sw-wonder-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}" +
-            ".sw-wonder-title{font-weight:bold;font-size:14px;}" +
-            ".sw-wonder-start{font-size:11px;background:rgba(0,0,0,.12);padding:2px 8px;border-radius:10px;font-weight:bold;}" +
-            ".sw-wstage-row{display:flex;gap:6px;}" +
-            ".sw-wstage{flex:1;background:rgba(255,255,255,.35);border:1.5px dashed rgba(43,32,23,.4);border-radius:6px;padding:7px 5px;text-align:center;min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}" +
+            ".sw-wrap{height:100%;overflow:auto;box-sizing:border-box;font-family:Georgia,'Times New Roman',serif;color:#e8dcc4;background:linear-gradient(180deg,#1d1611,#2b2017);padding-bottom:84px;font-size:16px;}" +
+            ".sw-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(201,162,39,.3);}" +
+            ".sw-opponents{display:flex;gap:8px;flex-wrap:wrap;}" +
+            ".sw-opp-avatar{width:42px;height:42px;border-radius:50%;border:2px solid #c9a227;display:flex;align-items:center;justify-content:center;font-size:17px;background:#6b6359;position:relative;cursor:pointer;color:#fff;}" +
+            ".sw-mil-badge{position:absolute;bottom:-5px;right:-5px;background:#b3342c;border-radius:50%;width:19px;height:19px;font-size:11px;display:flex;align-items:center;justify-content:center;border:1px solid #1d1611;}" +
+            ".sw-age-indicator{text-align:right;font-size:12px;color:#c9a227;text-transform:uppercase;}" +
+            ".sw-age-line{font-size:19px;font-weight:bold;color:#e8dcc4;}" +
+            ".sw-age-line .sw-age-label{color:#c9a227;font-size:12px;margin-right:5px;}" +
+            ".sw-round-line{font-size:11px;opacity:.7;margin-top:2px;}" +
+            ".sw-wonder-board{margin:10px 12px 0;border-radius:10px;background:linear-gradient(160deg,#d9c89a,#c4b07e);border:2px solid #8a6f1c;padding:12px;color:#2b2017;}" +
+            ".sw-wonder-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}" +
+            ".sw-wonder-title{font-weight:bold;font-size:19px;}" +
+            ".sw-wonder-start{font-size:13px;background:rgba(0,0,0,.12);padding:3px 10px;border-radius:12px;font-weight:bold;}" +
+            ".sw-wstage-row{display:flex;gap:8px;}" +
+            ".sw-wstage{flex:1;background:rgba(255,255,255,.35);border:1.5px dashed rgba(43,32,23,.4);border-radius:8px;padding:10px 6px;text-align:center;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}" +
             ".sw-wstage.sw-built{background:#c9a227;border-style:solid;border-color:#8a6f1c;}" +
-            ".sw-wcost{font-size:15px;font-weight:bold;margin-bottom:4px;line-height:1;}" +
-            ".sw-weffect{font-size:11px;font-weight:600;line-height:1.2;}" +
-            ".sw-wcheck{position:absolute;top:2px;right:4px;font-size:13px;}" +
-            ".sw-res-bar{display:flex;gap:8px;padding:7px 12px;overflow-x:auto;background:rgba(0,0,0,.2);margin-top:6px;font-size:12px;}" +
-            ".sw-res-chip{padding:3px 7px;border-radius:10px;background:rgba(255,255,255,.08);white-space:nowrap;flex-shrink:0;}" +
+            ".sw-wcost{font-size:19px;font-weight:bold;margin-bottom:5px;line-height:1;}" +
+            ".sw-weffect{font-size:13px;font-weight:600;line-height:1.25;}" +
+            ".sw-wcheck{position:absolute;top:3px;right:5px;font-size:16px;}" +
+            ".sw-res-bar{display:flex;gap:10px;padding:10px 14px;overflow-x:auto;background:rgba(0,0,0,.2);margin-top:8px;font-size:15px;}" +
+            ".sw-res-chip{padding:4px 10px;border-radius:12px;background:rgba(255,255,255,.08);white-space:nowrap;flex-shrink:0;}" +
             ".sw-res-coins{background:rgba(201,162,39,.25);color:#c9a227;font-weight:bold;}" +
-            ".sw-tableau-area{padding:10px 12px;}" +
-            ".sw-tableau-label{font-size:11px;text-transform:uppercase;color:rgba(232,220,196,.5);margin-bottom:6px;}" +
-            ".sw-tableau{display:flex;flex-wrap:wrap;gap:6px;}" +
-            ".sw-tab-card{width:54px;height:72px;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;border:1px solid rgba(255,255,255,.15);padding:3px;color:#fff;}" +
-            ".sw-tab-icon{font-size:20px;line-height:1;}" +
-            ".sw-tab-name{font-size:8px;line-height:1.1;}" +
-            ".sw-empty-tableau{font-size:12px;color:rgba(232,220,196,.35);font-style:italic;padding:14px 0;}" +
-            ".sw-hand-area{background:rgba(0,0,0,.35);border-top:1px solid rgba(201,162,39,.3);padding:10px 0 12px;}" +
-            ".sw-hand-label{font-size:11px;text-transform:uppercase;color:#c9a227;padding:0 12px 6px;display:flex;justify-content:space-between;}" +
-            ".sw-hand-scroll{display:flex;gap:8px;overflow-x:auto;padding:0 12px 4px;}" +
-            ".sw-card{flex-shrink:0;width:92px;height:140px;border-radius:7px;padding:0;border:2px solid rgba(0,0,0,.35);cursor:pointer;background:#e8dcc4;overflow:hidden;display:flex;flex-direction:column;position:relative;}" +
-            ".sw-card.sw-selected{transform:translateY(-8px);box-shadow:0 4px 14px rgba(201,162,39,.6);border-color:#c9a227;}" +
+            ".sw-tableau-area{padding:14px 14px;}" +
+            ".sw-tableau-label{font-size:13px;text-transform:uppercase;color:rgba(232,220,196,.5);margin-bottom:8px;}" +
+            ".sw-tableau{display:flex;flex-wrap:wrap;gap:8px;}" +
+            ".sw-tab-card{width:70px;height:92px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;border:1px solid rgba(255,255,255,.15);padding:4px;color:#fff;}" +
+            ".sw-tab-icon{font-size:26px;line-height:1;}" +
+            ".sw-tab-name{font-size:9.5px;line-height:1.15;}" +
+            ".sw-tab-value{font-size:9.5px;font-weight:bold;color:#ffd700;}" +
+            ".sw-empty-tableau{font-size:14px;color:rgba(232,220,196,.35);font-style:italic;padding:16px 0;}" +
+            ".sw-hand-area{background:rgba(0,0,0,.35);border-top:1px solid rgba(201,162,39,.3);padding:12px 0 14px;}" +
+            ".sw-hand-label{font-size:13px;text-transform:uppercase;color:#c9a227;padding:0 14px 8px;display:flex;justify-content:space-between;}" +
+            ".sw-hand-scroll{display:flex;gap:10px;overflow-x:auto;padding:0 14px 6px;}" +
+            ".sw-card{flex-shrink:0;width:120px;height:180px;border-radius:9px;padding:0;border:2px solid rgba(0,0,0,.35);cursor:pointer;background:#e8dcc4;overflow:hidden;display:flex;flex-direction:column;position:relative;}" +
+            ".sw-card.sw-selected{transform:translateY(-10px);box-shadow:0 5px 18px rgba(201,162,39,.6);border-color:#c9a227;}" +
             ".sw-card.sw-unafford{opacity:.5;}" +
-            ".sw-card-top{display:flex;justify-content:space-between;align-items:flex-start;padding:4px 5px 0;height:18px;}" +
-            ".sw-cost-badge{background:rgba(255,255,255,.85);color:#2b2017;border-radius:8px;padding:1px 5px;font-size:9px;font-weight:bold;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}" +
-            ".sw-chain-badge{background:#fff;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;border:1px solid rgba(0,0,0,.3);}" +
-            ".sw-card-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2px 4px;text-align:center;}" +
-            ".sw-card-icon{font-size:34px;line-height:1;letter-spacing:-2px;}" +
-            ".sw-card-effect{font-size:9px;color:#fff;font-weight:bold;line-height:1.2;text-shadow:0 1px 2px rgba(0,0,0,.4);}" +
-            ".sw-card-name{background:rgba(0,0,0,.55);color:#fff;font-size:10px;font-weight:bold;text-align:center;padding:4px 3px;line-height:1.15;}" +
+            ".sw-card-top{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px 0;height:22px;}" +
+            ".sw-cost-badge{background:rgba(255,255,255,.85);color:#2b2017;border-radius:9px;padding:2px 6px;font-size:11px;font-weight:bold;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}" +
+            ".sw-chain-badge{background:#fff;border-radius:50%;width:19px;height:19px;display:flex;align-items:center;justify-content:center;font-size:11px;border:1px solid rgba(0,0,0,.3);}" +
+            ".sw-card-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;text-align:center;}" +
+            ".sw-card-icon{font-size:46px;line-height:1;letter-spacing:-2px;}" +
+            ".sw-card-name{background:rgba(0,0,0,.55);color:#fff;font-size:11.5px;font-weight:bold;text-align:center;padding:5px 4px 2px;line-height:1.2;}" +
+            ".sw-card-value{background:rgba(0,0,0,.55);color:#ffd700;font-size:12px;font-weight:900;text-align:center;padding:0 4px 6px;line-height:1.2;}" +
             ".sw-type-raw .sw-card-body{background:linear-gradient(160deg,#6b4226,#4a2d18);}" +
             ".sw-type-manufactured .sw-card-body{background:linear-gradient(160deg,#8d8d90,#6b6b6e);}" +
             ".sw-type-civilian .sw-card-body{background:linear-gradient(160deg,#3b6ea5,#2a4f78);}" +
@@ -1019,22 +1091,22 @@ function swStyles() {
             ".sw-type-science .sw-card-body{background:linear-gradient(160deg,#3f8f5f,#2c6943);}" +
             ".sw-type-guild .sw-card-body{background:linear-gradient(160deg,#7b4397,#5c2f73);}" +
             ".sw-tab-card.sw-type-raw{background:#6b4226;} .sw-tab-card.sw-type-manufactured{background:#8d8d90;} .sw-tab-card.sw-type-civilian{background:#3b6ea5;} .sw-tab-card.sw-type-commercial{background:#e0a82e;color:#2b2017;} .sw-tab-card.sw-type-military{background:#b3342c;} .sw-tab-card.sw-type-science{background:#3f8f5f;} .sw-tab-card.sw-type-guild{background:#7b4397;}" +
-            ".sw-action-bar{display:flex;gap:8px;padding:0 12px;margin-top:8px;}" +
-            ".sw-btn{flex:1;padding:10px;border-radius:6px;border:none;font-size:13px;font-weight:bold;text-transform:uppercase;cursor:pointer;}" +
+            ".sw-action-bar{display:flex;gap:10px;padding:0 14px;margin-top:10px;}" +
+            ".sw-btn{flex:1;padding:13px;border-radius:8px;border:none;font-size:14px;font-weight:bold;text-transform:uppercase;cursor:pointer;}" +
             ".sw-btn-build{background:#c9a227;color:#2b2017;}" +
             ".sw-btn-wonder{background:rgba(255,255,255,.12);color:#e8dcc4;}" +
             ".sw-btn-discard{background:rgba(179,52,44,.4);color:#e8dcc4;}" +
             ".sw-btn:disabled{opacity:.35;cursor:not-allowed;}" +
-            ".sw-action-bar-extra{margin-top:6px;}" +
+            ".sw-action-bar-extra{margin-top:8px;}" +
             ".sw-btn-olympia{background:rgba(63,143,95,.55);color:#fff;}" +
             ".sw-btn-halikarnassos{background:rgba(123,67,151,.55);color:#fff;}" +
-            ".sw-waiting-msg{text-align:center;font-size:13px;color:#c9a227;font-weight:bold;padding:6px 12px;}" +
-            ".sw-message{text-align:center;color:#ffd700;font-weight:900;font-size:14px;padding:6px 12px;}" +
+            ".sw-waiting-msg{text-align:center;font-size:15px;color:#c9a227;font-weight:bold;padding:8px 14px;}" +
+            ".sw-message{text-align:center;color:#ffd700;font-weight:900;font-size:16px;padding:8px 14px;}" +
             "#swModalOverlay{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}" +
             "#swModalOverlay.sw-show{display:flex;}" +
-            "#swModalBox{background:#2b2017;border:1px solid #c9a227;border-radius:10px;padding:16px;width:100%;max-width:360px;max-height:70vh;overflow-y:auto;color:#e8dcc4;}" +
-            "#swModalBox h3{margin:0 0 10px;color:#c9a227;font-size:16px;}" +
-            "#swModalClose{display:block;margin:14px auto 0;background:#c9a227;color:#2b2017;border:none;padding:8px 20px;border-radius:6px;font-weight:bold;}" +
+            "#swModalBox{background:#2b2017;border:1px solid #c9a227;border-radius:12px;padding:18px;width:100%;max-width:400px;max-height:72vh;overflow-y:auto;color:#e8dcc4;}" +
+            "#swModalBox h3{margin:0 0 12px;color:#c9a227;font-size:18px;}" +
+            "#swModalClose{display:block;margin:16px auto 0;background:#c9a227;color:#2b2017;border:none;padding:9px 22px;border-radius:7px;font-weight:bold;font-size:14px;}" +
         "</style>"
     );
 }
@@ -1052,10 +1124,10 @@ function renderSevenWonders() {
 
     if (st.phase === "ended") {
         el.innerHTML = swStyles() +
-            "<div class=\"sw-wrap\" style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;text-align:center;padding:20px;\">" +
-                "<div style=\"font-size:26px;color:#ffd700;font-weight:900;\">GAME OVER</div>" +
-                "<div style=\"font-size:16px;color:#e8dcc4;font-weight:bold;\">" + escapeHtml(st.message) + "</div>" +
-                "<div style=\"font-size:13px;color:#a3cfbb;\">" + escapeHtml(st.lastResult || "") + "</div>" +
+            "<div class=\"sw-wrap\" style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:24px;\">" +
+                "<div style=\"font-size:30px;color:#ffd700;font-weight:900;\">GAME OVER</div>" +
+                "<div style=\"font-size:18px;color:#e8dcc4;font-weight:bold;\">" + escapeHtml(st.message) + "</div>" +
+                "<div style=\"font-size:14px;color:#a3cfbb;\">" + escapeHtml(st.lastResult || "") + "</div>" +
             "</div>";
         return;
     }
@@ -1090,7 +1162,7 @@ function renderSevenWonders() {
                 "<div class=\"sw-hand-label\"><span>Your hand — pick a card</span><span>💰" + me.coins + "</span></div>" +
                 "<div class=\"sw-hand-scroll\">" +
                     me.hand.map(function (card, idx) {
-                        const selected = me.pendingChoice && me.pendingChoice.cardIdx === idx;
+                        const selected = me.pendingChoice && me.pendingChoice.action === "select" && me.pendingChoice.cardIdx === idx;
                         return swCardHtml(card, idx, me, selected);
                     }).join("") +
                 "</div>" +
@@ -1129,6 +1201,11 @@ window.initSevenWondersGame = function () {
     renderSevenWonders();
 };
 
+/* Incoming syncs used to blow away your in-progress card selection if
+   another player's action synced first (you'd tap a card, then it
+   would silently deselect because the whole state object gets
+   replaced wholesale). Now we snapshot a local, not-yet-broadcast
+   "select" choice and re-apply it after the incoming state lands. */
 window.handleIncomingSevenWondersSync = function (payload) {
     if (!payload || !payload.state) return;
 
@@ -1141,7 +1218,21 @@ window.handleIncomingSevenWondersSync = function (payload) {
         return;
     }
 
+    const myId = getMyId();
+    const previous = window.sevenWondersState;
+    const previousMe = previous && previous.players ? previous.players.find(function (p) { return p.id === myId; }) : null;
+    const unsyncedSelection = (previousMe && previousMe.pendingChoice && previousMe.pendingChoice.action === "select")
+        ? previousMe.pendingChoice
+        : null;
+
     window.sevenWondersState = payload.state;
+
+    if (unsyncedSelection) {
+        const newMe = window.sevenWondersState.players.find(function (p) { return p.id === myId; });
+        if (newMe && !newMe.pendingChoice && newMe.hand[unsyncedSelection.cardIdx]) {
+            newMe.pendingChoice = unsyncedSelection;
+        }
+    }
 
     if (window.chaserGame) window.chaserGame.activeGame = "7 Wonders";
 
