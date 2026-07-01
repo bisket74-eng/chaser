@@ -1205,7 +1205,7 @@ let discardCtaHtml = "";
 if (s.phase === "discard" && canLocalPlayerActFor(meIndex)) {
     const rem = 2 - selected.length;
     if (rem > 0) {
-        discardCtaHtml = '<div class="crib-discard-cta pending">Pick ' + rem + ' more card' + (rem === 1 ? "" : "s") + ' for the crib</div>';
+        discardCtaHtml = '<div class="crib-discard-cta pending">Pick ' + rem + ' card' + (rem === 1 ? "" : "s") + ' for the crib</div>';
     } else {
         discardCtaHtml = '<button class="crib-discard-cta ready" onclick="confirmCribbageDiscards()" type="button">Send to Crib \u2714</button>';
     }
