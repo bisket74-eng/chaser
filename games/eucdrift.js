@@ -1737,38 +1737,72 @@ window.__eucDriftRunGame = function () {
         let type;
         if (r < 0.38) type = "crate";
         else if (r < 0.58) type = "smallBarrier";
-        else if (r < 0.74) type = "fullBarrier";
+        else if (r < 0.74) type = "pairedBlock"; // replaces fullBarrier — see below
         else type = "ramp";
 
         const zone = currentZoneName();
+        const spawnX = world.scrollX + W + 80;
+
+        if (type === "pairedBlock") {
+            // Instead of a banner/tape stretching across both lanes on
+            // poles, put a crate in one lane and a cone in the other at
+            // the same position — no ground path is clear, so the only
+            // way through is to be airborne over both at once. Looks
+            // like real obstacles you recognize, reads immediately as
+            // "jump this," and no finish-line visual confusion.
+            const crateDef = OBSTACLE_DEFS.crate;
+            const coneDef = OBSTACLE_DEFS.smallBarrier;
+
+            // crate goes in top lane, cone in bottom (or vice versa randomly)
+            const crateIsTop = Math.random() < 0.5;
+            const crateLane = crateIsTop ? LANE_TOP : LANE_BOTTOM;
+            const coneLane = crateIsTop ? LANE_BOTTOM : LANE_TOP;
+
+            obstacles.push({
+                id: obstacleIdSeq++, type: "crate",
+                variant: pickVariant(zone, "crate"),
+                x: spawnX,
+                w: crateDef.w, h: crateDef.h,
+                lane: crateLane,
+                triggered: false,
+            });
+            obstacles.push({
+                id: obstacleIdSeq++, type: "smallBarrier",
+                variant: pickVariant(zone, "smallBarrier"),
+                x: spawnX,
+                w: coneDef.w, h: coneDef.h,
+                lane: coneLane,
+                triggered: false,
+            });
+
+            // Always preceded by a ramp so there's always a way to be
+            // airborne when the pair arrives — same guarantee the old
+            // fullBarrier had, now without the ugly banner.
+            const rampLane = Math.random() < 0.5 ? LANE_TOP : LANE_BOTTOM;
+            obstacles.push({
+                id: obstacleIdSeq++, type: "ramp",
+                variant: pickVariant(zone, "ramp"),
+                x: spawnX - 190,
+                w: OBSTACLE_DEFS.ramp.w, h: OBSTACLE_DEFS.ramp.h,
+                lane: rampLane,
+                triggered: false,
+            });
+            return; // early return — no further processing needed
+        }
+
         const def = OBSTACLE_DEFS[type];
         const lane = Math.random() < 0.5 ? LANE_TOP : LANE_BOTTOM;
 
         const entry = {
             id: obstacleIdSeq++, type,
             variant: pickVariant(zone, type),
-            x: world.scrollX + W + 80,
+            x: spawnX,
             w: def.w, h: def.h,
-            lane: type === "fullBarrier" ? null : lane, // full barriers span both lanes
-            triggered: false, // ramps: only launch once per pass
+            lane: lane,
+            triggered: false,
         };
 
         obstacles.push(entry);
-
-        // Full barriers can ONLY be cleared by jumping (no dodge works on
-        // something spanning both lanes), so they ALWAYS get a guaranteed
-        // setup ramp placed shortly before them, in one lane, so there is
-        // always a way to already be airborne when the barrier arrives.
-        if (type === "fullBarrier") {
-            obstacles.push({
-                id: obstacleIdSeq++, type: "ramp",
-                variant: pickVariant(zone, "ramp"),
-                x: entry.x - 190,
-                w: OBSTACLE_DEFS.ramp.w, h: OBSTACLE_DEFS.ramp.h,
-                lane: Math.random() < 0.5 ? LANE_TOP : LANE_BOTTOM,
-                triggered: false,
-            });
-        }
     }
 
     function updateObstacles(dt) {
