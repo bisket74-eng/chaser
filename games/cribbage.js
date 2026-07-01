@@ -350,6 +350,7 @@ maybeAdvanceAfterDiscards(s);
 
 renderCribbage();
 syncCribbage();
+runCalloutLoop();
 queueBot();
 
 };
@@ -931,7 +932,7 @@ syncCribbage();
 clearTimeout(window.__cribbageCountAdvanceTimer);
 window.__cribbageCountAdvanceTimer = setTimeout(function () {
     beginCountingStage(s);
-}, 500);
+}, 1500);
 
 }
 
@@ -982,6 +983,7 @@ if (s.phase === "discard" && s.hands[botIndex] && s.hands[botIndex].length === 6
     maybeAdvanceAfterDiscards(s);
     renderCribbage();
     syncCribbage();
+    runCalloutLoop();
     return;
 }
 
@@ -1375,8 +1377,8 @@ el.innerHTML = [
         /* counted hand – shows during counting/roundover so you can see what's being scored */
         countedHandHtml,
 
-        /* your hand – no bottom button row */
-        '<div class="crib-section-title" style="margin:6px 0 5px;">Your Cards</div>',
+        /* your hand – label hidden during counting so it doesn't clash with the counted hand panel */
+        (s.phase !== "counting" && s.phase !== "roundover" ? '<div class="crib-section-title" style="margin:6px 0 5px;">Your Cards</div>' : ''),
         '<div class="crib-hand">', myHandHtml, '</div>',
     '</div>'
 ].join("");
@@ -1409,7 +1411,7 @@ if (s.phase === "roundover") {
         if (window.cribbageState && window.cribbageState.phase === "roundover") {
             window.nextCribbageRound();
         }
-    }, 1500);
+    }, 2000);
 }
 
 queueBot();
