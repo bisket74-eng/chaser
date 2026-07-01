@@ -416,6 +416,7 @@ if (bothReady) {
     s.phase = "cut";
     s.message = "Cut the deck.";
     addLog(s, "Crib has 4 cards. Cut card is next.");
+    queueCallouts(s, ["Tap the deck to cut!"]);
 }
 
 }
@@ -859,6 +860,7 @@ s.countStages = [
         playerIndex: dealer,
         score: cribScore.total,
         phrases: cribScore.phrases,
+        isCrib: true,
         applied: false
     }
 ];
@@ -1135,48 +1137,6 @@ return (
 
 }
 
-function turnBannerHtml(s, meIndex, opponentIndex, canSayGo, myDiscardReady) {
-const myTurn = s.turnIndex === meIndex;
-let cls = "theirs";
-let text = "Waiting...";
-
-if (s.phase === "discard") {
-    if (canLocalPlayerActFor(meIndex)) {
-        cls = "mine";
-        text = myDiscardReady ? "Tap \u201cSend to Crib\u201d" : "Pick 2 cards for the crib";
-    } else {
-        cls = "theirs";
-        text = "Waiting for " + s.players[opponentIndex].name + " to discard...";
-    }
-} else if (s.phase === "cut") {
-    cls = "mine";
-    text = "Tap the deck to cut";
-} else if (s.phase === "pegging") {
-    if (canSayGo) {
-        cls = "go-needed";
-        text = "YOU CAN'T PLAY \u2014 TAP GO";
-    } else if (myTurn) {
-        cls = "mine";
-        text = "YOUR TURN \u2014 play a card";
-    } else {
-        cls = "theirs";
-        text = "Waiting for " + s.players[opponentIndex].name + "...";
-    }
-} else if (s.phase === "counting") {
-    cls = "theirs";
-    text = "Counting points...";
-} else if (s.phase === "roundover") {
-    cls = "theirs";
-    text = "Round complete \u2014 next round starting...";
-} else if (s.phase === "gameover") {
-    cls = "mine";
-    text = s.message || "Game over";
-}
-
-return '<div class="crib-turn-banner ' + cls + '">' + escapeHtml(text) + '</div>';
-
-}
-
 function renderCribbage() {
 const el = canvas();
 const s = window.cribbageState;
@@ -1195,12 +1155,11 @@ const opponent = s.players[opponentIndex] || s.players[1];
 const myTurn = s.turnIndex === meIndex;
 const selected = selectedDiscardIndexes(s, meIndex);
 const myDiscardReady = s.phase === "discard" && selected.length === 2 && canLocalPlayerActFor(meIndex);
-const canCut = s.phase === "cut";
 const myPlayable = s.phase === "pegging" ? playableCards(s, meIndex) : [];
 const canSayGo = s.phase === "pegging" && myTurn && canLocalPlayerActFor(meIndex) && myPlayable.length === 0;
 
+/* --- hand HTML --- */
 let myHandHtml = "";
-
 if (s.phase === "discard") {
     myHandHtml = s.hands[meIndex].map(function (card, i) {
         return cardButton(card, "toggleCribbageDiscard(" + i + ")", selected.indexOf(i) !== -1, !canLocalPlayerActFor(meIndex));
@@ -1215,143 +1174,177 @@ if (s.phase === "discard") {
         return cardButton(card, "", false, true);
     }).join("");
 }
-
 if (!myHandHtml) {
     myHandHtml = '<div class="crib-empty-hand">No cards left.</div>';
 }
 
+/* --- pegging row --- */
 const playedHtml = s.peggingStack.length
     ? s.peggingStack.map(function (entry) {
         return '<div class="crib-played-card">' + escapeHtml(cardLabel(entry.card)) + '</div>';
     }).join("")
     : '<div class="crib-empty-play">Pegging cards will show here.</div>';
 
+/* --- cut card: tappable + pulsing when it is cut phase --- */
+const cutCardRed = s.cutCard && (s.cutCard.suit === "♥" || s.cutCard.suit === "♦");
 const cutHtml = s.cutCard
-    ? '<div class="crib-cut-card ' + ((s.cutCard.suit === "♥" || s.cutCard.suit === "♦") ? "red" : "") + '">' + escapeHtml(cardLabel(s.cutCard)) + '</div>'
-    : '<div class="crib-cut-card empty">?</div>';
+    ? '<div class="crib-cut-card ' + (cutCardRed ? "red" : "") + '">' + escapeHtml(cardLabel(s.cutCard)) + '</div>'
+    : (s.phase === "cut"
+        ? '<button class="crib-cut-card cut-prompt" onclick="cutCribbageDeck()" type="button"><div style="font-size:16px;line-height:1.1;">✂</div><div style="font-size:8px;letter-spacing:.5px;margin-top:2px;">TAP<br>TO CUT</div></button>'
+        : '<div class="crib-cut-card empty">?</div>');
 
 const dealerName = s.players[s.dealerIndex] ? s.players[s.dealerIndex].name : "Dealer";
-const turnName = s.players[s.turnIndex] ? s.players[s.turnIndex].name : "";
 
-let smallStatus = "";
+/* --- GO button lives inside the pegging row --- */
+const goBtnHtml = '<button class="crib-go-btn' + (canSayGo ? " active" : "") + '" onclick="cribbageGo()" ' + (canSayGo ? "" : "disabled") + ' type="button">GO</button>';
 
-if (s.phase === "discard") {
-    smallStatus = selected.length + " of 2 selected";
-} else if (s.phase === "cut") {
-    smallStatus = "Cut the deck";
-} else if (s.phase === "pegging") {
-    smallStatus = "Turn: " + turnName;
-} else if (s.phase === "counting") {
-    smallStatus = s.message || "Counting points...";
-} else if (s.phase === "roundover") {
-    smallStatus = "Next round starting...";
-} else if (s.phase === "gameover") {
-    smallStatus = s.message || "Game over";
+/* --- discard CTA replaces all bottom buttons during discard phase --- */
+let discardCtaHtml = "";
+if (s.phase === "discard" && canLocalPlayerActFor(meIndex)) {
+    const rem = 2 - selected.length;
+    if (rem > 0) {
+        discardCtaHtml = '<div class="crib-discard-cta pending">Pick ' + rem + ' more card' + (rem === 1 ? "" : "s") + ' for the crib</div>';
+    } else {
+        discardCtaHtml = '<button class="crib-discard-cta ready" onclick="confirmCribbageDiscards()" type="button">Send to Crib \u2714</button>';
+    }
 }
 
+/* --- score callout overlay --- */
 const calloutHtml = s.activeCallout
     ? '<div class="crib-callout-wrap"><div class="crib-callout">' + escapeHtml(s.activeCallout) + '</div></div>'
     : "";
 
-const goCtaHtml = canSayGo
-    ? '<button class="crib-go-cta" onclick="cribbageGo()" type="button">TAP TO SAY GO</button>'
-    : "";
+/* --- show the hand/crib being counted so you can follow along --- */
+let countedHandHtml = "";
+if (s.phase === "counting" || s.phase === "roundover") {
+    const stageIndex = (s.phase === "roundover")
+        ? Math.max(0, (s.countStages || []).length - 1)
+        : s.countStageIndex;
+    const stage = (s.countStages || [])[stageIndex] || null;
+    if (stage) {
+        const countedCards = stage.isCrib
+            ? (s.crib || [])
+            : (s.hands[stage.playerIndex] || []);
+        const countedCardsHtml = countedCards.map(function (card) {
+            return cardButton(card, "", false, true);
+        }).join("") || '<div class="crib-empty-hand">No cards.</div>';
+        countedHandHtml = [
+            '<div class="crib-counting-hand">',
+                '<div class="crib-counting-title">', escapeHtml(stage.shortTitle), '</div>',
+                '<div class="crib-hand" style="margin:0 auto 4px;">', countedCardsHtml, '</div>',
+            '</div>'
+        ].join("");
+    }
+}
 
 el.innerHTML = [
     '<style>',
-        '.crib-wrap{position:relative;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:0 8px 86px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;}',
+        /* wrap */
+        '.crib-wrap{position:relative;width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;box-sizing:border-box;padding:4px 8px 40px;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;}',
 
-        '.crib-turn-banner{position:sticky;top:0;z-index:7;margin:0 -8px 6px;padding:9px 8px;font-size:14px;font-weight:900;text-transform:uppercase;letter-spacing:.3px;box-shadow:0 3px 8px rgba(0,0,0,.4);}',
-        '.crib-turn-banner.mine{background:#2d6a30;color:#ffffff;}',
-        '.crib-turn-banner.theirs{background:#444444;color:#e2f0d9;}',
-        '.crib-turn-banner.go-needed{background:#c0182a;color:#ffffff;animation:cribPulseBanner 1s ease-in-out infinite;}',
-        '@keyframes cribPulseBanner{0%,100%{filter:brightness(1);}50%{filter:brightness(1.35);}}',
-
-        '.crib-callout-wrap{position:sticky;top:38px;z-index:6;height:0;overflow:visible;}',
-        '.crib-callout{display:inline-block;margin-top:4px;background:#1c1006;color:#ffd700;border:3px solid #ffd700;border-radius:12px;padding:10px 18px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 6px 18px rgba(0,0,0,.55);animation:cribCalloutPop 1.9s ease forwards;}',
+        /* callout overlay – sticks near the top, takes no layout space */
+        '.crib-callout-wrap{position:sticky;top:0;z-index:6;height:0;overflow:visible;pointer-events:none;}',
+        '.crib-callout{display:inline-block;margin-top:6px;background:#1c1006;color:#ffd700;border:3px solid #ffd700;border-radius:12px;padding:10px 18px;font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.4px;box-shadow:0 6px 18px rgba(0,0,0,.55);animation:cribCalloutPop 1.9s ease forwards;}',
         '@keyframes cribCalloutPop{0%{opacity:0;transform:scale(.75) translateY(-4px);}12%{opacity:1;transform:scale(1.08);}22%{transform:scale(1);}82%{opacity:1;}100%{opacity:0;transform:scale(.96);}}',
 
-        '.crib-stage{color:#e2f0d9;font-size:14px;font-weight:900;text-transform:uppercase;margin:8px auto 4px;letter-spacing:.5px;}',
-        '.crib-small-status{color:#bfae7a;font-size:12px;font-weight:700;margin:0 auto 7px;min-height:14px;}',
-        '.crib-score-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:0 auto 8px;max-width:560px;}',
-        '.crib-player{background:#e2f0d9;color:#1e4620;border:2px solid transparent;border-radius:10px;padding:4px 5px;box-sizing:border-box;font-weight:900;min-height:48px;display:flex;flex-direction:column;justify-content:center;}',
-        '.crib-player.turn{border-color:#ff0000;box-shadow:0 0 0 2px #ff0000;}',
-        '.crib-player.dealer{outline:2px solid #ffd700;}',
-        '.crib-player-name{font-size:14px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-        '.crib-player-score{font-size:20px;line-height:1;margin-top:2px;}',
-        '.crib-mini{font-size:10px;margin-top:1px;color:#2d6a30;text-transform:uppercase;}',
+        /* stage label */
+        '.crib-stage{color:#e2f0d9;font-size:13px;font-weight:900;text-transform:uppercase;margin:0 auto 5px;letter-spacing:.5px;}',
 
-        '.crib-board{background:#3a2412;background-image:repeating-linear-gradient(100deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 2px, transparent 2px, transparent 7px), linear-gradient(160deg,#4a2e15,#2c1a0c);border:4px solid #6b3f1d;border-radius:16px;box-shadow:inset 0 0 18px rgba(0,0,0,.6), 0 8px 20px rgba(0,0,0,.5);max-width:560px;margin:0 auto 8px;overflow:hidden;padding:11px 10px 7px;box-sizing:border-box;}',
-        '.crib-track-row{margin:0 auto 10px;text-align:left;}',
-        '.crib-track-label{font-size:11px;font-weight:900;color:#ffd700;margin:0 0 4px 2px;text-shadow:0 1px 1px rgba(0,0,0,.6);}',
+        /* player score row – one line each, name + score side by side */
+        '.crib-score-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 auto 6px;max-width:560px;}',
+        '.crib-player{background:#e2f0d9;color:#1e4620;border:3px solid transparent;border-radius:10px;padding:6px 10px;box-sizing:border-box;font-weight:900;min-height:36px;display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:4px;}',
+        '.crib-player.turn{border-color:#ff8c00;background:#fff3e0;box-shadow:0 0 0 1px #ff8c00;}',
+        '.crib-player.dealer{outline:2px solid #b8960c;outline-offset:1px;}',
+        '.crib-player-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}',
+        '.crib-player-score{font-size:20px;line-height:1;flex-shrink:0;}',
+
+        /* wooden cribbage board */
+        '.crib-board{background:#3a2412;background-image:repeating-linear-gradient(100deg, rgba(255,255,255,.025) 0px, rgba(255,255,255,.025) 2px, transparent 2px, transparent 7px), linear-gradient(160deg,#4a2e15,#2c1a0c);border:4px solid #6b3f1d;border-radius:16px;box-shadow:inset 0 0 18px rgba(0,0,0,.6), 0 6px 16px rgba(0,0,0,.5);max-width:560px;margin:0 auto 6px;overflow:hidden;padding:9px 10px 5px;box-sizing:border-box;}',
+        '.crib-track-row{margin:0 auto 9px;text-align:left;}',
+        '.crib-track-label{font-size:11px;font-weight:900;color:#ffd700;margin:0 0 3px 2px;text-shadow:0 1px 1px rgba(0,0,0,.6);}',
         '.crib-track{height:22px;background:#241407;border:2px solid #8a5a2b;border-radius:999px;position:relative;box-sizing:border-box;overflow:visible;box-shadow:inset 0 3px 6px rgba(0,0,0,.7);}',
         '.crib-track-fill{position:absolute;left:6px;right:6px;top:0;bottom:0;background-image:radial-gradient(circle,#0a0500 0 1.6px,transparent 2.1px);background-size:9px 9px;background-position:0 5px,5px 14px;opacity:.95;}',
-
         '.crib-peg{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;transform:translate(-50%,-50%);box-sizing:border-box;z-index:2;}',
         '.crib-peg.front{border:2px solid #fff2c4;box-shadow:0 0 5px rgba(0,0,0,.8), inset 0 -2px 2px rgba(0,0,0,.35), inset 0 1px 1px rgba(255,255,255,.7);}',
         '.crib-peg.back{width:9px;height:9px;opacity:.5;border:1.5px solid #fff2c4;box-shadow:0 0 3px rgba(0,0,0,.6);z-index:1;}',
         '.crib-peg.p0{background:radial-gradient(circle at 35% 30%, #ff8a80, #d6001c 70%);}',
         '.crib-peg.p1{background:radial-gradient(circle at 35% 30%, #8ec9ff, #1559a8 70%);}',
-
         '.crib-track-num{position:absolute;top:50%;transform:translateY(-50%);font-size:9px;font-weight:900;color:#e2f0d9;opacity:.75;z-index:1;}',
         '.crib-track-num.finish{right:8px;}',
 
-        '.crib-table{background:#123d18;border:2px solid #e2f0d9;border-radius:14px;box-shadow:0 8px 20px rgba(0,0,0,.35);max-width:560px;margin:0 auto 8px;overflow:hidden;}',
+        /* game table */
+        '.crib-table{background:#123d18;border:2px solid #e2f0d9;border-radius:14px;box-shadow:0 6px 16px rgba(0,0,0,.35);max-width:560px;margin:0 auto 6px;overflow:hidden;}',
         '.crib-table-head{display:grid;grid-template-columns:1fr 86px 1fr;gap:6px;align-items:center;background:#0b2410;border-bottom:2px solid #ffd700;padding:7px;}',
         '.crib-count-box{background:#ffd700;color:#1e4620;border-radius:11px;padding:5px 4px;font-weight:900;}',
         '.crib-count-number{font-size:24px;line-height:1;}',
         '.crib-count-label{font-size:9px;text-transform:uppercase;}',
         '.crib-cut-label{font-size:10px;font-weight:900;color:#e2f0d9;text-transform:uppercase;}',
-        '.crib-cut-card{width:46px;height:58px;margin:2px auto 0;background:#ffffff;color:#111;border-radius:8px;border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;box-sizing:border-box;}',
+        '.crib-cut-card{width:46px;height:58px;margin:2px auto 0;background:#ffffff;color:#111;border-radius:8px;border:2px solid #ffd700;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;box-sizing:border-box;flex-direction:column;}',
         '.crib-cut-card.red{color:#dc3545;}',
         '.crib-cut-card.empty{background:#234b25;color:#ffd700;}',
-        '.crib-play-area{padding:7px;}',
-        '.crib-section-title{font-size:13px;font-weight:900;color:#ffd700;text-transform:uppercase;margin:8px 0 5px;}',
+        /* cut-prompt: pulsing tap target */
+        '@keyframes cribCutPulse{0%,100%{border-color:#ffd700;box-shadow:none;}50%{border-color:#fff;box-shadow:0 0 10px #ffd700;}}',
+        '.crib-cut-card.cut-prompt{background:#1a3d1c;color:#ffd700;border:2px dashed #ffd700;cursor:pointer;animation:cribCutPulse 1.1s ease-in-out infinite;font-size:11px;text-align:center;line-height:1.2;}',
+
+        /* pegging row + GO button */
+        '.crib-play-area{padding:6px 7px 7px;}',
+        '.crib-pegging-header{display:flex;justify-content:space-between;align-items:center;margin:0 0 5px;}',
+        '.crib-section-title{font-size:13px;font-weight:900;color:#ffd700;text-transform:uppercase;margin:0;}',
         '.crib-played-row{display:flex;gap:5px;justify-content:center;align-items:center;flex-wrap:wrap;min-height:38px;}',
         '.crib-played-card{background:#ffffff;color:#111;border:2px solid #ffd700;border-radius:8px;min-width:42px;padding:5px 4px;font-weight:900;box-sizing:border-box;}',
         '.crib-empty-play,.crib-empty-hand{color:#ffd700;font-size:13px;font-weight:900;padding:7px;}',
-        '.crib-hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 auto 8px;max-width:560px;}',
+
+        /* circular GO button inside pegging row */
+        '@keyframes cribPulseGo{0%,100%{box-shadow:0 0 0 0 rgba(192,24,42,.7);}60%{box-shadow:0 0 0 8px rgba(192,24,42,0);}}',
+        '.crib-go-btn{width:44px;height:44px;border-radius:50%;border:3px solid #444;background:#2a2a2a;color:#666;font-size:11px;font-weight:900;letter-spacing:.5px;flex-shrink:0;cursor:default;}',
+        '.crib-go-btn.active{border-color:#c0182a;background:#c0182a;color:#fff;cursor:pointer;animation:cribPulseGo 1s ease-out infinite;}',
+
+        /* hand cards */
+        '.crib-hand{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:0 auto 6px;max-width:560px;}',
         '.crib-card{position:relative;width:48px;height:66px;border-radius:8px;border:2px solid #ffffff;background:#ffffff;color:#111;font-weight:900;box-shadow:0 3px 7px rgba(0,0,0,.35);box-sizing:border-box;}',
         '.crib-card .rank{position:absolute;top:5px;left:6px;font-size:17px;}',
         '.crib-card .suit{position:absolute;bottom:5px;right:7px;font-size:22px;}',
         '.crib-card.red{color:#dc3545;}',
         '.crib-card.black{color:#111111;}',
-        '.crib-card.selected{border:4px solid #ff0000;transform:translateY(-5px);}',
-        '.crib-card:disabled{opacity:.9;transform:none;}',
-        '.crib-actions{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:8px auto 8px;max-width:560px;}',
-        '.crib-actions button{border:none;border-radius:999px;padding:9px 13px;font-size:13px;font-weight:900;background:#ffd700;color:#1e4620;box-shadow:0 3px 9px rgba(0,0,0,.35);}',
-        '.crib-actions button:disabled{background:#777!important;color:#222!important;box-shadow:none!important;}',
+        '.crib-card.selected{border:4px solid #ff8c00;transform:translateY(-5px);}',
+        '.crib-card:disabled{opacity:.85;transform:none;}',
 
-        '.crib-go-cta{position:sticky;bottom:8px;left:0;right:0;display:block;width:calc(100% - 16px);max-width:400px;margin:10px auto 0;border:none;border-radius:999px;padding:14px 10px;font-size:16px;font-weight:900;letter-spacing:.5px;background:#c0182a;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.55);animation:cribPulseBanner 1s ease-in-out infinite;z-index:8;}',
+        /* inline discard CTA – replaces all bottom buttons */
+        '.crib-discard-cta{display:block;width:calc(100% - 0px);max-width:400px;margin:4px auto 6px;border-radius:999px;padding:11px 16px;font-size:14px;font-weight:900;text-align:center;border:none;box-sizing:border-box;}',
+        '.crib-discard-cta.pending{background:#223a24;color:#8dc990;border:2px dashed #4a7a50;}',
+        '.crib-discard-cta.ready{background:#ffd700;color:#1e4620;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;}',
 
-        '@media(max-width:390px),(max-height:735px){.crib-wrap{padding:0 6px 88px;}.crib-stage{font-size:13px;}.crib-player{min-height:44px;padding:3px 5px;}.crib-player-score{font-size:19px;}.crib-card{width:44px;height:62px;}.crib-card .rank{font-size:15px;}.crib-card .suit{font-size:20px;}.crib-table-head{grid-template-columns:1fr 78px 1fr;}.crib-actions button{padding:8px 11px;font-size:12px;}.crib-callout{font-size:15px;padding:8px 12px;}}',
+        /* counted hand panel – shown during counting so you can see what's being scored */
+        '.crib-counting-hand{background:#0b2410;border:2px solid #ffd700;border-radius:12px;max-width:560px;margin:0 auto 6px;padding:8px 8px 5px;}',
+        '.crib-counting-title{font-size:11px;font-weight:900;color:#ffd700;text-transform:uppercase;letter-spacing:.5px;margin:0 0 6px;}',
+
+        '@media(max-width:390px),(max-height:735px){.crib-wrap{padding:4px 6px 32px;}.crib-stage{font-size:12px;}.crib-player{min-height:32px;padding:5px 8px;}.crib-player-score{font-size:18px;}.crib-card{width:44px;height:62px;}.crib-card .rank{font-size:15px;}.crib-card .suit{font-size:20px;}.crib-table-head{grid-template-columns:1fr 78px 1fr;}.crib-callout{font-size:15px;padding:8px 12px;}.crib-go-btn{width:40px;height:40px;font-size:10px;}}',
     '</style>',
 
     '<div class="crib-wrap">',
-        turnBannerHtml(s, meIndex, opponentIndex, canSayGo, myDiscardReady),
         calloutHtml,
 
         '<div class="crib-stage">', escapeHtml(phaseLabel(s)), '</div>',
-        '<div class="crib-small-status">', escapeHtml(smallStatus), '</div>',
 
+        /* player boxes – one line: name left, score right, orange border = active turn */
         '<div class="crib-score-row">',
-            '<div class="crib-player ', s.turnIndex === meIndex ? "turn " : "", s.dealerIndex === meIndex ? "dealer" : "", '">',
-                '<div class="crib-player-name">', escapeHtml(me.name), '</div>',
-                '<div class="crib-player-score">', Number(me.score || 0), '</div>',
-                '<div class="crib-mini">', s.dealerIndex === meIndex ? "Dealer / Crib" : "Pone", '</div>',
+            '<div class="crib-player', (s.turnIndex === meIndex ? " turn" : ""), (s.dealerIndex === meIndex ? " dealer" : ""), '">',
+                '<span class="crib-player-name">', escapeHtml(me.name), '</span>',
+                '<span class="crib-player-score">', Number(me.score || 0), '</span>',
             '</div>',
-            '<div class="crib-player ', s.turnIndex === opponentIndex ? "turn " : "", s.dealerIndex === opponentIndex ? "dealer" : "", '">',
-                '<div class="crib-player-name">', escapeHtml(opponent.name), '</div>',
-                '<div class="crib-player-score">', Number(opponent.score || 0), '</div>',
-                '<div class="crib-mini">', s.dealerIndex === opponentIndex ? "Dealer / Crib" : "Pone", '</div>',
+            '<div class="crib-player', (s.turnIndex === opponentIndex ? " turn" : ""), (s.dealerIndex === opponentIndex ? " dealer" : ""), '">',
+                '<span class="crib-player-name">', escapeHtml(opponent.name), '</span>',
+                '<span class="crib-player-score">', Number(opponent.score || 0), '</span>',
             '</div>',
         '</div>',
 
+        /* wooden peg board */
         '<div class="crib-board">',
             renderPegTrack(s.players[0], 0),
             renderPegTrack(s.players[1], 1),
         '</div>',
 
+        /* game table */
         '<div class="crib-table">',
             '<div class="crib-table-head">',
                 '<div>',
@@ -1364,25 +1357,27 @@ el.innerHTML = [
                 '</div>',
                 '<div>',
                     '<div class="crib-cut-label">Crib</div>',
-                    '<div class="crib-cut-card empty" style="font-size:12px;padding:4px;line-height:1.1;">', escapeHtml(dealerName), '</div>',
+                    '<div class="crib-cut-card empty" style="font-size:11px;padding:3px;line-height:1.1;">', escapeHtml(dealerName), '</div>',
                 '</div>',
             '</div>',
             '<div class="crib-play-area">',
-                '<div class="crib-section-title">Pegging Row</div>',
+                '<div class="crib-pegging-header">',
+                    '<div class="crib-section-title">Pegging Row</div>',
+                    goBtnHtml,
+                '</div>',
                 '<div class="crib-played-row">', playedHtml, '</div>',
             '</div>',
         '</div>',
 
-        '<div class="crib-section-title">Your Cards</div>',
+        /* discard CTA – only shows during discard phase for local player */
+        discardCtaHtml,
+
+        /* counted hand – shows during counting/roundover so you can see what's being scored */
+        countedHandHtml,
+
+        /* your hand – no bottom button row */
+        '<div class="crib-section-title" style="margin:6px 0 5px;">Your Cards</div>',
         '<div class="crib-hand">', myHandHtml, '</div>',
-
-        '<div class="crib-actions">',
-            '<button onclick="confirmCribbageDiscards()" ', myDiscardReady ? "" : "disabled", ' type="button">Send to Crib</button>',
-            '<button onclick="cutCribbageDeck()" ', canCut ? "" : "disabled", ' type="button">Cut Card</button>',
-            '<button onclick="cribbageGo()" ', canSayGo ? "" : "disabled", ' type="button">Go</button>',
-        '</div>',
-
-        goCtaHtml,
     '</div>'
 ].join("");
 
