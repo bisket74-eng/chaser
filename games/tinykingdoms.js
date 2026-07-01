@@ -478,7 +478,7 @@ return ev.id;
 }
 
 function wonderCost(st) {
-return { food: 2, coins: 2, science: 1 };
+return { food: 3, coins: 3, science: 2 };
 }
 
 function canBuildWonder(p) {
@@ -680,7 +680,7 @@ if (resource === "coins") return Math.floor(p.coins / 2);
 if (resource === "science") return p.science * 1;
 if (resource === "army") return p.army;
 if (resource === "shield") return p.shield;
-if (resource === "wonder") return p.wonder * 3;
+if (resource === "wonder") return p.wonder * 2;
 if (resource === "secret") return secretGoalMet(p) ? SECRET_GOAL_POINTS : 0;
 return 0;
 }
@@ -1245,7 +1245,7 @@ return (
             '<div class="tk-help-row"><b>⚔️ Train:</b> Gain +2 army and +1 point. Opponents cannot see your army unless a raid reveals it.</div>' +
             '<div class="tk-help-row"><b>🛡️ Guard:</b> Gain +2 shield and +1 point. Opponents cannot see your shield unless a raid reveals it.</div>' +
             '<div class="tk-help-row"><b>🔥 Raid:</b> The higher your army is above the current score leader\'s army (and their shield, which counts as partial defense), the better your odds of success - but it is never a guaranteed win or loss. If you succeed and they have no shield, you steal 2 resources and score +1. If they have shield, you break 1 shield, steal 1 resource, and score +1. If the raid fails, nothing happens.</div>' +
-            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs 🍞2 food, 🪙2 coins, and 📚1 study. Your first Wonder scores 7, second scores 8, and so on.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Costs 🍞3 food, 🪙3 coins, and 📚2 study. Your first Wonder scores 7, second scores 8, and so on.</div>' +
 
             '<h3 class="tk-help-section-title">2. Automatic Round Events</h3>' +
             '<div class="tk-help-row"><b>🌾 Good Harvest:</b> Everyone gains 1 food.</div>' +
@@ -1267,7 +1267,7 @@ return (
 
             '<h3 class="tk-help-section-title">5. Ending Bonus Points</h3>' +
             '<div class="tk-help-row"><b>📚 Study:</b> Worth 1 point each.</div>' +
-            '<div class="tk-help-row"><b>✨ Wonder:</b> Worth 3 points each.</div>' +
+            '<div class="tk-help-row"><b>✨ Wonder:</b> Worth 2 points each.</div>' +
             '<div class="tk-help-row"><b>⚔️ Army:</b> Worth 1 point each.</div>' +
             '<div class="tk-help-row"><b>🛡️ Shield:</b> Worth 1 point each.</div>' +
             '<div class="tk-help-row"><b>🍞 Food & 🪙 Coins:</b> Every 2 leftover food or coins equals 1 point. Odd leftovers round down.</div>' +
@@ -1521,10 +1521,10 @@ el.innerHTML = [
         '.tk-wrap{position:relative;width:100%;height:100%;overflow:hidden;box-sizing:border-box;color:#e2f0d9;font-family:Arial,sans-serif;text-align:center;background:linear-gradient(180deg,#092a12,#031906);}',
         '.tk-zoom-viewport{width:100%;height:100%;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-y;box-sizing:border-box;padding:8px 8px 116px;}',
         '.tk-zoom-content{width:100%;max-width:760px;margin:0 auto;transform-origin:top left;will-change:transform;}',
-        '.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:9px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:72px;}',
+        '.tk-event{position:relative;display:grid;grid-template-columns:34% 66%;align-items:center;background:linear-gradient(180deg,#fff5b8,#ffd700);color:#1e4620;border:3px solid #ffffff;border-radius:16px;padding:5px 10px;margin:0 auto 8px;box-shadow:0 0 0 2px #ffd700,0 4px 10px rgba(0,0,0,.34);line-height:1.05;min-height:52px;}',
         '.tk-event-round{border-right:2px solid rgba(30,70,32,.28);height:100%;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;padding-left:22px;padding-right:48px;box-sizing:border-box;}',
         '.tk-event-round span{font-size:15px;font-weight:900;letter-spacing:2px;line-height:1;}',
-        '.tk-event-round b{font-size:48px;font-weight:900;line-height:.82;margin-top:3px;}',
+        '.tk-event-round b{font-size:38px;font-weight:900;line-height:.82;margin-top:1px;}',
         '.tk-event-info{padding-left:10px;text-align:center;}',
         '.tk-event-label{display:inline-block;background:#1e4620;color:#ffd700;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:900;letter-spacing:.5px;margin-bottom:4px;}',
         '.tk-event-title{font-size:21px;font-weight:900;color:#1e4620;}',
@@ -1587,7 +1587,7 @@ el.innerHTML = [
         '.tk-actions.tk-round-locked{border-color:#777!important;}',
         '.tk-actions.tk-round-locked .tk-action:not(.help){background:#777!important;color:#222!important;box-shadow:none!important;opacity:.55!important;}',
         '.tk-new{grid-column:1 / -1;background:#ffd700;font-size:20px;min-height:52px;}',
-        '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);}',
+        '.tk-secret-bottom{background:#ffffff;color:#1e4620;border:2px solid #ffd700;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.28);margin-top:10px;}',
         '.tk-help-overlay{position:fixed;inset:0;background:#e2f0d9!important;z-index:2147483000!important;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#1e4620!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
         '.tk-help-close-x{position:fixed;bottom:20px;right:16px;border:none;background:#b00020!important;color:#ffffff!important;font-size:22px;font-weight:900;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3);z-index:2147483001!important;text-shadow:none!important;filter:none!important;opacity:1!important;}',
         '.tk-help-card{max-width:640px;margin:0 auto;width:100%;min-height:100%;text-align:left;padding:40px 20px 90px;box-sizing:border-box;color:#1e4620!important;font-size:16px;line-height:1.4;text-shadow:none!important;filter:none!important;opacity:1!important;background:#e2f0d9!important;}',
@@ -1605,7 +1605,7 @@ el.innerHTML = [
         '.tk-round-intro-event-title{font-size:34px;font-weight:900;line-height:1.05;}',
         '.tk-round-intro-event-desc{font-size:18px;font-weight:900;line-height:1.2;margin-top:8px;}',
         '@keyframes tkRoundIntroPop{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:scale(1);}}',
-        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-event{grid-template-columns:33% 67%;padding:8px 7px;margin-bottom:5px;border-width:3px;min-height:66px;}.tk-event-round{align-items:flex-start;padding-left:14px;padding-right:38px;}.tk-event-round span{font-size:12px;letter-spacing:1.5px;}.tk-event-round b{font-size:39px;line-height:.82;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-help-card{font-size:14px;padding:35px 14px 90px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}.tk-round-intro-box{padding:18px 14px;border-radius:20px;}.tk-round-intro-label{font-size:23px;}.tk-round-intro-number{font-size:92px;}.tk-round-intro-event-icon{font-size:50px;}.tk-round-intro-event-title{font-size:27px;}.tk-round-intro-event-desc{font-size:15px;}}',
+        '@media(max-width:430px){.tk-zoom-viewport{padding:6px 6px 126px;}.tk-event{grid-template-columns:33% 67%;padding:4px 7px;margin-bottom:5px;border-width:3px;min-height:46px;}.tk-event-round{align-items:flex-start;padding-left:14px;padding-right:38px;}.tk-event-round span{font-size:12px;letter-spacing:1.5px;}.tk-event-round b{font-size:30px;line-height:.82;}.tk-event-info{padding-left:7px;}.tk-event-label{font-size:9px;padding:2px 7px;margin-bottom:3px;}.tk-event-title{font-size:17px;}.tk-event-desc{font-size:11px;}.tk-message{font-size:15px;margin-bottom:5px;min-height:18px;}.tk-board{gap:6px;}.tk-player-card{padding:6px;border-radius:12px;}.tk-player-name{font-size:16px;}.tk-player-card.turn .tk-player-name{font-size:18px;}.tk-last{font-size:11px;}.tk-score{font-size:16px;min-width:32px;padding:4px 5px;}.tk-resource-grid{gap:4px;}.tk-resource{padding:4px 1px;border-radius:8px;border-width:2px;}.tk-resource-icon{font-size:16px;}.tk-resource-num{font-size:15px;}.tk-resource-label{font-size:7px;}.tk-resource.army-hidden .tk-resource-num{font-size:18px;}.tk-secret{font-size:10px;padding:4px 6px;margin-top:5px;}.tk-float{font-size:11px;padding:2px 6px;top:-9px;}.tk-actions{grid-template-columns:repeat(4,1fr);grid-template-rows:50px 50px;gap:4px;margin-top:6px;padding:4px;border-radius:13px;}.tk-action{padding:4px 1px;}.tk-action span{font-size:18px;}.tk-action b{font-size:11px;}.tk-action small{font-size:10px;}.tk-mini-log{font-size:11px;padding:5px;}.tk-secret-bottom{margin-top:8px;}.tk-help-card{font-size:14px;padding:35px 14px 90px;}.tk-help-title{font-size:22px;}.tk-help-section-title{font-size:16px;}.tk-round-intro-box{padding:18px 14px;border-radius:20px;}.tk-round-intro-label{font-size:23px;}.tk-round-intro-number{font-size:92px;}.tk-round-intro-event-icon{font-size:50px;}.tk-round-intro-event-title{font-size:27px;}.tk-round-intro-event-desc{font-size:15px;}}',
     '</style>',
 
     '<div class="tk-wrap">',
