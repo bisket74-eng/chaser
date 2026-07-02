@@ -4,7 +4,6 @@
    Solitaire / Hangman: window.initEucDriftGame() builds the
    whole thing inside #gameCanvasContainer).
    ============================================================ */
-
 window.initEucDriftGame = function () {
     const container = document.getElementById("gameCanvasContainer");
     if (!container) return;
