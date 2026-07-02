@@ -7702,29 +7702,26 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 </script>    
 
 <script>
-/* CHASER PATCH — round Bike/Car button that uses original route system */
+/* CHASER PATCH — use round Bike button as CARTO/CyclOSM map switcher */
 (function () {
-    if (window.__chaserRoundMirrorBikeCarButtonInstalled) return;
-    window.__chaserRoundMirrorBikeCarButtonInstalled = true;
+    if (window.__chaserBikeButtonMapSwitcherInstalled) return;
+    window.__chaserBikeButtonMapSwitcherInstalled = true;
 
-    let lastTapAt = 0;
+    let currentMapLayer = "carto";
+    let cartoLayer = null;
+    let cyclosmLayer = null;
 
     function byId(id) {
         return document.getElementById(id);
     }
 
-    function getMode() {
-        return localStorage.getItem("chaser_route_mode") === "car" ? "car" : "bike";
-    }
-
     function installStyle() {
-        if (byId("chaser-round-mirror-bike-car-style")) return;
+        if (byId("chaser-bike-map-switch-style")) return;
 
         const style = document.createElement("style");
-        style.id = "chaser-round-mirror-bike-car-style";
+        style.id = "chaser-bike-map-switch-style";
         style.innerHTML = `
-            /* Hide the original wide Bike/Car button visually,
-               but leave it in the page so its real route code still works. */
+            /* Hide the old original Bike/Car route-control button */
             .chaser-route-mode-control {
                 display:block !important;
                 width:0 !important;
@@ -7771,6 +7768,12 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 -webkit-backdrop-filter:blur(3px) !important;
             }
 
+            #chaserMirrorRouteModeBtn.cycle-map-on {
+                background:#1e4620 !important;
+                color:#ffd700 !important;
+                border-color:#e2f0d9 !important;
+            }
+
             #chaserMirrorRouteModeBtn:active {
                 transform:scale(.94) !important;
             }
@@ -7779,7 +7782,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 width:30px !important;
                 height:30px !important;
                 display:block !important;
-                color:#1e4620 !important;
+                color:inherit !important;
             }
 
             body:has(#chatOverlay.open) #chaserMirrorRouteModeBtn {
@@ -7805,36 +7808,72 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         `;
     }
 
-    function carSvg() {
-        return `
-            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linejoin="round"></path>
-                <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
-                <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
-                <path d="M22 28h20"
-                      fill="none" stroke="currentColor" stroke-width="5"
-                      stroke-linecap="round"></path>
-            </svg>
-        `;
+    function createLayers() {
+        if (!cartoLayer) {
+            cartoLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+                maxZoom:22,
+                maxNativeZoom:19,
+                attribution:"&copy; CartoDB"
+            });
+        }
+
+        if (!cyclosmLayer) {
+            cyclosmLayer = L.tileLayer("https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", {
+                maxZoom:20,
+                maxNativeZoom:20,
+                attribution:"&copy; OpenStreetMap contributors, CyclOSM, OSM-FR"
+            });
+        }
     }
 
-    function renderMirrorButton() {
+    function removeExistingBaseTiles() {
+        if (typeof map === "undefined" || !map) return;
+
+        map.eachLayer(function (layer) {
+            if (layer instanceof L.TileLayer) {
+                try {
+                    map.removeLayer(layer);
+                } catch (e) {}
+            }
+        });
+    }
+
+    function setMapLayer(layerName) {
+        if (typeof map === "undefined" || !map || typeof L === "undefined") return;
+
+        createLayers();
+
+        removeExistingBaseTiles();
+
+        if (layerName === "cycle") {
+            cyclosmLayer.addTo(map);
+            currentMapLayer = "cycle";
+        } else {
+            cartoLayer.addTo(map);
+            currentMapLayer = "carto";
+        }
+
+        renderButton();
+    }
+
+    function renderButton() {
         const btn = byId("chaserMirrorRouteModeBtn");
         if (!btn) return;
 
-        const mode = getMode();
+        btn.innerHTML = bikeSvg();
 
-        btn.innerHTML = mode === "car" ? carSvg() : bikeSvg();
-        btn.title = mode === "car" ? "Car route mode" : "Bike route mode";
+        const cycleOn = currentMapLayer === "cycle";
+
+        btn.classList.toggle("cycle-map-on", cycleOn);
+
+        btn.title = cycleOn
+            ? "CyclOSM bike map on — tap for clean map"
+            : "Clean map on — tap for CyclOSM bike map";
+
         btn.setAttribute("aria-label", btn.title);
     }
 
-    function ensureMirrorButton() {
+    function ensureButton() {
         installStyle();
 
         let btn = byId("chaserMirrorRouteModeBtn");
@@ -7849,23 +7888,10 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 e.preventDefault();
                 e.stopPropagation();
 
-                const now = Date.now();
-                if (now - lastTapAt < 450) return;
-                lastTapAt = now;
-
-                const originalBtn = byId("chaserRouteModeBtn");
-
-                if (originalBtn) {
-                    originalBtn.click();
-                }
-
-                setTimeout(renderMirrorButton, 80);
-                setTimeout(renderMirrorButton, 300);
-
-                if (typeof window.chaserRefreshRoute === "function") {
-                    setTimeout(function () {
-                        window.chaserRefreshRoute();
-                    }, 350);
+                if (currentMapLayer === "cycle") {
+                    setMapLayer("carto");
+                } else {
+                    setMapLayer("cycle");
                 }
             }, true);
 
@@ -7878,12 +7904,12 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             }, true);
         }
 
-        renderMirrorButton();
+        renderButton();
         return btn;
     }
 
-    function positionMirrorButton() {
-        const btn = ensureMirrorButton();
+    function positionButton() {
+        const btn = ensureButton();
         const zoom = document.querySelector(".leaflet-control-zoom");
 
         if (!btn || !zoom) return;
@@ -7912,20 +7938,34 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 
     installStyle();
-    ensureMirrorButton();
-    positionMirrorButton();
+    ensureButton();
+
+    /*
+       Force default back to original clean CARTO Voyager every fresh app load.
+       The CyclOSM choice is NOT saved.
+    */
+    setMapLayer("carto");
+    positionButton();
 
     setInterval(function () {
         installStyle();
-        ensureMirrorButton();
-        positionMirrorButton();
-        renderMirrorButton();
+        ensureButton();
+        positionButton();
+        renderButton();
     }, 800);
 
-    window.addEventListener("resize", positionMirrorButton);
+    window.addEventListener("resize", positionButton);
     window.addEventListener("orientationchange", function () {
-        setTimeout(positionMirrorButton, 500);
+        setTimeout(positionButton, 500);
     });
+
+    window.chaserSetCleanMap = function () {
+        setMapLayer("carto");
+    };
+
+    window.chaserSetCycleMap = function () {
+        setMapLayer("cycle");
+    };
 })();
 </script>
 
