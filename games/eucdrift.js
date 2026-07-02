@@ -206,39 +206,85 @@ window.initEucDriftGame = function () {
                 background: rgba(255,255,255,0.14);
             }
 
-            /* Right thumb: simple two-way speed control (forward/back only) */
-            .eucSpeedPad {
+            /* Right thumb: self-centering horizontal speed slider.
+               Drag right = forward throttle, drag left = brake/reverse.
+               Releases spring back to center; speed decays naturally. */
+            .eucSpeedSliderWrap {
                 display: flex;
-                align-items: center;
-                background: rgba(255,255,255,0.04);
-                border: 1.5px solid rgba(255,255,255,0.12);
-                border-radius: 18px;
-                overflow: hidden;
-                height: 64px;
-            }
-            .eucSpeedArrow {
-                width: 64px; height: 64px;
-                display: flex;
-                flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 3px;
-                background: transparent;
-                border: none;
-                color: rgba(234,242,248,0.6);
-                font-family: inherit;
-                padding: 0;
-                transition: background 0.08s, color 0.08s;
             }
-            .eucSpeedArrow.active {
-                background: rgba(255,255,255,0.16);
-                color: #fff;
+            .eucSliderTrack {
+                position: relative;
+                width: 160px;
+                height: 64px;
+                background: rgba(255,255,255,0.04);
+                border: 1.5px solid rgba(255,255,255,0.12);
+                border-radius: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: visible;
+                touch-action: none;
+                user-select: none;
             }
-            .eucSpeedArrow svg { width: 22px; height: 22px; }
-            .eucSpeedLabel { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; }
-            .eucSpeedDivider {
-                width: 1.5px; height: 38px;
-                background: rgba(255,255,255,0.14);
+            .eucSliderCenter {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 2px;
+                height: 28px;
+                background: rgba(255,255,255,0.18);
+                border-radius: 1px;
+                pointer-events: none;
+            }
+            .eucSliderLabel {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                color: rgba(234,242,248,0.35);
+                pointer-events: none;
+            }
+            .eucSliderLabelLeft  { left: 10px; }
+            .eucSliderLabelRight { right: 10px; }
+            .eucSliderPuck {
+                position: absolute;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: radial-gradient(circle at 38% 32%,
+                    rgba(255,255,255,0.22),
+                    rgba(255,255,255,0.06));
+                border: 2px solid rgba(255,255,255,0.28);
+                box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+                transition: background 0.1s, border-color 0.1s, transform 0.08s;
+                pointer-events: none;
+                will-change: transform;
+            }
+            .eucSliderPuck.active {
+                background: radial-gradient(circle at 38% 32%,
+                    rgba(255,255,255,0.38),
+                    rgba(255,255,255,0.12));
+                border-color: rgba(255,255,255,0.55);
+            }
+            .eucSliderPuck.forward {
+                border-color: rgba(79,209,197,0.7);
+                background: radial-gradient(circle at 38% 32%,
+                    rgba(79,209,197,0.35),
+                    rgba(79,209,197,0.12));
+            }
+            .eucSliderPuck.reverse {
+                border-color: rgba(255,120,80,0.7);
+                background: radial-gradient(circle at 38% 32%,
+                    rgba(255,120,80,0.35),
+                    rgba(255,120,80,0.12));
             }
 
             .eucOverlay {
@@ -373,16 +419,13 @@ window.initEucDriftGame = function () {
                     </button>
                 </div>
 
-                <div class="eucSpeedPad" id="eucSpeedPad">
-                    <button class="eucSpeedArrow" id="eucSpeedBack" type="button">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                        <span class="eucSpeedLabel">SLOW</span>
-                    </button>
-                    <div class="eucSpeedDivider"></div>
-                    <button class="eucSpeedArrow" id="eucSpeedFwd" type="button">
-                        <span class="eucSpeedLabel">FAST</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
+                <div class="eucSpeedSliderWrap" id="eucSpeedSliderWrap">
+                    <div class="eucSliderTrack" id="eucSliderTrack">
+                        <div class="eucSliderCenter"></div>
+                        <div class="eucSliderLabel eucSliderLabelLeft">SLOW</div>
+                        <div class="eucSliderLabel eucSliderLabelRight">FAST</div>
+                        <div class="eucSliderPuck" id="eucSliderPuck"></div>
+                    </div>
                 </div>
             </div>
 
@@ -571,8 +614,9 @@ window.__eucDriftRunGame = function () {
     // Input
     // ------------------------------------------------------------
     const input = {
-        leanLeft: false,
-        leanRight: false,
+        leanLeft: false,   // keyboard only (legacy / dev)
+        leanRight: false,  // keyboard only (legacy / dev)
+        sliderT: 0,        // -1..+1 from the speed slider; 0 = centered/released
     };
 
     const listenerCleanups = [];
@@ -582,23 +626,7 @@ window.__eucDriftRunGame = function () {
     }
 
     function setupPad() {
-        const speedMap = [
-            ["eucSpeedBack", "leanLeft"],
-            ["eucSpeedFwd", "leanRight"],
-        ];
-        speedMap.forEach(([id, key]) => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const down = (e) => { e.preventDefault(); input[key] = true; el.classList.add("active"); };
-            const up = (e) => { if (e) e.preventDefault(); input[key] = false; el.classList.remove("active"); };
-            on(el, "touchstart", down, { passive: false });
-            on(el, "touchend", up, { passive: false });
-            on(el, "touchcancel", up, { passive: false });
-            on(el, "mousedown", down);
-            on(el, "mouseup", up);
-            on(el, "mouseleave", up);
-        });
-
+        // ── LEFT PAD: vertical dodge (up/down lane switch) ──────────────
         const dodgeMap = [
             ["eucPadUp", 1],
             ["eucPadDown", -1],
@@ -615,18 +643,124 @@ window.__eucDriftRunGame = function () {
             on(el, "mouseup", up);
             on(el, "mouseleave", up);
         });
+
+        // ── RIGHT PAD: self-centering horizontal speed slider ────────────
+        // sliderInput is a signed value -1..+1 read each frame by update()
+        // (replaces the old leanLeft/leanRight boolean flags for speed).
+        // When the thumb lifts, it springs back to 0 and speed decays.
+        const track = document.getElementById("eucSliderTrack");
+        const puck  = document.getElementById("eucSliderPuck");
+        if (!track || !puck) return;
+
+        const TRACK_HALF = 56;   // px either side of center the puck can travel
+        const DEADZONE   = 0.08; // fraction of travel below which = no input
+
+        let sliderActive = false;
+        let sliderOriginX = 0;   // x coord of the initial touch on the track
+        let sliderRawT = 0;      // raw position -1..+1
+
+        // Haptic: vibrate(pattern) on supported devices (Android Chrome)
+        let hapticInterval = null;
+        function startHaptic(intensity) {
+            // intensity 0..1; pulse width scales with it
+            stopHaptic();
+            if (!navigator.vibrate) return;
+            const pulse = Math.max(8, Math.round(intensity * 40));
+            const gap   = Math.max(20, Math.round(60 - intensity * 40));
+            hapticInterval = setInterval(() => {
+                navigator.vibrate(pulse);
+            }, pulse + gap);
+        }
+        function stopHaptic() {
+            if (hapticInterval) { clearInterval(hapticInterval); hapticInterval = null; }
+            if (navigator.vibrate) navigator.vibrate(0);
+        }
+
+        function updateSliderVisual(t) {
+            // t: -1..+1
+            const offsetPx = t * TRACK_HALF;
+            // Use CSS transform so it's GPU-accelerated
+            puck.style.transform = `translate(calc(-50% + ${offsetPx}px), -50%)`;
+            puck.classList.toggle("forward", t >  DEADZONE);
+            puck.classList.toggle("reverse", t < -DEADZONE);
+        }
+
+        function onSliderStart(clientX) {
+            sliderActive = true;
+            sliderOriginX = clientX;
+            sliderRawT = 0;
+            puck.classList.add("active");
+            // Initial gentle buzz on contact — confirms the control is live
+            if (navigator.vibrate) navigator.vibrate(12);
+        }
+
+        function onSliderMove(clientX) {
+            if (!sliderActive) return;
+            const rect = track.getBoundingClientRect();
+            const trackCenterX = rect.left + rect.width / 2;
+            const dx = clientX - trackCenterX;
+            sliderRawT = Math.max(-1, Math.min(1, dx / TRACK_HALF));
+            updateSliderVisual(sliderRawT);
+
+            // Haptic intensity proportional to how far off-center
+            const intensity = Math.abs(sliderRawT);
+            if (intensity > DEADZONE) {
+                startHaptic(intensity);
+            } else {
+                stopHaptic();
+            }
+
+            // Feed directly into the input system
+            input.sliderT = sliderRawT;
+        }
+
+        function onSliderEnd() {
+            if (!sliderActive) return;
+            sliderActive = false;
+            sliderRawT = 0;
+            input.sliderT = 0;
+            puck.classList.remove("active");
+            stopHaptic();
+            // Animate puck springing back to center
+            puck.style.transition = "transform 0.18s cubic-bezier(0.34,1.56,0.64,1)";
+            updateSliderVisual(0);
+            setTimeout(() => {
+                if (puck) puck.style.transition = "";
+            }, 220);
+        }
+
+        // Touch events
+        on(track, "touchstart", (e) => {
+            e.preventDefault();
+            onSliderStart(e.touches[0].clientX);
+        }, { passive: false });
+        on(track, "touchmove", (e) => {
+            e.preventDefault();
+            onSliderMove(e.touches[0].clientX);
+        }, { passive: false });
+        on(track, "touchend",   (e) => { e.preventDefault(); onSliderEnd(); }, { passive: false });
+        on(track, "touchcancel",(e) => { e.preventDefault(); onSliderEnd(); }, { passive: false });
+
+        // Mouse events (desktop / dev testing)
+        let mouseDown = false;
+        on(track, "mousedown", (e) => { mouseDown = true; onSliderStart(e.clientX); });
+        on(window,"mousemove", (e) => { if (mouseDown) onSliderMove(e.clientX); });
+        on(window,"mouseup",   ()   => { if (mouseDown) { mouseDown = false; onSliderEnd(); } });
+
+        // Expose cleanup for the haptic interval
+        listenerCleanups.push(() => stopHaptic());
     }
 
     function keydownHandler(e) {
         if (e.repeat) return;
-        if (e.code === "ArrowLeft" || e.code === "KeyA") input.leanLeft = true;
-        if (e.code === "ArrowRight" || e.code === "KeyD") input.leanRight = true;
-        if (e.code === "ArrowDown" || e.code === "KeyS") triggerDodge(-1);
-        if (e.code === "ArrowUp" || e.code === "KeyW") triggerDodge(1);
+        if (e.code === "ArrowLeft"  || e.code === "KeyA") { input.leanLeft = true;  input.sliderT = -1; }
+        if (e.code === "ArrowRight" || e.code === "KeyD") { input.leanRight = true; input.sliderT =  1; }
+        if (e.code === "ArrowDown"  || e.code === "KeyS") triggerDodge(-1);
+        if (e.code === "ArrowUp"    || e.code === "KeyW") triggerDodge(1);
     }
     function keyupHandler(e) {
-        if (e.code === "ArrowLeft" || e.code === "KeyA") input.leanLeft = false;
-        if (e.code === "ArrowRight" || e.code === "KeyD") input.leanRight = false;
+        if (e.code === "ArrowLeft"  || e.code === "KeyA") { input.leanLeft = false;  if (!input.leanRight) input.sliderT = 0; }
+        if (e.code === "ArrowRight" || e.code === "KeyD") { input.leanRight = false; if (!input.leanLeft)  input.sliderT = 0; }
     }
     on(window, "keydown", keydownHandler);
     on(window, "keyup", keyupHandler);
@@ -687,14 +821,15 @@ window.__eucDriftRunGame = function () {
     function speedNormToMph(norm) { return norm * 50; }
     function mphToSpeedNorm(mph) { return mph / 50; }
 
-    // Landing check: hit the ramp going 45 mph or faster to land clean.
-    // Below 45 = too slow, you drop off the front. No upper limit anymore —
-    // going faster than 45 is always safe (and looks more impressive).
-    const LANDING_MPH_MIN = 45;
+    // Landing check: hit the ramp going 30 mph or faster to land clean.
+    // Below 30 = too slow, you drop off the front. Lowered from 45 so
+    // players can actually succeed on early ramps before they've built
+    // up full speed — getting airborne should feel rewarding, not fatal.
+    const LANDING_MPH_MIN = 30;
 
     // Brake strength when leaning back hard (lets you nearly stop for a lane hazard).
     const BRAKE_STRENGTH = 1.35;
-    const MAX_REVERSE_SPEED_NORM = -1.00; // reverse caps out well below forward top speed
+    const MAX_REVERSE_SPEED_NORM = -0.35; // reverse caps out well below forward top speed
     const STATIONARY_FALL_SECONDS = 2; // standing still with no input this long -> you fall
 
     const TRICK_NAMES = ["360 spin", "tabletop", "one-foot grab", "superman lean", "tailwhip"];
@@ -824,7 +959,7 @@ window.__eucDriftRunGame = function () {
     const OVERHEAT_TRIGGER_SECONDS = 10;
     const OVERHEAT_WARNING_SECONDS = 2;
     const OVERHEAT_BEEP_COUNT = 5;
-    const OVERHEAT_LETOFF_SECONDS = .5;
+    const OVERHEAT_LETOFF_SECONDS = 1;
 
     function updateOverheatState(dt) {
         // Holding full forward throttle counts, same as always. So does
@@ -916,9 +1051,10 @@ window.__eucDriftRunGame = function () {
         }
 
         // lean target from input (back = brake/-1, forward = accelerate/+1)
-        let leanTarget = 0;
-        if (input.leanLeft) leanTarget -= 1;
-        if (input.leanRight) leanTarget += 1;
+        // Lean is proportional to the slider position, not just binary on/off.
+        // This means body angle, arm pose, and speed lines all smoothly
+        // reflect exactly how hard you're pushing — feels much more EUC-like.
+        let leanTarget = input.sliderT; // -1..+1 continuous from the slider
 
         if (rider.skidTimer > 0) {
             // jittery/unreliable steering while skidding on the oil slick —
@@ -1733,11 +1869,16 @@ window.__eucDriftRunGame = function () {
     }
 
     function spawnObstacle() {
+        // Early game (first 400ft): no paired blocks — only single-lane
+        // obstacles the player can dodge around. Paired blocks (which
+        // force a ramp jump) don't appear until the player has had
+        // enough time to learn the controls and build some speed.
+        const earlyGame = game.distance < 400;
         const r = Math.random();
         let type;
-        if (r < 0.38) type = "crate";
-        else if (r < 0.58) type = "smallBarrier";
-        else if (r < 0.74) type = "pairedBlock"; // replaces fullBarrier — see below
+        if (r < 0.42) type = "crate";
+        else if (r < 0.62) type = "smallBarrier";
+        else if (r < 0.76 && !earlyGame) type = "pairedBlock";
         else type = "ramp";
 
         const zone = currentZoneName();
@@ -1806,8 +1947,8 @@ window.__eucDriftRunGame = function () {
     }
 
     function updateObstacles(dt) {
-        const minGap = Math.max(300, 520 - game.distance * 0.05);
-        const maxGap = Math.max(440, 760 - game.distance * 0.07);
+        const minGap = Math.max(360, 700 - game.distance * 0.06);
+        const maxGap = Math.max(520, 980 - game.distance * 0.08);
 
         if (world.scrollX + W > nextObstacleAt) {
             spawnObstacle();
@@ -2292,313 +2433,4 @@ window.__eucDriftRunGame = function () {
             el.speedVal.innerHTML = mph + ' <span style="font-size:13px;font-weight:700;">mph</span>';
         }
         if (mph > game.topSpeedDisplay) game.topSpeedDisplay = mph;
-        el.zoneLabel.textContent = currentZoneName();
-
-        if (el.overheatBanner) {
-            el.overheatBanner.classList.toggle("eucHidden", !rider.overheatWarning);
-        }
-
-        if (el.hillBanner) {
-            const slope = hillSlopeAt(game.distance);
-            if (slope > 0.05) {
-                el.hillBanner.textContent = "▲ CLIMBING — HOLD FAST";
-                el.hillBanner.className = "eucHillClimb";
-            } else if (slope < -0.05) {
-                el.hillBanner.textContent = "▼ DESCENDING — EASE OFF";
-                el.hillBanner.className = "eucHillDescent";
-            } else {
-                el.hillBanner.className = "eucHidden";
-            }
-        }
-    }
-
-    // ============================================================
-    // LIFECYCLE
-    // ============================================================
-    let lastTime = 0;
-    let rafId = null;
-
-    function resetBackgroundLayers() {
-        // Layers only ever grow forward and never rewind, so without this
-        // a second playthrough would have its scenery cursors far ahead
-        // of the freshly-reset world.scrollX = 0, leaving a long empty
-        // gap before anything scrolls into view (looked like "the city
-        // doesn't start for several hundred feet" on repeat plays).
-        [cityFarSkyline, cityMid, cityNear, hillsFar, treesMid, treesNear, trackStadiumFar, trackCrowd, trackPylons].forEach(layer => {
-            layer.pieces.length = 0;
-            layer.cursor = 0;
-        });
-    }
-
-    function startGame() {
-        game.distance = 0;
-        game.speedNorm = 0.25;
-        game.topSpeedDisplay = 0;
-        game.trickScoreFlash = null;
-        world.scrollX = 0;
-        obstacles.length = 0;
-        nextObstacleAt = 900;
-        resetBackgroundLayers();
-        resetRider();
-        rider.y = 0;
-        rider.x = Math.min(110, W * 0.22);
-
-        el.startOverlay.classList.add("eucHidden");
-        el.gameOverOverlay.classList.add("eucHidden");
-        el.pauseOverlay.classList.add("eucHidden");
-        gameState = STATE.PLAY;
-        lastTime = performance.now();
-        rafId = requestAnimationFrame(loop);
-    }
-
-    function endGame() {
-        gameState = STATE.CRASHING;
-        const finalDist = Math.floor(game.distance);
-        if (finalDist > game.best) {
-            game.best = finalDist;
-            safeLocalSet("eucdrift_best", String(game.best));
-        }
-        el.finalScore.textContent = finalDist;
-        el.bestScore.textContent = game.best;
-        el.topSpeed.textContent = game.topSpeedDisplay + " mph";
-
-        if (el.crashReason) {
-            const reasonText = {
-                tooSlow: "Too slow off the ramp — you dropped off the front.",
-                hit: "You hit an obstacle.",
-                cutout: "Battery cut out — you went flying at full speed.",
-                fellOver: "You stood still too long and the wheel tipped over.",
-            }[rider.crashReason] || "";
-            el.crashReason.textContent = reasonText;
-        }
-
-        setTimeout(() => {
-            if (destroyed) return;
-            gameState = STATE.OVER;
-            el.gameOverOverlay.classList.remove("eucHidden");
-        }, 900);
-    }
-
-    function pauseGame() {
-        if (gameState !== STATE.PLAY) return;
-        gameState = STATE.PAUSE;
-        el.pauseOverlay.classList.remove("eucHidden");
-    }
-
-    function resumeGame() {
-        if (gameState !== STATE.PAUSE) return;
-        gameState = STATE.PLAY;
-        el.pauseOverlay.classList.add("eucHidden");
-        lastTime = performance.now();
-        rafId = requestAnimationFrame(loop);
-    }
-
-    on(el.playBtn, "click", startGame);
-    on(el.retryBtn, "click", startGame);
-    on(el.resumeBtn, "click", resumeGame);
-    on(el.pauseBtn, "click", pauseGame);
-
-    function update(dt) {
-        if (rider.cutoutFlying) {
-            // battery's already cut out — no steering, no scrolling, just
-            // playing out the forward fling until impact
-            updateRider(dt);
-            updateHUD();
-            return;
-        }
-
-        // Speed control: lean forward accelerates forward, lean back
-        // brakes and (if held through zero) reverses — an EUC's wheel
-        // works the same either direction. With NO input at all, speed
-        // decays toward true zero (not a cruise speed) since an EUC
-        // can't balance itself with no rider input.
-        const activeInput = input.leanLeft || input.leanRight;
-
-        if (input.leanRight && !input.leanLeft) {
-            game.speedNorm += 0.55 * dt;
-        } else if (input.leanLeft && !input.leanRight) {
-            // braking is strong; held through zero it carries on into
-            // reverse, capped at a slower max than forward
-            game.speedNorm -= BRAKE_STRENGTH * dt;
-        } else if (!activeInput) {
-            // no input held at all: decay toward a dead stop
-            const decay = Math.sign(game.speedNorm) * Math.min(Math.abs(game.speedNorm), 0.9 * dt);
-            game.speedNorm -= decay;
-        }
-
-        // Hill gravity — applies on top of whatever the player is doing.
-        // Uphill (positive slope) fights forward motion, so you have to
-        // actively hold FAST to keep climbing or you'll stall out.
-        // Downhill (negative slope) accelerates you forward automatically,
-        // even with no input at all, so you have to actively brake or
-        // you'll keep speeding up.
-        const slope = hillSlopeAt(game.distance);
-        if (slope > 0) {
-            // uphill: gravity pulls speed down, proportional to steepness
-            game.speedNorm -= slope * HILL_GRAVITY_BRAKE * dt;
-        } else if (slope < 0) {
-            // downhill: gravity pushes speed up, proportional to steepness
-            game.speedNorm += (-slope) * HILL_GRAVITY_FORWARD * dt;
-        }
-
-        game.speedNorm = Math.max(MAX_REVERSE_SPEED_NORM, Math.min(1.3, game.speedNorm));
-
-        // Stationary-fall: only once you're truly at a dead stop (0mph)
-        // AND holding neither button does the clock start. Holding
-        // either FAST or SLOW — even at 0mph — counts as active
-        // balancing input and keeps you up indefinitely.
-        const atFullStop = Math.abs(game.speedNorm) < 0.01;
-        if (atFullStop && !activeInput && !rider.airborne && !rider.crashed) {
-            rider.stationaryTimer = (rider.stationaryTimer || 0) + dt;
-            if (rider.stationaryTimer >= STATIONARY_FALL_SECONDS) {
-                crashRider("fellOver");
-            }
-        } else {
-            rider.stationaryTimer = 0;
-        }
-
-        const scrollSpeed = game.baseScroll * game.speedNorm;
-        world.scrollX += scrollSpeed * dt;
-        game.distance += scrollSpeed * dt * 0.06;
-
-        updateZone();
-        updateRider(dt);
-        updateObstacles(dt);
-        checkCollisions();
-        updateHUD();
-
-        if (game.trickScoreFlash && game.trickScoreFlash.timer > 0) {
-            game.trickScoreFlash.timer -= dt;
-        }
-    }
-
-    // Maximum visual tilt applied to the whole scene during the steepest
-    // part of a hill (radians). The camera rotates around the rider's
-    // fixed screen position, so the road and background visibly slope
-    // while the rider itself stays anchored where the controls expect it.
-    const HILL_MAX_TILT_RADIANS = 0.22;
-
-    function render() {
-        ctx.clearRect(0, 0, W, H);
-
-        const slope = (!rider.airborne && !rider.crashed) ? hillSlopeAt(game.distance) : 0;
-        const tilt = slope * HILL_MAX_TILT_RADIANS;
-
-        if (tilt !== 0) {
-            ctx.save();
-            const pivotX = rider.x;
-            const pivotY = riderGroundY();
-            ctx.translate(pivotX, pivotY);
-            // climbing (slope>0) tilts the horizon down to the right,
-            // i.e. the road rises ahead of the rider; descending tilts
-            // the other way, road dropping away ahead
-            ctx.rotate(-tilt);
-            ctx.translate(-pivotX, -pivotY);
-        }
-
-        drawBackground();
-        drawObstacles();
-        drawRider();
-        drawTrickFlash();
-        updateTrickButtonLabel();
-
-        if (tilt !== 0) {
-            ctx.restore();
-        }
-    }
-
-    function drawTrickFlash() {
-        if (rider.trickFlashTimer > 0) {
-            const a = Math.min(1, rider.trickFlashTimer / 0.5);
-            ctx.globalAlpha = a;
-            ctx.fillStyle = "#4fd1c5";
-            ctx.font = "bold " + Math.round(16 * riderScale()) + "px -apple-system, sans-serif";
-            ctx.textAlign = "center";
-            const labelY = riderGroundY() + rider.y - RIDER_HEIGHT * riderScale() - 70;
-            ctx.fillText(rider.trickFlashLabel + "!", rider.x, labelY);
-            ctx.globalAlpha = 1;
-        }
-        if (game.trickScoreFlash && game.trickScoreFlash.timer > 0) {
-            const a = Math.min(1, game.trickScoreFlash.timer / 0.5);
-            ctx.globalAlpha = a;
-            ctx.fillStyle = "#ffd86a";
-            ctx.font = "bold " + Math.round(18 * riderScale()) + "px -apple-system, sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("+" + Math.round(game.trickScoreFlash.amount), rider.x, riderGroundY() - 90);
-            ctx.globalAlpha = 1;
-        }
-        if (rider.skidTimer > 0) {
-            ctx.globalAlpha = 0.85;
-            ctx.fillStyle = "#ff6b5a";
-            ctx.font = "bold " + Math.round(15 * riderScale()) + "px -apple-system, sans-serif";
-            ctx.textAlign = "center";
-            ctx.fillText("SKIDDING!", rider.x, riderGroundY() - RIDER_HEIGHT * riderScale() - 50);
-            ctx.globalAlpha = 1;
-        }
-    }
-
-    function updateTrickButtonLabel() {
-        // no-op: the manual trick/action button has been removed —
-        // tricks now fire automatically while airborne (see maybeAutoTrick)
-    }
-
-    function loop(now) {
-        if (destroyed) return;
-        if (gameState !== STATE.PLAY && gameState !== STATE.CRASHING) return;
-        const dt = Math.min(0.04, (now - lastTime) / 1000);
-        lastTime = now;
-        if (gameState === STATE.PLAY) {
-            update(dt);
-        } else {
-            updateRider(dt); // crash tumble only, no scrolling/obstacles/scoring
-        }
-        render();
-        rafId = requestAnimationFrame(loop);
-    }
-
-    function idleRender() {
-        rider.y = 0;
-        rider.x = Math.min(110, W * 0.22);
-        render();
-    }
-    idleRender();
-
-    const idleResizeHandler = () => { if (gameState !== STATE.PLAY && !destroyed) idleRender(); };
-    on(window, "resize", idleResizeHandler);
-
-    el.bestScore.textContent = game.best;
-
-    // ============================================================
-    // CLEANUP — called by Chaser's exit/shutdown flow
-    // ============================================================
-    window.__eucDriftCleanup = function () {
-        destroyed = true;
-        gameState = STATE.MENU;
-        if (rafId) cancelAnimationFrame(rafId);
-        if (resizeObserver) {
-            try { resizeObserver.disconnect(); } catch (e) {}
-        }
-        listenerCleanups.forEach(fn => { try { fn(); } catch (e) {} });
-        listenerCleanups.length = 0;
-        window.__eucDriftCleanup = null;
-    };
-};
-
-/* Hook EUC Drift's teardown into Chaser's universal game exit, so
-   switching games or closing the arcade doesn't leave its RAF loop
-   or window listeners running in the background. */
-(function () {
-    if (typeof window.cleanupRunningGameEngine !== "function") return;
-    if (window.cleanupRunningGameEngine.__eucDriftWrapped) return;
-
-    const oldCleanup = window.cleanupRunningGameEngine;
-
-    window.cleanupRunningGameEngine = function () {
-        if (window.__eucDriftCleanup) {
-            try { window.__eucDriftCleanup(); } catch (e) {}
-        }
-        return oldCleanup.apply(this, arguments);
-    };
-
-    window.cleanupRunningGameEngine.__eucDriftWrapped = true;
-})();
+        el.zoneLabel.textContent = currentZoneNa
