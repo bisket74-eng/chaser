@@ -7702,10 +7702,10 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 </script>    
 
 <script>
-/* CHASER PATCH — use round Bike button as CARTO/CyclOSM map switcher */
+/* CHASER PATCH — Car/Bike button switches CARTO/CyclOSM map layers */
 (function () {
-    if (window.__chaserBikeButtonMapSwitcherInstalled) return;
-    window.__chaserBikeButtonMapSwitcherInstalled = true;
+    if (window.__chaserCarBikeMapSwitcherInstalled) return;
+    window.__chaserCarBikeMapSwitcherInstalled = true;
 
     let currentMapLayer = "carto";
     let cartoLayer = null;
@@ -7716,10 +7716,20 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     }
 
     function installStyle() {
-        if (byId("chaser-bike-map-switch-style")) return;
+        /*
+           Remove older map-switch button styles if they were from the previous version.
+           This keeps the button light green with dark green icon in both modes.
+        */
+        [
+            "chaser-bike-map-switch-style",
+            "chaser-car-bike-map-switch-style"
+        ].forEach(function (id) {
+            const oldStyle = byId(id);
+            if (oldStyle) oldStyle.remove();
+        });
 
         const style = document.createElement("style");
-        style.id = "chaser-bike-map-switch-style";
+        style.id = "chaser-car-bike-map-switch-style";
         style.innerHTML = `
             /* Hide the old original Bike/Car route-control button */
             .chaser-route-mode-control {
@@ -7768,12 +7778,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 -webkit-backdrop-filter:blur(3px) !important;
             }
 
-            #chaserMirrorRouteModeBtn.cycle-map-on {
-                background:#1e4620 !important;
-                color:#ffd700 !important;
-                border-color:#e2f0d9 !important;
-            }
-
             #chaserMirrorRouteModeBtn:active {
                 transform:scale(.94) !important;
             }
@@ -7782,7 +7786,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 width:30px !important;
                 height:30px !important;
                 display:block !important;
-                color:inherit !important;
+                color:#1e4620 !important;
             }
 
             body:has(#chatOverlay.open) #chaserMirrorRouteModeBtn {
@@ -7808,6 +7812,24 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         `;
     }
 
+    function carSvg() {
+        return `
+            <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linejoin="round"></path>
+                <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
+                <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
+                <path d="M22 28h20"
+                      fill="none" stroke="currentColor" stroke-width="5"
+                      stroke-linecap="round"></path>
+            </svg>
+        `;
+    }
+
     function createLayers() {
         if (!cartoLayer) {
             cartoLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
@@ -7821,6 +7843,7 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             cyclosmLayer = L.tileLayer("https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", {
                 maxZoom:20,
                 maxNativeZoom:20,
+                subdomains:["a", "b", "c"],
                 attribution:"&copy; OpenStreetMap contributors, CyclOSM, OSM-FR"
             });
         }
@@ -7842,7 +7865,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         if (typeof map === "undefined" || !map || typeof L === "undefined") return;
 
         createLayers();
-
         removeExistingBaseTiles();
 
         if (layerName === "cycle") {
@@ -7860,15 +7882,18 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         const btn = byId("chaserMirrorRouteModeBtn");
         if (!btn) return;
 
-        btn.innerHTML = bikeSvg();
+        const isCycle = currentMapLayer === "cycle";
 
-        const cycleOn = currentMapLayer === "cycle";
+        /*
+           Regular pretty CARTO map = car icon.
+           CyclOSM bike map = bike icon.
+           Both use the same light green button background and dark green icon.
+        */
+        btn.innerHTML = isCycle ? bikeSvg() : carSvg();
 
-        btn.classList.toggle("cycle-map-on", cycleOn);
-
-        btn.title = cycleOn
-            ? "CyclOSM bike map on — tap for clean map"
-            : "Clean map on — tap for CyclOSM bike map";
+        btn.title = isCycle
+            ? "CyclOSM bike map on — tap for regular map"
+            : "Regular map on — tap for CyclOSM bike map";
 
         btn.setAttribute("aria-label", btn.title);
     }
@@ -7883,6 +7908,10 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
             btn.id = "chaserMirrorRouteModeBtn";
             btn.type = "button";
             document.body.appendChild(btn);
+        }
+
+        if (!btn.__chaserCarBikeMapSwitcherWired) {
+            btn.__chaserCarBikeMapSwitcherWired = true;
 
             btn.addEventListener("click", function (e) {
                 e.preventDefault();
@@ -7941,8 +7970,9 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     ensureButton();
 
     /*
-       Force default back to original clean CARTO Voyager every fresh app load.
-       The CyclOSM choice is NOT saved.
+       Every fresh app load starts on the original pretty CARTO map.
+       That means it opens with the car icon.
+       The bike-map choice is not saved.
     */
     setMapLayer("carto");
     positionButton();
@@ -7968,7 +7998,6 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     };
 })();
 </script>
-
 <script>
 /* CHASER PATCH — bullseye follow-mode button, simplified buddies cycle,
    heading-up map rotation, route-found auto half-zoom, robust wake lock,
