@@ -512,7 +512,7 @@ window.__eucDriftRunGame = function () {
         try { localStorage.setItem(key, val); } catch (e) {}
     }
 
-    // ------------------------------------------------------------
+    // -----------------------------------------------------------
     // Rider color customization
     // ------------------------------------------------------------
     const RIDER_COLOR_PALETTE = [
