@@ -13,6 +13,7 @@ window.initEucDriftGame = function () {
     if (window.__eucDriftCleanup) {
         try { window.__eucDriftCleanup(); } catch (e) {}
     }
+   
 
     container.innerHTML = `
         <style>
