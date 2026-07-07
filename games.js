@@ -272,7 +272,22 @@
             }
         }
     },
-
+       
+"Deception": {
+        icon: "🎭",
+        displayName: "Deals & Deception",
+        minPlayers: 6,
+        maxPlayers: 16,
+        multiPlayer: true,
+        init: () => {
+            if (typeof window.initDeceptionGame === 'function') {
+                window.initDeceptionGame();
+            } else {
+                console.error("Deception script is not loaded.");
+                alert("Deception is currently under construction or failed to load.");
+            }
+        }
+    },
        
        Cribbage: {
     icon:"🃏",
