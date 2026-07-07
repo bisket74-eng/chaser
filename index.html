@@ -6626,15 +6626,26 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
         }
     }
 
-    function shouldRouteZoomFollow() {
-        return (
-            isSharingNow() &&
-            !!destinationText() &&
-            followHudIsShowing() &&
-            !chatIsOpen() &&
-            !pickerIsOpen()
-        );
-    }
+    function bullseyeIsSingleDotMode() {
+    const btn = byId("followModeBtn");
+
+    /*
+       fm-off = single dot mode = zoom/follow me
+       fm-on  = double circle mode = fit everybody
+    */
+    return !!(btn && btn.classList.contains("fm-off"));
+}
+
+function shouldRouteZoomFollow() {
+    return (
+        isSharingNow() &&
+        !!destinationText() &&
+        followHudIsShowing() &&
+        bullseyeIsSingleDotMode() &&
+        !chatIsOpen() &&
+        !pickerIsOpen()
+    );
+}
 
     function keepRouteFollowZoomCloser() {
         if (!shouldRouteZoomFollow()) return;
