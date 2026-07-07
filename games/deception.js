@@ -1473,6 +1473,263 @@ launchGameEngine('Deception', '🎭')
     const text = String(name || "").toLowerCase();
     return text === "deception" || text.includes("deception") || text.includes("deceit") || text.includes("deceipt") || text.includes("deals");
   }
+  /* PATCH — zoomable board + single colored symbol identity */
+let ddBoardZoom = 1;
+let ddPinchStartDistance = 0;
+let ddPinchStartZoom = 1;
+
+function clampBoardZoom(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 1;
+  return Math.max(0.65, Math.min(1.85, num));
+}
+
+function applyBoardZoom() {
+  const inner = byId("ddZoomInner");
+  const label = byId("ddZoomLabel");
+
+  if (inner) {
+    inner.style.zoom = ddBoardZoom;
+  }
+
+  if (label) {
+    label.textContent = Math.round(ddBoardZoom * 100) + "%";
+  }
+}
+
+function touchDistance(touches) {
+  if (!touches || touches.length < 2) return 0;
+
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function installZoomShell() {
+  const app = byId("deceptionApp");
+  if (!app || byId("ddZoomScroller")) return;
+
+  const currentHtml = app.innerHTML;
+
+  app.innerHTML =
+    "<div class=\"dd-zoom-tools\">" +
+      "<button class=\"dd-zoom-btn\" type=\"button\" data-dd-zoom=\"out\">−</button>" +
+      "<button class=\"dd-zoom-btn\" type=\"button\" data-dd-zoom=\"reset\" id=\"ddZoomLabel\">100%</button>" +
+      "<button class=\"dd-zoom-btn\" type=\"button\" data-dd-zoom=\"in\">+</button>" +
+    "</div>" +
+    "<div class=\"dd-zoom-scroller\" id=\"ddZoomScroller\">" +
+      "<div class=\"dd-zoom-inner\" id=\"ddZoomInner\">" +
+        currentHtml +
+      "</div>" +
+    "</div>";
+
+  applyBoardZoom();
+}
+
+function wireZoomControls() {
+  const scroller = byId("ddZoomScroller");
+
+  document.querySelectorAll("[data-dd-zoom]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      const action = btn.getAttribute("data-dd-zoom");
+
+      if (action === "in") {
+        ddBoardZoom = clampBoardZoom(ddBoardZoom + 0.12);
+      } else if (action === "out") {
+        ddBoardZoom = clampBoardZoom(ddBoardZoom - 0.12);
+      } else {
+        ddBoardZoom = 1;
+      }
+
+      applyBoardZoom();
+    });
+  });
+
+  if (scroller) {
+    scroller.addEventListener("touchstart", function (event) {
+      if (event.touches && event.touches.length === 2) {
+        ddPinchStartDistance = touchDistance(event.touches);
+        ddPinchStartZoom = ddBoardZoom;
+      }
+    }, { passive: true });
+
+    scroller.addEventListener("touchmove", function (event) {
+      if (event.touches && event.touches.length === 2) {
+        event.preventDefault();
+
+        const currentDistance = touchDistance(event.touches);
+        if (!ddPinchStartDistance || !currentDistance) return;
+
+        ddBoardZoom = clampBoardZoom(ddPinchStartZoom * (currentDistance / ddPinchStartDistance));
+        applyBoardZoom();
+      }
+    }, { passive: false });
+  }
+}
+
+function installSymbolOnlyStyles() {
+  if (byId("deceptionSymbolOnlyStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "deceptionSymbolOnlyStyles";
+
+  style.textContent = `
+    #deceptionApp.dd-wrap {
+      height: 100% !important;
+      max-height: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      padding: 6px !important;
+      box-sizing: border-box !important;
+    }
+
+    #deceptionApp .dd-zoom-tools {
+      flex: 0 0 auto !important;
+      display: flex !important;
+      justify-content: flex-end !important;
+      align-items: center !important;
+      gap: 6px !important;
+      padding: 4px 4px 7px !important;
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 50 !important;
+      background: rgba(234, 251, 231, .90) !important;
+      backdrop-filter: blur(8px) !important;
+    }
+
+    #deceptionApp .dd-zoom-btn {
+      min-width: 42px !important;
+      height: 34px !important;
+      border: 0 !important;
+      border-radius: 999px !important;
+      background: #315c3d !important;
+      color: white !important;
+      font-size: 18px !important;
+      font-weight: 900 !important;
+      box-shadow: 0 3px 8px rgba(0,0,0,.16) !important;
+    }
+
+    #deceptionApp #ddZoomLabel {
+      min-width: 58px !important;
+      font-size: 13px !important;
+    }
+
+    #deceptionApp .dd-zoom-scroller {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      width: 100% !important;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior: contain !important;
+      border-radius: 16px !important;
+      box-sizing: border-box !important;
+    }
+
+    #deceptionApp .dd-zoom-inner {
+      transform-origin: top left !important;
+      min-width: 100% !important;
+      padding-bottom: 40px !important;
+      box-sizing: border-box !important;
+    }
+
+    #deceptionApp .dd-id {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-width: auto !important;
+      width: auto !important;
+      height: auto !important;
+      padding: 0 2px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      color: var(--dd-color) !important;
+      vertical-align: middle !important;
+    }
+
+    #deceptionApp .dd-id-sm {
+      min-width: auto !important;
+      width: auto !important;
+      height: auto !important;
+      padding: 0 2px !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    #deceptionApp .dd-color-mark {
+      display: none !important;
+    }
+
+    #deceptionApp .dd-shape-mark {
+      color: var(--dd-color) !important;
+      font-size: 32px !important;
+      line-height: 1 !important;
+      font-weight: 950 !important;
+      text-shadow:
+        0 1px 0 rgba(255,255,255,.8),
+        0 2px 5px rgba(0,0,0,.20) !important;
+    }
+
+    #deceptionApp .dd-id-sm .dd-shape-mark {
+      font-size: 24px !important;
+    }
+
+    #deceptionApp .dd-player .dd-shape-mark {
+      font-size: 38px !important;
+    }
+
+    #deceptionApp .dd-symbol-line {
+      gap: 8px !important;
+    }
+
+    #deceptionApp .dd-pills .dd-id-sm .dd-shape-mark {
+      font-size: 22px !important;
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+/* Replace the old color-box-plus-symbol icon with one colored symbol */
+icon = function (player, small) {
+  if (!player) return "";
+
+  return (
+    "<span class=\"dd-id" + (small ? " dd-id-sm" : "") + "\" " +
+      "style=\"--dd-color:" + COLOR_HEX[player.color] + "\" " +
+      "title=\"" + esc(identityText(player)) + "\">" +
+      "<span class=\"dd-shape-mark\">" + esc(SHAPE_MARK[player.shape]) + "</span>" +
+    "</span>"
+  );
+};
+
+/* Keep option text short. The real visible cards/buttons use the colored symbol. */
+identity = function (player) {
+  if (!player) return "";
+  return SHAPE_MARK[player.shape];
+};
+
+/* Wrap the game after every render so it stays scrollable and zoomable */
+const oldDeceptionRender = render;
+
+render = function () {
+  oldDeceptionRender();
+
+  installSymbolOnlyStyles();
+  installZoomShell();
+
+  /*
+    The render above replaces the HTML.
+    The zoom shell wraps it one more time, so button events need to be re-attached.
+  */
+  wireEvents();
+  wireZoomControls();
+  applyBoardZoom();
+};
 
   function installLaunchWrapper() {
     if (window.__deceptionLaunchWrapperInstalled) return;
