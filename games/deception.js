@@ -42,22 +42,10 @@ Save as:
   ];
 
   const DEAL_TYPES = [
-    {
-      id: "payForVote",
-      label: "my 🪙 → their ✓"
-    },
-    {
-      id: "sellVote",
-      label: "my ✓ → their 🪙"
-    },
-    {
-      id: "voteTarget",
-      label: "both ✓ target"
-    },
-    {
-      id: "winnerSplit",
-      label: "🏆 me → their 🪙"
-    }
+    { id: "payForVote", label: "my 🪙 → their ✓" },
+    { id: "sellVote", label: "my ✓ → their 🪙" },
+    { id: "voteTarget", label: "both ✓ target" },
+    { id: "winnerSplit", label: "🏆 me → their 🪙" }
   ];
 
   let state = null;
@@ -333,6 +321,10 @@ Save as:
         box-sizing: border-box !important;
       }
 
+      .dd-top-card {
+        margin-bottom: 6px !important;
+      }
+
       .dd-top {
         display: flex !important;
         justify-content: space-between !important;
@@ -392,6 +384,51 @@ Save as:
       .dd-ok-pill {
         background: #daf6df !important;
         color: #216534 !important;
+      }
+
+      .dd-action-log {
+        margin-top: 0 !important;
+        margin-bottom: 9px !important;
+        padding: 8px 10px !important;
+        background: rgba(255, 250, 220, .94) !important;
+        border-color: rgba(160, 125, 20, .22) !important;
+      }
+
+      .dd-current-action {
+        font-size: 14px !important;
+        font-weight: 950 !important;
+        color: #3d3210 !important;
+        line-height: 1.25 !important;
+      }
+
+      .dd-log-details {
+        margin-top: 6px !important;
+      }
+
+      .dd-log-details summary {
+        cursor: pointer !important;
+        font-size: 12px !important;
+        font-weight: 950 !important;
+        color: #6a560f !important;
+        list-style: none !important;
+      }
+
+      .dd-log-details summary::-webkit-details-marker {
+        display: none !important;
+      }
+
+      .dd-log-details summary::after {
+        content: " ▼" !important;
+      }
+
+      .dd-log-details[open] summary::after {
+        content: " ▲" !important;
+      }
+
+      .dd-top-history {
+        margin-top: 7px !important;
+        max-height: 150px !important;
+        overflow: auto !important;
       }
 
       .dd-id {
@@ -597,7 +634,7 @@ Save as:
       }
 
       .dd-picker-type-menu {
-        min-width: 240px !important;
+        min-width: 250px !important;
       }
 
       .dd-picker-type-menu .dd-picker-option {
@@ -643,6 +680,34 @@ Save as:
         font-size: 20px !important;
         color: #24302b !important;
         font-weight: 950 !important;
+      }
+
+      .dd-offer-box {
+        display: grid !important;
+        gap: 6px !important;
+        padding: 7px 8px !important;
+        border-radius: 12px !important;
+        background: rgba(244, 248, 243, .94) !important;
+        border: 1px solid rgba(36,48,43,.10) !important;
+      }
+
+      .dd-offer-line {
+        display: flex !important;
+        align-items: center !important;
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+        font-size: 15px !important;
+        font-weight: 900 !important;
+        color: #24302b !important;
+        line-height: 1.25 !important;
+      }
+
+      .dd-offer-label {
+        min-width: 52px !important;
+        color: #607066 !important;
+        font-size: 12px !important;
+        font-weight: 950 !important;
+        text-transform: uppercase !important;
       }
 
       .dd-log {
@@ -765,7 +830,7 @@ Save as:
     const me = human();
 
     return "" +
-      "<div class=\"dd-card\">" +
+      "<div class=\"dd-card dd-top-card\">" +
         "<div class=\"dd-top\">" +
           "<div>" +
             "<div class=\"dd-title\">" + GAME_TITLE + "</div>" +
@@ -777,6 +842,32 @@ Save as:
             "<span class=\"dd-pill dd-money-pill\">" + (me ? money(me.money) : "🪙0") + "</span>" +
           "</div>" +
         "</div>" +
+      "</div>" +
+      renderActionLog();
+  }
+
+  function renderActionLog() {
+    if (!state || !state.log || !state.log.length) {
+      return "" +
+        "<div class=\"dd-card dd-action-log\">" +
+          "<div class=\"dd-current-action\">Current: none</div>" +
+        "</div>";
+    }
+
+    const current = state.log[state.log.length - 1];
+    const history = state.log.slice().reverse();
+
+    return "" +
+      "<div class=\"dd-card dd-action-log\">" +
+        "<div class=\"dd-current-action\">" + current + "</div>" +
+        "<details class=\"dd-log-details\">" +
+          "<summary>history</summary>" +
+          "<div class=\"dd-log dd-top-history\">" +
+            history.map(function (line) {
+              return "<div class=\"dd-logitem\">" + line + "</div>";
+            }).join("") +
+          "</div>" +
+        "</details>" +
       "</div>";
   }
 
@@ -790,7 +881,7 @@ Save as:
           "</div>" +
           "<span class=\"dd-pill dd-ok-pill\">🎭</span>" +
         "</div>" +
-        "<div class=\"dd-logitem\">symbols hide names until final</div>" +
+        "<div class=\"dd-logitem\">same symbols all game · names reveal at final</div>" +
       "</div>" +
 
       "<div class=\"dd-card\">" +
@@ -851,15 +942,9 @@ Save as:
         "</div>" +
       "</div>" +
 
-      "<div class=\"dd-two\">" +
-        "<div class=\"dd-card\">" +
-          "<div class=\"dd-section\">✓ Promises</div>" +
-          renderMyDeals(me) +
-        "</div>" +
-        "<div class=\"dd-card\">" +
-          "<div class=\"dd-section\">Log</div>" +
-          renderLog() +
-        "</div>" +
+      "<div class=\"dd-card\">" +
+        "<div class=\"dd-section\">✓ Promises</div>" +
+        renderMyDeals(me) +
       "</div>" +
 
       "<div class=\"dd-card\">" +
@@ -949,8 +1034,8 @@ Save as:
   }
 
   function renderTypePicker(name, selectedId) {
-    const selected = DEAL_TYPES.find(function (t) {
-      return t.id === selectedId;
+    const selected = DEAL_TYPES.find(function (type) {
+      return type.id === selectedId;
     }) || DEAL_TYPES[0];
 
     const open = state.ui && state.ui.openPicker === name;
@@ -1022,7 +1107,7 @@ Save as:
           "<span class=\"dd-pill\">" + statusMark(deal.status) + "</span>" +
         "</div>" +
 
-        "<div class=\"dd-symbol-line\">" + dealSymbols(deal, mode) + "</div>" +
+        renderOfferDetails(deal) +
 
         (mode === "incoming" ? "" +
           "<div class=\"dd-row\" style=\"margin-top:8px\">" +
@@ -1032,49 +1117,68 @@ Save as:
       "</div>";
   }
 
+  function renderOfferDetails(deal) {
+    const me = human();
+    const from = getPlayer(deal.from);
+    const to = getPlayer(deal.to);
+    const target = getPlayer(deal.target);
+
+    const fromIsMe = from && from.id === me.id;
+
+    let gives = "";
+    let wants = "";
+
+    if (deal.type === "payForVote") {
+      if (fromIsMe) {
+        gives = "you give " + money(deal.amount);
+        wants = "they vote ✓ for you " + icon(me, true);
+      } else {
+        gives = "they give you " + money(deal.amount);
+        wants = "you vote ✓ for them " + icon(from, true);
+      }
+    }
+
+    if (deal.type === "sellVote") {
+      if (fromIsMe) {
+        gives = "you vote ✓ for them " + icon(to, true);
+        wants = "they give you " + money(deal.amount);
+      } else {
+        gives = "they vote ✓ for you " + icon(me, true);
+        wants = "you give them " + money(deal.amount);
+      }
+    }
+
+    if (deal.type === "voteTarget") {
+      gives = fromIsMe ? "you vote ✓ for " + icon(target, true) : "they vote ✓ for " + icon(target, true);
+      wants = fromIsMe ? "they vote ✓ for " + icon(target, true) : "you vote ✓ for " + icon(target, true);
+    }
+
+    if (deal.type === "winnerSplit") {
+      if (fromIsMe) {
+        gives = "if you win 🏆, you give " + icon(to, true) + " " + money(deal.amount);
+        wants = "they vote ✓ for you " + icon(me, true);
+      } else {
+        gives = "if they win 🏆, they give you " + money(deal.amount);
+        wants = "you vote ✓ for them " + icon(from, true);
+      }
+    }
+
+    if (!gives) gives = "offer";
+    if (!wants) wants = "deal";
+
+    return "" +
+      "<div class=\"dd-offer-box\">" +
+        "<div class=\"dd-offer-line\"><span class=\"dd-offer-label\">Gives:</span> " + gives + "</div>" +
+        "<div class=\"dd-offer-line\"><span class=\"dd-offer-label\">Wants:</span> " + wants + "</div>" +
+      "</div>";
+  }
+
   function statusMark(status) {
     if (status === "accepted") return "✓";
     if (status === "rejected") return "✗";
     if (status === "pending") return "?";
     if (status === "expired") return "⌛";
     return status;
-  }
-
-  function dealSymbols(deal, mode) {
-    const from = getPlayer(deal.from);
-    const to = getPlayer(deal.to);
-    const target = getPlayer(deal.target);
-    const me = human();
-
-    if (deal.type === "payForVote") {
-      if (from && from.id === me.id) {
-        return "my " + money(deal.amount) + " → " + icon(to, true) + " ✓";
-      }
-
-      return money(deal.amount) + " → my ✓";
-    }
-
-    if (deal.type === "sellVote") {
-      if (from && from.id === me.id) {
-        return "my ✓ → " + icon(to, true) + " " + money(deal.amount);
-      }
-
-      return icon(from, true) + " ✓ → my " + money(deal.amount);
-    }
-
-    if (deal.type === "voteTarget") {
-      return "both ✓ " + icon(target, true);
-    }
-
-    if (deal.type === "winnerSplit") {
-      if (from && from.id === me.id) {
-        return "my 🏆 → " + icon(to, true) + " " + money(deal.amount);
-      }
-
-      return icon(from, true) + " 🏆 → me " + money(deal.amount);
-    }
-
-    return "🤝";
   }
 
   function renderVotePhase() {
@@ -1122,11 +1226,6 @@ Save as:
 
       "<div class=\"dd-card\">" +
         "<button class=\"dd-btn gold\" id=\"ddFinishSettlementBtn\">Next 👁</button>" +
-      "</div>" +
-
-      "<div class=\"dd-card\">" +
-        "<div class=\"dd-section\">Log</div>" +
-        renderLog() +
       "</div>";
   }
 
@@ -1174,11 +1273,6 @@ Save as:
 
       "<div class=\"dd-card\">" +
         "<button class=\"dd-btn gold\" id=\"ddNextRoundBtn\">" + (state.round >= MAX_ROUNDS ? "🏁 Final" : "▶ Next") + "</button>" +
-      "</div>" +
-
-      "<div class=\"dd-card\">" +
-        "<div class=\"dd-section\">Log</div>" +
-        renderLog() +
       "</div>";
   }
 
@@ -1198,6 +1292,8 @@ Save as:
         "</div>" +
       "</div>" +
 
+      renderActionLog() +
+
       "<div class=\"dd-card\">" +
         "<div class=\"dd-results\">" +
           ranked.map(function (p, index) {
@@ -1214,11 +1310,6 @@ Save as:
               "</div>";
           }).join("") +
         "</div>" +
-      "</div>" +
-
-      "<div class=\"dd-card\">" +
-        "<div class=\"dd-section\">Log</div>" +
-        renderLog(60) +
       "</div>";
   }
 
@@ -1244,18 +1335,6 @@ Save as:
       entries.map(function (entry) {
         return "<div class=\"dd-result\">" + icon(entry.player, true) + " ✓ " + entry.count + "</div>";
       }).join("");
-  }
-
-  function renderLog(limit) {
-    const shown = state.log.slice(-(limit || 10)).reverse();
-
-    if (!shown.length) {
-      return "<div class=\"dd-logitem dd-muted\">none</div>";
-    }
-
-    return "<div class=\"dd-log\">" + shown.map(function (line) {
-      return "<div class=\"dd-logitem\">" + line + "</div>";
-    }).join("") + "</div>";
   }
 
   function wireEvents() {
@@ -1453,6 +1532,7 @@ Save as:
       nextBtn.addEventListener("click", function () {
         if (state.round >= MAX_ROUNDS) {
           state.phase = "final";
+          log("final reveal");
         } else {
           state.round += 1;
           startRound();
