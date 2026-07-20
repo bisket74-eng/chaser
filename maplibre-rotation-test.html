@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Chaser — MapLibre Rotation Test</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+    html, body {
+        margin:0;
+        padding:0;
+        width:100%;
+        height:100%;
+        height:100dvh;
+        overflow:hidden;
+        position:fixed;
+        font-family:Arial,sans-serif;
+        background:#1e4620;
+    }
+
+    #map {
+        position:fixed;
+        top:0;
+        bottom:0;
+        left:0;
+        right:0;
+    }
+
+    #testBanner {
+        position:fixed;
+        top:0;
+        left:0;
+        right:0;
+        z-index:20;
+        background:#1e4620;
+        color:#ffd700;
+        font-weight:900;
+        font-size:13px;
+        text-align:center;
+        padding:8px 12px;
+        box-sizing:border-box;
+        box-shadow:0 3px 10px rgba(0,0,0,.3);
+    }
+
+    #controlPanel {
+        position:fixed;
+        left:15px;
+        right:15px;
+        bottom:20px;
+        z-index:20;
+        background:rgba(226, 240, 217, 0.95);
+        border-radius:16px;
+        padding:14px;
+        box-shadow:0 8px 25px rgba(0,0,0,.35);
+        box-sizing:border-box;
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+    }
+
+    #statusLine {
+        font-size:12px;
+        font-weight:700;
+        color:#1e4620;
+        text-align:center;
+    }
+
+    .test-btn-row {
+        display:flex;
+        gap:10px;
+    }
+
+    .test-btn-row button {
+        flex:1;
+        padding:13px;
+        border-radius:10px;
+        border:none;
+        font-weight:900;
+        font-size:15px;
+        cursor:pointer;
+        color:white;
+        box-shadow:0 3px 8px rgba(0,0,0,.2);
+    }
+
+    #startBtn { background:#2d6a30; }
+    #startBtn.active { background:#dc3545; }
+    #rotateToggleBtn { background:#1e4620; }
+    #rotateToggleBtn.off { background:#6c757d; }
+    #recenterBtn { background:#0056b3; }
+
+    #meMarker {
+        width:20px;
+        height:20px;
+        border-radius:50%;
+        background:#0077ff;
+        border:3px solid #ffffff;
+        box-shadow:0 0 0 2px rgba(0,119,255,.4), 0 3px 8px rgba(0,0,0,.4);
+    }
+</style>
+</head>
+<body>
+
+<div id="testBanner">🧪 MapLibre Rotation Test — separate from your real Chaser app</div>
+<div id="map"></div>
+
+<div id="controlPanel">
+    <div id="statusLine">Tap Start to begin</div>
+    <div class="test-btn-row">
+        <button id="startBtn" type="button">Start</button>
+        <button id="rotateToggleBtn" type="button">Rotate: ON</button>
+    </div>
+    <div class="test-btn-row">
+        <button id="recenterBtn" type="button">Recenter</button>
+    </div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function () {
+    const statusLine = document.getElementById("statusLine");
+    const startBtn = document.getElementById("startBtn");
+    const rotateToggleBtn = document.getElementById("rotateToggleBtn");
+    const recenterBtn = document.getElementById("recenterBtn");
+
+    let watchId = null;
+    let tracking = false;
+    let rotateEnabled = true;
+
+    let lastLat = null;
+    let lastLng = null;
+    let lastHeading = null;
+
+    const map = new maplibregl.Map({
+        container:"map",
+        style:"https://tiles.openfreemap.org/styles/liberty",
+        center:[-122.6615, 45.6387],
+        zoom:16,
+        pitch:0,
+        bearing:0,
+        attributionControl:{ compact:true }
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass:true }), "top-right");
+
+    const meMarkerEl = document.createElement("div");
+    meMarkerEl.id = "meMarker";
+
+    const meMarker = new maplibregl.Marker({ element:meMarkerEl, anchor:"center" })
+        .setLngLat([-122.6615, 45.6387]);
+
+    function setStatus(text) {
+        statusLine.textContent = text;
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+
+        const lat1 = toRad(aLat);
+        const lat2 = toRad(bLat);
+        const dLng = toRad(bLng - aLng);
+
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x =
+            Math.cos(lat1) * Math.sin(lat2) -
+            Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+
+        const x =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(toRad(aLat)) *
+            Math.cos(toRad(bLat)) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    }
+
+    function onPosition(pos) {
+        const coords = pos.coords || {};
+        const lat = Number(coords.latitude);
+        const lng = Number(coords.longitude);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        let heading = lastHeading;
+
+        if (Number.isFinite(coords.heading)) {
+            heading = coords.heading;
+        } else if (lastLat !== null && lastLng !== null) {
+            const moved = distanceMeters(lastLat, lastLng, lat, lng);
+            if (moved >= 2) {
+                heading = bearingDegrees(lastLat, lastLng, lat, lng);
+            }
+        }
+
+        lastLat = lat;
+        lastLng = lng;
+        lastHeading = heading;
+
+        meMarker.setLngLat([lng, lat]);
+
+        const opts = {
+            center:[lng, lat],
+            duration:1000,
+            easing:t => t
+        };
+
+        if (rotateEnabled && Number.isFinite(heading)) {
+            opts.bearing = heading;
+        }
+
+        map.easeTo(opts);
+
+        setStatus(
+            "lat " + lat.toFixed(5) + ", lng " + lng.toFixed(5) +
+            (Number.isFinite(heading) ? " — heading " + Math.round(heading) + "°" : " — no heading yet")
+        );
+    }
+
+    function onPositionError(err) {
+        setStatus("GPS error: " + (err && err.message ? err.message : "unknown"));
+    }
+
+    startBtn.addEventListener("click", () => {
+        if (tracking) {
+            tracking = false;
+            startBtn.textContent = "Start";
+            startBtn.classList.remove("active");
+
+            if (watchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            setStatus("Stopped");
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            setStatus("This browser has no GPS access");
+            return;
+        }
+
+        tracking = true;
+        startBtn.textContent = "Stop";
+        startBtn.classList.add("active");
+        meMarker.addTo(map);
+
+        setStatus("Waiting for GPS...");
+
+        watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
+            enableHighAccuracy:true,
+            maximumAge:0,
+            timeout:10000
+        });
+    });
+
+    rotateToggleBtn.addEventListener("click", () => {
+        rotateEnabled = !rotateEnabled;
+        rotateToggleBtn.textContent = rotateEnabled ? "Rotate: ON" : "Rotate: OFF";
+        rotateToggleBtn.classList.toggle("off", !rotateEnabled);
+
+        if (!rotateEnabled) {
+            map.easeTo({ bearing:0, duration:500 });
+        }
+    });
+
+    recenterBtn.addEventListener("click", () => {
+        if (lastLat === null || lastLng === null) return;
+
+        map.easeTo({
+            center:[lastLng, lastLat],
+            bearing:(rotateEnabled && Number.isFinite(lastHeading)) ? lastHeading : map.getBearing(),
+            duration:600
+        });
+    });
+})();
+</script>
+</body>
+</html>
