@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Chaser — MapLibre Stage 2</title>
+<meta name="theme-color" content="#1e4620" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+<style>
+    html, body {
+        margin:0;
+        padding:0;
+        width:100%;
+        height:100%;
+        height:100dvh;
+        overflow:hidden;
+        position:fixed;
+        font-family:Arial,sans-serif;
+        background:#1e4620;
+    }
+
+    #map {
+        position:fixed;
+        top:0; bottom:0; left:0; right:0;
+    }
+
+    #testBanner {
+        position:fixed;
+        top:0; left:0; right:0;
+        z-index:30;
+        background:#1e4620;
+        color:#ffd700;
+        font-weight:900;
+        font-size:12px;
+        text-align:center;
+        padding:7px 10px;
+        box-sizing:border-box;
+        box-shadow:0 3px 10px rgba(0,0,0,.3);
+    }
+
+    #appHeaderContainer {
+        position:absolute;
+        top:60px;
+        left:50%;
+        transform:translateX(-50%);
+        z-index:10;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        white-space:nowrap;
+        pointer-events:none;
+    }
+
+    #appHeader {
+        font-family:"Brush Script MT","Comic Sans MS",cursive;
+        font-size:56px;
+        color:#1e4620;
+        font-weight:900;
+        text-shadow:2px 2px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,5px 5px 10px rgba(0,0,0,0.4);
+        letter-spacing:1px;
+    }
+
+    #riderCounterWidget {
+        font-size:14px;
+        color:#1e4620;
+        font-weight:800;
+        background:#e2f0d9;
+        padding:6px 14px;
+        border-radius:12px;
+        box-shadow:0 4px 12px rgba(0,0,0,0.25);
+        margin-top:6px;
+        pointer-events:auto;
+        cursor:pointer;
+    }
+
+    #liveCountNumber { color:#dc3545; font-weight:900; }
+
+    .rider-marker {
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        cursor:pointer;
+    }
+
+    .rider-pin {
+        width:18px;
+        height:18px;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        border:2px solid #1e4620;
+        box-shadow:0 3px 8px rgba(0,0,0,.4);
+        margin-bottom:4px;
+    }
+
+    .rider-label {
+        background:rgba(255,255,255,0.95);
+        border:2px solid #1e4620;
+        border-radius:8px;
+        padding:4px 8px;
+        font-size:12px;
+        font-weight:bold;
+        color:#111;
+        white-space:nowrap;
+        box-shadow:0 3px 8px rgba(0,0,0,.3);
+        display:flex;
+        align-items:center;
+        gap:5px;
+    }
+
+    .rider-label.ghost {
+        border-style:dashed;
+        opacity:0.75;
+    }
+
+    .status-dot-stale {
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        background:#dc3545;
+        box-shadow:0 0 5px #dc3545;
+    }
+
+    .rider-label.me { border-color:#2d6a30; background:#e2f0d9; }
+
+    #controls {
+        position:absolute;
+        bottom:20px;
+        left:15px;
+        right:15px;
+        z-index:10;
+        background:#e2f0d9;
+        padding:14px;
+        border-radius:18px;
+        box-shadow:0 8px 25px rgba(0,0,0,0.35);
+        display:flex;
+        flex-direction:column;
+        gap:10px;
+        box-sizing:border-box;
+        max-width:340px;
+        margin:0 auto;
+    }
+
+    #controls input {
+        padding:11px;
+        border-radius:8px;
+        border:2px solid #2d6a30;
+        background:#1e4620;
+        color:#fff;
+        font-size:15px;
+        box-sizing:border-box;
+        width:100%;
+    }
+
+    #controls input::placeholder { color:#a3cfbb; font-style:italic; }
+
+    #startBtn {
+        padding:12px;
+        border-radius:8px;
+        border:none;
+        font-size:15px;
+        background:#2d6a30;
+        color:white;
+        cursor:pointer;
+        font-weight:bold;
+        box-shadow:0 3px 8px rgba(0,0,0,0.2);
+    }
+
+    #startBtn.sharing-active { background:#dc3545; }
+
+    .side-btn {
+        position:fixed;
+        right:15px;
+        z-index:11;
+        width:44px;
+        height:44px;
+        background:#1e4620;
+        border:3px solid #e2f0d9;
+        border-radius:50%;
+        box-shadow:0 6px 20px rgba(0,0,0,0.4);
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#e2f0d9;
+        padding:0;
+    }
+
+    #followModeBtn { bottom:230px; }
+
+    #followModeBtn .ring-outer, #followModeBtn .ring-mid, #followModeBtn .ring-dot {
+        position:absolute;
+        border-radius:50%;
+        box-sizing:border-box;
+    }
+
+    #followModeBtn .fm-wrap { position:relative; width:24px; height:24px; }
+    #followModeBtn .ring-outer { inset:0; border:2px solid #e2f0d9; }
+    #followModeBtn .ring-mid { top:5px; left:5px; right:5px; bottom:5px; border:2px solid #e2f0d9; display:none; }
+    #followModeBtn .ring-dot { top:9px; left:9px; right:9px; bottom:9px; background:#e2f0d9; }
+    #followModeBtn.fm-on .ring-mid { display:block; }
+    #followModeBtn.fm-off .ring-outer, #followModeBtn.fm-off .ring-mid { border-color:transparent; }
+
+    #radiusToggleBtn {
+        position:fixed;
+        top:70px;
+        right:15px;
+        z-index:11;
+        background:white;
+        height:40px;
+        padding:0 14px;
+        border-radius:20px;
+        box-shadow:0 3px 10px rgba(0,0,0,.35);
+        display:flex;
+        align-items:center;
+        gap:8px;
+        font-size:13px;
+        font-weight:bold;
+        color:#1e4620;
+        cursor:pointer;
+    }
+
+    #statusLine {
+        position:fixed;
+        left:15px;
+        right:70px;
+        bottom:220px;
+        z-index:10;
+        max-width:340px;
+        text-align:center;
+        font-size:11px;
+        font-weight:800;
+        color:#1e4620;
+        background:rgba(226,240,217,.9);
+        padding:5px 10px;
+        border-radius:999px;
+        box-shadow:0 3px 8px rgba(0,0,0,.2);
+        pointer-events:none;
+    }
+
+    #routeStatus {
+        position:fixed;
+        left:15px;
+        right:70px;
+        bottom:186px;
+        z-index:15;
+        max-width:340px;
+        display:none;
+        text-align:center;
+        font-size:12px;
+        font-weight:800;
+        color:#1e4620;
+        background:rgba(226,240,217,.95);
+        padding:6px 12px;
+        border-radius:999px;
+        box-shadow:0 3px 10px rgba(0,0,0,.24);
+        pointer-events:none;
+    }
+
+    #routeStatus.show { display:block; }
+
+    #routeChoiceOverlay {
+        position:fixed;
+        left:15px;
+        right:15px;
+        bottom:186px;
+        max-width:340px;
+        margin:0 auto;
+        z-index:25;
+        display:none;
+    }
+
+    #routeChoiceOverlay.show { display:block; }
+
+    #routeChoiceCard {
+        background:rgba(255,255,255,0.97);
+        border-radius:16px;
+        box-shadow:0 12px 30px rgba(0,0,0,.3);
+        overflow:hidden;
+        max-height:280px;
+        display:flex;
+        flex-direction:column;
+    }
+
+    #routeChoiceHead {
+        background:#1e4620;
+        color:#ffd700;
+        padding:10px 12px;
+        font-weight:900;
+        font-size:14px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+    }
+
+    #routeChoiceClose {
+        background:none;
+        border:none;
+        color:#fff;
+        font-size:20px;
+        font-weight:900;
+        cursor:pointer;
+    }
+
+    #routeChoiceList {
+        padding:8px;
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        overflow-y:auto;
+    }
+
+    .route-choice-btn {
+        border:none;
+        background:rgba(30,70,32,0.06);
+        border-radius:10px;
+        padding:9px 10px;
+        text-align:left;
+        cursor:pointer;
+        font-family:Arial,sans-serif;
+    }
+
+    .route-choice-name { font-size:13px; font-weight:700; color:#16321a; margin-bottom:2px; }
+    .route-choice-dist { font-size:11px; font-weight:700; color:#5c8a61; }
+    .route-choice-closest {
+        display:inline-block;
+        margin-left:6px;
+        padding:1px 7px;
+        border-radius:999px;
+        background:#e7f3e9;
+        color:#1e4620;
+        font-size:9px;
+        font-weight:900;
+    }
+
+    #turnHud {
+        position:fixed;
+        top:150px;
+        right:15px;
+        z-index:12;
+        display:none;
+        flex-direction:column;
+        align-items:center;
+        pointer-events:none;
+    }
+
+    #turnHud.show { display:flex; }
+
+    #turnArrow {
+        font-size:52px;
+        font-weight:900;
+        color:#050505;
+        line-height:.85;
+        text-shadow:2px 2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px -2px 0 #e2f0d9;
+    }
+
+    #turnDistance {
+        font-size:14px;
+        font-weight:900;
+        color:#050505;
+        text-shadow:1px 1px 0 #e2f0d9,-1px 1px 0 #e2f0d9,1px -1px 0 #e2f0d9,-1px -1px 0 #e2f0d9;
+        margin-top:2px;
+    }
+</style>
+</head>
+<body>
+
+<div id="testBanner">🧪 Stage 2 — routing, turn-by-turn, reroute (MapLibre)</div>
+
+<div id="appHeaderContainer">
+    <div id="appHeader">•Chaser•</div>
+    <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
+</div>
+
+<div id="map"></div>
+
+<div id="radiusToggleBtn">
+    <span>50 Mi Only</span>
+    <input type="checkbox" id="radiusToggle" checked>
+</div>
+
+<div id="statusLine">Not sharing yet</div>
+
+<button id="followModeBtn" class="side-btn fm-on" type="button" title="Follow mode">
+    <div class="fm-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring-mid"></div>
+        <div class="ring-dot"></div>
+    </div>
+</button>
+
+<div id="controls">
+    <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
+    <div id="destRow" style="display:flex; gap:8px;">
+        <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" style="flex:1;" />
+        <button id="modeToggleBtn" type="button" style="width:60px; border-radius:8px; border:none; background:#1e4620; color:#e2f0d9; font-weight:900; font-size:13px;">Car</button>
+    </div>
+    <button id="startBtn" type="button">Start Sharing Location</button>
+</div>
+
+<div id="routeStatus"></div>
+<div id="routeChoiceOverlay">
+    <div id="routeChoiceCard">
+        <div id="routeChoiceHead">
+            <span>Choose destination</span>
+            <button id="routeChoiceClose" type="button">×</button>
+        </div>
+        <div id="routeChoiceList"></div>
+    </div>
+</div>
+
+<div id="turnHud">
+    <div id="turnArrow">↑</div>
+    <div id="turnDistance">--</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<script>
+(function () {
+    /* ========================= Supabase (same project as live Chaser) ========================= */
+
+    const supabaseClient = supabase.createClient(
+        "https://xnwwngqennvwajlhvclj.supabase.co",
+        "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
+    );
+
+    /* ========================= Constants ========================= */
+
+    const ALL_FIT_MAX_ZOOM = 15;
+    const SELF_ZOOM = 16;
+    const BUDDY_ZOOM = 14;
+    const GHOST_THRESHOLD_MS = 30000;
+
+    /* ========================= State ========================= */
+
+    let myId = localStorage.getItem("rider_id");
+    if (!myId) {
+        myId = "id-" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("rider_id", myId);
+    }
+
+    function generatePastelColor() {
+        const hue = Math.floor(Math.random() * 360);
+        return `hsl(${hue}, 100%, 85%)`;
+    }
+
+    let myChatColor = localStorage.getItem("rider_chat_color");
+    if (!myChatColor) {
+        myChatColor = generatePastelColor();
+        localStorage.setItem("rider_chat_color", myChatColor);
+    }
+
+    let isSharing = false;
+    let lastLat = 0, lastLng = 0;
+    let watchId = null;
+    let oldBroadcastedName = "Anonymous";
+    let isRadiusFilterActive = true;
+    let incomingRidersCache = {};
+    let channel = null;
+
+    let followMode = "all"; // all | self | buddy | manual
+    let bullseyeIsOn = true;
+    let buddyCycleIndex = 0;
+    let programmaticMove = false;
+
+    let lastHeading = null;
+    let lastHeadingLat = null;
+    let lastHeadingLng = null;
+
+    // Smoothed separately from the raw heading — GPS-derived heading is
+    // naturally noisy (worse at slower speeds, and can drift around even
+    // while sitting completely still, since the phone's location
+    // provider still reports "a" heading from tiny positional jitter).
+    // Applying every wobble directly to the map's rotation is what
+    // caused the "spinning around" feeling instead of a stable lock.
+    let smoothedHeadingSin = null;
+    let smoothedHeadingCos = null;
+    let lastAppliedBearing = null;
+
+    // Computed once per GPS tick regardless of follow mode, so both the
+    // map rotation (self mode) and the status pill display always show
+    // the same stable value, instead of the pill showing raw jumpy
+    // heading while only the map got the smoothed version.
+    let currentSmoothedHeading = null;
+
+    function updateSmoothedHeading(rawHeadingDeg) {
+        if (!Number.isFinite(rawHeadingDeg)) return null;
+
+        const rad = rawHeadingDeg * Math.PI / 180;
+        const sinV = Math.sin(rad), cosV = Math.cos(rad);
+
+        if (smoothedHeadingSin === null) {
+            smoothedHeadingSin = sinV;
+            smoothedHeadingCos = cosV;
+        } else {
+            // Averaging as vectors (not raw degrees) so this handles the
+            // 0°/360° wraparound correctly instead of jumping wildly
+            // whenever heading crosses due north.
+            const alpha = 0.35;
+            smoothedHeadingSin = (smoothedHeadingSin * (1 - alpha)) + (sinV * alpha);
+            smoothedHeadingCos = (smoothedHeadingCos * (1 - alpha)) + (cosV * alpha);
+        }
+
+        const smoothedRad = Math.atan2(smoothedHeadingSin, smoothedHeadingCos);
+        return ((smoothedRad * 180 / Math.PI) + 360) % 360;
+    }
+
+    function bearingDiff(a, b) {
+        let diff = Math.abs(a - b) % 360;
+        if (diff > 180) diff = 360 - diff;
+        return diff;
+    }
+
+    /* ========================= Map ========================= */
+
+    const map = new maplibregl.Map({
+        container:"map",
+        style:"https://tiles.openfreemap.org/styles/liberty",
+        center:[-122.6615, 45.6387],
+        zoom:12,
+        pitch:0,
+        bearing:0,
+        attributionControl:{ compact:true }
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "top-left");
+
+    map.on("dragstart", () => { if (!programmaticMove) followMode = "manual"; });
+    map.on("zoomstart", () => { if (!programmaticMove) followMode = "manual"; });
+
+    /* ========================= Helpers ========================= */
+
+    function el(id) { return document.getElementById(id); }
+
+    function setStatus(text) {
+        el("statusLine").textContent = text;
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+        const x = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+        const lat1 = toRad(aLat), lat2 = toRad(bLat), dLng = toRad(bLng - aLng);
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function isMeName(name) { return String(name || "").includes("(You)"); }
+    function hasLocation(r) { return !!(r && r.marker && r.lat && r.lng); }
+
+    /* ========================= Rider rendering ========================= */
+
+    function buildLabelElement(name, dest, color, ghost) {
+        const displayName = name.replace(" (You)", "");
+        const isMe = isMeName(name);
+
+        const wrap = document.createElement("div");
+        wrap.className = "rider-marker";
+
+        const pin = document.createElement("div");
+        pin.className = "rider-pin";
+        pin.style.background = color || "#ffffff";
+        wrap.appendChild(pin);
+
+        const label = document.createElement("div");
+        label.className = "rider-label" + (ghost ? " ghost" : "") + (isMe ? " me" : "");
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = displayName;
+        label.appendChild(nameSpan);
+
+        if (ghost) {
+            const dot = document.createElement("span");
+            dot.className = "status-dot-stale";
+            label.appendChild(dot);
+        }
+
+        wrap.appendChild(label);
+
+        if (dest) {
+            const destLine = document.createElement("div");
+            destLine.style.cssText = "font-size:10px;color:#2d6a30;font-weight:700;margin-top:2px;background:rgba(255,255,255,.9);padding:2px 6px;border-radius:6px;";
+            destLine.textContent = "Heading to: " + dest;
+            wrap.appendChild(destLine);
+        }
+
+        return wrap;
+    }
+
+    function renderRider(name) {
+        const r = incomingRidersCache[name];
+        if (!r || !r.lat || !r.lng) return;
+
+        if (r.marker) {
+            r.marker.setLngLat([r.lng, r.lat]);
+            r.markerEl.innerHTML = "";
+            r.markerEl.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+        } else {
+            const container = document.createElement("div");
+            container.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+
+            const marker = new maplibregl.Marker({ element:container, anchor:"bottom" })
+                .setLngLat([r.lng, r.lat])
+                .addTo(map);
+
+            container.addEventListener("click", e => {
+                e.stopPropagation();
+                togglePinFocus(name, incomingRidersCache[name]);
+            });
+
+            r.marker = marker;
+            r.markerEl = container;
+        }
+    }
+
+    function removeRider(name) {
+        const r = incomingRidersCache[name];
+        if (r && r.marker) r.marker.remove();
+        delete incomingRidersCache[name];
+    }
+
+    function updateLiveRiderCounter() {
+        el("liveCountNumber").textContent = Object.keys(incomingRidersCache).length;
+    }
+
+    function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
+        const now = Date.now();
+
+        if (incomingRidersCache[user]) {
+            const c = incomingRidersCache[user];
+            c.lastSeen = now;
+            c.dest = dest;
+            c.color = color || "#ffffff";
+            c.lat = lat;
+            c.lng = lng;
+            c.riderId = riderId || c.riderId;
+        } else {
+            incomingRidersCache[user] = {
+                marker:null, markerEl:null, lastSeen:now, isGhost:false,
+                dest, color:color || "#ffffff", lat, lng, riderId
+            };
+        }
+
+        if (!isSharing) return;
+        renderRider(user);
+    }
+
+    setInterval(() => {
+        const now = Date.now();
+        Object.keys(incomingRidersCache).forEach(name => {
+            const r = incomingRidersCache[name];
+            if (!r || isMeName(name)) return;
+            const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
+            if (shouldBeGhost !== r.isGhost) {
+                r.isGhost = shouldBeGhost;
+                if (isSharing) renderRider(name);
+            }
+        });
+        updateLiveRiderCounter();
+    }, 5000);
+
+    /* ========================= Supabase channel ========================= */
+
+    function subscribeChannel() {
+        if (channel) channel.unsubscribe();
+
+        channel = supabaseClient.channel("ride-room", {
+            config:{ broadcast:{ ack:true, self:false } }
+        });
+
+        channel.on("broadcast", { event:"location-update" }, ({ payload }) => {
+            const { user, dest, lat, lng, status, color, riderId } = payload;
+
+            if (isRadiusFilterActive && lastLat && lastLng && !isMeName(user)) {
+                const distMi = distanceMeters(lastLat, lastLng, lat, lng) / 1609.34;
+                if (distMi > 50) { removeRider(user); return; }
+            }
+
+            if (status === "offline") removeRider(user);
+            else processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
+
+            updateLiveRiderCounter();
+        });
+
+        channel.subscribe();
+    }
+
+    subscribeChannel();
+
+    function broadcastCurrentState() {
+        if (!isSharing || !lastLat || !lastLng) return;
+
+        let currentUser = el("username").value.trim();
+        if (!currentUser) currentUser = oldBroadcastedName;
+
+        if (oldBroadcastedName !== currentUser) {
+            removeRider(oldBroadcastedName + " (You)");
+            channel.send({ type:"broadcast", event:"location-update", payload:{ user:oldBroadcastedName, dest:"", lat:0, lng:0, status:"offline" }});
+            oldBroadcastedName = currentUser;
+        }
+
+        processIncomingCoordinateUpdate(currentUser + " (You)", "", lastLat, lastLng, myChatColor, myId);
+
+        channel.send({
+            type:"broadcast", event:"location-update",
+            payload:{ user:currentUser, dest:"", lat:lastLat, lng:lastLng, status:"online", color:myChatColor, riderId:myId }
+        });
+
+        updateLiveRiderCounter();
+    }
+
+    /* ========================= Follow modes ========================= */
+
+    function allFramePositions() {
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const positions = entries.map(([, r]) => [r.lng, r.lat]);
+        const hasMe = entries.some(([name]) => isMeName(name));
+        if (!hasMe && lastLat && lastLng) positions.push([lastLng, lastLat]);
+        return positions;
+    }
+
+    function fitAllRidersFrame() {
+        const positions = allFramePositions();
+        if (!positions.length) return;
+
+        programmaticMove = true;
+
+        if (positions.length === 1) {
+            map.easeTo({ center:positions[0], zoom:ALL_FIT_MAX_ZOOM - 2, bearing:0, duration:900 });
+        } else {
+            const lngs = positions.map(p => p[0]), lats = positions.map(p => p[1]);
+            map.fitBounds(
+                [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                { padding:{ top:160, bottom:220, left:50, right:50 }, maxZoom:ALL_FIT_MAX_ZOOM, duration:900, bearing:0 }
+            );
+        }
+
+        setTimeout(() => { programmaticMove = false; }, 950);
+    }
+
+    function frameOnSelf() {
+        if (!lastLat || !lastLng) return;
+
+        programmaticMove = true;
+
+        const opts = { center:[lastLng, lastLat], zoom:SELF_ZOOM, duration:1000, easing:t=>t };
+
+        if (Number.isFinite(currentSmoothedHeading)) {
+            // Only actually rotate if the direction has changed
+            // meaningfully — otherwise every tiny GPS wobble would send a
+            // fresh (if small) rotation command every tick, which reads
+            // as constant restless spinning rather than a stable lock.
+            if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 5) {
+                opts.bearing = currentSmoothedHeading;
+                lastAppliedBearing = currentSmoothedHeading;
+            }
+        }
+
+        map.easeTo(opts);
+        setTimeout(() => { programmaticMove = false; }, 1050);
+    }
+
+    function browseToBuddy(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        followMode = "buddy";
+        programmaticMove = true;
+        map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM, bearing:0, duration:800 });
+        setTimeout(() => { programmaticMove = false; }, 850);
+    }
+
+    function getBuddyOnlyCycleList() {
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const active = entries.filter(([n, r]) => !isMeName(n) && !r.isGhost);
+        const dormant = entries.filter(([n, r]) => !isMeName(n) && r.isGhost);
+        return active.concat(dormant);
+    }
+
+    function cycleBuddiesOnlineTap() {
+        const list = getBuddyOnlyCycleList();
+        if (!list.length) return;
+        const step = buddyCycleIndex % list.length;
+        buddyCycleIndex = (buddyCycleIndex + 1) % list.length;
+        const [name, rider] = list[step];
+        browseToBuddy(name, rider);
+    }
+
+    function togglePinFocus(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        if (followMode === "buddy") {
+            if (bullseyeIsOn) enterAllMode(); else enterSelfMode();
+            return;
+        }
+
+        followMode = "buddy";
+        programmaticMove = true;
+        map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM + 3, bearing:0, duration:800 });
+        setTimeout(() => { programmaticMove = false; }, 850);
+    }
+
+    function applyBullseyeVisual() {
+        const btn = el("followModeBtn");
+        btn.classList.toggle("fm-on", bullseyeIsOn);
+        btn.classList.toggle("fm-off", !bullseyeIsOn);
+    }
+
+    function enterAllMode() {
+        followMode = "all";
+        applyBullseyeVisual();
+        fitAllRidersFrame();
+    }
+
+    function enterSelfMode() {
+        followMode = "self";
+        applyBullseyeVisual();
+        frameOnSelf();
+    }
+
+    el("followModeBtn").addEventListener("click", () => {
+        if (!isSharing) return;
+        bullseyeIsOn = !bullseyeIsOn;
+        applyBullseyeVisual();
+        if (bullseyeIsOn) enterAllMode(); else enterSelfMode();
+    });
+
+    el("riderCounterWidget").addEventListener("click", e => {
+        e.stopPropagation();
+        cycleBuddiesOnlineTap();
+    });
+
+    /* ========================= GPS + heading ========================= */
+
+    /* ========================= Routing ========================= */
+
+    const ROUTE_ENDPOINT = "https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/chaser-route";
+    const ROUTE_SOURCE_ID = "chaser-route-source";
+    const OFF_ROUTE_METERS = 60;
+
+    let routeMode = "car";
+    let confirmedDestination = null; // {label, lat, lng}
+    let lastRouteGeoJson = null;
+    let lastFetchedRouteKey = "";
+    let routeAborter = null;
+    let routeSerial = 0;
+    let routeTimer = null;
+    let lastBroadcastRouteRequestAt = 0;
+    let lastOffRouteCheckAt = 0;
+    let hasSwitchedToSelfForRoute = false;
+    let currentlyDrawnRouteRef = null;
+    let lastTrimmedCoordIndex = -1;
+
+    function destinationText() { return el("destination").value.trim(); }
+    function modeLabel() { return routeMode === "car" ? "Car" : "Bike"; }
+
+    // Route/turn-arrow only ever show in "self" (pinpoint follow) mode —
+    // the search itself still runs regardless of mode, so it's ready the
+    // instant you switch back into follow mode.
+    function chaserRouteVisibleNow() { return true; }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function showRouteStatus(text, autoHide) {
+        const box = el("routeStatus");
+        if (!text || !chaserRouteVisibleNow()) {
+            box.classList.remove("show");
+            if (!text) box.textContent = "";
+            return;
+        }
+        box.textContent = text;
+        box.classList.add("show");
+        if (autoHide) {
+            setTimeout(() => { if (box.textContent === text) box.classList.remove("show"); }, 3500);
+        }
+    }
+
+    function clearChoicePicker() { el("routeChoiceOverlay").classList.remove("show"); }
+    function choicePickerIsOpen() { return el("routeChoiceOverlay").classList.contains("show"); }
+
+    function showChoicePicker(choices, query) {
+        const list = el("routeChoiceList");
+        list.innerHTML = "";
+        showRouteStatus("", false);
+
+        let closestIdx = -1, closestMiles = Infinity;
+        choices.forEach((c, i) => {
+            const m = Number(c.milesAway);
+            if (Number.isFinite(m) && m < closestMiles) { closestMiles = m; closestIdx = i; }
+        });
+
+        choices.slice(0, 5).forEach((choice, i) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "route-choice-btn";
+            const miles = Number(choice.milesAway || 0);
+            const badge = (i === closestIdx && choices.length > 1) ? '<span class="route-choice-closest">CLOSEST</span>' : "";
+            btn.innerHTML =
+                '<div class="route-choice-name">' + escapeHtml(choice.label || query) + '</div>' +
+                '<div class="route-choice-dist">' + (Number.isFinite(miles) ? miles.toFixed(1) : "?") + ' mi away' + badge + '</div>';
+            btn.addEventListener("click", () => {
+                clearChoicePicker();
+                const selected = { label:choice.label || query, lat:Number(choice.lat), lng:Number(choice.lng) };
+                confirmedDestination = selected;
+                runRouteLookup(selected);
+            });
+            list.appendChild(btn);
+        });
+
+        el("routeChoiceOverlay").classList.add("show");
+    }
+
+    el("routeChoiceClose").addEventListener("click", () => clearChoicePicker());
+
+    function buildRouteKey(mode, destText, lat, lng, choice) {
+        const rLat = Math.round(lat * 500) / 500;
+        const rLng = Math.round(lng * 500) / 500;
+
+        if (choice && Number.isFinite(choice.lat) && Number.isFinite(choice.lng)) {
+            const dLat = Math.round(choice.lat * 500) / 500;
+            const dLng = Math.round(choice.lng * 500) / 500;
+            return "dest|" + mode + "|" + dLat + "|" + dLng + "|" + rLat + "|" + rLng;
+        }
+
+        return "search|" + mode + "|" + String(destText || "").toLowerCase() + "|" + rLat + "|" + rLng;
+    }
+
+    function blockedPrivateDestination(text) {
+        const q = String(text || "").toLowerCase().trim();
+        return ["home","my home","my house","house","work","my work","school","my school"].includes(q);
+    }
+
+    function clearRouteLine() {
+        if (map.getLayer("route-fill")) map.removeLayer("route-fill");
+        if (map.getLayer("route-casing")) map.removeLayer("route-casing");
+        if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
+        currentlyDrawnRouteRef = null;
+        lastTrimmedCoordIndex = -1;
+    }
+
+    function clearRouteEverything(message) {
+        routeSerial++;
+        if (routeAborter) { try { routeAborter.abort(); } catch(e){} }
+        routeAborter = null;
+        clearTimeout(routeTimer);
+        clearChoicePicker();
+        clearRouteLine();
+        lastRouteGeoJson = null;
+        lastFetchedRouteKey = "";
+        confirmedDestination = null;
+        updateTurnHudVisibility(false);
+        if (message) showRouteStatus(message, true);
+        else showRouteStatus("", false);
+    }
+
+    function ensureRouteLayers(geojson) {
+        if (!map.getSource(ROUTE_SOURCE_ID)) {
+            map.addSource(ROUTE_SOURCE_ID, { type:"geojson", data:geojson });
+            map.addLayer({
+                id:"route-casing", type:"line", source:ROUTE_SOURCE_ID,
+                layout:{ "line-cap":"round", "line-join":"round" },
+                paint:{ "line-color":"#15321a", "line-width":6, "line-opacity":0.85 }
+            });
+            map.addLayer({
+                id:"route-fill", type:"line", source:ROUTE_SOURCE_ID,
+                layout:{ "line-cap":"round", "line-join":"round" },
+                paint:{ "line-color":"#4caf6a", "line-width":3, "line-opacity":0.95 }
+            });
+        } else {
+            map.getSource(ROUTE_SOURCE_ID).setData(geojson);
+        }
+    }
+
+    function nearestRouteCoordIndex(coords, lat, lng) {
+        let bestIndex = 0, bestDist = Infinity;
+        for (let i = 0; i < coords.length; i++) {
+            const c = coords[i];
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const dLat = Number(c[1]) - lat, dLng = Number(c[0]) - lng;
+            const d = (dLat*dLat) + (dLng*dLng);
+            if (d < bestDist) { bestDist = d; bestIndex = i; }
+        }
+        return bestIndex;
+    }
+
+    function trimRouteToRemaining(routeGeoJson, lat, lng) {
+        const feature = routeGeoJson && routeGeoJson.features && routeGeoJson.features[0];
+        const coords = feature && feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : null;
+        if (!coords || coords.length < 2) return { geoJson:routeGeoJson, index:0 };
+
+        const idx = nearestRouteCoordIndex(coords, lat, lng);
+        const remaining = coords.slice(idx);
+        if (remaining.length < 2) return { geoJson:routeGeoJson, index:idx };
+
+        return {
+            geoJson:{ ...routeGeoJson, features:[{ ...feature, geometry:{ ...feature.geometry, coordinates:remaining } }] },
+            index:idx
+        };
+    }
+
+    // MapLibre's source.setData() is efficient and flicker-free, unlike
+    // Leaflet's clear-and-redraw-the-whole-layer approach — so, unlike
+    // the original Chaser, this can safely update on every tick without
+    // needing the same "only redraw if something changed" guard.
+    function applyRouteVisibility() {
+        const visible = chaserRouteVisibleNow();
+
+        if (!visible || !lastRouteGeoJson) {
+            clearRouteLine();
+            if (!visible) el("routeStatus").classList.remove("show");
+            updateTurnHudVisibility(false);
+            return;
+        }
+
+        const routeChanged = currentlyDrawnRouteRef !== lastRouteGeoJson;
+        if (routeChanged) { currentlyDrawnRouteRef = lastRouteGeoJson; lastTrimmedCoordIndex = -1; }
+
+        if (!lastLat || !lastLng) {
+            if (!map.getSource(ROUTE_SOURCE_ID)) ensureRouteLayers(lastRouteGeoJson);
+            return;
+        }
+
+        const trimmed = trimRouteToRemaining(lastRouteGeoJson, lastLat, lastLng);
+
+        if (routeChanged || !map.getSource(ROUTE_SOURCE_ID) || trimmed.index !== lastTrimmedCoordIndex) {
+            ensureRouteLayers(trimmed.geoJson);
+            lastTrimmedCoordIndex = trimmed.index;
+        }
+
+        updateTurnHud();
+    }
+
+    function drawRoute(routeGeoJson) {
+        lastRouteGeoJson = routeGeoJson;
+        applyRouteVisibility();
+    }
+
+    function maybeSwitchToSelfForRoute() {
+        if (hasSwitchedToSelfForRoute) return;
+        hasSwitchedToSelfForRoute = true;
+
+        if (followMode === "all" || followMode === "self") return;
+
+        bullseyeIsOn = false;
+        applyBullseyeVisual();
+        enterSelfMode();
+    }
+
+    async function runRouteLookup(selectedChoice) {
+        const dest = destinationText();
+        const lat = lastLat, lng = lastLng;
+        const serial = ++routeSerial;
+
+        if (!isSharing) { clearRouteEverything(""); return; }
+        if (!dest || dest.length < 2) { clearRouteEverything(""); return; }
+        if (blockedPrivateDestination(dest)) { clearRouteEverything("Use a specific destination name"); return; }
+        if (!lat || !lng) { showRouteStatus("Waiting for GPS before routing…", true); return; }
+
+        const effectiveChoice = selectedChoice || confirmedDestination;
+
+        if (!effectiveChoice && choicePickerIsOpen()) return;
+
+        const routeKey = buildRouteKey(routeMode, dest, lat, lng, effectiveChoice);
+        if (routeKey === lastFetchedRouteKey && lastRouteGeoJson) {
+            applyRouteVisibility();
+            return;
+        }
+
+        if (routeAborter) { try { routeAborter.abort(); } catch(e){} }
+        routeAborter = new AbortController();
+        clearChoicePicker();
+
+        showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
+
+        const payload = { query:dest, mode:routeMode, lat:lat, lng:lng };
+        if (effectiveChoice && Number.isFinite(effectiveChoice.lat) && Number.isFinite(effectiveChoice.lng)) {
+            payload.selectedLat = effectiveChoice.lat;
+            payload.selectedLng = effectiveChoice.lng;
+            payload.selectedLabel = effectiveChoice.label || dest;
+        }
+
+        try {
+            const response = await fetch(ROUTE_ENDPOINT, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                signal:routeAborter.signal,
+                body:JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => null);
+            if (serial !== routeSerial) return;
+
+            if (!response.ok || !data || !data.ok) {
+                clearRouteLine();
+                clearChoicePicker();
+                showRouteStatus(data && data.error ? data.error : "No nearby route found", true);
+                return;
+            }
+
+            if (data.needsChoice && Array.isArray(data.choices) && data.choices.length) {
+                clearRouteLine();
+                showChoicePicker(data.choices, dest);
+                return;
+            }
+
+            drawRoute(data.route);
+
+            if (data.destination && Number.isFinite(data.destination.lat) && Number.isFinite(data.destination.lng)) {
+                confirmedDestination = { label:data.destination.name || dest, lat:data.destination.lat, lng:data.destination.lng };
+            }
+
+            lastFetchedRouteKey = buildRouteKey(routeMode, dest, lat, lng, confirmedDestination || effectiveChoice);
+
+            const distMeters = data.summary && data.summary.distanceMeters;
+            const miles = Number(distMeters || 0) / 1609.344;
+            showRouteStatus(modeLabel() + " route highlighted" + (miles > 0 ? ": " + miles.toFixed(1) + " mi" : ""), true);
+
+            maybeSwitchToSelfForRoute();
+        } catch (err) {
+            if (err && err.name === "AbortError") return;
+            if (serial !== routeSerial) return;
+            clearRouteLine();
+            clearChoicePicker();
+            showRouteStatus("Route lookup unavailable", true);
+        } finally {
+            if (serial === routeSerial) routeAborter = null;
+        }
+    }
+
+    function scheduleRouteLookup(delay) {
+        clearTimeout(routeTimer);
+        routeTimer = setTimeout(() => runRouteLookup(null), delay || 800);
+    }
+
+    /* ---- Turn-by-turn arrow HUD ---- */
+
+    function getRoutePieces() {
+        const feature = lastRouteGeoJson && lastRouteGeoJson.features && lastRouteGeoJson.features[0];
+        if (!feature) return null;
+
+        const coords = feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : [];
+        const segments = feature.properties && Array.isArray(feature.properties.segments) ? feature.properties.segments : [];
+        const steps = segments[0] && Array.isArray(segments[0].steps) ? segments[0].steps : [];
+
+        if (!coords.length || !steps.length) return null;
+        return { coords, steps };
+    }
+
+    function isRealTurnInstruction(text) {
+        const t = String(text || "").toLowerCase();
+        if (!t) return false;
+        if (t.includes("arrive") || t.includes("destination")) return true;
+        if (t.includes("roundabout")) return true;
+        if (t.includes("left") || t.includes("right")) return true;
+        return false;
+    }
+
+    function arrowFromInstruction(text) {
+        const t = String(text || "").toLowerCase();
+        if (t.includes("arrive") || t.includes("destination")) return "🏁";
+        if (t.includes("sharp left")) return "↰";
+        if (t.includes("sharp right")) return "↱";
+        if (t.includes("slight left")) return "↖";
+        if (t.includes("slight right")) return "↗";
+        if (t.includes("left")) return "←";
+        if (t.includes("right")) return "→";
+        if (t.includes("roundabout")) return "⟳";
+        return "↑";
+    }
+
+    function formatTurnDistance(meters) {
+        if (!Number.isFinite(meters) || meters < 0) return "--";
+        const feet = meters * 3.28084;
+        if (feet < 900) return Math.max(20, Math.round(feet/20)*20) + " ft";
+        const miles = meters / 1609.344;
+        if (miles < 10) return miles.toFixed(1) + " mi";
+        return Math.round(miles) + " mi";
+    }
+
+    function distanceAlongRoute(coords, fromIndex, toIndex, lat, lng) {
+        if (!coords.length) return 0;
+        fromIndex = Math.max(0, Math.min(coords.length-1, fromIndex));
+        toIndex = Math.max(0, Math.min(coords.length-1, toIndex));
+        if (toIndex <= fromIndex) return 0;
+
+        let meters = 0;
+        const start = coords[fromIndex];
+        if (Array.isArray(start) && start.length >= 2) meters += distanceMeters(lat, lng, Number(start[1]), Number(start[0]));
+
+        for (let i = fromIndex; i < toIndex; i++) {
+            const a = coords[i], b = coords[i+1];
+            if (!Array.isArray(a) || !Array.isArray(b)) continue;
+            meters += distanceMeters(Number(a[1]), Number(a[0]), Number(b[1]), Number(b[0]));
+        }
+        return meters;
+    }
+
+    function updateTurnHudVisibility(show) {
+        el("turnHud").classList.toggle("show", !!show);
+    }
+
+    function updateTurnHud() {
+        if (!chaserRouteVisibleNow()) { updateTurnHudVisibility(false); return; }
+
+        const pieces = getRoutePieces();
+        if (!pieces || !lastLat || !lastLng) { updateTurnHudVisibility(false); return; }
+
+        const nearIndex = nearestRouteCoordIndex(pieces.coords, lastLat, lastLng);
+
+        let nextStep = null;
+        for (const step of pieces.steps) {
+            const instruction = String(step.instruction || "").toLowerCase();
+            if (instruction.includes("depart")) continue;
+
+            const wp = Array.isArray(step.way_points) ? step.way_points : null;
+            if (!wp || wp.length < 2) continue;
+
+            const stepStart = Number(wp[0]);
+            if (!Number.isFinite(stepStart) || stepStart < nearIndex) continue;
+            if (!isRealTurnInstruction(step.instruction || "")) continue;
+
+            nextStep = step;
+            break;
+        }
+
+        if (!nextStep) {
+            el("turnArrow").textContent = "🏁";
+            el("turnDistance").textContent = "--";
+            updateTurnHudVisibility(true);
+            return;
+        }
+
+        const wp = nextStep.way_points || [nearIndex, nearIndex];
+        const turnIndex = Math.max(0, Number(wp[0]) || 0);
+        const metersToTurn = distanceAlongRoute(pieces.coords, nearIndex, turnIndex, lastLat, lastLng);
+
+        el("turnArrow").textContent = arrowFromInstruction(nextStep.instruction || "");
+        el("turnDistance").textContent = formatTurnDistance(metersToTurn);
+        updateTurnHudVisibility(true);
+    }
+
+    /* ---- Off-route detection ---- */
+
+    let offRouteStrikes = 0;
+
+    function checkOffRouteAndMaybeReroute(lat, lng, accuracyMeters) {
+        if (!lastRouteGeoJson || !confirmedDestination) return;
+
+        const now = Date.now();
+        if (now - lastOffRouteCheckAt < 3000) return;
+        lastOffRouteCheckAt = now;
+
+        const feature = lastRouteGeoJson.features && lastRouteGeoJson.features[0];
+        const coords = feature && feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : null;
+        if (!coords || !coords.length) return;
+
+        let best = Infinity;
+        for (let i = 0; i < coords.length; i++) {
+            const c = coords[i];
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const d = distanceMeters(lat, lng, Number(c[1]), Number(c[0]));
+            if (d < best) best = d;
+        }
+
+        // Widen the threshold by the phone's own reported GPS uncertainty
+        // (capped at 150m so a truly terrible fix can't disable this
+        // entirely). Sitting still indoors often means degraded accuracy
+        // — 30-80m of uncertainty isn't unusual — and treating that
+        // normal uncertainty as "you went off route" is exactly what was
+        // causing repeated false reroutes while not actually moving.
+        const accuracyPad = Number.isFinite(accuracyMeters) ? Math.min(accuracyMeters, 150) : 0;
+        const effectiveThreshold = OFF_ROUTE_METERS + accuracyPad;
+
+        if (best > effectiveThreshold) {
+            offRouteStrikes++;
+
+            // Require 3 consecutive off-route readings (~9+ seconds of
+            // sustained drift) before actually rerouting — a single noisy
+            // GPS reading (common when stationary or with weak signal)
+            // was enough to trigger a full re-search on its own before,
+            // which is what caused "Finding route..." to keep repeating
+            // even though the route itself hadn't actually gone stale.
+            if (offRouteStrikes >= 3) {
+                offRouteStrikes = 0;
+                lastFetchedRouteKey = "";
+                scheduleRouteLookup(50);
+            }
+        } else {
+            offRouteStrikes = 0;
+        }
+    }
+
+    /* ---- Wiring ---- */
+
+    el("destination").addEventListener("input", () => {
+        clearChoicePicker();
+        confirmedDestination = null;
+        hasSwitchedToSelfForRoute = false;
+        offRouteStrikes = 0;
+
+        if (!destinationText()) { clearRouteEverything(""); return; }
+        if (isSharing) scheduleRouteLookup(1000);
+    });
+
+    el("destination").addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.keyCode === 13) {
+            e.target.blur();
+
+            if (isSharing && destinationText()) {
+                clearTimeout(routeTimer);
+                scheduleRouteLookup(50);
+            }
+        }
+    });
+
+    el("modeToggleBtn").addEventListener("click", () => {
+        routeMode = routeMode === "car" ? "bike" : "car";
+        el("modeToggleBtn").textContent = modeLabel();
+        lastFetchedRouteKey = "";
+
+        if (isSharing && destinationText()) {
+            showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
+            scheduleRouteLookup(250);
+        }
+    });
+
+    // Periodic visibility recheck — same idea as the original Chaser:
+    // catches follow-mode changes (bullseye tap, manual drag) even
+    // without a fresh GPS tick or route fetch happening.
+    setInterval(() => {
+        applyRouteVisibility();
+    }, 1500);
+
+    function onGpsUpdate(pos) {
+        const coords = pos.coords || {};
+        lastLat = coords.latitude;
+        lastLng = coords.longitude;
+
+        // Heading is only meaningful once you're actually moving — a
+        // phone standing still has no reliable "direction it's facing"
+        // from GPS alone (that needs a compass/magnetometer, which this
+        // isn't using). Below this speed, freeze whatever heading we
+        // last had instead of feeding in fresh noise, which is what was
+        // causing the map to visibly spin while sitting still.
+        const MIN_MOVING_SPEED_MPS = 0.6; // roughly 1.3 mph
+        const speedKnown = Number.isFinite(coords.speed);
+        const isStationary = speedKnown && coords.speed < MIN_MOVING_SPEED_MPS;
+
+        if (!isStationary) {
+            if (Number.isFinite(coords.heading)) {
+                lastHeading = coords.heading;
+            } else if (lastHeadingLat !== null) {
+                const moved = distanceMeters(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+                if (moved >= 2) lastHeading = bearingDegrees(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+            }
+        }
+
+        lastHeadingLat = lastLat;
+        lastHeadingLng = lastLng;
+
+        // Computed every tick regardless of follow mode, so the status
+        // pill and the map rotation are always showing/using the same
+        // stable number instead of the pill displaying raw jitter.
+        currentSmoothedHeading = updateSmoothedHeading(lastHeading);
+
+        broadcastCurrentState();
+
+        if (followMode === "all") fitAllRidersFrame();
+        else if (followMode === "self") frameOnSelf();
+
+        if (destinationText()) {
+            checkOffRouteAndMaybeReroute(lastLat, lastLng, coords.accuracy);
+
+            const now = Date.now();
+            if (now - lastBroadcastRouteRequestAt > 4000) {
+                lastBroadcastRouteRequestAt = now;
+                scheduleRouteLookup(1400);
+            }
+        }
+
+        applyRouteVisibility();
+
+        setStatus(
+            "lat " + lastLat.toFixed(5) + ", lng " + lastLng.toFixed(5) +
+            (Number.isFinite(currentSmoothedHeading) ? " — heading " + Math.round(currentSmoothedHeading) + "°" : "") +
+            (Number.isFinite(coords.accuracy) ? " — ±" + Math.round(coords.accuracy) + "m" : "") +
+            " — mode: " + followMode
+        );
+    }
+
+    /* ========================= Start/stop sharing ========================= */
+
+    el("startBtn").addEventListener("click", () => {
+        if (isSharing) {
+            isSharing = false;
+            el("startBtn").textContent = "Start Sharing Location";
+            el("startBtn").classList.remove("sharing-active");
+
+            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+            channel.send({ type:"broadcast", event:"location-update", payload:{ user:oldBroadcastedName, dest:"", lat:0, lng:0, status:"offline" }});
+
+            Object.keys(incomingRidersCache).forEach(name => {
+                if (incomingRidersCache[name].marker) incomingRidersCache[name].marker.remove();
+            });
+            incomingRidersCache = {};
+            updateLiveRiderCounter();
+            clearRouteEverything("");
+            hasSwitchedToSelfForRoute = false;
+            offRouteStrikes = 0;
+            smoothedHeadingSin = null;
+            smoothedHeadingCos = null;
+            lastAppliedBearing = null;
+            currentSmoothedHeading = null;
+
+            setStatus("Stopped sharing");
+            return;
+        }
+
+        const name = el("username").value.trim();
+        if (!name) {
+            el("username").focus();
+            setStatus("Enter your name first");
+            return;
+        }
+
+        oldBroadcastedName = name;
+        isSharing = true;
+        el("startBtn").textContent = "Stop Sharing Location";
+        el("startBtn").classList.add("sharing-active");
+
+        if (!navigator.geolocation) {
+            setStatus("This browser has no GPS access");
+            return;
+        }
+
+        watchId = navigator.geolocation.watchPosition(onGpsUpdate, () => setStatus("GPS error"), {
+            enableHighAccuracy:true, maximumAge:0, timeout:10000
+        });
+    });
+
+    el("radiusToggle").addEventListener("change", e => {
+        isRadiusFilterActive = e.target.checked;
+    });
+})();
+</script>
+</body>
+</html>
