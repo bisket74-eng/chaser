@@ -1881,13 +1881,27 @@
 
             for (const endpoint of EV_ENDPOINTS) {
                 try {
-                    const attempt = await fetch(endpoint + "?data=" + encodeURIComponent(overpassQuery));
+                    // AbortController timeout — a hanging request (no
+                    // response, no error, just never resolving) would
+                    // otherwise freeze this loop forever. 12s per server,
+                    // then move on to the next.
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+                    const attempt = await fetch(
+                        endpoint + "?data=" + encodeURIComponent(overpassQuery),
+                        { signal: controller.signal }
+                    );
+
+                    clearTimeout(timeoutId);
+
                     if (attempt.ok) {
                         resp = attempt;
                         usedEndpoint = endpoint;
                         break;
                     }
                 } catch (attemptErr) {
+                    if (dbg0) dbg0.textContent = "EV: trying next server (" + (attemptErr && attemptErr.name ? attemptErr.name : "err") + ")…";
                     // Try the next mirror.
                 }
             }
