@@ -1865,58 +1865,24 @@
         `;
 
         try {
-            // Main server first, then mirrors. overpass-api.de rate-limits
-            // per-IP under repeated requests (like a heavy testing session),
-            // and when it does, the browser sees a bare "Failed to fetch"
-            // rather than a clean error — so a mirror fallback keeps the
-            // feature alive instead of silently dying until the limit clears.
-            const EV_ENDPOINTS = [
-                "https://overpass-api.de/api/interpreter",
-                "https://z.overpass-api.de/api/interpreter",
-                "https://overpass.private.coffee/api/interpreter"
-            ];
-
-            let resp = null;
-            let usedEndpoint = "";
-
-            for (const endpoint of EV_ENDPOINTS) {
-                try {
-                    // AbortController timeout — a hanging request (no
-                    // response, no error, just never resolving) would
-                    // otherwise freeze this loop forever. 12s per server,
-                    // then move on to the next.
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-                    const attempt = await fetch(
-                        endpoint + "?data=" + encodeURIComponent(overpassQuery),
-                        { signal: controller.signal }
-                    );
-
-                    clearTimeout(timeoutId);
-
-                    if (attempt.ok) {
-                        resp = attempt;
-                        usedEndpoint = endpoint;
-                        break;
-                    }
-                } catch (attemptErr) {
-                    if (dbg0) dbg0.textContent = "EV: trying next server (" + (attemptErr && attemptErr.name ? attemptErr.name : "err") + ")…";
-                    // Try the next mirror.
-                }
-            }
+            // Simple single fetch — this is exactly what worked in the
+            // prior version. The AbortController + multi-server retry loop
+            // that briefly replaced this was itself the bug: the abort
+            // timeout was firing and killing the request. Reverted.
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+            const resp = await fetch(url);
 
             const debugBox = el("routeDebug");
 
-            if (!resp) {
-                if (debugBox) debugBox.textContent = "EV fetch: all servers failed — try again in a minute";
-                return;
-            }
-
             if (debugBox) {
                 debugBox.textContent =
-                    "EV fetch: http " + resp.status + " via " + usedEndpoint.replace("https://", "").split("/")[0] +
+                    "EV fetch: http " + resp.status +
                     " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
+            }
+
+            if (!resp.ok) {
+                if (debugBox) debugBox.textContent += " | request failed";
+                return;
             }
 
             const rawData = await resp.json().catch(() => null);
