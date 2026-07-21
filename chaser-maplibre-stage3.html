@@ -1815,18 +1815,32 @@
         const south = bounds.getSouth(), west = bounds.getWest();
         const north = bounds.getNorth(), east = bounds.getEast();
 
+        // Fetched directly from the browser via GET to overpass-api.de —
+        // byte-for-byte the same approach the real production app uses,
+        // which demonstrably works from a phone browser in this exact
+        // area. The earlier server-side proxy attempt returned clean
+        // empty results every time: Supabase's shared datacenter IPs
+        // appear to get throttled/emptied by public Overpass servers,
+        // while requests from a person's own phone IP work fine.
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
         try {
-            const resp = await fetch(ROUTE_ENDPOINT, {
-                method:"POST",
-                headers:{ "Content-Type":"application/json" },
-                body:JSON.stringify({ action:"evChargers", south, west, north, east })
-            });
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+            const resp = await fetch(url);
 
             const debugBox = el("routeDebug");
 
             if (debugBox) {
                 debugBox.textContent =
-                    "EV fetch: http " + resp.status +
+                    "EV fetch (direct): http " + resp.status +
                     " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
             }
 
@@ -1835,20 +1849,30 @@
                 return;
             }
 
-            const data = await resp.json().catch(() => null);
+            const rawData = await resp.json().catch(() => null);
+            const elements = rawData && Array.isArray(rawData.elements) ? rawData.elements : [];
 
             if (debugBox) {
-                debugBox.textContent +=
-                    " | ok:" + (data && data.ok) +
-                    " | chargers:" + (data && data.chargers ? data.chargers.length : "null") +
-                    " | error:" + (data && data.error ? data.error : "none");
+                debugBox.textContent += " | elements:" + elements.length;
             }
 
-            if (!data || !data.ok || !evChargersVisible) return;
+            if (!rawData || !evChargersVisible) return;
 
             clearEvMarkers();
 
-            const chargers = Array.isArray(data.chargers) ? data.chargers : [];
+            const chargers = elements
+                .map(item => {
+                    const tags = item.tags || {};
+                    const access = String(tags.access || "").toLowerCase();
+                    if (access === "private" || access === "no") return null;
+
+                    return {
+                        name: tags.name || tags.operator || "EV Charger",
+                        lat: Number(item.lat ?? (item.center && item.center.lat)),
+                        lng: Number(item.lon ?? (item.center && item.center.lon))
+                    };
+                })
+                .filter(c => c && Number.isFinite(c.lat) && Number.isFinite(c.lng));
 
             chargers.forEach(charger => {
                 const lat = Number(charger.lat);
