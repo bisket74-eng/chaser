@@ -1,0 +1,3253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Chaser — MapLibre Stage 4</title>
+<meta name="theme-color" content="#1e4620" />
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+<style>
+    html, body {
+        margin:0;
+        padding:0;
+        width:100%;
+        height:100%;
+        height:100dvh;
+        overflow:hidden;
+        position:fixed;
+        font-family:Arial,sans-serif;
+        background:#1e4620;
+    }
+
+    #map {
+        position:fixed;
+        top:0; bottom:0; left:0; right:0;
+    }
+
+    #testBanner {
+        position:fixed;
+        top:0; left:105px; right:165px;
+        z-index:30;
+        background:#1e4620;
+        color:#ffd700;
+        font-weight:900;
+        font-size:9px;
+        text-align:center;
+        padding:3px 4px;
+        box-sizing:border-box;
+        border-radius:0 0 8px 8px;
+        box-shadow:0 3px 10px rgba(0,0,0,.3);
+        line-height:1.2;
+    }
+
+    #appHeaderContainer {
+        position:absolute;
+        top:60px;
+        left:50%;
+        transform:translateX(-50%);
+        z-index:10;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        white-space:nowrap;
+        pointer-events:none;
+    }
+
+    #appHeader {
+        font-family:"Brush Script MT","Comic Sans MS",cursive;
+        font-size:56px;
+        color:#1e4620;
+        font-weight:900;
+        text-shadow:2px 2px 0 #e2f0d9,-2px -2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,5px 5px 10px rgba(0,0,0,0.4);
+        letter-spacing:1px;
+    }
+
+    #riderCounterWidget {
+        font-size:14px;
+        color:#1e4620;
+        font-weight:800;
+        background:#e2f0d9;
+        padding:6px 14px;
+        border-radius:12px;
+        box-shadow:0 4px 12px rgba(0,0,0,0.25);
+        margin-top:6px;
+        pointer-events:auto;
+        cursor:pointer;
+    }
+
+    #liveCountNumber { color:#dc3545; font-weight:900; }
+
+    .rider-marker {
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        cursor:pointer;
+    }
+
+    .rider-pin {
+        width:18px;
+        height:18px;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        border:2px solid #1e4620;
+        box-shadow:0 3px 8px rgba(0,0,0,.4);
+        margin-bottom:4px;
+    }
+
+    .rider-label {
+        background:rgba(255,255,255,0.95);
+        border:2px solid #1e4620;
+        border-radius:8px;
+        padding:4px 8px;
+        font-size:12px;
+        font-weight:bold;
+        color:#111;
+        white-space:nowrap;
+        box-shadow:0 3px 8px rgba(0,0,0,.3);
+        display:flex;
+        align-items:center;
+        gap:5px;
+    }
+
+    .rider-label.ghost {
+        border-style:dashed;
+        opacity:0.75;
+    }
+
+    .status-dot-stale {
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        background:#dc3545;
+        box-shadow:0 0 5px #dc3545;
+    }
+
+    .rider-label.me { border-color:#2d6a30; background:#e2f0d9; }
+
+    #controls {
+        position:absolute;
+        bottom:20px;
+        left:15px;
+        z-index:10;
+        background:#e2f0d9;
+        padding:16px;
+        border-radius:18px;
+        box-shadow:0 8px 25px rgba(0,0,0,0.35);
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+        width:74%;
+        max-width:340px;
+        box-sizing:border-box;
+    }
+
+    #inputsWrapper {
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+        overflow:hidden;
+        transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1), opacity 0.3s ease;
+        max-height:200px;
+        opacity:1;
+        width:100%;
+    }
+
+    #inputsWrapper.hidden {
+        max-height:0;
+        opacity:0;
+    }
+
+    .control-row {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        width:100%;
+        gap:8px;
+        box-sizing:border-box;
+    }
+
+    .control-row input {
+        flex:1;
+        width:calc(100% - 52px);
+        min-width:0;
+        padding:12px;
+        border-radius:8px;
+        border:2px solid #2d6a30;
+        background:#1e4620;
+        color:#fff;
+        font-size:15px;
+        box-sizing:border-box;
+        font-weight:500;
+    }
+
+    .control-row input::placeholder { color:#a3cfbb; font-style:italic; }
+
+    .mic-btn {
+        width:44px;
+        height:44px;
+        background:#2d6a30;
+        border:none;
+        border-radius:50%;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 3px 8px rgba(0,0,0,0.25);
+        flex-shrink:0;
+        -webkit-tap-highlight-color:transparent;
+    }
+
+    .mic-btn:active { transform:scale(0.92); }
+    .mic-btn svg { width:20px; height:20px; fill:#fff; pointer-events:none; }
+    .mic-btn.listening { background:#dc3545 !important; }
+
+    #toggleInputsBtn svg { transition:transform 0.4s; width:24px; height:24px; }
+    #toggleInputsBtn.flipped svg { transform:rotate(180deg); }
+
+    #startBtn {
+        flex:1;
+        min-width:0;
+        padding:12px;
+        border-radius:8px;
+        border:none;
+        font-size:15px;
+        background:#2d6a30;
+        color:white;
+        cursor:pointer;
+        font-weight:bold;
+        box-shadow:0 3px 8px rgba(0,0,0,0.2);
+        box-sizing:border-box;
+    }
+
+    #startBtn.sharing-active { background:#dc3545; }
+
+    .side-btn {
+        position:fixed;
+        right:15px;
+        z-index:11;
+        width:44px;
+        height:44px;
+        background:#1e4620;
+        border:3px solid #e2f0d9;
+        border-radius:50%;
+        box-shadow:0 6px 20px rgba(0,0,0,0.4);
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        color:#e2f0d9;
+        padding:0;
+    }
+
+    /* Right-side column, matching the real app exactly:
+       followModeBtn (top) -> roomLockBtn (middle) -> chatToggleBtn (bottom) */
+    #followModeBtn { bottom:164px; }
+    #roomLockBtn { bottom:92px; }
+    #chatToggleBtn {
+        bottom:20px;
+        opacity:0.35;
+        background:#555555;
+        pointer-events:none;
+    }
+
+    #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
+    #chatToggleBtn svg, #roomLockBtn svg { width:22px; height:22px; fill:#fff; }
+
+    #followModeBtn .ring-outer, #followModeBtn .ring-mid, #followModeBtn .ring-dot {
+        position:absolute;
+        border-radius:50%;
+        box-sizing:border-box;
+    }
+
+    #followModeBtn .fm-wrap { position:relative; width:24px; height:24px; }
+    #followModeBtn .ring-outer { inset:0; border:2px solid #e2f0d9; }
+    #followModeBtn .ring-mid { top:5px; left:5px; right:5px; bottom:5px; border:2px solid #e2f0d9; display:none; }
+    #followModeBtn .ring-dot { top:9px; left:9px; right:9px; bottom:9px; background:#e2f0d9; }
+    #followModeBtn.fm-on .ring-mid { display:block; }
+    #followModeBtn.fm-off .ring-outer, #followModeBtn.fm-off .ring-mid { border-color:transparent; }
+
+    #radiusToggleBtn {
+        position:fixed;
+        top:10px;
+        right:10px;
+        z-index:11;
+        background:white;
+        height:44px;
+        padding:0 16px;
+        border-radius:4px;
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
+        display:flex;
+        align-items:center;
+        gap:12px;
+        font-size:16px;
+        font-weight:bold;
+        color:#333;
+        cursor:pointer;
+    }
+
+    #zoomPill {
+        position:fixed;
+        top:10px;
+        left:10px;
+        z-index:11;
+        display:flex;
+        flex-direction:row;
+        border-radius:4px;
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
+        overflow:hidden;
+        background:white;
+    }
+
+    .zoom-btn {
+        width:44px;
+        height:44px;
+        line-height:44px;
+        text-align:center;
+        font-size:22px;
+        font-weight:bold;
+        color:#333;
+        background:white;
+        border:none;
+        cursor:pointer;
+        padding:0;
+        border-right:1px solid #ccc;
+    }
+
+    .zoom-btn:last-child { border-right:none; }
+
+    #modeToggleBtn {
+        position:fixed;
+        width:42px;
+        height:42px;
+        min-width:42px;
+        max-width:42px;
+        min-height:42px;
+        max-height:42px;
+        border-radius:50%;
+        border:2px solid rgba(30, 70, 32, 0.85);
+        background:rgba(226, 240, 217, 0.82);
+        color:#1e4620;
+        z-index:15;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+        margin:0;
+        box-sizing:border-box;
+        box-shadow:0 4px 13px rgba(0,0,0,.30);
+        cursor:pointer;
+        backdrop-filter:blur(3px);
+        -webkit-backdrop-filter:blur(3px);
+    }
+
+    #modeToggleBtn:active { transform:scale(.94); }
+    #modeToggleBtn svg { width:26px; height:26px; display:block; color:#1e4620; }
+
+    #evToggleBtn {
+        position:fixed;
+        width:38px;
+        height:38px;
+        min-width:38px;
+        min-height:38px;
+        max-width:38px;
+        max-height:38px;
+        padding:0;
+        border-radius:50%;
+        border:3px solid #e2f0d9;
+        background:#1e4620;
+        color:#ffd700;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 4px 14px rgba(0,0,0,.42);
+        cursor:pointer;
+        box-sizing:border-box;
+        z-index:12;
+    }
+
+    #evToggleBtn svg { width:23px; height:23px; display:block; }
+    #evToggleBtn.active { background:#ffd700; color:#1e4620; border-color:#ffffff; }
+
+    #statusLine {
+        position:fixed;
+        left:15px;
+        right:70px;
+        bottom:220px;
+        z-index:10;
+        max-width:340px;
+        text-align:center;
+        font-size:11px;
+        font-weight:800;
+        color:#1e4620;
+        background:rgba(226,240,217,.9);
+        padding:5px 10px;
+        border-radius:999px;
+        box-shadow:0 3px 8px rgba(0,0,0,.2);
+        pointer-events:none;
+    }
+
+    #routeStatus {
+        position:fixed;
+        left:15px;
+        right:70px;
+        bottom:186px;
+        z-index:15;
+        max-width:340px;
+        display:none;
+        text-align:center;
+        font-size:12px;
+        font-weight:800;
+        color:#1e4620;
+        background:rgba(226,240,217,.95);
+        padding:6px 12px;
+        border-radius:999px;
+        box-shadow:0 3px 10px rgba(0,0,0,.24);
+        pointer-events:none;
+    }
+
+    #routeStatus.show { display:block; }
+
+    #routeChoiceOverlay {
+        position:fixed;
+        left:15px;
+        right:15px;
+        bottom:186px;
+        max-width:340px;
+        margin:0 auto;
+        z-index:25;
+        display:none;
+    }
+
+    #routeChoiceOverlay.show { display:block; }
+
+    #routeChoiceCard {
+        background:rgba(255,255,255,0.97);
+        border-radius:16px;
+        box-shadow:0 12px 30px rgba(0,0,0,.3);
+        overflow:hidden;
+        max-height:280px;
+        display:flex;
+        flex-direction:column;
+    }
+
+    #routeChoiceHead {
+        background:#1e4620;
+        color:#ffd700;
+        padding:10px 12px;
+        font-weight:900;
+        font-size:14px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+    }
+
+    #routeChoiceClose {
+        background:none;
+        border:none;
+        color:#fff;
+        font-size:20px;
+        font-weight:900;
+        cursor:pointer;
+    }
+
+    #routeChoiceList {
+        padding:8px;
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        overflow-y:auto;
+    }
+
+    .route-choice-btn {
+        border:none;
+        background:rgba(30,70,32,0.06);
+        border-radius:10px;
+        padding:9px 10px;
+        text-align:left;
+        cursor:pointer;
+        font-family:Arial,sans-serif;
+    }
+
+    .route-choice-name { font-size:13px; font-weight:700; color:#16321a; margin-bottom:2px; }
+    .route-choice-dist { font-size:11px; font-weight:700; color:#5c8a61; }
+    .route-choice-closest {
+        display:inline-block;
+        margin-left:6px;
+        padding:1px 7px;
+        border-radius:999px;
+        background:#e7f3e9;
+        color:#1e4620;
+        font-size:9px;
+        font-weight:900;
+    }
+
+    #turnHud {
+        position:fixed;
+        top:150px;
+        right:15px;
+        z-index:12;
+        display:none;
+        flex-direction:column;
+        align-items:center;
+        pointer-events:none;
+    }
+
+    #turnHud.show { display:flex; }
+
+    #turnArrow {
+        font-size:52px;
+        font-weight:900;
+        color:#050505;
+        line-height:.85;
+        text-shadow:2px 2px 0 #e2f0d9,-2px 2px 0 #e2f0d9,2px -2px 0 #e2f0d9,-2px -2px 0 #e2f0d9;
+    }
+
+    #turnDistance {
+        font-size:14px;
+        font-weight:900;
+        color:#050505;
+        text-shadow:1px 1px 0 #e2f0d9,-1px 1px 0 #e2f0d9,1px -1px 0 #e2f0d9,-1px -1px 0 #e2f0d9;
+        margin-top:2px;
+    }
+</style>
+</head>
+<body>
+
+<div id="testBanner">🧪 Stage 4 — speed/trip HUD, music button (MapLibre)</div>
+
+<div id="appHeaderContainer">
+    <div id="appHeader">•Chaser•</div>
+    <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
+</div>
+
+<div id="map"></div>
+
+<div id="radiusToggleBtn">
+    <span>50 Mi Only</span>
+    <input type="checkbox" id="radiusToggle" checked>
+</div>
+
+<div id="zoomPill">
+    <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
+    <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
+</div>
+
+<button id="modeToggleBtn" type="button" title="Car / Bike">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16C5.67 16 5 15.33 5 14.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+</button>
+
+<button id="evToggleBtn" type="button" title="EV chargers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+</button>
+
+<div id="statusLine">Not sharing yet</div>
+
+<button id="followModeBtn" class="side-btn fm-on" type="button" title="Follow mode">
+    <div class="fm-wrap">
+        <div class="ring-outer"></div>
+        <div class="ring-mid"></div>
+        <div class="ring-dot"></div>
+    </div>
+</button>
+
+<button id="roomLockBtn" class="side-btn" type="button" title="Room lock (not wired up in this test)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>
+</button>
+
+<button id="chatToggleBtn" class="side-btn" type="button" title="Chat (not built in this test yet)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+</button>
+
+<div id="controls">
+    <div id="inputsWrapper">
+        <div class="control-row">
+            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
+            <button class="mic-btn" id="usernameMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+
+        <div class="control-row">
+            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" />
+            <button class="mic-btn" id="destinationMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="control-row">
+        <button id="startBtn" type="button">Start Sharing Location</button>
+        <button class="mic-btn" id="toggleInputsBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
+    </div>
+</div>
+
+<div id="routeStatus"></div>
+<div id="routeDebug" style="position:fixed; left:8px; right:8px; top:60px; z-index:40; background:rgba(0,0,0,.85); color:#0f0; font-size:10px; font-family:monospace; padding:6px 8px; border-radius:6px; word-break:break-word;"></div>
+<div id="routeChoiceOverlay">
+    <div id="routeChoiceCard">
+        <div id="routeChoiceHead">
+            <span>Choose destination</span>
+            <button id="routeChoiceClose" type="button">×</button>
+        </div>
+        <div id="routeChoiceList"></div>
+    </div>
+</div>
+
+<div id="turnHud">
+    <div id="turnArrow">↑</div>
+    <div id="turnDistance">--</div>
+</div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<script>
+(function () {
+    /* ========================= Supabase (same project as live Chaser) ========================= */
+
+    const supabaseClient = supabase.createClient(
+        "https://xnwwngqennvwajlhvclj.supabase.co",
+        "sb_publishable_jTMgKMLZhXwLPBJyzMueqA_qf5QXVZ8"
+    );
+
+    /* ========================= Constants ========================= */
+
+    const ALL_FIT_MAX_ZOOM = 15;
+    const SELF_ZOOM = 16;
+    const BUDDY_ZOOM = 14;
+    const GHOST_THRESHOLD_MS = 30000;
+
+    /* ========================= State ========================= */
+
+    let myId = localStorage.getItem("rider_id");
+    if (!myId) {
+        myId = "id-" + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem("rider_id", myId);
+    }
+
+    function generatePastelColor() {
+        const hue = Math.floor(Math.random() * 360);
+        return `hsl(${hue}, 100%, 85%)`;
+    }
+
+    let myChatColor = localStorage.getItem("rider_chat_color");
+    if (!myChatColor) {
+        myChatColor = generatePastelColor();
+        localStorage.setItem("rider_chat_color", myChatColor);
+    }
+
+    let isSharing = false;
+    let lastLat = 0, lastLng = 0;
+    let watchId = null;
+    let oldBroadcastedName = "Anonymous";
+    let isRadiusFilterActive = true;
+    let incomingRidersCache = {};
+    let channel = null;
+
+    let followMode = "all"; // all | self | buddy | manual
+    let bullseyeIsOn = true;
+    let buddyCycleIndex = 0;
+    let programmaticMove = false;
+
+    let lastHeading = null;
+    let lastHeadingLat = null;
+    let lastHeadingLng = null;
+
+    // Smoothed separately from the raw heading — GPS-derived heading is
+    // naturally noisy (worse at slower speeds, and can drift around even
+    // while sitting completely still, since the phone's location
+    // provider still reports "a" heading from tiny positional jitter).
+    // Applying every wobble directly to the map's rotation is what
+    // caused the "spinning around" feeling instead of a stable lock.
+    let smoothedHeadingSin = null;
+    let smoothedHeadingCos = null;
+    let lastAppliedBearing = null;
+
+    // Computed once per GPS tick regardless of follow mode, so both the
+    // map rotation (self mode) and the status pill display always show
+    // the same stable value, instead of the pill showing raw jumpy
+    // heading while only the map got the smoothed version.
+    let currentSmoothedHeading = null;
+
+    function updateSmoothedHeading(rawHeadingDeg) {
+        if (!Number.isFinite(rawHeadingDeg)) return null;
+
+        const rad = rawHeadingDeg * Math.PI / 180;
+        const sinV = Math.sin(rad), cosV = Math.cos(rad);
+
+        if (smoothedHeadingSin === null) {
+            smoothedHeadingSin = sinV;
+            smoothedHeadingCos = cosV;
+        } else {
+            // Averaging as vectors (not raw degrees) so this handles the
+            // 0°/360° wraparound correctly instead of jumping wildly
+            // whenever heading crosses due north.
+            const alpha = 0.35;
+            smoothedHeadingSin = (smoothedHeadingSin * (1 - alpha)) + (sinV * alpha);
+            smoothedHeadingCos = (smoothedHeadingCos * (1 - alpha)) + (cosV * alpha);
+        }
+
+        const smoothedRad = Math.atan2(smoothedHeadingSin, smoothedHeadingCos);
+        return ((smoothedRad * 180 / Math.PI) + 360) % 360;
+    }
+
+    function bearingDiff(a, b) {
+        let diff = Math.abs(a - b) % 360;
+        if (diff > 180) diff = 360 - diff;
+        return diff;
+    }
+
+    /* ========================= Map ========================= */
+
+    const map = new maplibregl.Map({
+        container:"map",
+        style:"https://tiles.openfreemap.org/styles/liberty",
+        center:[-122.6615, 45.6387],
+        zoom:12,
+        pitch:0,
+        bearing:0,
+        attributionControl:{ compact:true }
+    });
+
+    // Zoom is now a custom pill (matching the real app's style) instead
+    // of MapLibre's built-in control — wired up further down.
+
+    map.on("dragstart", () => { if (!programmaticMove) followMode = "manual"; });
+    map.on("zoomstart", () => { if (!programmaticMove) followMode = "manual"; });
+
+    /* ========================= Helpers ========================= */
+
+    function el(id) { return document.getElementById(id); }
+
+    function setStatus(text) {
+        el("statusLine").textContent = text;
+    }
+
+    function distanceMeters(aLat, aLng, bLat, bLng) {
+        const R = 6371000;
+        const toRad = n => n * Math.PI / 180;
+        const dLat = toRad(bLat - aLat);
+        const dLng = toRad(bLng - aLng);
+        const x = Math.sin(dLat/2)**2 + Math.cos(toRad(aLat))*Math.cos(toRad(bLat))*Math.sin(dLng/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+    }
+
+    function bearingDegrees(aLat, aLng, bLat, bLng) {
+        const toRad = n => n * Math.PI / 180;
+        const toDeg = n => n * 180 / Math.PI;
+        const lat1 = toRad(aLat), lat2 = toRad(bLat), dLng = toRad(bLng - aLng);
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1)*Math.sin(lat2) - Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLng);
+        return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function isMeName(name) { return String(name || "").includes("(You)"); }
+    function hasLocation(r) { return !!(r && r.marker && r.lat && r.lng); }
+
+    /* ========================= Rider rendering ========================= */
+
+    function buildLabelElement(name, dest, color, ghost) {
+        const displayName = name.replace(" (You)", "");
+        const isMe = isMeName(name);
+
+        const wrap = document.createElement("div");
+        wrap.className = "rider-marker";
+
+        const pin = document.createElement("div");
+        pin.className = "rider-pin";
+        pin.style.background = color || "#ffffff";
+        wrap.appendChild(pin);
+
+        const label = document.createElement("div");
+        label.className = "rider-label" + (ghost ? " ghost" : "") + (isMe ? " me" : "");
+
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = displayName;
+        label.appendChild(nameSpan);
+
+        if (ghost) {
+            const dot = document.createElement("span");
+            dot.className = "status-dot-stale";
+            label.appendChild(dot);
+        }
+
+        wrap.appendChild(label);
+
+        if (dest) {
+            const destLine = document.createElement("div");
+            destLine.style.cssText = "font-size:10px;color:#2d6a30;font-weight:700;margin-top:2px;background:rgba(255,255,255,.9);padding:2px 6px;border-radius:6px;";
+            destLine.textContent = "Heading to: " + dest;
+            wrap.appendChild(destLine);
+        }
+
+        return wrap;
+    }
+
+    function renderRider(name) {
+        const r = incomingRidersCache[name];
+        if (!r || !r.lat || !r.lng) return;
+
+        if (r.marker) {
+            r.marker.setLngLat([r.lng, r.lat]);
+            r.markerEl.innerHTML = "";
+            r.markerEl.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+        } else {
+            const container = document.createElement("div");
+            container.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+
+            const marker = new maplibregl.Marker({ element:container, anchor:"bottom" })
+                .setLngLat([r.lng, r.lat])
+                .addTo(map);
+
+            const longPressHandle = isMeName(name) ? null : attachLongPress(container, () => {
+                const rData = incomingRidersCache[name];
+                if (rData && Number.isFinite(rData.lat) && Number.isFinite(rData.lng)) {
+                    routeToKnownLocation(name.replace(" (You)", ""), rData.lat, rData.lng, name);
+                }
+            });
+
+            container.addEventListener("click", e => {
+                e.stopPropagation();
+
+                if (longPressHandle && longPressHandle.justFired()) {
+                    longPressHandle.consume();
+                    return;
+                }
+
+                togglePinFocus(name, incomingRidersCache[name]);
+            });
+
+            r.marker = marker;
+            r.markerEl = container;
+        }
+    }
+
+    function removeRider(name) {
+        const r = incomingRidersCache[name];
+        if (r && r.marker) r.marker.remove();
+        delete incomingRidersCache[name];
+    }
+
+    function updateLiveRiderCounter() {
+        el("liveCountNumber").textContent = Object.keys(incomingRidersCache).length;
+    }
+
+    function processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId) {
+        const now = Date.now();
+
+        if (incomingRidersCache[user]) {
+            const c = incomingRidersCache[user];
+            c.lastSeen = now;
+            c.dest = dest;
+            c.color = color || "#ffffff";
+            c.lat = lat;
+            c.lng = lng;
+            c.riderId = riderId || c.riderId;
+        } else {
+            incomingRidersCache[user] = {
+                marker:null, markerEl:null, lastSeen:now, isGhost:false,
+                dest, color:color || "#ffffff", lat, lng, riderId
+            };
+        }
+
+        if (!isSharing) return;
+        renderRider(user);
+        maybeUpdateRoutedBuddyPosition(user, lat, lng);
+    }
+
+    setInterval(() => {
+        const now = Date.now();
+        Object.keys(incomingRidersCache).forEach(name => {
+            const r = incomingRidersCache[name];
+            if (!r || isMeName(name)) return;
+            const shouldBeGhost = (now - r.lastSeen) >= GHOST_THRESHOLD_MS;
+            if (shouldBeGhost !== r.isGhost) {
+                r.isGhost = shouldBeGhost;
+                if (isSharing) renderRider(name);
+            }
+        });
+        updateLiveRiderCounter();
+    }, 5000);
+
+    /* ========================= Supabase channel ========================= */
+
+    function subscribeChannel() {
+        if (channel) channel.unsubscribe();
+
+        channel = supabaseClient.channel("ride-room", {
+            config:{ broadcast:{ ack:true, self:false } }
+        });
+
+        channel.on("broadcast", { event:"location-update" }, ({ payload }) => {
+            const { user, dest, lat, lng, status, color, riderId } = payload;
+
+            if (isRadiusFilterActive && lastLat && lastLng && !isMeName(user)) {
+                const distMi = distanceMeters(lastLat, lastLng, lat, lng) / 1609.34;
+                if (distMi > 50) { removeRider(user); return; }
+            }
+
+            if (status === "offline") removeRider(user);
+            else processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
+
+            updateLiveRiderCounter();
+        });
+
+        channel.subscribe();
+    }
+
+    subscribeChannel();
+
+    function broadcastCurrentState() {
+        if (!isSharing || !lastLat || !lastLng) return;
+
+        let currentUser = el("username").value.trim();
+        if (!currentUser) currentUser = oldBroadcastedName;
+
+        if (oldBroadcastedName !== currentUser) {
+            removeRider(oldBroadcastedName + " (You)");
+            channel.send({ type:"broadcast", event:"location-update", payload:{ user:oldBroadcastedName, dest:"", lat:0, lng:0, status:"offline" }});
+            oldBroadcastedName = currentUser;
+        }
+
+        processIncomingCoordinateUpdate(currentUser + " (You)", "", lastLat, lastLng, myChatColor, myId);
+
+        channel.send({
+            type:"broadcast", event:"location-update",
+            payload:{ user:currentUser, dest:"", lat:lastLat, lng:lastLng, status:"online", color:myChatColor, riderId:myId }
+        });
+
+        updateLiveRiderCounter();
+    }
+
+    /* ========================= Follow modes ========================= */
+
+    function allFramePositions() {
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const positions = entries.map(([, r]) => [r.lng, r.lat]);
+        const hasMe = entries.some(([name]) => isMeName(name));
+        if (!hasMe && lastLat && lastLng) positions.push([lastLng, lastLat]);
+        return positions;
+    }
+
+    function fitAllRidersFrame() {
+        const positions = allFramePositions();
+        if (!positions.length) return;
+
+        programmaticMove = true;
+
+        if (positions.length === 1) {
+            map.easeTo({ center:positions[0], zoom:ALL_FIT_MAX_ZOOM - 2, bearing:0, duration:900 });
+        } else {
+            const lngs = positions.map(p => p[0]), lats = positions.map(p => p[1]);
+            map.fitBounds(
+                [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+                { padding:{ top:160, bottom:220, left:50, right:50 }, maxZoom:ALL_FIT_MAX_ZOOM, duration:900, bearing:0 }
+            );
+        }
+
+        setTimeout(() => { programmaticMove = false; }, 950);
+    }
+
+    function frameOnSelf() {
+        if (!lastLat || !lastLng) return;
+
+        programmaticMove = true;
+
+        const opts = { center:[lastLng, lastLat], zoom:SELF_ZOOM, duration:1000, easing:t=>t };
+
+        if (Number.isFinite(currentSmoothedHeading)) {
+            // Only actually rotate if the direction has changed
+            // meaningfully — otherwise every tiny GPS wobble would send a
+            // fresh (if small) rotation command every tick, which reads
+            // as constant restless spinning rather than a stable lock.
+            if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 5) {
+                opts.bearing = currentSmoothedHeading;
+                lastAppliedBearing = currentSmoothedHeading;
+            }
+        }
+
+        map.easeTo(opts);
+        setTimeout(() => { programmaticMove = false; }, 1050);
+    }
+
+    function browseToBuddy(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        followMode = "buddy";
+        programmaticMove = true;
+        map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM, bearing:0, duration:800 });
+        setTimeout(() => { programmaticMove = false; }, 850);
+    }
+
+    function getBuddyOnlyCycleList() {
+        const entries = Object.entries(incomingRidersCache).filter(([, r]) => hasLocation(r));
+        const active = entries.filter(([n, r]) => !isMeName(n) && !r.isGhost);
+        const dormant = entries.filter(([n, r]) => !isMeName(n) && r.isGhost);
+        return active.concat(dormant);
+    }
+
+    function cycleBuddiesOnlineTap() {
+        const list = getBuddyOnlyCycleList();
+        if (!list.length) return;
+        const step = buddyCycleIndex % list.length;
+        buddyCycleIndex = (buddyCycleIndex + 1) % list.length;
+        const [name, rider] = list[step];
+        browseToBuddy(name, rider);
+    }
+
+    function togglePinFocus(name, rider) {
+        if (!hasLocation(rider)) return;
+
+        if (followMode === "buddy") {
+            if (bullseyeIsOn) enterAllMode(); else enterSelfMode();
+            return;
+        }
+
+        followMode = "buddy";
+        programmaticMove = true;
+        map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM + 3, bearing:0, duration:800 });
+        setTimeout(() => { programmaticMove = false; }, 850);
+    }
+
+    function applyBullseyeVisual() {
+        const btn = el("followModeBtn");
+        btn.classList.toggle("fm-on", bullseyeIsOn);
+        btn.classList.toggle("fm-off", !bullseyeIsOn);
+    }
+
+    function enterAllMode() {
+        followMode = "all";
+        applyBullseyeVisual();
+        fitAllRidersFrame();
+    }
+
+    function enterSelfMode() {
+        followMode = "self";
+        applyBullseyeVisual();
+        frameOnSelf();
+    }
+
+    el("followModeBtn").addEventListener("click", () => {
+        if (!isSharing) return;
+        bullseyeIsOn = !bullseyeIsOn;
+        applyBullseyeVisual();
+        if (bullseyeIsOn) enterAllMode(); else enterSelfMode();
+    });
+
+    el("riderCounterWidget").addEventListener("click", e => {
+        e.stopPropagation();
+        cycleBuddiesOnlineTap();
+    });
+
+    /* ========================= GPS + heading ========================= */
+
+    /* ========================= Routing ========================= */
+
+    const ROUTE_ENDPOINT = "https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/chaser-route";
+    const ROUTE_SOURCE_ID = "chaser-route-source";
+    const OFF_ROUTE_METERS = 60;
+
+    let routeMode = "car";
+    let confirmedDestination = null; // {label, lat, lng}
+    let lastRouteGeoJson = null;
+    let lastFetchedRouteKey = "";
+    let routeAborter = null;
+    let routeSerial = 0;
+    let routeTimer = null;
+    let lastBroadcastRouteRequestAt = 0;
+    let lastOffRouteCheckAt = 0;
+    let hasSwitchedToSelfForRoute = false;
+    let currentlyDrawnRouteRef = null;
+    let lastTrimmedCoordIndex = -1;
+
+    function destinationText() { return el("destination").value.trim(); }
+    function modeLabel() { return routeMode === "car" ? "Car" : "Bike"; }
+
+    // Route/turn-arrow only ever show in "self" (pinpoint follow) mode —
+    // the search itself still runs regardless of mode, so it's ready the
+    // instant you switch back into follow mode.
+    function chaserRouteVisibleNow() { return true; }
+
+    function escapeHtml(s) {
+        return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    function showRouteStatus(text, autoHide) {
+        const box = el("routeStatus");
+        if (!text || !chaserRouteVisibleNow()) {
+            box.classList.remove("show");
+            if (!text) box.textContent = "";
+            return;
+        }
+        box.textContent = text;
+        box.classList.add("show");
+        if (autoHide) {
+            setTimeout(() => { if (box.textContent === text) box.classList.remove("show"); }, 3500);
+        }
+    }
+
+    function clearChoicePicker() { el("routeChoiceOverlay").classList.remove("show"); }
+    function choicePickerIsOpen() { return el("routeChoiceOverlay").classList.contains("show"); }
+
+    function showChoicePicker(choices, query) {
+        const list = el("routeChoiceList");
+        list.innerHTML = "";
+        showRouteStatus("", false);
+
+        let closestIdx = -1, closestMiles = Infinity;
+        choices.forEach((c, i) => {
+            const m = Number(c.milesAway);
+            if (Number.isFinite(m) && m < closestMiles) { closestMiles = m; closestIdx = i; }
+        });
+
+        choices.slice(0, 5).forEach((choice, i) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "route-choice-btn";
+            const miles = Number(choice.milesAway || 0);
+            const badge = (i === closestIdx && choices.length > 1) ? '<span class="route-choice-closest">CLOSEST</span>' : "";
+            btn.innerHTML =
+                '<div class="route-choice-name">' + escapeHtml(choice.label || query) + '</div>' +
+                '<div class="route-choice-dist">' + (Number.isFinite(miles) ? miles.toFixed(1) : "?") + ' mi away' + badge + '</div>';
+            btn.addEventListener("click", () => {
+                clearChoicePicker();
+                const selected = { label:choice.label || query, lat:Number(choice.lat), lng:Number(choice.lng) };
+                confirmedDestination = selected;
+                runRouteLookup(selected);
+            });
+            list.appendChild(btn);
+        });
+
+        el("routeChoiceOverlay").classList.add("show");
+    }
+
+    el("routeChoiceClose").addEventListener("click", () => clearChoicePicker());
+
+    function buildRouteKey(mode, destText, lat, lng, choice) {
+        const rLat = Math.round(lat * 500) / 500;
+        const rLng = Math.round(lng * 500) / 500;
+
+        if (choice && Number.isFinite(choice.lat) && Number.isFinite(choice.lng)) {
+            const dLat = Math.round(choice.lat * 500) / 500;
+            const dLng = Math.round(choice.lng * 500) / 500;
+            return "dest|" + mode + "|" + dLat + "|" + dLng + "|" + rLat + "|" + rLng;
+        }
+
+        return "search|" + mode + "|" + String(destText || "").toLowerCase() + "|" + rLat + "|" + rLng;
+    }
+
+    function blockedPrivateDestination(text) {
+        const q = String(text || "").toLowerCase().trim();
+        return ["home","my home","my house","house","work","my work","school","my school"].includes(q);
+    }
+
+    function clearRouteLine() {
+        if (map.getLayer("route-fill")) map.removeLayer("route-fill");
+        if (map.getLayer("route-casing")) map.removeLayer("route-casing");
+        if (map.getSource(ROUTE_SOURCE_ID)) map.removeSource(ROUTE_SOURCE_ID);
+        currentlyDrawnRouteRef = null;
+        lastTrimmedCoordIndex = -1;
+    }
+
+    function clearRouteEverything(message) {
+        routeSerial++;
+        if (routeAborter) { try { routeAborter.abort(); } catch(e){} }
+        routeAborter = null;
+        clearTimeout(routeTimer);
+        clearChoicePicker();
+        clearRouteLine();
+        lastRouteGeoJson = null;
+        lastFetchedRouteKey = "";
+        confirmedDestination = null;
+        updateTurnHudVisibility(false);
+        if (message) showRouteStatus(message, true);
+        else showRouteStatus("", false);
+    }
+
+    function ensureRouteLayers(geojson) {
+        if (!map.getSource(ROUTE_SOURCE_ID)) {
+            map.addSource(ROUTE_SOURCE_ID, { type:"geojson", data:geojson });
+            map.addLayer({
+                id:"route-casing", type:"line", source:ROUTE_SOURCE_ID,
+                layout:{ "line-cap":"round", "line-join":"round" },
+                paint:{ "line-color":"#15321a", "line-width":6, "line-opacity":0.85 }
+            });
+            map.addLayer({
+                id:"route-fill", type:"line", source:ROUTE_SOURCE_ID,
+                layout:{ "line-cap":"round", "line-join":"round" },
+                paint:{ "line-color":"#4caf6a", "line-width":3, "line-opacity":0.95 }
+            });
+        } else {
+            map.getSource(ROUTE_SOURCE_ID).setData(geojson);
+        }
+    }
+
+    function nearestRouteCoordIndex(coords, lat, lng) {
+        let bestIndex = 0, bestDist = Infinity;
+        for (let i = 0; i < coords.length; i++) {
+            const c = coords[i];
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const dLat = Number(c[1]) - lat, dLng = Number(c[0]) - lng;
+            const d = (dLat*dLat) + (dLng*dLng);
+            if (d < bestDist) { bestDist = d; bestIndex = i; }
+        }
+        return bestIndex;
+    }
+
+    function trimRouteToRemaining(routeGeoJson, lat, lng) {
+        const feature = routeGeoJson && routeGeoJson.features && routeGeoJson.features[0];
+        const coords = feature && feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : null;
+        if (!coords || coords.length < 2) return { geoJson:routeGeoJson, index:0 };
+
+        const idx = nearestRouteCoordIndex(coords, lat, lng);
+        const remaining = coords.slice(idx);
+        if (remaining.length < 2) return { geoJson:routeGeoJson, index:idx };
+
+        return {
+            geoJson:{ ...routeGeoJson, features:[{ ...feature, geometry:{ ...feature.geometry, coordinates:remaining } }] },
+            index:idx
+        };
+    }
+
+    // MapLibre's source.setData() is efficient and flicker-free, unlike
+    // Leaflet's clear-and-redraw-the-whole-layer approach — so, unlike
+    // the original Chaser, this can safely update on every tick without
+    // needing the same "only redraw if something changed" guard.
+    function applyRouteVisibility() {
+        const visible = chaserRouteVisibleNow();
+
+        if (!visible || !lastRouteGeoJson) {
+            clearRouteLine();
+            if (!visible) el("routeStatus").classList.remove("show");
+            updateTurnHudVisibility(false);
+            return;
+        }
+
+        const routeChanged = currentlyDrawnRouteRef !== lastRouteGeoJson;
+        if (routeChanged) { currentlyDrawnRouteRef = lastRouteGeoJson; lastTrimmedCoordIndex = -1; }
+
+        if (!lastLat || !lastLng) {
+            if (!map.getSource(ROUTE_SOURCE_ID)) ensureRouteLayers(lastRouteGeoJson);
+            return;
+        }
+
+        const trimmed = trimRouteToRemaining(lastRouteGeoJson, lastLat, lastLng);
+
+        if (routeChanged || !map.getSource(ROUTE_SOURCE_ID) || trimmed.index !== lastTrimmedCoordIndex) {
+            ensureRouteLayers(trimmed.geoJson);
+            lastTrimmedCoordIndex = trimmed.index;
+        }
+
+        updateTurnHud();
+    }
+
+    function drawRoute(routeGeoJson) {
+        lastRouteGeoJson = routeGeoJson;
+        applyRouteVisibility();
+    }
+
+    function maybeSwitchToSelfForRoute() {
+        if (hasSwitchedToSelfForRoute) return;
+        hasSwitchedToSelfForRoute = true;
+
+        if (followMode === "all" || followMode === "self") return;
+
+        bullseyeIsOn = false;
+        applyBullseyeVisual();
+        enterSelfMode();
+    }
+
+    async function runRouteLookup(selectedChoice) {
+        const dest = destinationText();
+        const lat = lastLat, lng = lastLng;
+        const serial = ++routeSerial;
+
+        if (!isSharing) { clearRouteEverything(""); return; }
+        if (!dest || dest.length < 2) { clearRouteEverything(""); return; }
+        if (blockedPrivateDestination(dest)) { clearRouteEverything("Use a specific destination name"); return; }
+        if (!lat || !lng) { showRouteStatus("Waiting for GPS before routing…", true); return; }
+
+        const effectiveChoice = selectedChoice || confirmedDestination;
+
+        if (!effectiveChoice && choicePickerIsOpen()) return;
+
+        const routeKey = buildRouteKey(routeMode, dest, lat, lng, effectiveChoice);
+        if (routeKey === lastFetchedRouteKey && lastRouteGeoJson) {
+            applyRouteVisibility();
+            return;
+        }
+
+        if (routeAborter) { try { routeAborter.abort(); } catch(e){} }
+        routeAborter = new AbortController();
+        clearChoicePicker();
+
+        showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
+
+        const payload = { query:dest, mode:routeMode, lat:lat, lng:lng };
+        if (effectiveChoice && Number.isFinite(effectiveChoice.lat) && Number.isFinite(effectiveChoice.lng)) {
+            payload.selectedLat = effectiveChoice.lat;
+            payload.selectedLng = effectiveChoice.lng;
+            payload.selectedLabel = effectiveChoice.label || dest;
+        }
+
+        try {
+            const response = await fetch(ROUTE_ENDPOINT, {
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
+                signal:routeAborter.signal,
+                body:JSON.stringify(payload)
+            });
+
+            const data = await response.json().catch(() => null);
+            if (serial !== routeSerial) return;
+
+            // TEMPORARY DIAGNOSTIC — shows exactly what was sent and what
+            // came back, so we can see the real data instead of guessing.
+            // Remove once this is sorted out.
+            const dbg = data && data.debug;
+            el("routeDebug").textContent =
+                "sent selectedLat/Lng: " + !!(payload.selectedLat) +
+                " | ok:" + (data && data.ok) +
+                " | needsChoice:" + !!(data && data.needsChoice) +
+                " | choices:" + (data && data.choices ? data.choices.length : 0) +
+                " | dest:" + (data && data.destination ? data.destination.name : "none") +
+                " | ORS:" + (dbg ? dbg.ors : "?") +
+                " opName:" + (dbg ? dbg.overpassName : "?") +
+                " opCat:" + (dbg ? dbg.overpassCategory : "?") +
+                " opCuisine:" + (dbg ? dbg.overpassCuisine : "?");
+
+            if (!response.ok || !data || !data.ok) {
+                clearRouteLine();
+                clearChoicePicker();
+                showRouteStatus(data && data.error ? data.error : "No nearby route found", true);
+                return;
+            }
+
+            if (data.needsChoice && Array.isArray(data.choices) && data.choices.length) {
+                clearRouteLine();
+                showChoicePicker(data.choices, dest);
+                return;
+            }
+
+            drawRoute(data.route);
+
+            if (data.destination && Number.isFinite(data.destination.lat) && Number.isFinite(data.destination.lng)) {
+                confirmedDestination = { label:data.destination.name || dest, lat:data.destination.lat, lng:data.destination.lng };
+            }
+
+            lastFetchedRouteKey = buildRouteKey(routeMode, dest, lat, lng, confirmedDestination || effectiveChoice);
+
+            const distMeters = data.summary && data.summary.distanceMeters;
+            const miles = Number(distMeters || 0) / 1609.344;
+            showRouteStatus(modeLabel() + " route highlighted" + (miles > 0 ? ": " + miles.toFixed(1) + " mi" : ""), true);
+
+            maybeSwitchToSelfForRoute();
+        } catch (err) {
+            if (err && err.name === "AbortError") return;
+            if (serial !== routeSerial) return;
+            clearRouteLine();
+            clearChoicePicker();
+            showRouteStatus("Route lookup unavailable", true);
+        } finally {
+            if (serial === routeSerial) routeAborter = null;
+        }
+    }
+
+    function scheduleRouteLookup(delay) {
+        clearTimeout(routeTimer);
+        routeTimer = setTimeout(() => runRouteLookup(null), delay || 800);
+    }
+
+    /* ---- Turn-by-turn arrow HUD ---- */
+
+    function getRoutePieces() {
+        const feature = lastRouteGeoJson && lastRouteGeoJson.features && lastRouteGeoJson.features[0];
+        if (!feature) return null;
+
+        const coords = feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : [];
+        const segments = feature.properties && Array.isArray(feature.properties.segments) ? feature.properties.segments : [];
+        const steps = segments[0] && Array.isArray(segments[0].steps) ? segments[0].steps : [];
+
+        if (!coords.length || !steps.length) return null;
+        return { coords, steps };
+    }
+
+    function isRealTurnInstruction(text) {
+        const t = String(text || "").toLowerCase();
+        if (!t) return false;
+        if (t.includes("arrive") || t.includes("destination")) return true;
+        if (t.includes("roundabout")) return true;
+        if (t.includes("left") || t.includes("right")) return true;
+        return false;
+    }
+
+    function arrowFromInstruction(text) {
+        const t = String(text || "").toLowerCase();
+        if (t.includes("arrive") || t.includes("destination")) return "🏁";
+        if (t.includes("sharp left")) return "↰";
+        if (t.includes("sharp right")) return "↱";
+        if (t.includes("slight left")) return "↖";
+        if (t.includes("slight right")) return "↗";
+        if (t.includes("left")) return "←";
+        if (t.includes("right")) return "→";
+        if (t.includes("roundabout")) return "⟳";
+        return "↑";
+    }
+
+    function formatTurnDistance(meters) {
+        if (!Number.isFinite(meters) || meters < 0) return "--";
+        const feet = meters * 3.28084;
+        if (feet < 900) return Math.max(20, Math.round(feet/20)*20) + " ft";
+        const miles = meters / 1609.344;
+        if (miles < 10) return miles.toFixed(1) + " mi";
+        return Math.round(miles) + " mi";
+    }
+
+    function distanceAlongRoute(coords, fromIndex, toIndex, lat, lng) {
+        if (!coords.length) return 0;
+        fromIndex = Math.max(0, Math.min(coords.length-1, fromIndex));
+        toIndex = Math.max(0, Math.min(coords.length-1, toIndex));
+        if (toIndex <= fromIndex) return 0;
+
+        let meters = 0;
+        const start = coords[fromIndex];
+        if (Array.isArray(start) && start.length >= 2) meters += distanceMeters(lat, lng, Number(start[1]), Number(start[0]));
+
+        for (let i = fromIndex; i < toIndex; i++) {
+            const a = coords[i], b = coords[i+1];
+            if (!Array.isArray(a) || !Array.isArray(b)) continue;
+            meters += distanceMeters(Number(a[1]), Number(a[0]), Number(b[1]), Number(b[0]));
+        }
+        return meters;
+    }
+
+    function updateTurnHudVisibility(show) {
+        el("turnHud").classList.toggle("show", !!show);
+    }
+
+    function updateTurnHud() {
+        if (!chaserRouteVisibleNow()) { updateTurnHudVisibility(false); return; }
+
+        const pieces = getRoutePieces();
+        if (!pieces || !lastLat || !lastLng) { updateTurnHudVisibility(false); return; }
+
+        const nearIndex = nearestRouteCoordIndex(pieces.coords, lastLat, lastLng);
+
+        let nextStep = null;
+        for (const step of pieces.steps) {
+            const instruction = String(step.instruction || "").toLowerCase();
+            if (instruction.includes("depart")) continue;
+
+            const wp = Array.isArray(step.way_points) ? step.way_points : null;
+            if (!wp || wp.length < 2) continue;
+
+            const stepStart = Number(wp[0]);
+            if (!Number.isFinite(stepStart) || stepStart < nearIndex) continue;
+            if (!isRealTurnInstruction(step.instruction || "")) continue;
+
+            nextStep = step;
+            break;
+        }
+
+        if (!nextStep) {
+            el("turnArrow").textContent = "🏁";
+            el("turnDistance").textContent = "--";
+            updateTurnHudVisibility(true);
+            return;
+        }
+
+        const wp = nextStep.way_points || [nearIndex, nearIndex];
+        const turnIndex = Math.max(0, Number(wp[0]) || 0);
+        const metersToTurn = distanceAlongRoute(pieces.coords, nearIndex, turnIndex, lastLat, lastLng);
+
+        el("turnArrow").textContent = arrowFromInstruction(nextStep.instruction || "");
+        el("turnDistance").textContent = formatTurnDistance(metersToTurn);
+        updateTurnHudVisibility(true);
+    }
+
+    /* ---- Off-route detection ---- */
+
+    let offRouteStrikes = 0;
+
+    function checkOffRouteAndMaybeReroute(lat, lng, accuracyMeters) {
+        if (!lastRouteGeoJson || !confirmedDestination) return;
+
+        const now = Date.now();
+        if (now - lastOffRouteCheckAt < 3000) return;
+        lastOffRouteCheckAt = now;
+
+        const feature = lastRouteGeoJson.features && lastRouteGeoJson.features[0];
+        const coords = feature && feature.geometry && Array.isArray(feature.geometry.coordinates) ? feature.geometry.coordinates : null;
+        if (!coords || !coords.length) return;
+
+        let best = Infinity;
+        for (let i = 0; i < coords.length; i++) {
+            const c = coords[i];
+            if (!Array.isArray(c) || c.length < 2) continue;
+            const d = distanceMeters(lat, lng, Number(c[1]), Number(c[0]));
+            if (d < best) best = d;
+        }
+
+        // Widen the threshold by the phone's own reported GPS uncertainty
+        // (capped at 150m so a truly terrible fix can't disable this
+        // entirely). Sitting still indoors often means degraded accuracy
+        // — 30-80m of uncertainty isn't unusual — and treating that
+        // normal uncertainty as "you went off route" is exactly what was
+        // causing repeated false reroutes while not actually moving.
+        const accuracyPad = Number.isFinite(accuracyMeters) ? Math.min(accuracyMeters, 150) : 0;
+        const effectiveThreshold = OFF_ROUTE_METERS + accuracyPad;
+
+        if (best > effectiveThreshold) {
+            offRouteStrikes++;
+
+            // Require 3 consecutive off-route readings (~9+ seconds of
+            // sustained drift) before actually rerouting — a single noisy
+            // GPS reading (common when stationary or with weak signal)
+            // was enough to trigger a full re-search on its own before,
+            // which is what caused "Finding route..." to keep repeating
+            // even though the route itself hadn't actually gone stale.
+            if (offRouteStrikes >= 3) {
+                offRouteStrikes = 0;
+                lastFetchedRouteKey = "";
+                scheduleRouteLookup(50);
+            }
+        } else {
+            offRouteStrikes = 0;
+        }
+    }
+
+    /* ---- Wiring ---- */
+
+    el("destination").addEventListener("input", () => {
+        clearChoicePicker();
+        confirmedDestination = null;
+        hasSwitchedToSelfForRoute = false;
+        offRouteStrikes = 0;
+        routedBuddyName = null;
+
+        if (!destinationText()) { clearRouteEverything(""); return; }
+        if (isSharing) scheduleRouteLookup(1000);
+    });
+
+    el("destination").addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.keyCode === 13) {
+            e.target.blur();
+
+            if (isSharing && destinationText()) {
+                clearTimeout(routeTimer);
+                scheduleRouteLookup(50);
+            }
+        }
+    });
+
+    function bikeSvg() {
+        return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+            <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+            <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M39 17h8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+            <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
+        </svg>`;
+    }
+
+    function carSvg() {
+        return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+            <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
+            <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
+            <path d="M22 28h20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        </svg>`;
+    }
+
+    el("modeToggleBtn").innerHTML = carSvg();
+
+    el("modeToggleBtn").addEventListener("click", () => {
+        routeMode = routeMode === "car" ? "bike" : "car";
+        el("modeToggleBtn").innerHTML = routeMode === "car" ? carSvg() : bikeSvg();
+        el("modeToggleBtn").title = modeLabel();
+        lastFetchedRouteKey = "";
+
+        if (isSharing && destinationText()) {
+            showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
+            scheduleRouteLookup(250);
+        }
+    });
+
+    // Periodic visibility recheck — same idea as the original Chaser:
+    // catches follow-mode changes (bullseye tap, manual drag) even
+    // without a fresh GPS tick or route fetch happening.
+    setInterval(() => {
+        applyRouteVisibility();
+    }, 1500);
+
+    function onGpsUpdate(pos) {
+        const coords = pos.coords || {};
+        lastLat = coords.latitude;
+        lastLng = coords.longitude;
+
+        // Heading is only meaningful once you're actually moving — a
+        // phone standing still has no reliable "direction it's facing"
+        // from GPS alone (that needs a compass/magnetometer, which this
+        // isn't using). Below this speed, freeze whatever heading we
+        // last had instead of feeding in fresh noise, which is what was
+        // causing the map to visibly spin while sitting still.
+        const MIN_MOVING_SPEED_MPS = 0.6; // roughly 1.3 mph
+        const speedKnown = Number.isFinite(coords.speed);
+        const isStationary = speedKnown && coords.speed < MIN_MOVING_SPEED_MPS;
+
+        if (!isStationary) {
+            if (Number.isFinite(coords.heading)) {
+                lastHeading = coords.heading;
+            } else if (lastHeadingLat !== null) {
+                const moved = distanceMeters(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+                if (moved >= 2) lastHeading = bearingDegrees(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+            }
+        }
+
+        lastHeadingLat = lastLat;
+        lastHeadingLng = lastLng;
+
+        // Computed every tick regardless of follow mode, so the status
+        // pill and the map rotation are always showing/using the same
+        // stable number instead of the pill displaying raw jitter.
+        currentSmoothedHeading = updateSmoothedHeading(lastHeading);
+
+        broadcastCurrentState();
+
+        if (followMode === "all") fitAllRidersFrame();
+        else if (followMode === "self") frameOnSelf();
+
+        if (destinationText()) {
+            checkOffRouteAndMaybeReroute(lastLat, lastLng, coords.accuracy);
+
+            const now = Date.now();
+            if (now - lastBroadcastRouteRequestAt > 4000) {
+                lastBroadcastRouteRequestAt = now;
+                scheduleRouteLookup(1400);
+            }
+        }
+
+        applyRouteVisibility();
+        onHudGpsTick(coords, Number(pos.timestamp || Date.now()));
+
+        setStatus(
+            "lat " + lastLat.toFixed(5) + ", lng " + lastLng.toFixed(5) +
+            (Number.isFinite(currentSmoothedHeading) ? " — heading " + Math.round(currentSmoothedHeading) + "°" : "") +
+            (Number.isFinite(coords.accuracy) ? " — ±" + Math.round(coords.accuracy) + "m" : "") +
+            " — mode: " + followMode
+        );
+    }
+
+    /* ========================= Start/stop sharing ========================= */
+
+    el("startBtn").addEventListener("click", () => {
+        if (isSharing) {
+            isSharing = false;
+            el("startBtn").textContent = "Start Sharing Location";
+            el("startBtn").classList.remove("sharing-active");
+
+            if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+
+            channel.send({ type:"broadcast", event:"location-update", payload:{ user:oldBroadcastedName, dest:"", lat:0, lng:0, status:"offline" }});
+
+            Object.keys(incomingRidersCache).forEach(name => {
+                if (incomingRidersCache[name].marker) incomingRidersCache[name].marker.remove();
+            });
+            incomingRidersCache = {};
+            updateLiveRiderCounter();
+            clearRouteEverything("");
+            hasSwitchedToSelfForRoute = false;
+            offRouteStrikes = 0;
+            routedBuddyName = null;
+            smoothedHeadingSin = null;
+            smoothedHeadingCos = null;
+            lastAppliedBearing = null;
+            currentSmoothedHeading = null;
+
+            setStatus("Stopped sharing");
+            return;
+        }
+
+        const name = el("username").value.trim();
+        if (!name) {
+            el("username").focus();
+            setStatus("Enter your name first");
+            return;
+        }
+
+        oldBroadcastedName = name;
+        isSharing = true;
+        el("startBtn").textContent = "Stop Sharing Location";
+        el("startBtn").classList.add("sharing-active");
+
+        if (!navigator.geolocation) {
+            setStatus("This browser has no GPS access");
+            return;
+        }
+
+        watchId = navigator.geolocation.watchPosition(onGpsUpdate, () => setStatus("GPS error"), {
+            enableHighAccuracy:true, maximumAge:0, timeout:10000
+        });
+    });
+
+    /* ========================= Long-press helper ========================= */
+
+    function attachLongPress(el, callback, holdMs) {
+        let timer = null;
+        let fired = false;
+        let firedAt = 0;
+        let startX = 0, startY = 0;
+        const threshold = holdMs || 550;
+        const moveTolerance = 12;
+
+        function clear() {
+            if (timer) { clearTimeout(timer); timer = null; }
+        }
+
+        function onStart(e) {
+            const point = e.touches ? e.touches[0] : e;
+            startX = point.clientX;
+            startY = point.clientY;
+            fired = false;
+
+            clear();
+            timer = setTimeout(() => {
+                fired = true;
+                firedAt = Date.now();
+                if (navigator.vibrate) navigator.vibrate(35);
+                callback();
+            }, threshold);
+        }
+
+        function onMove(e) {
+            const point = e.touches ? e.touches[0] : e;
+            const dx = Math.abs(point.clientX - startX);
+            const dy = Math.abs(point.clientY - startY);
+            if (dx > moveTolerance || dy > moveTolerance) clear();
+        }
+
+        function onEnd() { clear(); }
+
+        el.addEventListener("touchstart", onStart, { passive:true });
+        el.addEventListener("touchmove", onMove, { passive:true });
+        el.addEventListener("touchend", onEnd);
+        el.addEventListener("touchcancel", onEnd);
+        el.addEventListener("mousedown", onStart);
+        el.addEventListener("mousemove", onMove);
+        el.addEventListener("mouseup", onEnd);
+        el.addEventListener("mouseleave", onEnd);
+
+        return {
+            justFired:function () {
+                return fired && (Date.now() - firedAt) < 700;
+            },
+            consume:function () {
+                fired = false;
+            }
+        };
+    }
+
+    /* ========================= Route to a known location ========================= */
+
+    // Used for both "long-press a buddy" and "long-press an EV charger" —
+    // routes straight to an exact coordinate, completely bypassing the
+    // search/picker flow entirely, same as the real app.
+    let routedBuddyName = null;
+
+    function routeToKnownLocation(label, lat, lng, buddyName) {
+        if (!isSharing) {
+            showRouteStatus("Start sharing your location first", true);
+            return;
+        }
+
+        routedBuddyName = buddyName || null;
+
+        el("destination").value = label;
+        confirmedDestination = { label, lat, lng };
+        hasSwitchedToSelfForRoute = false;
+        offRouteStrikes = 0;
+        lastFetchedRouteKey = "";
+
+        runRouteLookup(confirmedDestination);
+    }
+
+    // If you're routed to a buddy who's still moving, keep the
+    // destination itself updated to follow them live, instead of routing
+    // to where they were the instant you long-pressed.
+    function maybeUpdateRoutedBuddyPosition(name, lat, lng) {
+        if (!routedBuddyName || name !== routedBuddyName) return;
+        if (!confirmedDestination) return;
+
+        confirmedDestination.lat = lat;
+        confirmedDestination.lng = lng;
+        lastFetchedRouteKey = "";
+        scheduleRouteLookup(300);
+    }
+
+    /* ========================= EV chargers ========================= */
+
+    let evChargersVisible = false;
+    let evMarkers = [];
+    let evFetchTimer = null;
+
+    function clearEvMarkers() {
+        evMarkers.forEach(m => { try { m.remove(); } catch (e) {} });
+        evMarkers = [];
+    }
+
+    function evIconElement() {
+        const el = document.createElement("div");
+        el.style.cssText =
+            "width:26px;height:26px;border-radius:50%;background:#1e4620;" +
+            "border:2px solid #ffd700;display:flex;align-items:center;" +
+            "justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.4);cursor:pointer;";
+        el.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="#ffd700" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>';
+        return el;
+    }
+
+    async function fetchEvChargers() {
+        if (!evChargersVisible) return;
+
+        const bounds = map.getBounds();
+        const south = bounds.getSouth(), west = bounds.getWest();
+        const north = bounds.getNorth(), east = bounds.getEast();
+
+        // Fetched directly from the browser via GET to overpass-api.de —
+        // byte-for-byte the same approach the real production app uses,
+        // which demonstrably works from a phone browser in this exact
+        // area. The earlier server-side proxy attempt returned clean
+        // empty results every time: Supabase's shared datacenter IPs
+        // appear to get throttled/emptied by public Overpass servers,
+        // while requests from a person's own phone IP work fine.
+        const overpassQuery = `
+            [out:json][timeout:25];
+            (
+              node["amenity"="charging_station"](${south},${west},${north},${east});
+              way["amenity"="charging_station"](${south},${west},${north},${east});
+              relation["amenity"="charging_station"](${south},${west},${north},${east});
+            );
+            out center tags;
+        `;
+
+        try {
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
+            const resp = await fetch(url);
+
+            const debugBox = el("routeDebug");
+
+            if (debugBox) {
+                debugBox.textContent =
+                    "EV fetch (direct): http " + resp.status +
+                    " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
+            }
+
+            if (!resp.ok) {
+                if (debugBox) debugBox.textContent += " | request failed";
+                return;
+            }
+
+            const rawData = await resp.json().catch(() => null);
+            const elements = rawData && Array.isArray(rawData.elements) ? rawData.elements : [];
+
+            if (debugBox) {
+                debugBox.textContent += " | elements:" + elements.length;
+            }
+
+            if (!rawData || !evChargersVisible) return;
+
+            clearEvMarkers();
+
+            const chargers = elements
+                .map(item => {
+                    const tags = item.tags || {};
+                    const access = String(tags.access || "").toLowerCase();
+                    if (access === "private" || access === "no") return null;
+
+                    return {
+                        name: tags.name || tags.operator || "EV Charger",
+                        lat: Number(item.lat ?? (item.center && item.center.lat)),
+                        lng: Number(item.lon ?? (item.center && item.center.lon))
+                    };
+                })
+                .filter(c => c && Number.isFinite(c.lat) && Number.isFinite(c.lng));
+
+            chargers.forEach(charger => {
+                const lat = Number(charger.lat);
+                const lng = Number(charger.lng);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+                const name = charger.name || "EV Charger";
+
+                const container = evIconElement();
+                const marker = new maplibregl.Marker({ element:container, anchor:"center" })
+                    .setLngLat([lng, lat])
+                    .addTo(map);
+
+                let tooltipShown = false;
+
+                const longPressHandle = attachLongPress(container, () => {
+                    routeToKnownLocation(name, lat, lng, null);
+                });
+
+                container.addEventListener("click", e => {
+                    e.stopPropagation();
+
+                    if (longPressHandle.justFired()) {
+                        longPressHandle.consume();
+                        return;
+                    }
+
+                    tooltipShown = !tooltipShown;
+                    if (tooltipShown) {
+                        new maplibregl.Popup({ closeButton:false, offset:16 })
+                            .setLngLat([lng, lat])
+                            .setText(name)
+                            .addTo(map);
+                    }
+                });
+
+                evMarkers.push(marker);
+            });
+        } catch (e) {
+            const debugBox = el("routeDebug");
+            if (debugBox) debugBox.textContent = "EV fetch threw: " + (e && e.message ? e.message : e);
+        }
+    }
+
+    function scheduleEvFetch() {
+        clearTimeout(evFetchTimer);
+        evFetchTimer = setTimeout(fetchEvChargers, 400);
+    }
+
+    el("evToggleBtn").addEventListener("click", () => {
+        evChargersVisible = !evChargersVisible;
+        el("evToggleBtn").classList.toggle("active", evChargersVisible);
+
+        if (evChargersVisible) {
+            fetchEvChargers();
+        } else {
+            clearEvMarkers();
+        }
+    });
+
+    map.on("moveend", () => {
+        if (evChargersVisible) scheduleEvFetch();
+    });
+
+    /* ========================= Zoom pill ========================= */
+
+    el("zoomInBtn").addEventListener("click", () => map.zoomIn());
+    el("zoomOutBtn").addEventListener("click", () => map.zoomOut());
+
+    /* ========================= Button positioning (matches real app) ========================= */
+
+    function positionEvButton() {
+        const btn = el("evToggleBtn");
+        const zoomEl = el("zoomPill");
+        const radiusEl = el("radiusToggleBtn");
+        if (!btn || !zoomEl || !radiusEl) return;
+
+        const z = zoomEl.getBoundingClientRect();
+        const r = radiusEl.getBoundingClientRect();
+        const size = 38;
+
+        const centerX = (z.right + r.left) / 2;
+        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+
+        let left = centerX - (size / 2);
+        let top = centerY - (size / 2);
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    function positionModeButton() {
+        const btn = el("modeToggleBtn");
+        const zoomEl = el("zoomPill");
+        if (!btn || !zoomEl) return;
+
+        const z = zoomEl.getBoundingClientRect();
+        const size = 42;
+        const plusTop = 18;
+        const plusLeft = -28;
+
+        let left = z.left + (z.width / 2) - (size / 2) + plusLeft;
+        let top = z.bottom + plusTop;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    positionEvButton();
+    positionModeButton();
+    window.addEventListener("resize", () => {
+        positionEvButton();
+        positionModeButton();
+    });
+    setInterval(() => {
+        positionEvButton();
+        positionModeButton();
+    }, 1000);
+
+    /* ========================= Collapse/expand inputs ========================= */
+
+    el("toggleInputsBtn").addEventListener("click", () => {
+        el("inputsWrapper").classList.toggle("hidden");
+        el("toggleInputsBtn").classList.toggle("flipped");
+    });
+
+    /* ========================= Room lock placeholder ========================= */
+
+    el("roomLockBtn").addEventListener("click", () => {
+        showRouteStatus("Room codes aren't wired up in this test yet", true);
+    });
+
+    /* ========================= Voice input ========================= */
+
+    (function setupVoiceInput() {
+        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const usernameMic = el("usernameMic");
+        const destinationMic = el("destinationMic");
+
+        if (!SpeechRecognitionCtor) {
+            usernameMic.style.display = "none";
+            destinationMic.style.display = "none";
+            return;
+        }
+
+        function attach(btn, input) {
+            const rec = new SpeechRecognitionCtor();
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.lang = "en-US";
+
+            btn.addEventListener("click", e => {
+                e.preventDefault();
+                e.stopPropagation();
+                input.blur();
+
+                if (btn.classList.contains("listening")) rec.stop();
+                else { try { rec.start(); } catch (err) {} }
+            });
+
+            rec.onstart = () => {
+                btn.classList.add("listening");
+                input.value = "";
+                input.placeholder = "Listening...";
+            };
+
+            rec.onresult = e => {
+                input.value = e.results[0][0].transcript.replace(/[.\s]+$/g, "");
+                // Setting .value directly never fires the native "input"
+                // event — dispatch it manually so voice-set text behaves
+                // exactly like text the person typed themselves.
+                input.dispatchEvent(new Event("input", { bubbles:true }));
+            };
+
+            rec.onerror = () => { btn.classList.remove("listening"); resetPlaceholder(input); };
+            rec.onend = () => { btn.classList.remove("listening"); resetPlaceholder(input); };
+        }
+
+        function resetPlaceholder(input) {
+            input.placeholder = input.id === "username" ? "Enter your name" : "Destination (optional)";
+        }
+
+        attach(usernameMic, el("username"));
+        attach(destinationMic, el("destination"));
+    })();
+
+    /* ========================= Speed/Trip HUD ========================= */
+    /* Same visuals and trip-tracking behavior as the real app's HUD,
+       but driven by this app's existing single GPS pipeline and
+       followMode state instead of running its own separate GPS watch:
+       visible whenever sharing + in a follow mode ("all" bullseye or
+       "self" pinpoint) + the inputs drawer is closed; hidden while
+       browsing buddies or after manually dragging the map. */
+
+    let tripMeters = Number(localStorage.getItem("chaser_trip_meters") || 0) || 0;
+    let hudLastLat = null;
+    let hudLastLng = null;
+    let hudLastTime = 0;
+    let hudSpeedMps = 0;
+    let hudLastSpeedStamp = 0;
+
+    function installHudStyles() {
+        if (el("chaserHudStyle")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaserHudStyle";
+        style.innerHTML = `
+            #chaserFollowStatsHud {
+                position:fixed;
+                left:15px;
+                bottom:112px;
+                width:74%;
+                max-width:340px;
+                z-index:13;
+                display:none;
+                grid-template-columns:1fr 1fr;
+                gap:8px;
+                align-items:stretch;
+                box-sizing:border-box;
+                font-family:"Courier New", monospace;
+                user-select:none;
+                -webkit-user-select:none;
+                -webkit-tap-highlight-color:transparent;
+            }
+
+            #chaserFollowStatsHud.show { display:grid; }
+
+            .chaser-hud-tile {
+                position:relative;
+                width:100%;
+                min-width:0;
+                min-height:84px;
+                background:rgba(226, 240, 217, 0.50);
+                border:2px solid rgba(30, 70, 32, 0.72);
+                border-radius:18px;
+                box-shadow:inset 0 0 12px rgba(255,255,255,.18), 0 7px 22px rgba(0,0,0,.24);
+                backdrop-filter:blur(3px);
+                -webkit-backdrop-filter:blur(3px);
+                padding:8px 10px 12px 10px;
+                overflow:hidden;
+                box-sizing:border-box;
+                text-align:center;
+            }
+
+            .chaser-hud-label {
+                color:#1e4620;
+                font-size:15px;
+                font-weight:900;
+                letter-spacing:2px;
+                line-height:1;
+                margin-bottom:5px;
+                text-shadow:1px 1px 0 rgba(226,240,217,.95), 0 2px 5px rgba(0,0,0,.20);
+            }
+
+            .chaser-hud-number {
+                color:#1e4620;
+                font-weight:900;
+                font-variant-numeric:tabular-nums;
+                text-shadow:1px 1px 0 rgba(226,240,217,.95), 0 2px 5px rgba(0,0,0,.20);
+            }
+
+            #chaserHudSpeed { font-size:58px; line-height:.88; letter-spacing:-2px; }
+            #chaserHudTrip { font-size:44px; line-height:.95; letter-spacing:-1px; }
+
+            .chaser-hud-unit {
+                position:absolute;
+                right:10px;
+                bottom:14px;
+                color:#1e4620;
+                font-size:13px;
+                font-weight:900;
+                letter-spacing:1px;
+                text-shadow:1px 1px 0 rgba(226,240,217,.95), 0 2px 5px rgba(0,0,0,.20);
+            }
+
+            .chaser-hud-tile:nth-child(2) { padding-bottom:30px; }
+
+            #chaserHudTripReset {
+                position:absolute;
+                left:10px;
+                bottom:7px;
+                margin:0;
+                background:rgba(226, 240, 217, 0.78);
+                border:1px solid rgba(30, 70, 32, 0.70);
+                color:#1e4620;
+                font-family:"Courier New", monospace;
+                font-size:11px;
+                font-weight:900;
+                letter-spacing:.8px;
+                padding:4px 12px;
+                border-radius:999px;
+                box-shadow:0 2px 6px rgba(0,0,0,.22);
+                text-transform:uppercase;
+                cursor:pointer;
+            }
+
+            #chaserHudTripReset:active {
+                transform:scale(.92);
+                background:rgba(226, 240, 217, 0.96);
+            }
+
+            @media (max-width:380px) {
+                #chaserFollowStatsHud { gap:7px; bottom:110px; }
+                .chaser-hud-tile { min-height:78px; padding:7px 8px 11px 8px; }
+                .chaser-hud-label { font-size:13px; margin-bottom:4px; }
+                #chaserHudSpeed { font-size:52px; }
+                #chaserHudTrip { font-size:39px; }
+                .chaser-hud-unit { font-size:12px; right:8px; bottom:14px; }
+                #chaserHudTripReset { left:8px; bottom:7px; font-size:10px; padding:4px 10px; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    function ensureHud() {
+        installHudStyles();
+
+        let hud = el("chaserFollowStatsHud");
+        if (hud) return hud;
+
+        hud = document.createElement("div");
+        hud.id = "chaserFollowStatsHud";
+        hud.innerHTML = `
+            <div class="chaser-hud-tile">
+                <div class="chaser-hud-label">SPEED</div>
+                <div class="chaser-hud-number" id="chaserHudSpeed">0</div>
+                <div class="chaser-hud-unit">MPH</div>
+            </div>
+            <div class="chaser-hud-tile">
+                <div class="chaser-hud-label">TRIP</div>
+                <div class="chaser-hud-number" id="chaserHudTrip">0.0</div>
+                <div class="chaser-hud-unit">MI</div>
+                <button id="chaserHudTripReset" type="button">reset</button>
+            </div>
+        `;
+        document.body.appendChild(hud);
+
+        el("chaserHudTripReset").addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            tripMeters = 0;
+            localStorage.setItem("chaser_trip_meters", "0");
+
+            if (lastLat && lastLng) {
+                hudLastLat = lastLat;
+                hudLastLng = lastLng;
+                hudLastTime = Date.now();
+            }
+
+            updateHudNumbers();
+        });
+
+        return hud;
+    }
+
+    function updateHudNumbers() {
+        const speedEl = el("chaserHudSpeed");
+        const tripEl = el("chaserHudTrip");
+        if (!speedEl || !tripEl) return;
+
+        speedEl.innerText = String(Math.round(Math.max(0, hudSpeedMps * 2.236936)));
+        tripEl.innerText = Math.max(0, tripMeters / 1609.344).toFixed(1);
+    }
+
+    function inputsAreClosed() {
+        const wrapper = el("inputsWrapper");
+        return !wrapper || wrapper.classList.contains("hidden");
+    }
+
+    function updateHudVisibility() {
+        const hud = ensureHud();
+        const inFollowMode = followMode === "all" || followMode === "self";
+        hud.classList.toggle("show", !!(isSharing && inFollowMode && inputsAreClosed()));
+    }
+
+    function onHudGpsTick(coords, timestamp) {
+        const lat = Number(coords.latitude);
+        const lng = Number(coords.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const accuracy = Number(coords.accuracy || 9999);
+        let fallbackSpeedMps = hudSpeedMps;
+
+        if (hudLastLat !== null && hudLastTime > 0) {
+            const meters = distanceMeters(hudLastLat, hudLastLng, lat, lng);
+            const seconds = Math.max(0.001, (timestamp - hudLastTime) / 1000);
+
+            const saneTime = seconds > 0 && seconds < 180;
+            const saneJump = meters >= 0 && meters < 1000;
+            const movementSpeed = meters / seconds;
+
+            if (saneTime && saneJump && movementSpeed < 70) {
+                fallbackSpeedMps = movementSpeed;
+
+                const movingEnough = meters >= 4;
+                const accuracyOkay = accuracy <= 80 || meters >= accuracy * 0.45;
+
+                if (movingEnough && accuracyOkay) {
+                    tripMeters += meters;
+                    localStorage.setItem("chaser_trip_meters", String(tripMeters));
+                }
+            } else if (seconds >= 180) {
+                // Screen-off gap: add straight-line catch-up distance,
+                // capped at a plausible average speed, same as the real app.
+                const maxPlausibleMeters = seconds * 45;
+                if (meters > 0 && meters <= maxPlausibleMeters && meters < 80000) {
+                    tripMeters += meters;
+                    localStorage.setItem("chaser_trip_meters", String(tripMeters));
+                }
+                fallbackSpeedMps = 0;
+            }
+        }
+
+        if (Number.isFinite(coords.speed) && coords.speed >= 0) {
+            hudSpeedMps = coords.speed;
+        } else if (Number.isFinite(fallbackSpeedMps)) {
+            hudSpeedMps = (hudSpeedMps * 0.6) + (fallbackSpeedMps * 0.4);
+        }
+
+        if (hudSpeedMps < 0.25) hudSpeedMps = 0;
+
+        hudLastLat = lat;
+        hudLastLng = lng;
+        hudLastTime = timestamp;
+        hudLastSpeedStamp = Date.now();
+
+        updateHudNumbers();
+        updateHudVisibility();
+    }
+
+    // Speed decay: if no GPS tick arrives for 8+ seconds, zero the speed
+    // rather than freezing the last reading forever.
+    setInterval(() => {
+        if (hudLastSpeedStamp && Date.now() - hudLastSpeedStamp > 8000 && hudSpeedMps > 0) {
+            hudSpeedMps = 0;
+            updateHudNumbers();
+        }
+        updateHudVisibility();
+    }, 1500);
+
+    ensureHud();
+
+    el("radiusToggle").addEventListener("change", e => {
+        isRadiusFilterActive = e.target.checked;
+    });
+})();
+</script>
+<script>
+/* CHASER PATCH — Spotify music button
+   One button, styled to match the car/bike map toggle, placed where the
+   old compass used to sit.
+
+   - Not connected to Spotify: tapping it just opens the Spotify app
+     (a plain launcher — works instantly for anyone, no setup, no login).
+   - Connected: tapping it instead expands/collapses a small row of
+     back / play-pause / forward buttons that control playback right
+     from inside Chaser. Tapping the main button again collapses them.
+   - Long-press (either state): opens Connect/Disconnect settings.
+
+   "Connected" means the person has created their OWN free Spotify
+   Developer app and entered their own Client ID here — this is
+   deliberately per-person and per-device (stored only in this browser's
+   localStorage, never sent anywhere else), since Spotify hard-caps how
+   many total people can share one developer app. Nobody who skips this
+   setup is blocked from anything — they just get the plain launcher
+   instead, same as before.
+*/
+(function () {
+    if (window.__chaserSpotifyMusicButtonInstalled) return;
+    window.__chaserSpotifyMusicButtonInstalled = true;
+
+    const LS_CLIENT_ID = "chaser_spotify_client_id";
+    const LS_ACCESS_TOKEN = "chaser_spotify_access_token";
+    const LS_REFRESH_TOKEN = "chaser_spotify_refresh_token";
+    const LS_EXPIRES_AT = "chaser_spotify_expires_at";
+    const LS_CODE_VERIFIER = "chaser_spotify_code_verifier";
+
+    const SPOTIFY_SCOPES = "user-modify-playback-state user-read-playback-state";
+
+    function byId(id) {
+        return document.getElementById(id);
+    }
+
+    /* ============================== PKCE ============================== */
+
+    function base64UrlEncode(buffer) {
+        let str = "";
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+        return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
+
+    function generateCodeVerifier() {
+        const array = new Uint8Array(64);
+        crypto.getRandomValues(array);
+        return base64UrlEncode(array.buffer);
+    }
+
+    async function generateCodeChallenge(verifier) {
+        const encoder = new TextEncoder();
+        const digest = await crypto.subtle.digest("SHA-256", encoder.encode(verifier));
+        return base64UrlEncode(digest);
+    }
+
+    function redirectUri() {
+        return window.location.origin + window.location.pathname;
+    }
+
+    /* ========================= Connection state ========================= */
+
+    function getClientId() {
+        return localStorage.getItem(LS_CLIENT_ID) || "";
+    }
+
+    function isConnected() {
+        return !!(getClientId() && localStorage.getItem(LS_REFRESH_TOKEN));
+    }
+
+    function disconnectSpotify() {
+        localStorage.removeItem(LS_ACCESS_TOKEN);
+        localStorage.removeItem(LS_REFRESH_TOKEN);
+        localStorage.removeItem(LS_EXPIRES_AT);
+        localStorage.removeItem(LS_CLIENT_ID);
+        updateButtonMode();
+        closeMusicPanel();
+    }
+
+    async function startSpotifyConnect(clientId) {
+        const trimmed = String(clientId || "").trim();
+        if (!trimmed) return;
+
+        localStorage.setItem(LS_CLIENT_ID, trimmed);
+
+        const verifier = generateCodeVerifier();
+        localStorage.setItem(LS_CODE_VERIFIER, verifier);
+        const challenge = await generateCodeChallenge(verifier);
+
+        const authUrl = new URL("https://accounts.spotify.com/authorize");
+        authUrl.searchParams.set("client_id", trimmed);
+        authUrl.searchParams.set("response_type", "code");
+        authUrl.searchParams.set("redirect_uri", redirectUri());
+        authUrl.searchParams.set("code_challenge_method", "S256");
+        authUrl.searchParams.set("code_challenge", challenge);
+        authUrl.searchParams.set("scope", SPOTIFY_SCOPES);
+
+        window.location.href = authUrl.toString();
+    }
+
+    async function handleAuthRedirectIfPresent() {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        const oauthError = params.get("error");
+
+        if (!code && !oauthError) return;
+
+        // Clean the URL immediately — a page refresh shouldn't try to
+        // reprocess (and fail on) an already-used authorization code.
+        window.history.replaceState({}, "", redirectUri());
+
+        if (oauthError) {
+            showMusicStatus("Spotify connection cancelled");
+            return;
+        }
+
+        const clientId = getClientId();
+        const verifier = localStorage.getItem(LS_CODE_VERIFIER);
+        if (!clientId || !verifier) return;
+
+        try {
+            const resp = await fetch("https://accounts.spotify.com/api/token", {
+                method:"POST",
+                headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+                body:new URLSearchParams({
+                    grant_type:"authorization_code",
+                    code:code,
+                    redirect_uri:redirectUri(),
+                    client_id:clientId,
+                    code_verifier:verifier
+                })
+            });
+
+            const data = await resp.json().catch(() => null);
+
+            if (!resp.ok || !data || !data.access_token) {
+                showMusicStatus("Spotify connect failed — check your Client ID");
+                return;
+            }
+
+            localStorage.setItem(LS_ACCESS_TOKEN, data.access_token);
+            localStorage.setItem(LS_REFRESH_TOKEN, data.refresh_token || "");
+            localStorage.setItem(LS_EXPIRES_AT, String(Date.now() + (Number(data.expires_in || 3600) * 1000)));
+            localStorage.removeItem(LS_CODE_VERIFIER);
+
+            showMusicStatus("Spotify connected");
+            updateButtonMode();
+        } catch (e) {
+            showMusicStatus("Spotify connect failed");
+        }
+    }
+
+    async function getValidAccessToken() {
+        const clientId = getClientId();
+        const refreshToken = localStorage.getItem(LS_REFRESH_TOKEN);
+        if (!clientId || !refreshToken) return null;
+
+        const expiresAt = Number(localStorage.getItem(LS_EXPIRES_AT) || 0);
+        const accessToken = localStorage.getItem(LS_ACCESS_TOKEN);
+
+        if (accessToken && Date.now() < expiresAt - 30000) {
+            return accessToken;
+        }
+
+        try {
+            const resp = await fetch("https://accounts.spotify.com/api/token", {
+                method:"POST",
+                headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+                body:new URLSearchParams({
+                    grant_type:"refresh_token",
+                    refresh_token:refreshToken,
+                    client_id:clientId
+                })
+            });
+
+            const data = await resp.json().catch(() => null);
+            if (!resp.ok || !data || !data.access_token) return null;
+
+            localStorage.setItem(LS_ACCESS_TOKEN, data.access_token);
+            localStorage.setItem(LS_EXPIRES_AT, String(Date.now() + (Number(data.expires_in || 3600) * 1000)));
+            if (data.refresh_token) localStorage.setItem(LS_REFRESH_TOKEN, data.refresh_token);
+
+            return data.access_token;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /* ========================= Playback control ========================= */
+
+    async function spotifyFetch(path, method) {
+        const token = await getValidAccessToken();
+        if (!token) return { ok:false, needsConnect:true };
+
+        try {
+            const resp = await fetch("https://api.spotify.com/v1" + path, {
+                method:method || "GET",
+                headers:{ "Authorization":"Bearer " + token }
+            });
+
+            if (resp.status === 204) return { ok:true, data:null };
+            if (!resp.ok) return { ok:false, status:resp.status };
+
+            const data = await resp.json().catch(() => null);
+            return { ok:true, data:data };
+        } catch (e) {
+            return { ok:false, error:true };
+        }
+    }
+
+    async function togglePlayPause() {
+        const state = await spotifyFetch("/me/player");
+
+        if (state.needsConnect) {
+            showMusicStatus("Connect Spotify first");
+            return;
+        }
+
+        if (state.ok && state.data) {
+            // A device is already active (even if only paused) — normal toggle.
+            const isPlaying = !!state.data.is_playing;
+            const result = await spotifyFetch(isPlaying ? "/me/player/pause" : "/me/player/play", "PUT");
+
+            if (result.ok) {
+                currentIsPlaying = !isPlaying;
+                updatePlayPauseIcon();
+            } else {
+                showMusicStatus("Couldn't reach Spotify — is it open?");
+            }
+            return;
+        }
+
+        // Nothing reported as active anywhere — but Spotify may still be
+        // running in the background with a device that just hasn't
+        // registered as "active" (that only happens once something's
+        // actually been played on it this session). Look for any
+        // available device and try resuming directly on it before giving
+        // up and asking the person to open the app themselves.
+        const devices = await spotifyFetch("/me/player/devices");
+
+        if (devices.ok && devices.data && Array.isArray(devices.data.devices) && devices.data.devices.length) {
+            const device = devices.data.devices[0];
+            const result = await spotifyFetch("/me/player/play?device_id=" + encodeURIComponent(device.id), "PUT");
+
+            if (result.ok) {
+                currentIsPlaying = true;
+                updatePlayPauseIcon();
+                return;
+            }
+
+            // This is a genuine Spotify platform limit, not something any
+            // app can work around remotely: a device can only be resumed
+            // via the API once it's been "activated" by playing something
+            // on it at least once since Spotify was last fully closed.
+            showMusicStatus("Open Spotify once to wake it up, then try again");
+            return;
+        }
+
+        showMusicStatus("Open Spotify and start playing something first");
+    }
+
+    async function toggleShuffle() {
+        const state = await spotifyFetch("/me/player");
+
+        if (state.needsConnect) {
+            showMusicStatus("Connect Spotify first");
+            return;
+        }
+
+        if (!state.ok || !state.data) {
+            showMusicStatus("Open Spotify and start playing something first");
+            return;
+        }
+
+        const turningOn = !state.data.shuffle_state;
+        const result = await spotifyFetch("/me/player/shuffle?state=" + turningOn, "PUT");
+
+        if (result.ok) showMusicStatus(turningOn ? "Shuffle on" : "Shuffle off");
+        else showMusicStatus("Couldn't reach Spotify — is it open?");
+    }
+
+    async function skipNext() {
+        const result = await spotifyFetch("/me/player/next", "POST");
+        if (!result.ok && result.needsConnect) showMusicStatus("Connect Spotify first");
+        else if (!result.ok) showMusicStatus("Couldn't reach Spotify — is it open?");
+    }
+
+    async function skipPrevious() {
+        const result = await spotifyFetch("/me/player/previous", "POST");
+        if (!result.ok && result.needsConnect) showMusicStatus("Connect Spotify first");
+        else if (!result.ok) showMusicStatus("Couldn't reach Spotify — is it open?");
+    }
+
+    /* ============================ Launcher ============================ */
+
+    function openSpotifyApp() {
+        const fallbackTimer = setTimeout(function () {
+            window.location.href = "https://open.spotify.com";
+        }, 1200);
+
+        window.addEventListener("blur", function onBlur() {
+            clearTimeout(fallbackTimer);
+            window.removeEventListener("blur", onBlur);
+        });
+
+        window.location.href = "spotify:";
+    }
+
+    /* ============================== Styles ============================== */
+
+    function installStyles() {
+        if (byId("chaser-spotify-music-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-spotify-music-style";
+        style.innerHTML = `
+            #chaserMusicBtn {
+                position:fixed !important;
+                width:42px !important;
+                height:42px !important;
+                min-width:42px !important;
+                max-width:42px !important;
+                min-height:42px !important;
+                max-height:42px !important;
+                border-radius:50% !important;
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                background:rgba(226, 240, 217, 0.82) !important;
+                color:#1e4620 !important;
+                z-index:15 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:0 !important;
+                margin:0 !important;
+                box-sizing:border-box !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                cursor:pointer !important;
+                touch-action:manipulation !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+            }
+
+            #chaserMusicBtn.connected {
+                background:#1e4620 !important;
+                color:#e2f0d9 !important;
+            }
+
+            #chaserMusicBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            #chaserMusicBtn svg {
+                width:22px !important;
+                height:22px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            body:has(#chatOverlay.open) #chaserMusicBtn,
+            body:has(#chatOverlay.open) #chaserMusicPanel {
+                display:none !important;
+            }
+
+            #chaserMusicPanel {
+                position:fixed !important;
+                display:none !important;
+                flex-direction:column !important;
+                align-items:center !important;
+                gap:8px !important;
+                padding:8px 6px !important;
+                border-radius:999px !important;
+                background:rgba(30, 70, 32, 0.92) !important;
+                box-shadow:0 6px 18px rgba(0,0,0,.35) !important;
+                z-index:50079 !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserMusicPanel.show {
+                display:flex !important;
+            }
+
+            .chaser-music-panel-btn {
+                width:34px !important;
+                height:34px !important;
+                border-radius:50% !important;
+                border:none !important;
+                background:rgba(226, 240, 217, 0.16) !important;
+                color:#e2f0d9 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:0 !important;
+                cursor:pointer !important;
+                touch-action:manipulation !important;
+                -webkit-tap-highlight-color:transparent !important;
+            }
+
+            .chaser-music-panel-btn:active {
+                transform:scale(.9) !important;
+                background:rgba(226, 240, 217, 0.30) !important;
+            }
+
+            .chaser-music-panel-btn svg {
+                width:18px !important;
+                height:18px !important;
+                display:block !important;
+                color:inherit !important;
+            }
+
+            #chaserMusicStatus {
+                position:fixed !important;
+                left:15px !important;
+                bottom:260px !important;
+                width:74% !important;
+                max-width:340px !important;
+                z-index:50081 !important;
+                display:none !important;
+                padding:7px 11px !important;
+                border-radius:999px !important;
+                background:rgba(226,240,217,.95) !important;
+                border:2px solid rgba(30,70,32,.78) !important;
+                color:#1e4620 !important;
+                font-family:Arial,sans-serif !important;
+                font-size:12px !important;
+                font-weight:900 !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.24) !important;
+                text-align:center !important;
+                pointer-events:none !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserMusicStatus.show {
+                display:block !important;
+            }
+
+            #chaserSpotifyConnectOverlay {
+                position:fixed !important;
+                top:0 !important;
+                left:0 !important;
+                width:100% !important;
+                height:100% !important;
+                background:rgba(0,0,0,.55) !important;
+                z-index:50090 !important;
+                display:none !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-sizing:border-box !important;
+                padding:20px !important;
+            }
+
+            #chaserSpotifyConnectOverlay.show {
+                display:flex !important;
+            }
+
+            .chaser-spotify-connect-card {
+                background:#e2f0d9 !important;
+                border-radius:18px !important;
+                padding:20px !important;
+                width:100% !important;
+                max-width:320px !important;
+                box-shadow:0 12px 40px rgba(0,0,0,.4) !important;
+                box-sizing:border-box !important;
+                font-family:Arial,sans-serif !important;
+            }
+
+            .chaser-spotify-connect-card h3 {
+                margin:0 0 10px !important;
+                color:#1e4620 !important;
+                font-size:18px !important;
+                text-align:center !important;
+            }
+
+            .chaser-spotify-connect-card p {
+                margin:0 0 10px !important;
+                color:#2d6a30 !important;
+                font-size:12.5px !important;
+                line-height:1.5 !important;
+            }
+
+            .chaser-spotify-connect-card code {
+                display:block !important;
+                background:rgba(30,70,32,0.08) !important;
+                border-radius:8px !important;
+                padding:8px !important;
+                font-size:11px !important;
+                word-break:break-all !important;
+                color:#1e4620 !important;
+                margin:0 0 10px !important;
+            }
+
+            #chaserSpotifyClientIdInput {
+                width:100% !important;
+                padding:11px !important;
+                border-radius:8px !important;
+                border:2px solid #2d6a30 !important;
+                background:#1e4620 !important;
+                color:#fff !important;
+                font-size:14px !important;
+                box-sizing:border-box !important;
+                margin-bottom:10px !important;
+            }
+
+            .chaser-spotify-connect-btn-row {
+                display:flex !important;
+                gap:8px !important;
+            }
+
+            .chaser-spotify-connect-btn-row button {
+                flex:1 !important;
+                padding:11px !important;
+                border-radius:8px !important;
+                border:none !important;
+                font-weight:bold !important;
+                font-size:14px !important;
+                cursor:pointer !important;
+                color:white !important;
+            }
+
+            #chaserSpotifyConnectSubmit { background:#2d6a30 !important; }
+            #chaserSpotifyConnectClose { background:#6c757d !important; }
+            #chaserSpotifyDisconnectBtn {
+                background:#dc3545 !important;
+                width:100% !important;
+                margin-top:8px !important;
+                padding:11px !important;
+                border-radius:8px !important;
+                border:none !important;
+                font-weight:bold !important;
+                font-size:14px !important;
+                cursor:pointer !important;
+                color:white !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /* ============================== Icons ============================== */
+
+    function musicNoteSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V5l11-2v12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="17" r="2.7" fill="currentColor"/><circle cx="17.5" cy="15" r="2.7" fill="currentColor"/></svg>`;
+    }
+
+    function prevSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 6h2v12H6zm3.5 6 9-6v12z"/></svg>`;
+    }
+
+    function nextSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 6h2v12h-2zM5.5 6l9 6-9 6z"/></svg>`;
+    }
+
+    function playIconSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>`;
+    }
+
+    function pauseIconSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>`;
+    }
+
+    function shuffleSvg() {
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M3 6h3.3c1.2 0 2.3.6 3 1.6l5.4 7.6c.7 1 1.8 1.6 3 1.6H21M17 4l4 3-4 3M3 18h3.3c1.2 0 2.3-.6 3-1.6l1-1.4M14.7 7.6c.7-1 1.8-1.6 3-1.6H21M17 20l4-3-4-3"/></svg>`;
+    }
+
+    /* ============================== UI ============================== */
+
+    let musicPanelOpen = false;
+    let musicStatusHideTimer = null;
+    let musicTapTimer = null;
+    const MUSIC_DOUBLE_TAP_MS = 300;
+
+    // Tracks whether Spotify is currently playing, so the play/pause
+    // button can actually show the correct icon instead of a static
+    // combined glyph that never changed.
+    let currentIsPlaying = null;
+    let playbackPollTimer = null;
+
+    function updatePlayPauseIcon() {
+        const btn = document.querySelector("#chaserMusicPanel .chaser-music-playpause-btn");
+        if (!btn) return;
+        btn.innerHTML = currentIsPlaying ? pauseIconSvg() : playIconSvg();
+    }
+
+    async function refreshPlaybackState() {
+        const state = await spotifyFetch("/me/player");
+        if (state.ok && state.data) {
+            currentIsPlaying = !!state.data.is_playing;
+        } else {
+            currentIsPlaying = false;
+        }
+        updatePlayPauseIcon();
+    }
+
+    function startPlaybackPolling() {
+        stopPlaybackPolling();
+        playbackPollTimer = setInterval(refreshPlaybackState, 4000);
+    }
+
+    function stopPlaybackPolling() {
+        if (playbackPollTimer) {
+            clearInterval(playbackPollTimer);
+            playbackPollTimer = null;
+        }
+    }
+
+    function ensureMusicStatus() {
+        let el = byId("chaserMusicStatus");
+        if (!el) {
+            el = document.createElement("div");
+            el.id = "chaserMusicStatus";
+            document.body.appendChild(el);
+        }
+        return el;
+    }
+
+    function showMusicStatus(text) {
+        const el = ensureMusicStatus();
+        el.innerText = text;
+        el.classList.add("show");
+
+        clearTimeout(musicStatusHideTimer);
+        musicStatusHideTimer = setTimeout(() => el.classList.remove("show"), 3200);
+    }
+
+    function ensureMusicPanel() {
+        let panel = byId("chaserMusicPanel");
+        if (panel) return panel;
+
+        panel = document.createElement("div");
+        panel.id = "chaserMusicPanel";
+
+        const prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.className = "chaser-music-panel-btn";
+        prevBtn.innerHTML = prevSvg();
+        prevBtn.title = "Previous track";
+        prevBtn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            skipPrevious();
+        });
+
+        const playPauseBtn = document.createElement("button");
+        playPauseBtn.type = "button";
+        playPauseBtn.className = "chaser-music-panel-btn chaser-music-playpause-btn";
+        playPauseBtn.innerHTML = playIconSvg();
+        playPauseBtn.title = "Play / Pause";
+        playPauseBtn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            togglePlayPause();
+        });
+
+        const nextBtn = document.createElement("button");
+        nextBtn.type = "button";
+        nextBtn.className = "chaser-music-panel-btn";
+        nextBtn.innerHTML = nextSvg();
+        nextBtn.title = "Next track";
+        nextBtn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            skipNext();
+        });
+
+        const shuffleBtn = document.createElement("button");
+        shuffleBtn.type = "button";
+        shuffleBtn.className = "chaser-music-panel-btn";
+        shuffleBtn.innerHTML = shuffleSvg();
+        shuffleBtn.title = "Shuffle";
+        shuffleBtn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleShuffle();
+        });
+
+        panel.appendChild(playPauseBtn);
+        panel.appendChild(shuffleBtn);
+        panel.appendChild(prevBtn);
+        panel.appendChild(nextBtn);
+        document.body.appendChild(panel);
+
+        return panel;
+    }
+
+    function openMusicPanel() {
+        musicPanelOpen = true;
+        ensureMusicPanel().classList.add("show");
+        positionMusicPanel();
+        refreshPlaybackState();
+        startPlaybackPolling();
+    }
+
+    function closeMusicPanel() {
+        musicPanelOpen = false;
+        const panel = byId("chaserMusicPanel");
+        if (panel) panel.classList.remove("show");
+        stopPlaybackPolling();
+    }
+
+    function ensureConnectOverlay() {
+        let overlay = byId("chaserSpotifyConnectOverlay");
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "chaserSpotifyConnectOverlay";
+        overlay.innerHTML = `
+            <div class="chaser-spotify-connect-card">
+                <h3>Connect Spotify</h3>
+                <p id="chaserSpotifyConnectBody"></p>
+                <input type="text" id="chaserSpotifyClientIdInput" placeholder="Paste your Client ID" autocomplete="off" />
+                <div class="chaser-spotify-connect-btn-row">
+                    <button id="chaserSpotifyConnectClose" type="button">Cancel</button>
+                    <button id="chaserSpotifyConnectSubmit" type="button">Connect</button>
+                </div>
+                <button id="chaserSpotifyDisconnectBtn" type="button" style="display:none;">Disconnect Spotify</button>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay) overlay.classList.remove("show");
+        });
+
+        byId("chaserSpotifyConnectClose").addEventListener("click", () => {
+            overlay.classList.remove("show");
+        });
+
+        byId("chaserSpotifyConnectSubmit").addEventListener("click", () => {
+            const input = byId("chaserSpotifyClientIdInput");
+            const value = input ? input.value.trim() : "";
+            if (!value) return;
+            overlay.classList.remove("show");
+            startSpotifyConnect(value);
+        });
+
+        byId("chaserSpotifyDisconnectBtn").addEventListener("click", () => {
+            disconnectSpotify();
+            overlay.classList.remove("show");
+            showMusicStatus("Spotify disconnected");
+        });
+
+        return overlay;
+    }
+
+    function openConnectSettings() {
+        const overlay = ensureConnectOverlay();
+        const body = byId("chaserSpotifyConnectBody");
+        const disconnectBtn = byId("chaserSpotifyDisconnectBtn");
+        const input = byId("chaserSpotifyClientIdInput");
+
+        if (isConnected()) {
+            body.innerHTML =
+                "You're connected. Paste a different Client ID to switch accounts, or disconnect below.";
+            disconnectBtn.style.display = "block";
+        } else {
+            body.innerHTML =
+                "Create a free app at <b>developer.spotify.com/dashboard</b>, then set its Redirect URI to exactly:" +
+                "<code>" + redirectUri() + "</code>" +
+                "Paste the app's Client ID below.";
+            disconnectBtn.style.display = "none";
+        }
+
+        if (input) input.value = "";
+        overlay.classList.add("show");
+    }
+
+    function updateButtonMode() {
+        const btn = byId("chaserMusicBtn");
+        if (!btn) return;
+        btn.classList.toggle("connected", isConnected());
+    }
+
+    function ensureMusicButton() {
+        let btn = byId("chaserMusicBtn");
+        if (btn) return btn;
+
+        btn = document.createElement("button");
+        btn.id = "chaserMusicBtn";
+        btn.type = "button";
+        btn.innerHTML = musicNoteSvg();
+        btn.title = "Music";
+        document.body.appendChild(btn);
+
+        const longPressHandle = (typeof window.chaserAttachLongPress === "function")
+            ? window.chaserAttachLongPress(btn, () => {
+                closeMusicPanel();
+                openConnectSettings();
+            })
+            : null;
+
+        btn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (longPressHandle && longPressHandle.justFired()) {
+                longPressHandle.consume();
+                return;
+            }
+
+            if (!isConnected()) {
+                // Nothing to disambiguate here — a tap just opens Spotify,
+                // no need to add an artificial delay for anyone who
+                // hasn't set up a connection.
+                openSpotifyApp();
+                return;
+            }
+
+            // Connected: single tap toggles the in-app controls panel;
+            // double tap (two taps within 300ms) opens the actual
+            // Spotify app instead — otherwise there'd be no way left to
+            // reach the real app from this button once connected.
+            if (musicTapTimer) {
+                clearTimeout(musicTapTimer);
+                musicTapTimer = null;
+                closeMusicPanel();
+                openSpotifyApp();
+                return;
+            }
+
+            musicTapTimer = setTimeout(() => {
+                musicTapTimer = null;
+
+                if (musicPanelOpen) closeMusicPanel();
+                else openMusicPanel();
+            }, MUSIC_DOUBLE_TAP_MS);
+        });
+
+        updateButtonMode();
+        return btn;
+    }
+
+    /* ============================ Positioning ============================ */
+
+    function positionMusicButton() {
+        const btn = ensureMusicButton();
+        const radius = document.getElementById("radiusToggleBtn");
+
+        if (!radius) return;
+
+        const r = radius.getBoundingClientRect();
+        const size = 42;
+
+        // Same general spot the old compass sat in — under the "50 Mi
+        // Only" control, slightly right of center. Adjust these two if
+        // it ever overlaps anything:
+        const rightOffset = 2;
+        const topOffset = 9;
+
+        let left = r.right - size - rightOffset;
+        let top = r.bottom + topOffset;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(72, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    function positionMusicPanel() {
+        const panel = byId("chaserMusicPanel");
+        const btn = byId("chaserMusicBtn");
+        if (!panel || !btn) return;
+
+        const b = btn.getBoundingClientRect();
+
+        // Vertical stack: 4 buttons (34px each) + 3 gaps (8px) + top/bottom
+        // padding (8px each) + left/right padding (6px each) for width.
+        const panelWidth = 34 + (6 * 2);
+        const panelHeight = (34 * 4) + (8 * 3) + (8 * 2);
+
+        let left = b.left + (b.width / 2) - (panelWidth / 2);
+        let top = b.bottom + 8;
+
+        left = Math.max(8, Math.min(window.innerWidth - panelWidth - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - panelHeight - 8, top));
+
+        panel.style.left = left + "px";
+        panel.style.top = top + "px";
+    }
+
+    /* ============================== Init ============================== */
+
+    installStyles();
+    ensureMusicButton();
+    ensureMusicPanel();
+    handleAuthRedirectIfPresent();
+    positionMusicButton();
+
+    window.addEventListener("resize", () => {
+        positionMusicButton();
+        if (musicPanelOpen) positionMusicPanel();
+    });
+
+    window.addEventListener("orientationchange", () => {
+        setTimeout(() => {
+            positionMusicButton();
+            if (musicPanelOpen) positionMusicPanel();
+        }, 500);
+    });
+
+    document.addEventListener("click", e => {
+        const panel = byId("chaserMusicPanel");
+        const btn = byId("chaserMusicBtn");
+        if (!musicPanelOpen || !panel) return;
+
+        if (panel.contains(e.target) || (btn && btn.contains(e.target))) return;
+
+        closeMusicPanel();
+    }, true);
+
+    setInterval(() => {
+        installStyles();
+        positionMusicButton();
+        updateButtonMode();
+        if (musicPanelOpen) positionMusicPanel();
+    }, 1000);
+})();
+</script>
+
+</body>
+</html>
