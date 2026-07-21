@@ -717,6 +717,68 @@
     // Zoom is now a custom pill (matching the real app's style) instead
     // of MapLibre's built-in control — wired up further down.
 
+    // CyclOSM bike map, added as a raster layer sitting on top of the
+    // base vector map, hidden by default. Toggling bike mode just flips
+    // its visibility — far more robust than swapping the whole map style
+    // (which would wipe the route line, markers, and EV pins and need
+    // them all re-added). When on, it fully covers the base map; when
+    // off, it's simply hidden.
+    let bikeMapReady = false;
+
+    function addBikeMapLayer() {
+        if (bikeMapReady) return;
+        if (!map.isStyleLoaded()) return;
+
+        try {
+            if (!map.getSource("cyclosm-tiles")) {
+                map.addSource("cyclosm-tiles", {
+                    type:"raster",
+                    tiles:[
+                        "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+                        "https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+                        "https://c.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
+                    ],
+                    tileSize:256,
+                    attribution:"© OpenStreetMap contributors, CyclOSM"
+                });
+            }
+
+            if (!map.getLayer("cyclosm-layer")) {
+                // Insert the bike raster just above the base map but below
+                // everything we draw ourselves (route line, symbols), so
+                // our route/markers still sit on top of the bike tiles.
+                // Find the first symbol/line layer we added to insert beneath it.
+                let beforeId = undefined;
+                const layers = map.getStyle().layers || [];
+                for (const layer of layers) {
+                    if (layer.id === "route-casing" || layer.id === "route-fill") {
+                        beforeId = layer.id;
+                        break;
+                    }
+                }
+
+                map.addLayer({
+                    id:"cyclosm-layer",
+                    type:"raster",
+                    source:"cyclosm-tiles",
+                    layout:{ visibility:"none" },
+                    paint:{}
+                }, beforeId);
+            }
+
+            bikeMapReady = true;
+        } catch (e) {}
+    }
+
+    function setBikeMapVisible(visible) {
+        addBikeMapLayer();
+        if (!map.getLayer("cyclosm-layer")) return;
+        map.setLayoutProperty("cyclosm-layer", "visibility", visible ? "visible" : "none");
+    }
+
+    map.on("load", addBikeMapLayer);
+    map.on("style.load", () => { bikeMapReady = false; addBikeMapLayer(); });
+
     map.on("dragstart", () => { if (!programmaticMove) followMode = "manual"; });
     map.on("zoomstart", () => { if (!programmaticMove) followMode = "manual"; });
 
@@ -1585,6 +1647,10 @@
         el("modeToggleBtn").innerHTML = routeMode === "car" ? carSvg() : bikeSvg();
         el("modeToggleBtn").title = modeLabel();
         lastFetchedRouteKey = "";
+
+        // Swap the map itself to the CyclOSM bike map in bike mode, back
+        // to the regular map in car mode — same pairing as the real app.
+        setBikeMapVisible(routeMode === "bike");
 
         if (isSharing && destinationText()) {
             showRouteStatus("Finding " + modeLabel().toLowerCase() + " route…", false);
