@@ -605,6 +605,223 @@
 
     #leaveRoomBtn { background:#6c757d; }
     #joinRoomBtn { background:#2d6a30; }
+
+    #chatBadge {
+        position:absolute;
+        top:-3px;
+        right:-3px;
+        background:#dc3545;
+        color:white;
+        border-radius:50%;
+        padding:4px 8px;
+        font-size:12px;
+        font-weight:bold;
+        display:none;
+        border:2px solid white;
+    }
+
+    #chatOverlay {
+        position:fixed;
+        top:0;
+        right:-100%;
+        width:100%;
+        max-width:340px;
+        height:100%;
+        background:#fff;
+        z-index:45;
+        box-shadow:-4px 0 20px rgba(0,0,0,0.25);
+        display:flex;
+        flex-direction:column;
+        transition:right 0.3s ease-in-out;
+    }
+
+    #chatOverlay.open { right:0; }
+
+    #chatHeader {
+        background:#111;
+        border-bottom:2px solid #ffd700;
+        padding:10px 12px;
+        display:flex;
+        justify-content:flex-start;
+        align-items:center;
+        gap:8px;
+        flex-shrink:0;
+        z-index:10;
+        user-select:none;
+        box-sizing:border-box;
+    }
+
+    .chat-room-title {
+        color:#ffd700;
+        font-size:18px;
+        font-weight:900;
+        font-family:'Trebuchet MS','Arial Black',sans-serif;
+        letter-spacing:1px;
+        line-height:1.05;
+        text-transform:uppercase;
+        white-space:nowrap;
+        flex:1;
+        min-width:0;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    }
+
+    .header-btn-row {
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex-shrink:0;
+    }
+
+    .round-btn {
+        width:36px;
+        height:36px;
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-family:Arial,sans-serif;
+        font-size:14px;
+        font-weight:bold;
+        cursor:pointer;
+        box-shadow:0 4px 8px rgba(0,0,0,0.3);
+        transition:transform 0.1s;
+        flex-shrink:0;
+        padding:0;
+        box-sizing:border-box;
+    }
+
+    .round-btn:active { transform:scale(0.92); }
+
+    #chatGamesTriggerBtn {
+        width:auto !important;
+        height:34px !important;
+        padding:0 14px !important;
+        border-radius:999px !important;
+        background:#ffffff !important;
+        color:#0056b3 !important;
+        border:2px solid #0056b3 !important;
+        font-size:14px !important;
+        font-weight:900 !important;
+        font-family:Arial,sans-serif !important;
+    }
+
+    #closeChatBtn {
+        background:none !important;
+        color:#dc3545 !important;
+        border:none !important;
+        font-size:24px;
+        font-weight:900;
+        cursor:pointer;
+        padding:4px;
+        margin-left:auto;
+        flex-shrink:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-sizing:border-box;
+        box-shadow:none !important;
+    }
+
+    #chatMessages {
+        flex:1;
+        padding:16px;
+        overflow-y:auto;
+        display:flex;
+        flex-direction:column;
+        justify-content:flex-end;
+        gap:12px;
+        background:#e2f0d9;
+        z-index:1;
+        min-height:0;
+    }
+
+    .msg-bubble {
+        position:relative;
+        padding:12px 28px 12px 12px;
+        border-radius:12px;
+        max-width:85%;
+        align-self:flex-start;
+        box-shadow:0 2px 5px rgba(0,0,0,0.15);
+        color:#111;
+        font-family:Impact,"Arial Black",sans-serif;
+        letter-spacing:0.5px;
+    }
+
+    .msg-user {
+        font-size:15px;
+        font-weight:bold;
+        color:rgba(0,0,0,0.6);
+        margin-bottom:4px;
+        text-transform:capitalize;
+        font-family:Arial,sans-serif;
+    }
+
+    .msg-text {
+        font-size:22px;
+        word-break:break-word;
+        font-weight:normal;
+    }
+
+    .msg-delete-btn {
+        position:absolute;
+        top:6px;
+        right:8px;
+        background:none;
+        border:none;
+        color:rgba(0,0,0,0.4);
+        font-size:14px;
+        font-weight:bold;
+        cursor:pointer;
+        padding:0;
+        line-height:1;
+    }
+
+    #chatInputArea {
+        padding:12px;
+        background:#fff;
+        border-top:1px solid #ddd;
+        display:flex;
+        gap:8px;
+        align-items:center;
+        z-index:2;
+        flex-shrink:0;
+    }
+
+    .chat-input-wrapper {
+        position:relative;
+        flex:1;
+        display:flex;
+        align-items:center;
+    }
+
+    .chat-input-wrapper input {
+        width:100%;
+        padding:12px 48px 12px 12px;
+        border-radius:8px;
+        border:1px solid #ccc;
+        font-size:15px;
+        box-sizing:border-box;
+        color:#111;
+        font-weight:500;
+    }
+
+    .inline-send-btn {
+        position:absolute;
+        right:4px;
+        background:#2d6a30;
+        border:none;
+        border-radius:6px;
+        width:36px;
+        height:36px;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 1px 4px rgba(0,0,0,0.2);
+    }
+
+    .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
 </style>
 </head>
 <body>
@@ -663,9 +880,34 @@
     </div>
 </div>
 
-<button id="chatToggleBtn" class="side-btn" type="button" title="Chat (not built in this test yet)">
+<button id="chatToggleBtn" class="side-btn" type="button" title="Chat">
+    <div id="chatBadge">0</div>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
 </button>
+
+<div id="chatOverlay">
+    <div id="chatHeader">
+        <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
+        <div class="header-btn-row">
+            <button id="chatGamesTriggerBtn" class="round-btn" type="button">Games</button>
+        </div>
+        <button id="closeChatBtn" type="button">✕</button>
+    </div>
+
+    <div id="chatMessages"></div>
+
+    <div id="chatInputArea">
+        <button class="mic-btn" id="chatMic" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+        </button>
+        <div class="chat-input-wrapper">
+            <input type="text" id="chatMsgInput" placeholder="Type a message..." autocomplete="off" enterkeyhint="done" />
+            <button id="chatSendBtn" class="inline-send-btn" type="button">
+                <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="controls">
     <div id="inputsWrapper">
@@ -755,6 +997,10 @@
     let isRadiusFilterActive = true;
     let incomingRidersCache = {};
     let channel = null;
+
+    let isChatOpen = false;
+    let unreadCount = 0;
+    const sessionMsgToken = "token-" + Math.floor(Math.random() * 1000000);
 
     let followMode = "all"; // all | self | buddy | manual
     let bullseyeIsOn = true;
@@ -1070,6 +1316,19 @@
             else processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
 
             updateLiveRiderCounter();
+        });
+
+        channel.on("broadcast", { event:"group-live-chat" }, ({ payload }) => {
+            if (payload.token !== sessionMsgToken) {
+                appendMessage(payload.msgId, payload.user, payload.message, false, payload.color, payload.id);
+
+                if (!isChatOpen) {
+                    unreadCount++;
+                    const badge = el("chatBadge");
+                    badge.innerText = unreadCount;
+                    badge.style.display = "block";
+                }
+            }
         });
 
         channel.subscribe();
@@ -2238,6 +2497,8 @@
             }
         });
         incomingRidersCache = {};
+        const cm = document.getElementById("chatMessages");
+        if (cm) cm.innerHTML = "";
     }
 
     function announceOfflineToCurrentRoom() {
@@ -2265,6 +2526,7 @@
 
         roomModalOverlay.classList.remove("open");
         resetModalUI();
+        updateChatRoomTitle();
     }
 
     function leavePrivateRoom() {
@@ -2281,6 +2543,7 @@
         el("roomLockBtn").innerHTML = iconUnlocked;
 
         resetModalUI();
+        updateChatRoomTitle();
     }
 
     el("roomLockBtn").addEventListener("click", () => {
@@ -2336,6 +2599,94 @@
 
     roomCodeInput.addEventListener("keydown", e => {
         if (e.key === "Enter") joinRoomBtn.click();
+    });
+
+    /* ========================= Chat ========================= */
+
+    const chatOverlay = el("chatOverlay");
+    const chatMessages = el("chatMessages");
+    const chatMsgInput = el("chatMsgInput");
+    const chatBadge = el("chatBadge");
+    const roomDisplayCode = el("roomDisplayCode");
+
+    function updateChatRoomTitle() {
+        if (!roomDisplayCode) return;
+        roomDisplayCode.innerText = activeRoomCode ? ("Chat Room: " + activeRoomCode) : "Chat Room";
+    }
+
+    function appendMessage(msgId, user, msg, isMe, color, authorId) {
+        if (document.getElementById(msgId)) return;
+
+        const w = document.createElement("div");
+        w.className = "msg-bubble bubble-" + (authorId || "unknown");
+        w.id = msgId;
+        w.style.backgroundColor = color || "#ffffff";
+
+        const safeMsg = String(msg)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        w.innerHTML =
+            '<div class="msg-user">' + user + '</div>' +
+            '<div class="msg-text">' + safeMsg + '</div>' +
+            (isMe ? '<button class="msg-delete-btn" onclick="this.parentElement.remove()">✕</button>' : "");
+
+        chatMessages.appendChild(w);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function sendGroupMessage() {
+        if (!chatMsgInput.value.trim()) return;
+
+        const currentName = el("username").value.trim();
+        if (!currentName || currentName.toLowerCase() === "anonymous") {
+            chatOverlay.classList.remove("open");
+            isChatOpen = false;
+            el("username").focus();
+            showRouteStatus("Enter your name first (top field)", true);
+            return;
+        }
+
+        const msgId = "msg-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+        const messageText = chatMsgInput.value.trim();
+
+        appendMessage(msgId, currentName, messageText, true, myChatColor, myId);
+
+        if (channel) {
+            channel.send({
+                type:"broadcast",
+                event:"group-live-chat",
+                payload:{ msgId, user:currentName, message:messageText, token:sessionMsgToken, color:myChatColor, id:myId }
+            });
+        }
+
+        chatMsgInput.value = "";
+    }
+
+    el("chatToggleBtn").addEventListener("click", () => {
+        isChatOpen = true;
+        unreadCount = 0;
+        chatBadge.innerText = 0;
+        chatBadge.style.display = "none";
+        updateChatRoomTitle();
+        chatOverlay.classList.add("open");
+    });
+
+    el("closeChatBtn").addEventListener("click", () => {
+        isChatOpen = false;
+        chatOverlay.classList.remove("open");
+    });
+
+    el("chatSendBtn").addEventListener("click", sendGroupMessage);
+
+    chatMsgInput.addEventListener("keydown", e => {
+        if (e.key === "Enter") { e.preventDefault(); sendGroupMessage(); }
+    });
+
+    // Games button placeholder — the arcade itself is the next chunk.
+    el("chatGamesTriggerBtn").addEventListener("click", () => {
+        showRouteStatus("Games are coming in the next update", true);
     });
 
     /* ========================= Voice input ========================= */
