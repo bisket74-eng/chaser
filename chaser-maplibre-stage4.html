@@ -1892,26 +1892,11 @@
     }
 
     async function fetchEvChargers() {
-        const dbg0 = el("routeDebug");
-        if (dbg0) dbg0.textContent = "EV: function entered…";
+        if (!evChargersVisible) return;
 
-        if (!evChargersVisible) {
-            if (dbg0) dbg0.textContent = "EV: not visible, aborting";
-            return;
-        }
-
-        let south, west, north, east;
-        try {
-            const bounds = map.getBounds();
-            south = bounds.getSouth();
-            west = bounds.getWest();
-            north = bounds.getNorth();
-            east = bounds.getEast();
-            if (dbg0) dbg0.textContent = "EV: got bounds " + south.toFixed(3) + "," + west.toFixed(3);
-        } catch (boundsErr) {
-            if (dbg0) dbg0.textContent = "EV: getBounds threw: " + (boundsErr && boundsErr.message ? boundsErr.message : boundsErr);
-            return;
-        }
+        const bounds = map.getBounds();
+        const south = bounds.getSouth(), west = bounds.getWest();
+        const north = bounds.getNorth(), east = bounds.getEast();
 
         // Fetched directly from the browser via GET to overpass-api.de —
         // byte-for-byte the same approach the real production app uses,
@@ -1931,44 +1916,24 @@
         `;
 
         try {
-            // Simple single fetch — this is exactly what worked in the
-            // A single plain fetch that retries a couple times with a
-            // short pause. When the CyclOSM bike map is on, it floods the
-            // browser's limited connection pool with tile requests, which
-            // can make a one-shot EV fetch fail with "Failed to fetch"
-            // purely from connection starvation — not a server problem.
-            // A brief retry lets tile loading settle and the request
-            // through. (No AbortController this time — that was what
-            // broke it before; this only ADDS retries, never cancels.)
+            // Dead-simple single fetch — the exact version that worked.
+            // Every "improvement" I layered on top of this (abort timeout,
+            // multi-server loop, retry-with-delay) broke it. Leaving it
+            // alone.
             const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
-
-            let resp = null;
-            let lastErr = null;
-            for (let attempt = 0; attempt < 3; attempt++) {
-                try {
-                    resp = await fetch(url);
-                    if (resp.ok) break;
-                    lastErr = "http " + resp.status;
-                    resp = null;
-                } catch (fetchErr) {
-                    lastErr = (fetchErr && fetchErr.message) ? fetchErr.message : "fetch failed";
-                    resp = null;
-                }
-                // Wait a beat before retrying so tile requests can clear.
-                await new Promise(r => setTimeout(r, 900));
-            }
+            const resp = await fetch(url);
 
             const debugBox = el("routeDebug");
-
-            if (!resp) {
-                if (debugBox) debugBox.textContent = "EV fetch: " + (lastErr || "failed") + " (retried)";
-                return;
-            }
 
             if (debugBox) {
                 debugBox.textContent =
                     "EV fetch: http " + resp.status +
                     " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
+            }
+
+            if (!resp.ok) {
+                if (debugBox) debugBox.textContent += " | request failed";
+                return;
             }
 
             const rawData = await resp.json().catch(() => null);
