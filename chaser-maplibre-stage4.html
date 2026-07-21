@@ -650,12 +650,11 @@
 
     .chat-room-title {
         color:#ffd700;
-        font-size:18px;
+        font-size:26px;
         font-weight:900;
-        font-family:'Trebuchet MS','Arial Black',sans-serif;
+        font-family:"Brush Script MT","Comic Sans MS",cursive;
         letter-spacing:1px;
         line-height:1.05;
-        text-transform:uppercase;
         white-space:nowrap;
         flex:1;
         min-width:0;
@@ -976,14 +975,59 @@
         localStorage.setItem("rider_id", myId);
     }
 
+    // Ordered so consecutive picks are as visually opposite as possible:
+    // red, blue, yellow, green, orange, purple, teal, pink — then finer
+    // shades kick in only once all the base hues are taken. Kept pastel
+    // for readability on the message bubbles.
+    const DISTINCT_PASTELS = [
+        "hsl(0, 85%, 82%)",    // red
+        "hsl(210, 85%, 82%)",  // blue
+        "hsl(50, 90%, 78%)",   // yellow
+        "hsl(130, 60%, 78%)",  // green
+        "hsl(28, 90%, 78%)",   // orange
+        "hsl(280, 60%, 83%)",  // purple
+        "hsl(175, 55%, 76%)",  // teal
+        "hsl(330, 80%, 85%)",  // pink
+        // Second tier — different shades, still spread out
+        "hsl(0, 60%, 72%)",
+        "hsl(210, 60%, 70%)",
+        "hsl(50, 70%, 68%)",
+        "hsl(130, 45%, 66%)",
+        "hsl(28, 70%, 68%)",
+        "hsl(280, 45%, 74%)",
+        "hsl(175, 40%, 64%)",
+        "hsl(330, 60%, 76%)"
+    ];
+
     function generatePastelColor() {
+        // Fallback random pastel (used only if the palette can't be applied).
         const hue = Math.floor(Math.random() * 360);
-        return `hsl(${hue}, 100%, 85%)`;
+        return `hsl(${hue}, 80%, 82%)`;
+    }
+
+    function colorsCurrentlyInRoom() {
+        const used = new Set();
+        Object.entries(incomingRidersCache).forEach(([name, r]) => {
+            if (r && r.color && !isMeName(name)) used.add(r.color);
+        });
+        return used;
+    }
+
+    // Pick the first palette color not already visible among buddies —
+    // so with 2, 3, 4… people they land on opposite hues, only repeating
+    // a hue (as a different shade further down the list) once the base
+    // colors are exhausted.
+    function pickDistinctColor() {
+        const used = colorsCurrentlyInRoom();
+        for (const c of DISTINCT_PASTELS) {
+            if (!used.has(c)) return c;
+        }
+        return DISTINCT_PASTELS[Math.floor(Math.random() * DISTINCT_PASTELS.length)];
     }
 
     let myChatColor = localStorage.getItem("rider_chat_color");
     if (!myChatColor) {
-        myChatColor = generatePastelColor();
+        myChatColor = pickDistinctColor();
         localStorage.setItem("rider_chat_color", myChatColor);
     }
 
@@ -1312,6 +1356,20 @@
             if (status === "offline") removeRider(user);
             else processIncomingCoordinateUpdate(user, dest, lat, lng, color, riderId);
 
+            // If a buddy shows up using my exact color, and they're a
+            // different person, step aside and re-pick a distinct one so
+            // we're not confused for each other. Keeps saved-color
+            // consistency in the normal case, only changing on a genuine
+            // clash.
+            if (!isMeName(user) && color && color === myChatColor && riderId !== myId) {
+                const fresh = pickDistinctColor();
+                if (fresh && fresh !== myChatColor) {
+                    myChatColor = fresh;
+                    localStorage.setItem("rider_chat_color", myChatColor);
+                    if (isSharing) broadcastCurrentState();
+                }
+            }
+
             updateLiveRiderCounter();
         });
 
@@ -1406,10 +1464,28 @@
         setTimeout(() => { programmaticMove = false; }, 1050);
     }
 
+    function raiseFocusedMarker(matchFn) {
+        // MapLibre HTML markers stack by DOM z-index, not a Leaflet-style
+        // zIndexOffset. When people are at nearly the same spot (phones
+        // side by side), whoever you're focused on would otherwise hide
+        // under the others — so lift the focused marker on top and reset
+        // everyone else. matchFn(name) returns true for the one to raise.
+        Object.entries(incomingRidersCache).forEach(([name, r]) => {
+            if (r && r.markerEl) {
+                r.markerEl.style.zIndex = matchFn(name) ? "9999" : "";
+            }
+        });
+    }
+
+    function raiseSelfMarker() {
+        raiseFocusedMarker(name => isMeName(name));
+    }
+
     function browseToBuddy(name, rider) {
         if (!hasLocation(rider)) return;
 
         followMode = "buddy";
+        raiseFocusedMarker(n => n === name);
         programmaticMove = true;
         map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM, bearing:0, duration:800 });
         setTimeout(() => { programmaticMove = false; }, 850);
@@ -1440,6 +1516,7 @@
         }
 
         followMode = "buddy";
+        raiseFocusedMarker(n => n === name);
         programmaticMove = true;
         map.easeTo({ center:[rider.lng, rider.lat], zoom:BUDDY_ZOOM + 3, bearing:0, duration:800 });
         setTimeout(() => { programmaticMove = false; }, 850);
@@ -1473,6 +1550,7 @@
         followMode = "self";
         applyBullseyeVisual();
         collapseInputsForFollowMode();
+        raiseSelfMarker();
         frameOnSelf();
     }
 
@@ -2674,6 +2752,23 @@
         isChatOpen = false;
         chatOverlay.classList.remove("open");
     });
+
+    // Swipe right to close the chat panel.
+    let chatTouchStartX = 0, chatTouchStartY = 0;
+    chatOverlay.addEventListener("touchstart", e => {
+        chatTouchStartX = e.changedTouches[0].screenX;
+        chatTouchStartY = e.changedTouches[0].screenY;
+    }, { passive:true });
+
+    chatOverlay.addEventListener("touchend", e => {
+        const dx = e.changedTouches[0].screenX - chatTouchStartX;
+        const dy = Math.abs(e.changedTouches[0].screenY - chatTouchStartY);
+        // A clear rightward swipe (not a vertical scroll) closes it.
+        if (dx > 60 && dy < 45) {
+            isChatOpen = false;
+            chatOverlay.classList.remove("open");
+        }
+    }, { passive:true });
 
     el("chatSendBtn").addEventListener("click", sendGroupMessage);
 
