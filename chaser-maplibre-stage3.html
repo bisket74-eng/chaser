@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Chaser — MapLibre Stage 2</title>
+<title>Chaser — MapLibre Stage 3</title>
 <meta name="theme-color" content="#1e4620" />
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 
@@ -27,16 +27,18 @@
 
     #testBanner {
         position:fixed;
-        top:0; left:0; right:0;
+        top:0; left:105px; right:165px;
         z-index:30;
         background:#1e4620;
         color:#ffd700;
         font-weight:900;
-        font-size:12px;
+        font-size:9px;
         text-align:center;
-        padding:7px 10px;
+        padding:3px 4px;
         box-sizing:border-box;
+        border-radius:0 0 8px 8px;
         box-shadow:0 3px 10px rgba(0,0,0,.3);
+        line-height:1.2;
     }
 
     #appHeaderContainer {
@@ -512,7 +514,7 @@
 </head>
 <body>
 
-<div id="testBanner">🧪 Stage 2 — routing, turn-by-turn, reroute (MapLibre)</div>
+<div id="testBanner">🧪 Stage 3 — EV chargers, long-press-to-route (MapLibre)</div>
 
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
@@ -1820,9 +1822,28 @@
                 body:JSON.stringify({ action:"evChargers", south, west, north, east })
             });
 
-            if (!resp.ok) return;
+            const debugBox = el("routeDebug");
+
+            if (debugBox) {
+                debugBox.textContent =
+                    "EV fetch: http " + resp.status +
+                    " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
+            }
+
+            if (!resp.ok) {
+                if (debugBox) debugBox.textContent += " | request failed";
+                return;
+            }
 
             const data = await resp.json().catch(() => null);
+
+            if (debugBox) {
+                debugBox.textContent +=
+                    " | ok:" + (data && data.ok) +
+                    " | chargers:" + (data && data.chargers ? data.chargers.length : "null") +
+                    " | error:" + (data && data.error ? data.error : "none");
+            }
+
             if (!data || !data.ok || !evChargersVisible) return;
 
             clearEvMarkers();
@@ -1866,7 +1887,10 @@
 
                 evMarkers.push(marker);
             });
-        } catch (e) {}
+        } catch (e) {
+            const debugBox = el("routeDebug");
+            if (debugBox) debugBox.textContent = "EV fetch threw: " + (e && e.message ? e.message : e);
+        }
     }
 
     function scheduleEvFetch() {
