@@ -28,8 +28,8 @@
     #testBanner {
         position:fixed;
         top:0; left:105px; right:165px;
-        z-index:30;
-        background:#1e4620;
+        z-index:5;
+        background:rgba(30, 70, 32, 0.75);
         color:#ffd700;
         font-weight:900;
         font-size:9px;
@@ -39,6 +39,7 @@
         border-radius:0 0 8px 8px;
         box-shadow:0 3px 10px rgba(0,0,0,.3);
         line-height:1.2;
+        pointer-events:none;
     }
 
     #appHeaderContainer {
@@ -586,6 +587,7 @@
 
 <div id="routeStatus"></div>
 <div id="routeDebug" style="position:fixed; left:8px; right:8px; top:60px; z-index:40; background:rgba(0,0,0,.85); color:#0f0; font-size:10px; font-family:monospace; padding:6px 8px; border-radius:6px; word-break:break-word;"></div>
+<style>#routeDebug:empty { display:none; }</style>
 <div id="routeChoiceOverlay">
     <div id="routeChoiceCard">
         <div id="routeChoiceHead">
@@ -1824,11 +1826,26 @@
     }
 
     async function fetchEvChargers() {
-        if (!evChargersVisible) return;
+        const dbg0 = el("routeDebug");
+        if (dbg0) dbg0.textContent = "EV: function entered…";
 
-        const bounds = map.getBounds();
-        const south = bounds.getSouth(), west = bounds.getWest();
-        const north = bounds.getNorth(), east = bounds.getEast();
+        if (!evChargersVisible) {
+            if (dbg0) dbg0.textContent = "EV: not visible, aborting";
+            return;
+        }
+
+        let south, west, north, east;
+        try {
+            const bounds = map.getBounds();
+            south = bounds.getSouth();
+            west = bounds.getWest();
+            north = bounds.getNorth();
+            east = bounds.getEast();
+            if (dbg0) dbg0.textContent = "EV: got bounds " + south.toFixed(3) + "," + west.toFixed(3);
+        } catch (boundsErr) {
+            if (dbg0) dbg0.textContent = "EV: getBounds threw: " + (boundsErr && boundsErr.message ? boundsErr.message : boundsErr);
+            return;
+        }
 
         // Fetched directly from the browser via GET to overpass-api.de —
         // byte-for-byte the same approach the real production app uses,
