@@ -124,6 +124,33 @@
         box-shadow:0 0 5px #dc3545;
     }
 
+    .nudge-refresh-btn {
+        background:#2d6a30;
+        color:#ffffff;
+        border:2px solid #ffffff;
+        border-radius:8px;
+        min-width:34px;
+        height:28px;
+        font-size:16px;
+        font-weight:900;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        box-shadow:0 3px 8px rgba(0,0,0,0.42);
+        padding:0 6px;
+        margin-left:6px;
+        line-height:1;
+        flex-shrink:0;
+        pointer-events:auto !important;
+        transition:background 0.2s, transform 0.1s, color 0.2s;
+    }
+
+    .nudge-refresh-btn:active { transform:scale(0.88); }
+    .nudge-refresh-btn.nudge-sending { background:#b8860b; color:#fff; }
+    .nudge-refresh-btn.nudge-sent { background:#00b050; color:#fff; }
+    .nudge-refresh-btn.nudge-error { background:#dc3545; color:#fff; }
+
     .rider-label.me { border-color:#2d6a30; background:#e2f0d9; }
 
     #controls {
@@ -341,6 +368,46 @@
 
     #modeToggleBtn:active { transform:scale(.94); }
     #modeToggleBtn svg { width:26px; height:26px; display:block; color:#1e4620; }
+
+    #compassBtn {
+        position:fixed;
+        width:42px;
+        height:42px;
+        min-width:42px;
+        max-width:42px;
+        min-height:42px;
+        max-height:42px;
+        border-radius:50%;
+        border:2px solid rgba(30, 70, 32, 0.85);
+        background:rgba(226, 240, 217, 0.82);
+        z-index:15;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+        margin:0;
+        box-sizing:border-box;
+        box-shadow:0 4px 13px rgba(0,0,0,.30);
+        cursor:pointer;
+        backdrop-filter:blur(3px);
+        -webkit-backdrop-filter:blur(3px);
+    }
+
+    #compassBtn:active { transform:scale(.94); }
+
+    #compassInner {
+        width:26px;
+        height:26px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        transition:transform 0.15s linear;
+    }
+
+    #compassInner svg { width:22px; height:22px; display:block; }
+
+    /* When auto-rotate is off (locked to north), give it a subtle ring */
+    #compassBtn.north-locked { border-color:#dc3545; }
 
     #evToggleBtn {
         position:fixed;
@@ -845,6 +912,15 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16C5.67 16 5 15.33 5 14.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
 </button>
 
+<button id="compassBtn" type="button" title="Compass — tap to face north">
+    <div id="compassInner">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#dc3545" d="M12 2 8.5 12h7z"/>
+            <path fill="#1e4620" d="M12 22 8.5 12h7z"/>
+        </svg>
+    </div>
+</button>
+
 <button id="evToggleBtn" type="button" title="EV chargers">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
 </button>
@@ -1043,6 +1119,60 @@
     let unreadCount = 0;
     const sessionMsgToken = "token-" + Math.floor(Math.random() * 1000000);
 
+    // Buddy nudge (push-to-return) — same endpoint and 5-minute per-buddy
+    // cooldown as the real app.
+    const PUSH_COOLDOWN_MS = 300000;
+    const lastPushSent = {};
+
+    function sendTargetedBuddyNudge(targetRiderId, targetRiderName, event) {
+        if (event) { event.stopPropagation(); event.preventDefault(); }
+
+        const btn = event ? event.target : null;
+        const originalContent = btn ? btn.innerHTML : "↻";
+        const sourceSenderName = el("username").value.trim() || "A buddy";
+        const now = Date.now();
+
+        if (lastPushSent[targetRiderName] && (now - lastPushSent[targetRiderName]) <= PUSH_COOLDOWN_MS) {
+            if (btn) {
+                btn.classList.add("nudge-error");
+                btn.innerHTML = "⏳";
+                setTimeout(() => { btn.classList.remove("nudge-error"); btn.innerHTML = originalContent; }, 1600);
+            }
+            return;
+        }
+
+        lastPushSent[targetRiderName] = now;
+
+        if (btn) {
+            btn.classList.remove("nudge-sent", "nudge-error");
+            btn.classList.add("nudge-sending");
+            btn.innerHTML = "…";
+        }
+
+        fetch("https://xnwwngqennvwajlhvclj.supabase.co/functions/v1/hyper-function", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json", "Authorization":"Bearer xnwwngqennvwajlhvclj" },
+            body:JSON.stringify({ rider_id:targetRiderId, sender_name:sourceSenderName })
+        })
+        .then(async response => {
+            if (!response.ok) throw new Error(await response.text());
+            if (btn) {
+                btn.classList.remove("nudge-sending");
+                btn.classList.add("nudge-sent");
+                btn.innerHTML = "✓";
+                setTimeout(() => { btn.classList.remove("nudge-sent"); btn.innerHTML = originalContent; }, 2200);
+            }
+        })
+        .catch(() => {
+            if (btn) {
+                btn.classList.remove("nudge-sending");
+                btn.classList.add("nudge-error");
+                btn.innerHTML = "!";
+                setTimeout(() => { btn.classList.remove("nudge-error"); btn.innerHTML = originalContent; }, 2200);
+            }
+        });
+    }
+
     let followMode = "all"; // all | self | buddy | manual
     let bullseyeIsOn = true;
     let buddyCycleIndex = 0;
@@ -1207,7 +1337,7 @@
 
     /* ========================= Rider rendering ========================= */
 
-    function buildLabelElement(name, dest, color, ghost) {
+    function buildLabelElement(name, dest, color, ghost, riderId) {
         const displayName = name.replace(" (You)", "");
         const isMe = isMeName(name);
 
@@ -1230,6 +1360,20 @@
             const dot = document.createElement("span");
             dot.className = "status-dot-stale";
             label.appendChild(dot);
+
+            // Dormant buddy → offer a nudge button that sends them a push
+            // notification to reopen Chaser. Only for real buddies (not
+            // me) that have a known rider id to target.
+            if (!isMe && riderId) {
+                const nudgeBtn = document.createElement("button");
+                nudgeBtn.className = "nudge-refresh-btn";
+                nudgeBtn.title = "Nudge Buddy";
+                nudgeBtn.textContent = "↻";
+                nudgeBtn.addEventListener("click", e => {
+                    sendTargetedBuddyNudge(riderId, displayName, e);
+                });
+                label.appendChild(nudgeBtn);
+            }
         }
 
         wrap.appendChild(label);
@@ -1249,12 +1393,15 @@
         if (!r || !r.lat || !r.lng) return;
 
         if (r.marker) {
-            r.marker.setLngLat([r.lng, r.lat]);
+            // The self marker's position is driven per-frame by the
+            // smoother, so don't also snap it here (that would fight the
+            // animation and reintroduce the jump). Buddies still snap.
+            if (!isMeName(name)) r.marker.setLngLat([r.lng, r.lat]);
             r.markerEl.innerHTML = "";
-            r.markerEl.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+            r.markerEl.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost, r.riderId));
         } else {
             const container = document.createElement("div");
-            container.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost));
+            container.appendChild(buildLabelElement(name, r.dest, r.color, r.isGhost, r.riderId));
 
             const marker = new maplibregl.Marker({ element:container, anchor:"bottom" })
                 .setLngLat([r.lng, r.lat])
@@ -1447,13 +1594,13 @@
 
         programmaticMove = true;
 
-        const opts = { center:[lastLng, lastLat], zoom:SELF_ZOOM, duration:1000, easing:t=>t };
+        // Center is now driven per-frame by the smoother; here we only
+        // need to keep the zoom correct and apply rotation. Use a short
+        // ease so a rotation change is smooth but doesn't fight the
+        // per-frame center updates.
+        const opts = { center:[lastLng, lastLat], zoom:SELF_ZOOM, duration:400, easing:t=>t };
 
-        if (Number.isFinite(currentSmoothedHeading)) {
-            // Only actually rotate if the direction has changed
-            // meaningfully — otherwise every tiny GPS wobble would send a
-            // fresh (if small) rotation command every tick, which reads
-            // as constant restless spinning rather than a stable lock.
+        if (autoRotateEnabled && Number.isFinite(currentSmoothedHeading)) {
             if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 5) {
                 opts.bearing = currentSmoothedHeading;
                 lastAppliedBearing = currentSmoothedHeading;
@@ -1461,7 +1608,7 @@
         }
 
         map.easeTo(opts);
-        setTimeout(() => { programmaticMove = false; }, 1050);
+        setTimeout(() => { programmaticMove = false; }, 450);
     }
 
     function raiseFocusedMarker(matchFn) {
@@ -2112,6 +2259,94 @@
         applyRouteVisibility();
     }, 1500);
 
+    /* ========================= Smooth motion between GPS fixes ========================= */
+    /* GPS only delivers a fix every 1-3s. Snapping the marker (and, in
+       self mode, the camera) straight to each new fix makes movement feel
+       chunky. This animates from the last shown position to each new fix
+       over roughly the gap between fixes, at full frame rate — the same
+       effect the original app got via a hand-built patch, but using
+       MapLibre/rAF natively. Only affects what's drawn; the real
+       lastLat/lastLng used for routing etc. are untouched. */
+
+    let smoothAnimId = null;
+    let smoothFromLat = null, smoothFromLng = null;
+    let smoothToLat = null, smoothToLng = null;
+    let smoothStartTime = 0;
+    let smoothDurationMs = 1100;
+    let lastFixArrivalTime = 0;
+    let smoothCameraThisSegment = false;
+
+    function selfMarkerEl() {
+        const entry = Object.entries(incomingRidersCache).find(([n]) => isMeName(n));
+        return entry ? entry[1] : null;
+    }
+
+    function smoothTick(now) {
+        if (smoothToLat === null) { smoothAnimId = null; return; }
+
+        const t = Math.max(0, Math.min(1, (now - smoothStartTime) / smoothDurationMs));
+        // easeOutQuad — quick to start, gentle to settle, no jerk at ends.
+        const e = 1 - (1 - t) * (1 - t);
+
+        const curLat = smoothFromLat + (smoothToLat - smoothFromLat) * e;
+        const curLng = smoothFromLng + (smoothToLng - smoothFromLng) * e;
+
+        const me = selfMarkerEl();
+        if (me && me.marker) {
+            try { me.marker.setLngLat([curLng, curLat]); } catch (err) {}
+        }
+
+        if (smoothCameraThisSegment && followMode === "self") {
+            programmaticMove = true;
+            const camOpts = { center:[curLng, curLat], duration:0 };
+            try { map.jumpTo(camOpts); } catch (err) {}
+        }
+
+        if (t < 1) {
+            smoothAnimId = requestAnimationFrame(smoothTick);
+        } else {
+            smoothAnimId = null;
+            if (smoothCameraThisSegment) {
+                setTimeout(() => { programmaticMove = false; }, 60);
+            }
+        }
+    }
+
+    function startSmoothTo(newLat, newLng, animateCamera) {
+        const me = selfMarkerEl();
+
+        // Animate from wherever the marker currently is shown (or the new
+        // point if we've nothing to animate from yet).
+        if (smoothToLat !== null) {
+            smoothFromLat = smoothToLat;
+            smoothFromLng = smoothToLng;
+        } else if (me && me.lat && me.lng) {
+            smoothFromLat = me.lat;
+            smoothFromLng = me.lng;
+        } else {
+            smoothFromLat = newLat;
+            smoothFromLng = newLng;
+        }
+
+        smoothToLat = newLat;
+        smoothToLng = newLng;
+
+        // Duration tracks the real gap between fixes (clamped), so the
+        // animation lasts about as long as it takes the next fix to
+        // arrive — smooth, without lagging behind reality.
+        const now = performance.now();
+        if (lastFixArrivalTime) {
+            const gap = now - lastFixArrivalTime;
+            smoothDurationMs = Math.max(500, Math.min(2600, gap));
+        }
+        lastFixArrivalTime = now;
+
+        smoothStartTime = now;
+        smoothCameraThisSegment = !!animateCamera;
+
+        if (!smoothAnimId) smoothAnimId = requestAnimationFrame(smoothTick);
+    }
+
     function onGpsUpdate(pos) {
         const coords = pos.coords || {};
         lastLat = coords.latitude;
@@ -2145,6 +2380,13 @@
         currentSmoothedHeading = updateSmoothedHeading(lastHeading);
 
         broadcastCurrentState();
+
+        // Smoothly glide the self marker (and, in self mode, the camera)
+        // toward this new fix instead of snapping. Rotation/zoom in self
+        // mode is still handled by frameOnSelf below (which no longer
+        // needs to move the center — the smoother does that per-frame).
+        const animateCam = (followMode === "self");
+        startSmoothTo(lastLat, lastLng, animateCam);
 
         if (followMode === "all") fitAllRidersFrame();
         else if (followMode === "self") frameOnSelf();
@@ -2521,15 +2763,74 @@
         btn.style.top = top + "px";
     }
 
+    function positionCompassButton() {
+        const btn = el("compassBtn");
+        const modeBtn = el("modeToggleBtn");
+        if (!btn || !modeBtn) return;
+
+        const m = modeBtn.getBoundingClientRect();
+        const size = 42;
+        const gap = 10;
+
+        let left = m.left;
+        let top = m.bottom + gap;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    // Auto-rotate on by default (map turns with your heading in self
+    // mode). Tapping the compass snaps to north; while north-locked, the
+    // map stays north-up even in self mode until you tap again.
+    let autoRotateEnabled = true;
+    window.chaserAutoRotateEnabled = () => autoRotateEnabled;
+
+    function updateCompassNeedle() {
+        const inner = el("compassInner");
+        if (!inner) return;
+        // Rotate needle opposite the map bearing so the red tip always
+        // points to true north on screen.
+        const bearing = map.getBearing();
+        inner.style.transform = `rotate(${-bearing}deg)`;
+    }
+
+    map.on("rotate", updateCompassNeedle);
+    map.on("move", updateCompassNeedle);
+
+    el("compassBtn").addEventListener("click", () => {
+        const bearing = map.getBearing();
+
+        if (Math.abs(bearing) > 0.5) {
+            // Not facing north → snap to north AND lock north (stop auto-rotate).
+            autoRotateEnabled = false;
+            lastAppliedBearing = 0;
+            el("compassBtn").classList.add("north-locked");
+            programmaticMove = true;
+            map.easeTo({ bearing:0, duration:400 });
+            setTimeout(() => { programmaticMove = false; }, 450);
+        } else {
+            // Already north → toggle auto-rotate back on.
+            autoRotateEnabled = !autoRotateEnabled;
+            el("compassBtn").classList.toggle("north-locked", !autoRotateEnabled);
+        }
+    });
+
     positionEvButton();
     positionModeButton();
+    positionCompassButton();
+    updateCompassNeedle();
     window.addEventListener("resize", () => {
         positionEvButton();
         positionModeButton();
+        positionCompassButton();
     });
     setInterval(() => {
         positionEvButton();
         positionModeButton();
+        positionCompassButton();
     }, 1000);
 
     /* ========================= Collapse/expand inputs ========================= */
@@ -2787,14 +3088,17 @@
         const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
         const usernameMic = el("usernameMic");
         const destinationMic = el("destinationMic");
+        const chatMic = el("chatMic");
 
         if (!SpeechRecognitionCtor) {
             usernameMic.style.display = "none";
             destinationMic.style.display = "none";
+            if (chatMic) chatMic.style.display = "none";
             return;
         }
 
         function attach(btn, input) {
+            if (!btn || !input) return;
             const rec = new SpeechRecognitionCtor();
             rec.continuous = false;
             rec.interimResults = false;
@@ -2828,11 +3132,14 @@
         }
 
         function resetPlaceholder(input) {
-            input.placeholder = input.id === "username" ? "Enter your name" : "Destination (optional)";
+            if (input.id === "username") input.placeholder = "Enter your name";
+            else if (input.id === "destination") input.placeholder = "Destination (optional)";
+            else if (input.id === "chatMsgInput") input.placeholder = "Type a message...";
         }
 
         attach(usernameMic, el("username"));
         attach(destinationMic, el("destination"));
+        attach(chatMic, el("chatMsgInput"));
     })();
 
     /* ========================= Speed/Trip HUD ========================= */
