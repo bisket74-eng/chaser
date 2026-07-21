@@ -1018,15 +1018,28 @@
         btn.classList.toggle("fm-off", !bullseyeIsOn);
     }
 
+    function collapseInputsForFollowMode() {
+        // Matching the real app: entering follow mode tucks the
+        // name/destination drawer away automatically — which is also
+        // what lets the speed/trip HUD (which requires the drawer
+        // closed) actually appear without a separate manual collapse.
+        const wrapper = el("inputsWrapper");
+        const toggle = el("toggleInputsBtn");
+        if (wrapper && !wrapper.classList.contains("hidden")) wrapper.classList.add("hidden");
+        if (toggle) toggle.classList.add("flipped");
+    }
+
     function enterAllMode() {
         followMode = "all";
         applyBullseyeVisual();
+        collapseInputsForFollowMode();
         fitAllRidersFrame();
     }
 
     function enterSelfMode() {
         followMode = "self";
         applyBullseyeVisual();
+        collapseInputsForFollowMode();
         frameOnSelf();
     }
 
@@ -1683,6 +1696,7 @@
         isSharing = true;
         el("startBtn").textContent = "Stop Sharing Location";
         el("startBtn").classList.add("sharing-active");
+        collapseInputsForFollowMode();
 
         if (!navigator.geolocation) {
             setStatus("This browser has no GPS access");
@@ -1834,20 +1848,44 @@
         `;
 
         try {
-            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
-            const resp = await fetch(url);
+            // Main server first, then mirrors. overpass-api.de rate-limits
+            // per-IP under repeated requests (like a heavy testing session),
+            // and when it does, the browser sees a bare "Failed to fetch"
+            // rather than a clean error — so a mirror fallback keeps the
+            // feature alive instead of silently dying until the limit clears.
+            const EV_ENDPOINTS = [
+                "https://overpass-api.de/api/interpreter",
+                "https://z.overpass-api.de/api/interpreter",
+                "https://overpass.private.coffee/api/interpreter"
+            ];
+
+            let resp = null;
+            let usedEndpoint = "";
+
+            for (const endpoint of EV_ENDPOINTS) {
+                try {
+                    const attempt = await fetch(endpoint + "?data=" + encodeURIComponent(overpassQuery));
+                    if (attempt.ok) {
+                        resp = attempt;
+                        usedEndpoint = endpoint;
+                        break;
+                    }
+                } catch (attemptErr) {
+                    // Try the next mirror.
+                }
+            }
 
             const debugBox = el("routeDebug");
 
-            if (debugBox) {
-                debugBox.textContent =
-                    "EV fetch (direct): http " + resp.status +
-                    " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
+            if (!resp) {
+                if (debugBox) debugBox.textContent = "EV fetch: all servers failed — try again in a minute";
+                return;
             }
 
-            if (!resp.ok) {
-                if (debugBox) debugBox.textContent += " | request failed";
-                return;
+            if (debugBox) {
+                debugBox.textContent =
+                    "EV fetch: http " + resp.status + " via " + usedEndpoint.replace("https://", "").split("/")[0] +
+                    " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
             }
 
             const rawData = await resp.json().catch(() => null);
