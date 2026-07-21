@@ -276,6 +276,12 @@
         bottom:20px;
     }
 
+    #chatToggleBtn.chat-disabled {
+        opacity:0.4;
+        background:#888888;
+        pointer-events:none;
+    }
+
     #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
     #chatToggleBtn svg, #roomLockBtn svg { width:22px; height:22px; fill:#fff; }
 
@@ -379,7 +385,7 @@
         max-height:42px;
         border-radius:50%;
         border:2px solid rgba(30, 70, 32, 0.85);
-        background:rgba(226, 240, 217, 0.82);
+        background:#1e4620;
         z-index:15;
         display:flex;
         align-items:center;
@@ -406,8 +412,12 @@
 
     #compassInner svg { width:22px; height:22px; display:block; }
 
-    /* When auto-rotate is off (locked to north), give it a subtle ring */
-    #compassBtn.north-locked { border-color:#dc3545; }
+    /* Dark green = auto-rotating (map turns with heading), matching the
+       connected music button. Light green = locked north-up, matching
+       the car/bike toggle button. */
+    #compassBtn.north-locked {
+        background:rgba(226, 240, 217, 0.82);
+    }
 
     #evToggleBtn {
         position:fixed;
@@ -952,7 +962,7 @@
     </div>
 </div>
 
-<button id="chatToggleBtn" class="side-btn" type="button" title="Chat">
+<button id="chatToggleBtn" class="side-btn chat-disabled" type="button" title="Chat">
     <div id="chatBadge">0</div>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
 </button>
@@ -2419,6 +2429,7 @@
             isSharing = false;
             el("startBtn").textContent = "Start Sharing Location";
             el("startBtn").classList.remove("sharing-active");
+            el("chatToggleBtn").classList.add("chat-disabled");
 
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
 
@@ -2453,6 +2464,7 @@
         isSharing = true;
         el("startBtn").textContent = "Stop Sharing Location";
         el("startBtn").classList.add("sharing-active");
+        el("chatToggleBtn").classList.remove("chat-disabled");
         collapseInputsForFollowMode();
 
         if (!navigator.geolocation) {
@@ -2605,22 +2617,49 @@
         `;
 
         try {
-            // Dead-simple single fetch — the exact version that worked.
-            // Every "improvement" I layered on top of this (abort timeout,
-            // multi-server loop, retry-with-delay) broke it. Leaving it
-            // alone.
-            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(overpassQuery);
-            const resp = await fetch(url);
+            // The primary server sometimes returns 429 (rate limited) even
+            // on a first request — Overpass is load-balanced and individual
+            // backends hit capacity independently. If that happens, try one
+            // alternate endpoint. This is a targeted response to an actual
+            // 429 we can see in the debug readout, NOT the old blind
+            // abort/retry loop (which is why there's no AbortController here
+            // and no multi-attempt spamming).
+            const EV_SERVERS = [
+                "https://overpass-api.de/api/interpreter",
+                "https://overpass.kumi.systems/api/interpreter"
+            ];
 
             const debugBox = el("routeDebug");
+            let resp = null;
+            let usedHost = "";
+
+            for (const server of EV_SERVERS) {
+                const url = server + "?data=" + encodeURIComponent(overpassQuery);
+                let attempt;
+                try {
+                    attempt = await fetch(url);
+                } catch (netErr) {
+                    continue; // network error → try next server
+                }
+                // Only fall through to the next server on 429 (rate limit)
+                // or 504 (gateway timeout). Any other status we keep.
+                if (attempt.status === 429 || attempt.status === 504) {
+                    resp = attempt; // remember last, in case all fail
+                    usedHost = server.replace("https://", "").split("/")[0];
+                    continue;
+                }
+                resp = attempt;
+                usedHost = server.replace("https://", "").split("/")[0];
+                break;
+            }
 
             if (debugBox) {
                 debugBox.textContent =
-                    "EV fetch: http " + resp.status +
+                    "EV fetch: http " + (resp ? resp.status : "none") + " via " + usedHost +
                     " | bounds " + south.toFixed(3) + "," + west.toFixed(3) + "," + north.toFixed(3) + "," + east.toFixed(3);
             }
 
-            if (!resp.ok) {
+            if (!resp || !resp.ok) {
                 if (debugBox) debugBox.textContent += " | request failed";
                 return;
             }
