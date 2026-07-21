@@ -127,34 +127,85 @@
         position:absolute;
         bottom:20px;
         left:15px;
-        right:15px;
         z-index:10;
         background:#e2f0d9;
-        padding:14px;
+        padding:16px;
         border-radius:18px;
         box-shadow:0 8px 25px rgba(0,0,0,0.35);
         display:flex;
         flex-direction:column;
-        gap:10px;
-        box-sizing:border-box;
+        gap:12px;
+        width:74%;
         max-width:340px;
-        margin:0 auto;
+        box-sizing:border-box;
     }
 
-    #controls input {
-        padding:11px;
+    #inputsWrapper {
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+        overflow:hidden;
+        transition:max-height 0.4s cubic-bezier(0.25,0.8,0.25,1), opacity 0.3s ease;
+        max-height:200px;
+        opacity:1;
+        width:100%;
+    }
+
+    #inputsWrapper.hidden {
+        max-height:0;
+        opacity:0;
+    }
+
+    .control-row {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        width:100%;
+        gap:8px;
+        box-sizing:border-box;
+    }
+
+    .control-row input {
+        flex:1;
+        width:calc(100% - 52px);
+        min-width:0;
+        padding:12px;
         border-radius:8px;
         border:2px solid #2d6a30;
         background:#1e4620;
         color:#fff;
         font-size:15px;
         box-sizing:border-box;
-        width:100%;
+        font-weight:500;
     }
 
-    #controls input::placeholder { color:#a3cfbb; font-style:italic; }
+    .control-row input::placeholder { color:#a3cfbb; font-style:italic; }
+
+    .mic-btn {
+        width:44px;
+        height:44px;
+        background:#2d6a30;
+        border:none;
+        border-radius:50%;
+        cursor:pointer;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 3px 8px rgba(0,0,0,0.25);
+        flex-shrink:0;
+        -webkit-tap-highlight-color:transparent;
+    }
+
+    .mic-btn:active { transform:scale(0.92); }
+    .mic-btn svg { width:20px; height:20px; fill:#fff; pointer-events:none; }
+    .mic-btn.listening { background:#dc3545 !important; }
+
+    #toggleInputsBtn svg { transition:transform 0.4s; width:24px; height:24px; }
+    #toggleInputsBtn.flipped svg { transform:rotate(180deg); }
 
     #startBtn {
+        flex:1;
+        min-width:0;
         padding:12px;
         border-radius:8px;
         border:none;
@@ -164,6 +215,7 @@
         cursor:pointer;
         font-weight:bold;
         box-shadow:0 3px 8px rgba(0,0,0,0.2);
+        box-sizing:border-box;
     }
 
     #startBtn.sharing-active { background:#dc3545; }
@@ -186,9 +238,19 @@
         padding:0;
     }
 
-    #followModeBtn { bottom:230px; }
-    #evToggleBtn { bottom:280px; background:#1e4620; }
-    #evToggleBtn.active { background:#2d6a30; box-shadow:0 0 0 3px rgba(255,215,0,.5), 0 6px 20px rgba(0,0,0,.4); }
+    /* Right-side column, matching the real app exactly:
+       followModeBtn (top) -> roomLockBtn (middle) -> chatToggleBtn (bottom) */
+    #followModeBtn { bottom:164px; }
+    #roomLockBtn { bottom:92px; }
+    #chatToggleBtn {
+        bottom:20px;
+        opacity:0.35;
+        background:#555555;
+        pointer-events:none;
+    }
+
+    #roomLockBtn.room-active { background:#b8860b; border-color:#ffd700; }
+    #chatToggleBtn svg, #roomLockBtn svg { width:22px; height:22px; fill:#fff; }
 
     #followModeBtn .ring-outer, #followModeBtn .ring-mid, #followModeBtn .ring-dot {
         position:absolute;
@@ -205,22 +267,105 @@
 
     #radiusToggleBtn {
         position:fixed;
-        top:70px;
-        right:15px;
+        top:10px;
+        right:10px;
         z-index:11;
         background:white;
-        height:40px;
-        padding:0 14px;
-        border-radius:20px;
-        box-shadow:0 3px 10px rgba(0,0,0,.35);
+        height:44px;
+        padding:0 16px;
+        border-radius:4px;
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
         display:flex;
         align-items:center;
-        gap:8px;
-        font-size:13px;
+        gap:12px;
+        font-size:16px;
         font-weight:bold;
-        color:#1e4620;
+        color:#333;
         cursor:pointer;
     }
+
+    #zoomPill {
+        position:fixed;
+        top:10px;
+        left:10px;
+        z-index:11;
+        display:flex;
+        flex-direction:row;
+        border-radius:4px;
+        box-shadow:0 1px 5px rgba(0,0,0,0.4);
+        overflow:hidden;
+        background:white;
+    }
+
+    .zoom-btn {
+        width:44px;
+        height:44px;
+        line-height:44px;
+        text-align:center;
+        font-size:22px;
+        font-weight:bold;
+        color:#333;
+        background:white;
+        border:none;
+        cursor:pointer;
+        padding:0;
+        border-right:1px solid #ccc;
+    }
+
+    .zoom-btn:last-child { border-right:none; }
+
+    #modeToggleBtn {
+        position:fixed;
+        width:42px;
+        height:42px;
+        min-width:42px;
+        max-width:42px;
+        min-height:42px;
+        max-height:42px;
+        border-radius:50%;
+        border:2px solid rgba(30, 70, 32, 0.85);
+        background:rgba(226, 240, 217, 0.82);
+        color:#1e4620;
+        z-index:15;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+        margin:0;
+        box-sizing:border-box;
+        box-shadow:0 4px 13px rgba(0,0,0,.30);
+        cursor:pointer;
+        backdrop-filter:blur(3px);
+        -webkit-backdrop-filter:blur(3px);
+    }
+
+    #modeToggleBtn:active { transform:scale(.94); }
+    #modeToggleBtn svg { width:26px; height:26px; display:block; color:#1e4620; }
+
+    #evToggleBtn {
+        position:fixed;
+        width:38px;
+        height:38px;
+        min-width:38px;
+        min-height:38px;
+        max-width:38px;
+        max-height:38px;
+        padding:0;
+        border-radius:50%;
+        border:3px solid #e2f0d9;
+        background:#1e4620;
+        color:#ffd700;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:0 4px 14px rgba(0,0,0,.42);
+        cursor:pointer;
+        box-sizing:border-box;
+        z-index:12;
+    }
+
+    #evToggleBtn svg { width:23px; height:23px; display:block; }
+    #evToggleBtn.active { background:#ffd700; color:#1e4620; border-color:#ffffff; }
 
     #statusLine {
         position:fixed;
@@ -381,6 +526,19 @@
     <input type="checkbox" id="radiusToggle" checked>
 </div>
 
+<div id="zoomPill">
+    <button class="zoom-btn" id="zoomInBtn" type="button">+</button>
+    <button class="zoom-btn" id="zoomOutBtn" type="button">−</button>
+</div>
+
+<button id="modeToggleBtn" type="button" title="Car / Bike">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16C5.67 16 5 15.33 5 14.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
+</button>
+
+<button id="evToggleBtn" type="button" title="EV chargers">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+</button>
+
 <div id="statusLine">Not sharing yet</div>
 
 <button id="followModeBtn" class="side-btn fm-on" type="button" title="Follow mode">
@@ -391,17 +549,37 @@
     </div>
 </button>
 
-<button id="evToggleBtn" class="side-btn" type="button" title="EV chargers">
-    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="#ffd700" d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+<button id="roomLockBtn" class="side-btn" type="button" title="Room lock (not wired up in this test)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 13c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6-5H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3h2c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/></svg>
+</button>
+
+<button id="chatToggleBtn" class="side-btn" type="button" title="Chat (not built in this test yet)">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
 </button>
 
 <div id="controls">
-    <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
-    <div id="destRow" style="display:flex; gap:8px;">
-        <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" style="flex:1;" />
-        <button id="modeToggleBtn" type="button" style="width:60px; border-radius:8px; border:none; background:#1e4620; color:#e2f0d9; font-weight:900; font-size:13px;">Car</button>
+    <div id="inputsWrapper">
+        <div class="control-row">
+            <input type="text" id="username" placeholder="Enter your name" autocomplete="off" />
+            <button class="mic-btn" id="usernameMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
+
+        <div class="control-row">
+            <input type="text" id="destination" placeholder="Destination (optional)" autocomplete="off" />
+            <button class="mic-btn" id="destinationMic" type="button">
+                <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+        </div>
     </div>
-    <button id="startBtn" type="button">Start Sharing Location</button>
+
+    <div class="control-row">
+        <button id="startBtn" type="button">Start Sharing Location</button>
+        <button class="mic-btn" id="toggleInputsBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+        </button>
+    </div>
 </div>
 
 <div id="routeStatus"></div>
@@ -532,7 +710,8 @@
         attributionControl:{ compact:true }
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass:false }), "top-left");
+    // Zoom is now a custom pill (matching the real app's style) instead
+    // of MapLibre's built-in control — wired up further down.
 
     map.on("dragstart", () => { if (!programmaticMove) followMode = "manual"; });
     map.on("zoomstart", () => { if (!programmaticMove) followMode = "manual"; });
@@ -1362,9 +1541,32 @@
         }
     });
 
+    function bikeSvg() {
+        return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <circle cx="18" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+            <circle cx="46" cy="43" r="10" fill="none" stroke="currentColor" stroke-width="5"></circle>
+            <path d="M24 24h12l-8 19H18l8-19 10 19h10L36 24l7-7" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M39 17h8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+            <circle cx="31" cy="16" r="3" fill="currentColor"></circle>
+        </svg>`;
+    }
+
+    function carSvg() {
+        return `<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <path d="M14 34l6-13c1-3 3-4 7-4h10c4 0 6 1 7 4l6 13" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="M12 34h40c3 0 5 2 5 5v8H7v-8c0-3 2-5 5-5z" fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"></path>
+            <circle cx="19" cy="48" r="5" fill="currentColor"></circle>
+            <circle cx="45" cy="48" r="5" fill="currentColor"></circle>
+            <path d="M22 28h20" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        </svg>`;
+    }
+
+    el("modeToggleBtn").innerHTML = carSvg();
+
     el("modeToggleBtn").addEventListener("click", () => {
         routeMode = routeMode === "car" ? "bike" : "car";
-        el("modeToggleBtn").textContent = modeLabel();
+        el("modeToggleBtn").innerHTML = routeMode === "car" ? carSvg() : bikeSvg();
+        el("modeToggleBtn").title = modeLabel();
         lastFetchedRouteKey = "";
 
         if (isSharing && destinationText()) {
@@ -1611,37 +1813,28 @@
         const south = bounds.getSouth(), west = bounds.getWest();
         const north = bounds.getNorth(), east = bounds.getEast();
 
-        const query = `
-            [out:json][timeout:15];
-            (
-                node["amenity"="charging_station"](${south},${west},${north},${east});
-            );
-            out center tags;
-        `;
-
         try {
-            const resp = await fetch("https://overpass.kumi.systems/api/interpreter", {
+            const resp = await fetch(ROUTE_ENDPOINT, {
                 method:"POST",
-                headers:{ "Content-Type":"application/x-www-form-urlencoded;charset=UTF-8" },
-                body:"data=" + encodeURIComponent(query)
+                headers:{ "Content-Type":"application/json" },
+                body:JSON.stringify({ action:"evChargers", south, west, north, east })
             });
 
             if (!resp.ok) return;
 
             const data = await resp.json().catch(() => null);
-            if (!data || !evChargersVisible) return;
+            if (!data || !data.ok || !evChargersVisible) return;
 
             clearEvMarkers();
 
-            const elements = Array.isArray(data.elements) ? data.elements : [];
+            const chargers = Array.isArray(data.chargers) ? data.chargers : [];
 
-            elements.forEach(item => {
-                const lat = Number(item.lat);
-                const lng = Number(item.lon);
+            chargers.forEach(charger => {
+                const lat = Number(charger.lat);
+                const lng = Number(charger.lng);
                 if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
 
-                const tags = item.tags || {};
-                const name = tags.name || tags.operator || "EV Charger";
+                const name = charger.name || "EV Charger";
 
                 const container = evIconElement();
                 const marker = new maplibregl.Marker({ element:container, anchor:"center" })
@@ -1695,6 +1888,134 @@
     map.on("moveend", () => {
         if (evChargersVisible) scheduleEvFetch();
     });
+
+    /* ========================= Zoom pill ========================= */
+
+    el("zoomInBtn").addEventListener("click", () => map.zoomIn());
+    el("zoomOutBtn").addEventListener("click", () => map.zoomOut());
+
+    /* ========================= Button positioning (matches real app) ========================= */
+
+    function positionEvButton() {
+        const btn = el("evToggleBtn");
+        const zoomEl = el("zoomPill");
+        const radiusEl = el("radiusToggleBtn");
+        if (!btn || !zoomEl || !radiusEl) return;
+
+        const z = zoomEl.getBoundingClientRect();
+        const r = radiusEl.getBoundingClientRect();
+        const size = 38;
+
+        const centerX = (z.right + r.left) / 2;
+        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+
+        let left = centerX - (size / 2);
+        let top = centerY - (size / 2);
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    function positionModeButton() {
+        const btn = el("modeToggleBtn");
+        const zoomEl = el("zoomPill");
+        if (!btn || !zoomEl) return;
+
+        const z = zoomEl.getBoundingClientRect();
+        const size = 42;
+        const plusTop = 18;
+        const plusLeft = -28;
+
+        let left = z.left + (z.width / 2) - (size / 2) + plusLeft;
+        let top = z.bottom + plusTop;
+
+        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
+        top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
+
+        btn.style.left = left + "px";
+        btn.style.top = top + "px";
+    }
+
+    positionEvButton();
+    positionModeButton();
+    window.addEventListener("resize", () => {
+        positionEvButton();
+        positionModeButton();
+    });
+    setInterval(() => {
+        positionEvButton();
+        positionModeButton();
+    }, 1000);
+
+    /* ========================= Collapse/expand inputs ========================= */
+
+    el("toggleInputsBtn").addEventListener("click", () => {
+        el("inputsWrapper").classList.toggle("hidden");
+        el("toggleInputsBtn").classList.toggle("flipped");
+    });
+
+    /* ========================= Room lock placeholder ========================= */
+
+    el("roomLockBtn").addEventListener("click", () => {
+        showRouteStatus("Room codes aren't wired up in this test yet", true);
+    });
+
+    /* ========================= Voice input ========================= */
+
+    (function setupVoiceInput() {
+        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const usernameMic = el("usernameMic");
+        const destinationMic = el("destinationMic");
+
+        if (!SpeechRecognitionCtor) {
+            usernameMic.style.display = "none";
+            destinationMic.style.display = "none";
+            return;
+        }
+
+        function attach(btn, input) {
+            const rec = new SpeechRecognitionCtor();
+            rec.continuous = false;
+            rec.interimResults = false;
+            rec.lang = "en-US";
+
+            btn.addEventListener("click", e => {
+                e.preventDefault();
+                e.stopPropagation();
+                input.blur();
+
+                if (btn.classList.contains("listening")) rec.stop();
+                else { try { rec.start(); } catch (err) {} }
+            });
+
+            rec.onstart = () => {
+                btn.classList.add("listening");
+                input.value = "";
+                input.placeholder = "Listening...";
+            };
+
+            rec.onresult = e => {
+                input.value = e.results[0][0].transcript.replace(/[.\s]+$/g, "");
+                // Setting .value directly never fires the native "input"
+                // event — dispatch it manually so voice-set text behaves
+                // exactly like text the person typed themselves.
+                input.dispatchEvent(new Event("input", { bubbles:true }));
+            };
+
+            rec.onerror = () => { btn.classList.remove("listening"); resetPlaceholder(input); };
+            rec.onend = () => { btn.classList.remove("listening"); resetPlaceholder(input); };
+        }
+
+        function resetPlaceholder(input) {
+            input.placeholder = input.id === "username" ? "Enter your name" : "Destination (optional)";
+        }
+
+        attach(usernameMic, el("username"));
+        attach(destinationMic, el("destination"));
+    })();
 
     el("radiusToggle").addEventListener("change", e => {
         isRadiusFilterActive = e.target.checked;
