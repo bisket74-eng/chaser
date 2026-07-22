@@ -1735,6 +1735,78 @@
             }
         });
 
+        // Game sync listeners — ported from the real app. Without these,
+        // every game's network messages (moves, dice rolls, card plays,
+        // lobby joins) never reach the game code at all, so only
+        // single-player behavior was ever working here.
+        channel.on("broadcast", { event:"checkers-sync-move" }, ({ payload }) => {
+            if (window.handleIncomingCheckersSync) window.handleIncomingCheckersSync(payload);
+        });
+
+        channel.on("broadcast", { event:"uno-sync-discard" }, ({ payload }) => {
+            if (window.handleIncomingUnoSync) window.handleIncomingUnoSync(payload);
+        });
+
+        channel.on("broadcast", { event:"sync-room-trivia" }, ({ payload }) => {
+            if (window.handleIncomingTriviaSync) window.handleIncomingTriviaSync(payload);
+        });
+
+        channel.on("broadcast", { event:"settlers-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingSettlersSync) window.handleIncomingSettlersSync(payload);
+        });
+
+        channel.on("broadcast", { event:"sequence-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingSequenceSync) window.handleIncomingSequenceSync(payload);
+        });
+
+        channel.on("broadcast", { event:"cribbage-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingCribbageSync) window.handleIncomingCribbageSync(payload);
+        });
+
+        channel.on("broadcast", { event:"coup-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingCoupSync) window.handleIncomingCoupSync(payload);
+        });
+
+        channel.on("broadcast", { event:"yahtzee-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingYahtzeeSync) window.handleIncomingYahtzeeSync(payload);
+        });
+
+        channel.on("broadcast", { event:"texasholdem-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingTexasHoldemSync) window.handleIncomingTexasHoldemSync(payload);
+        });
+
+        channel.on("broadcast", { event:"deception-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingDeceptionSync) window.handleIncomingDeceptionSync(payload);
+        });
+
+        channel.on("broadcast", { event:"sevenwonders-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingSevenWondersSync) window.handleIncomingSevenWondersSync(payload);
+        });
+
+        channel.on("broadcast", { event:"tinykingdoms-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingTinyKingdomsSync) window.handleIncomingTinyKingdomsSync(payload);
+        });
+
+        channel.on("broadcast", { event:"scrabble-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingScrabbleSync) window.handleIncomingScrabbleSync(payload);
+        });
+
+        channel.on("broadcast", { event:"battleship-sync-state" }, ({ payload }) => {
+            if (window.handleIncomingBattleshipSync) window.handleIncomingBattleshipSync(payload);
+        });
+
+        channel.on("broadcast", { event:"chaser-game-lobby-open" }, ({ payload }) => {
+            if (window.handleIncomingChaserGameLobby) window.handleIncomingChaserGameLobby(payload);
+        });
+
+        channel.on("broadcast", { event:"chaser-game-lobby-update" }, ({ payload }) => {
+            if (window.handleIncomingChaserGameLobbyUpdate) window.handleIncomingChaserGameLobbyUpdate(payload);
+        });
+
+        channel.on("broadcast", { event:"chaser-game-lobby-start" }, ({ payload }) => {
+            if (window.handleIncomingChaserGameLobbyStart) window.handleIncomingChaserGameLobbyStart(payload);
+        });
+
         channel.subscribe();
     }
 
