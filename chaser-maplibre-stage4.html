@@ -1075,7 +1075,7 @@
 <div id="chatOverlay">
     <div id="chatHeader">
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
-        <div class="header-btn-row">
+        <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">Games</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
@@ -1688,6 +1688,11 @@
         channel = supabaseClient.channel(buildChannelName(), {
             config:{ broadcast:{ ack:true, self:false } }
         });
+
+        // Game files load as separate <script> tags and can't see variables
+        // scoped inside this app's own IIFE — exposing this on window lets
+        // them send/receive multiplayer sync through the same real channel.
+        window.channel = channel;
 
         channel.on("broadcast", { event:"location-update" }, ({ payload }) => {
             const { user, dest, lat, lng, status, color, riderId } = payload;
@@ -3353,9 +3358,17 @@
     };
 
     function exitActiveGame() {
-        activeGameStage.classList.remove("open");
-        // Future per-game engines should tear down their own state/timers
-        // here before this fires, same as the real app's exit sequence.
+        // Once games.js has loaded, it provides the real teardown (clears
+        // timers, resets shared game state, restores the chat header) —
+        // use that instead of just hiding the panel, or leftover state
+        // from one game could bleed into the next.
+        if (typeof window.chaserMasterExitSequence === "function") {
+            window.chaserMasterExitSequence();
+        } else if (typeof window.shutdownActiveGame === "function") {
+            window.shutdownActiveGame();
+        } else {
+            activeGameStage.classList.remove("open");
+        }
     }
 
     el("chatGamesTriggerBtn").addEventListener("click", () => {
@@ -4607,6 +4620,24 @@
     }, 1000);
 })();
 </script>
+
+<!--
+    Same file list/order as the real app. Only games.js and yahtzee.js
+    actually exist right now — the rest will 404 harmlessly (a missing
+    script tag doesn't break the page) until you upload each one, at
+    which point that game should start working with no further edits here.
+-->
+<script src="games.js"></script>
+<script src="yahtzee.js"></script>
+<script src="scrabble.js"></script>
+<script src="battleship.js"></script>
+<script src="texasholdem.js"></script>
+<script src="cribbage.js"></script>
+<script src="tinykingdoms.js"></script>
+<script src="settlers.js"></script>
+<script src="sevenwonders.js"></script>
+<script src="eucdrift.js"></script>
+<script src="deception.js"></script>
 
 </body>
 </html>
