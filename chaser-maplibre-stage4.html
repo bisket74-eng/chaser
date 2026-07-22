@@ -2742,9 +2742,12 @@
         el("evToggleBtn").classList.toggle("active", evChargersVisible);
 
         if (evChargersVisible) {
+            clearEvMarkers();
             fetchEvChargers();
         } else {
             clearEvMarkers();
+            const dbg = el("routeDebug");
+            if (dbg) dbg.textContent = "";
         }
     });
 
