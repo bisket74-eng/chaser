@@ -1908,23 +1908,20 @@
 
         programmaticMove = true;
 
-        // Center is driven per-frame by the smoother. Only force the zoom
-        // ONCE when entering self mode — after that, leave zoom alone so
+        // Center is driven per-frame by the smoother, and so is bearing
+        // now (see smoothTick above) — this only needs to force the zoom
+        // ONCE when entering self mode, after that leaving zoom alone so
         // the user can freely pinch-zoom without it being yanked back to
         // SELF_ZOOM on every GPS tick (which was the "it fights my zoom
-        // and creeps back slowly" problem).
+        // and creeps back slowly" problem). Bearing is deliberately left
+        // out of this easeTo entirely — that's what was causing rotation
+        // to fight with and get cancelled by the smoother's per-frame
+        // jumpTo calls.
         const opts = { center:[lastLng, lastLat], duration:250, easing:t=>t };
 
         if (!selfZoomApplied) {
             opts.zoom = SELF_ZOOM;
             selfZoomApplied = true;
-        }
-
-        if (autoRotateEnabled && Number.isFinite(currentSmoothedHeading)) {
-            if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 1.5) {
-                opts.bearing = currentSmoothedHeading;
-                lastAppliedBearing = currentSmoothedHeading;
-            }
         }
 
         map.easeTo(opts);
@@ -2620,6 +2617,20 @@
         if (smoothCameraThisSegment && followMode === "self") {
             programmaticMove = true;
             const camOpts = { center:[curLng, curLat], duration:0 };
+
+            // Bearing is applied here, every frame, instead of via a
+            // separate map.easeTo animation — that easeTo was getting
+            // interrupted almost immediately by this same jumpTo call
+            // running 60x/second, which is exactly why rotation used to
+            // "try to turn a little, then stop." Applying it in the same
+            // jumpTo avoids the two ever competing at all. currentSmoothedHeading
+            // is already smoothed via the vector blend in updateSmoothedHeading,
+            // so calling this every frame still looks continuous, not jumpy.
+            if (autoRotateEnabled && Number.isFinite(currentSmoothedHeading)) {
+                camOpts.bearing = currentSmoothedHeading;
+                lastAppliedBearing = currentSmoothedHeading;
+            }
+
             try { map.jumpTo(camOpts); } catch (err) {}
         }
 
@@ -2727,10 +2738,10 @@
 
         broadcastCurrentState();
 
-        // Smoothly glide the self marker (and, in self mode, the camera)
-        // toward this new fix instead of snapping. Rotation/zoom in self
-        // mode is still handled by frameOnSelf below (which no longer
-        // needs to move the center — the smoother does that per-frame).
+        // Smoothly glide the self marker (and, in self mode, the camera
+        // center + bearing) toward this new fix instead of snapping.
+        // Zoom in self mode is still handled by frameOnSelf below (set
+        // once on entering self mode, then left alone for pinch-zoom).
         const animateCam = (followMode === "self");
         startSmoothTo(lastLat, lastLng, animateCam);
 
