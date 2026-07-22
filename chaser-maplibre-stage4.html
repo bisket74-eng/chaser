@@ -1405,10 +1405,15 @@
         } else {
             // Averaging as vectors (not raw degrees) so this handles the
             // 0°/360° wraparound correctly instead of jumping wildly
-            // whenever heading crosses due north. Weighted toward the
-            // newest reading so it tracks actual turns promptly instead
-            // of lagging behind (still smooths out single-tick GPS noise).
-            const alpha = 0.55;
+            // whenever heading crosses due north. Heavily weighted toward
+            // the newest reading — walking pace gives GPS ticks every
+            // few seconds, so a slower blend here compounds into multiple
+            // real seconds of visible lag behind your actual direction.
+            // MapLibre's own map.easeTo transition already smooths the
+            // visual jump for each individual correction, so this only
+            // needs to filter out single-sample spikes, not slow-roll
+            // the convergence itself.
+            const alpha = 0.85;
             smoothedHeadingSin = (smoothedHeadingSin * (1 - alpha)) + (sinV * alpha);
             smoothedHeadingCos = (smoothedHeadingCos * (1 - alpha)) + (cosV * alpha);
         }
@@ -1875,7 +1880,7 @@
         // the user can freely pinch-zoom without it being yanked back to
         // SELF_ZOOM on every GPS tick (which was the "it fights my zoom
         // and creeps back slowly" problem).
-        const opts = { center:[lastLng, lastLat], duration:400, easing:t=>t };
+        const opts = { center:[lastLng, lastLat], duration:250, easing:t=>t };
 
         if (!selfZoomApplied) {
             opts.zoom = SELF_ZOOM;
@@ -1883,7 +1888,7 @@
         }
 
         if (autoRotateEnabled && Number.isFinite(currentSmoothedHeading)) {
-            if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 3) {
+            if (lastAppliedBearing === null || bearingDiff(currentSmoothedHeading, lastAppliedBearing) > 1.5) {
                 opts.bearing = currentSmoothedHeading;
                 lastAppliedBearing = currentSmoothedHeading;
             }
@@ -2651,7 +2656,7 @@
         // isn't using). Below this speed, freeze whatever heading we
         // last had instead of feeding in fresh noise, which is what was
         // causing the map to visibly spin while sitting still.
-        const MIN_MOVING_SPEED_MPS = 0.6; // roughly 1.3 mph
+        const MIN_MOVING_SPEED_MPS = 0.3; // roughly 0.67 mph — low enough that a real walking pace isn't mistaken for standing still
         const speedKnown = Number.isFinite(coords.speed);
         const isStationary = speedKnown && coords.speed < MIN_MOVING_SPEED_MPS;
 
