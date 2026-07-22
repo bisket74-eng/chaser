@@ -79,6 +79,20 @@
 
     #liveCountNumber { color:#dc3545; font-weight:900; }
 
+    #privacyHint {
+        font-size:24px;
+        color:#1e4620;
+        font-weight:normal;
+        font-style:italic;
+        margin-top:12px;
+        text-align:center;
+        pointer-events:none;
+        text-shadow:1.5px 1.5px 0 #e2f0d9, -1px -1px 0 #e2f0d9, 1px -1px 0 #e2f0d9, -1px 1px 0 #e2f0d9, 3px 3px 6px rgba(0,0,0,0.5);
+        white-space:normal;
+        width:280px;
+        line-height:1.2;
+    }
+
     .rider-marker {
         display:flex;
         flex-direction:column;
@@ -304,17 +318,35 @@
         right:10px;
         z-index:11;
         background:white;
-        height:44px;
-        padding:0 16px;
+        height:36px;
+        padding:0 14px;
         border-radius:4px;
         box-shadow:0 1px 5px rgba(0,0,0,0.4);
         display:flex;
         align-items:center;
-        gap:12px;
-        font-size:16px;
+        gap:10px;
+        font-size:14px;
         font-weight:bold;
         color:#333;
         cursor:pointer;
+    }
+
+    .radius-label-wrapper {
+        display:flex;
+        align-items:center;
+        font-size:14px;
+        font-weight:bold;
+        white-space:nowrap;
+        cursor:pointer;
+    }
+
+    .radius-r {
+        font-family:"Brush Script MT","Comic Sans MS",cursive;
+        font-size:37px;
+        font-weight:bold;
+        margin-right:7px;
+        padding-bottom:7px;
+        color:#2d6a30;
     }
 
     #zoomPill {
@@ -331,11 +363,11 @@
     }
 
     .zoom-btn {
-        width:44px;
-        height:44px;
-        line-height:44px;
+        width:36px;
+        height:36px;
+        line-height:36px;
         text-align:center;
-        font-size:22px;
+        font-size:18px;
         font-weight:bold;
         color:#333;
         background:white;
@@ -1009,12 +1041,13 @@
 <div id="appHeaderContainer">
     <div id="appHeader">•Chaser•</div>
     <div id="riderCounterWidget">Buddies Online: <span id="liveCountNumber">0</span></div>
+    <div id="privacyHint">share location to see buddies<br>and enter chat</div>
 </div>
 
 <div id="map"></div>
 
 <div id="radiusToggleBtn">
-    <span>50 Mi Only</span>
+    <label class="radius-label-wrapper"><span class="radius-r">r</span> 50 Mi Only</label>
     <input type="checkbox" id="radiusToggle" checked>
 </div>
 
@@ -2718,6 +2751,7 @@
             el("startBtn").textContent = "Start Sharing Location";
             el("startBtn").classList.remove("sharing-active");
             el("chatToggleBtn").classList.add("chat-disabled");
+            el("privacyHint").style.display = "block";
 
             if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
 
@@ -2753,6 +2787,7 @@
         el("startBtn").textContent = "Stop Sharing Location";
         el("startBtn").classList.add("sharing-active");
         el("chatToggleBtn").classList.remove("chat-disabled");
+        el("privacyHint").style.display = "none";
         collapseInputsForFollowMode();
 
         if (!navigator.geolocation) {
@@ -3059,12 +3094,16 @@
         const z = zoomEl.getBoundingClientRect();
         const r = radiusEl.getBoundingClientRect();
         const size = 38;
+        const row1Height = 42;
+        const gapAfterTopRow = 14;
+        const gapBetweenRows = 10;
 
-        const centerX = (z.right + r.left) / 2;
-        const centerY = (Math.min(z.top, r.top) + Math.max(z.bottom, r.bottom)) / 2;
+        const leftX = z.left + (z.width / 2);
+        const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
+        const row2Top = row1Top + row1Height + gapBetweenRows;
 
-        let left = centerX - (size / 2);
-        let top = centerY - (size / 2);
+        let left = leftX - (size / 2);
+        let top = row2Top;
 
         left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
         top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
@@ -3076,15 +3115,19 @@
     function positionModeButton() {
         const btn = el("modeToggleBtn");
         const zoomEl = el("zoomPill");
-        if (!btn || !zoomEl) return;
+        const radiusEl = el("radiusToggleBtn");
+        if (!btn || !zoomEl || !radiusEl) return;
 
         const z = zoomEl.getBoundingClientRect();
+        const r = radiusEl.getBoundingClientRect();
         const size = 42;
-        const plusTop = 18;
-        const plusLeft = -28;
+        const gapAfterTopRow = 14;
 
-        let left = z.left + (z.width / 2) - (size / 2) + plusLeft;
-        let top = z.bottom + plusTop;
+        const leftX = z.left + (z.width / 2);
+        const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
+
+        let left = leftX - (size / 2);
+        let top = row1Top;
 
         left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
         top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
@@ -3095,15 +3138,20 @@
 
     function positionCompassButton() {
         const btn = el("compassBtn");
-        const modeBtn = el("modeToggleBtn");
-        if (!btn || !modeBtn) return;
+        const zoomEl = el("zoomPill");
+        const radiusEl = el("radiusToggleBtn");
+        if (!btn || !zoomEl || !radiusEl) return;
 
-        const m = modeBtn.getBoundingClientRect();
+        const z = zoomEl.getBoundingClientRect();
+        const r = radiusEl.getBoundingClientRect();
         const size = 42;
-        const gap = 10;
+        const gapAfterTopRow = 14;
 
-        let left = m.left;
-        let top = m.bottom + gap;
+        const rightX = r.left + (r.width / 2);
+        const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
+
+        let left = rightX - (size / 2);
+        let top = row1Top;
 
         left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
         top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
@@ -4614,24 +4662,30 @@
 
     function positionMusicButton() {
         const btn = ensureMusicButton();
-        const radius = document.getElementById("radiusToggleBtn");
+        const zoomEl = document.getElementById("zoomPill");
+        const radiusEl = document.getElementById("radiusToggleBtn");
 
-        if (!radius) return;
+        if (!zoomEl || !radiusEl) return;
 
-        const r = radius.getBoundingClientRect();
+        const z = zoomEl.getBoundingClientRect();
+        const r = radiusEl.getBoundingClientRect();
         const size = 42;
+        const row1Height = 42;
+        const gapAfterTopRow = 14;
+        const gapBetweenRows = 10;
 
-        // Same general spot the old compass sat in — under the "50 Mi
-        // Only" control, slightly right of center. Adjust these two if
-        // it ever overlaps anything:
-        const rightOffset = 2;
-        const topOffset = 9;
+        // Same grid as car/bike (top-left), compass (top-right), and EV
+        // (bottom-left): this sits bottom-right, directly under the
+        // compass, mirroring EV on the other side.
+        const rightX = r.left + (r.width / 2);
+        const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
+        const row2Top = row1Top + row1Height + gapBetweenRows;
 
-        let left = r.right - size - rightOffset;
-        let top = r.bottom + topOffset;
+        let left = rightX - (size / 2);
+        let top = row2Top;
 
         left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
-        top = Math.max(72, Math.min(window.innerHeight - size - 8, top));
+        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
 
         btn.style.left = left + "px";
         btn.style.top = top + "px";
