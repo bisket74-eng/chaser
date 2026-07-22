@@ -4711,5 +4711,373 @@
 <script src="games/eucdrift.js"></script>
 <script src="games/deception.js"></script>
 
+<script>
+/* CHASER PATCH — bigger pop-out game table
+   Ported directly from the real production app, unchanged. */
+(function () {
+    if (window.__chaserGameTablePatchInstalled) return;
+    window.__chaserGameTablePatchInstalled = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #activeGameStage.open {
+            position: fixed !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) !important;
+
+            width: min(90vw, 450px) !important;
+            height: min 80vh !important;
+            max-height: 800px !important;
+
+            z-index: 9998 !important;
+            border-radius: 22px !important;
+            border: 3px solid #e2f0d9 !important;
+            background: rgba(30, 70, 32, 0.96) !important;
+            box-shadow: 0 10px 35px rgba(0,0,0,.55) !important;
+            overflow: hidden !important;
+            box-sizing: border-box !important;
+        }
+
+        #gameCanvasContainer {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: auto !important;
+            box-sizing: border-box !important;
+            padding-bottom: 48px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position: absolute !important;
+            left: 10px !important;
+            bottom: 8px !important;
+            z-index: 10000 !important;
+        }
+
+        @media (max-width: 520px) {
+            #activeGameStage.open {
+                width: 94vw !important;
+                height: 68vh !important;
+                top: 46% !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+})();
+</script>
+
+<script>
+/* CHASER PATCH — clean game footer row v3
+   Ported directly from the real production app, unchanged. This is the
+   patch that actually creates the yellow Show/Hide Board peek button. */
+(function () {
+    if (window.__chaserCleanGameFooterV3Installed) return;
+    window.__chaserCleanGameFooterV3Installed = true;
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        #roomDisplayCode {
+            text-indent:-9999px !important;
+        }
+
+        #roomDisplayCode::after {
+            content:"Chat Room";
+            text-indent:0;
+            float:left;
+        }
+
+        #activeGameStage.open {
+            position:fixed !important;
+            left:50% !important;
+            right:auto !important;
+            top:70px !important;
+            transform:translateX(-50%) !important;
+            width:calc(100vw - 28px) !important;
+            max-width:760px !important;
+            height:68vh !important;
+            min-height:360px !important;
+            max-height:calc(100dvh - 235px) !important;
+            padding-bottom:42px !important;
+            box-sizing:border-box !important;
+            overflow:hidden !important;
+        }
+
+        #gameCanvasContainer {
+            width:100% !important;
+            height:100% !important;
+            max-height:100% !important;
+            overflow:auto !important;
+            box-sizing:border-box !important;
+            padding-bottom:42px !important;
+        }
+
+        .canvas-exit-anchor-box {
+            position:absolute !important;
+            left:14px !important;
+            bottom:8px !important;
+            width:96px !important;
+            min-width:96px !important;
+            max-width:96px !important;
+            height:32px !important;
+            min-height:32px !important;
+            max-height:32px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
+            background:#dc3545 !important;
+            border:2px solid #ffffff !important;
+            border-radius:999px !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            gap:4px !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+            pointer-events:auto !important;
+            transform:none !important;
+            z-index:10040 !important;
+            text-transform:capitalize !important;
+        }
+
+        .canvas-exit-x-glyph,
+        .canvas-exit-label-str {
+            color:#ffffff !important;
+            font-size:11px !important;
+            font-weight:900 !important;
+            text-shadow:none !important;
+            line-height:1 !important;
+            text-transform:capitalize !important;
+        }
+
+        #chaserFooterGameTitle {
+            position:absolute !important;
+            left:110px !important;
+            right:110px !important;
+            bottom:14px !important;
+            text-align:center !important;
+            color:#ffd700 !important;
+            font-family:"Brush Script MT","Comic Sans MS",cursive !important;
+            font-size:17px !important;
+            font-weight:900 !important;
+            text-shadow:0 2px 5px rgba(0,0,0,.75) !important;
+            pointer-events:none !important;
+            white-space:nowrap !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            z-index:10039 !important;
+        }
+
+        #gameBoardToggleBtn {
+            position:fixed !important;
+            width:96px !important;     
+            min-width:96px !important;
+            max-width:96px !important;
+            height:32px !important;
+            min-height:32px !important;
+            max-height:32px !important;
+            padding:0 !important;
+            margin:0 !important;
+            box-sizing:border-box !important;
+            border-radius:999px !important;
+            border:2px solid #ffffff !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            font-size:11px !important;
+            font-weight:900 !important;
+            box-shadow:0 3px 9px rgba(0,0,0,.4) !important;
+            pointer-events:auto !important;
+            z-index:10060 !important;
+        }
+
+        #gameBoardToggleBtn .arrow {
+            font-size:17px !important;
+            line-height:1 !important;
+        }
+
+        #activeGameStage.game-board-hidden {
+            height:0 !important;
+            min-height:0 !important;
+            max-height:0 !important;
+            padding:0 !important;
+            border-width:0 !important;
+            overflow:hidden !important;
+            opacity:0 !important;
+            pointer-events:none !important;
+        }
+
+        #activeGameStage.game-board-hidden #gameCanvasContainer,
+        #activeGameStage.game-board-hidden .canvas-exit-anchor-box,
+        #activeGameStage.game-board-hidden #chaserFooterGameTitle,
+        #activeGameStage.game-board-hidden #coupHelpBtn {
+            display:none !important;
+        }
+
+        @media (max-height:750px) {
+            #activeGameStage.open {
+                top:60px !important;
+                height:72vh !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    let footerTitle = null;
+    let toggle = null;
+    let lastRect = null;
+
+    function gameName() {
+        return (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) || "Game";
+    }
+
+    function setToggleText(hidden) {
+        if (!toggle) return;
+        toggle.innerHTML = hidden
+            ? 'Show Board <span class="arrow">▲</span>'
+            : 'Hide Board <span class="arrow">▼</span>';
+    }
+
+    function ensureFooter() {
+        const stage = document.getElementById("activeGameStage");
+        const exitBtn = document.querySelector(".canvas-exit-anchor-box");
+        if (!stage || !exitBtn) return;
+        const exitLabel = exitBtn.querySelector(".canvas-exit-label-str");
+        if (exitLabel) exitLabel.innerText = "Exit Game";
+
+        const isOpen = stage.classList.contains("open");
+        const hidden = stage.classList.contains("game-board-hidden");
+
+        if (!footerTitle) {
+            footerTitle = document.createElement("div");
+            footerTitle.id = "chaserFooterGameTitle";
+            stage.appendChild(footerTitle);
+        }
+
+        if (!toggle) {
+            toggle = document.createElement("button");
+            toggle.id = "gameBoardToggleBtn";
+            toggle.type = "button";
+            setToggleText(false);
+            document.body.appendChild(toggle);
+
+            toggle.onclick = () => {
+                const nowHidden = stage.classList.toggle("game-board-hidden");
+                setToggleText(nowHidden);
+
+                if (!nowHidden) {
+                    setTimeout(ensureFooter, 50);
+                }
+            };
+        }
+
+        if (!isOpen) {
+            toggle.style.display = "none";
+            stage.classList.remove("game-board-hidden");
+            setToggleText(false);
+            return;
+        }
+
+        if (footerTitle.parentElement !== stage) {
+            stage.appendChild(footerTitle);
+        }
+
+        footerTitle.innerText = gameName();
+
+        if (!hidden) {
+            lastRect = stage.getBoundingClientRect();
+        }
+
+        const r = lastRect || stage.getBoundingClientRect();
+
+        toggle.style.display = "block";
+        toggle.style.left = Math.max(8, Math.min(window.innerWidth - 104, r.right - 108)) + "px";
+        toggle.style.top = Math.max(8, Math.min(window.innerHeight - 38, r.bottom - 42)) + "px";
+    }
+
+    setInterval(ensureFooter, 300);
+})();
+</script>
+
+<script>
+/* CHASER PATCH — stop Uno from ghost-rendering over other games
+   Ported directly from the real production app, unchanged. */
+(function () {
+    if (window.__chaserStopUnoGhostRenderInstalled) return;
+    window.__chaserStopUnoGhostRenderInstalled = true;
+
+    function isUnoName(gameName) {
+        return String(gameName || "").toLowerCase().includes("uno");
+    }
+
+    function getActiveGameName() {
+        return String(
+            (window.chaserGame && (window.chaserGame.activeGame || window.chaserGame.activeGameName)) ||
+            (window.activeGameLabelTitle && window.activeGameLabelTitle.innerText) ||
+            ""
+        );
+    }
+
+    function clearUnoState() {
+        window.unoState = null;
+        window.chaserUnoState = null;
+        window.__chaserUnoGhostBlocked = true;
+    }
+
+    function allowUnoState() {
+        window.__chaserUnoGhostBlocked = false;
+    }
+
+    if (typeof window.renderUnoLayout === "function" && !window.renderUnoLayout.__chaserGhostGuarded) {
+        const oldRenderUnoLayout = window.renderUnoLayout;
+
+        window.renderUnoLayout = function () {
+            const activeName = getActiveGameName();
+
+            if (window.__chaserUnoGhostBlocked && !isUnoName(activeName)) {
+                return;
+            }
+
+            return oldRenderUnoLayout.apply(this, arguments);
+        };
+
+        window.renderUnoLayout.__chaserGhostGuarded = true;
+    }
+
+    if (typeof window.launchGameEngine === "function" && !window.launchGameEngine.__chaserUnoGhostGuarded) {
+        const oldLaunchGameEngine = window.launchGameEngine;
+
+        window.launchGameEngine = function (gameName, icon) {
+            if (isUnoName(gameName)) {
+                allowUnoState();
+            } else {
+                clearUnoState();
+            }
+
+            const result = oldLaunchGameEngine.apply(this, arguments);
+
+            if (!isUnoName(gameName)) {
+                setTimeout(clearUnoState, 50);
+                setTimeout(clearUnoState, 250);
+                setTimeout(clearUnoState, 700);
+            }
+
+            return result;
+        };
+
+        window.launchGameEngine.__chaserUnoGhostGuarded = true;
+    }
+
+    if (typeof window.chaserMasterExitSequence === "function" && !window.chaserMasterExitSequence.__chaserUnoGhostGuarded) {
+        const oldExit = window.chaserMasterExitSequence;
+
+        window.chaserMasterExitSequence = function () {
+            clearUnoState();
+            return oldExit.apply(this, arguments);
+        };
+
+        window.chaserMasterExitSequence.__chaserUnoGhostGuarded = true;
+    }
+})();
+</script>
+
 </body>
 </html>
