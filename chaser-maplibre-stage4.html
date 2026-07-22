@@ -898,6 +898,108 @@
     }
 
     .inline-send-btn svg { width:22px; height:22px; fill:#ffffff; stroke:#ffffff; stroke-width:0.5; }
+
+    #gameHubOverlay {
+        position:absolute;
+        top:54px;
+        left:0;
+        right:0;
+        background:#1e4620;
+        z-index:25;
+        display:none;
+        flex-direction:column;
+        padding:16px;
+        box-sizing:border-box;
+        height:max-content;
+        max-height:80%;
+        overflow-y:auto;
+        border-bottom:3px solid #2d6a30;
+        box-shadow:0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    #gameHubOverlay.open { display:flex; }
+
+    .game-hub-headline {
+        color:#e2f0d9;
+        text-align:center;
+        margin:0 0 16px 0;
+        font-size:20px;
+        font-weight:800;
+        border-bottom:1px dashed rgba(226,240,217,0.3);
+        padding-bottom:8px;
+    }
+
+    .game-grid-layout {
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+        gap:12px;
+    }
+
+    .game-card-btn {
+        background:#e2f0d9;
+        border:3px solid #2d6a30;
+        border-radius:14px;
+        padding:8px 4px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        cursor:pointer;
+        box-shadow:0 4px 10px rgba(0,0,0,0.2);
+        transition:transform 0.1s;
+    }
+
+    .game-card-btn:active { transform:scale(0.95); }
+    .game-card-icon { font-size:22px; }
+    .game-card-title { color:#1e4620; font-weight:bold; font-size:12px; text-align:center; }
+
+    #activeGameStage {
+        display:none;
+        position:absolute;
+        top:0;
+        left:0;
+        right:0;
+        bottom:0;
+        background:#0d1f0e;
+        z-index:30;
+        flex-direction:column;
+    }
+
+    #activeGameStage.open { display:flex; }
+
+    #gameCanvasContainer {
+        flex:1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        overflow:auto;
+    }
+
+    #gamePlaceholderMsg {
+        text-align:center;
+        color:#e2f0d9;
+        padding:24px;
+    }
+
+    #gamePlaceholderIcon { font-size:64px; margin-bottom:12px; }
+    #gamePlaceholderTitle { font-size:22px; font-weight:900; margin-bottom:10px; }
+    #gamePlaceholderNote { font-size:14px; color:#a3cfbb; max-width:260px; margin:0 auto; }
+
+    .canvas-exit-anchor-box {
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:8px;
+        padding:14px;
+        background:#2d6a30;
+        color:#fff;
+        font-weight:bold;
+        cursor:pointer;
+        flex-shrink:0;
+    }
+
+    .canvas-exit-x-glyph { font-size:18px; }
 </style>
 </head>
 <body>
@@ -979,6 +1081,72 @@
         <button id="closeChatBtn" type="button">✕</button>
     </div>
 
+    <div id="gameHubOverlay">
+        <div class="game-hub-headline">Chaser Game Center</div>
+        <div class="game-grid-layout">
+            <div class="game-card-btn" onclick="launchGameEngine('Battleship', '🚢')">
+                <span class="game-card-icon">🚢</span>
+                <span class="game-card-title">Battleship</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Settlers', '🌾')">
+                <span class="game-card-icon">🌾</span>
+                <span class="game-card-title">Catan</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Cribbage', '🃏')">
+                <span class="game-card-icon">🃏</span>
+                <span class="game-card-title">Cribbage</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Coup', '🕶️')">
+                <span class="game-card-icon">🕶️</span>
+                <span class="game-card-title">Coup</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('EUC Drift', '🚴')">
+                <span class="game-card-icon">🚴</span>
+                <span class="game-card-title">EUC Drift</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Hangman', '🪓')">
+                <span class="game-card-icon">🪓</span>
+                <span class="game-card-title">Hangman</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Scrabble', '🔤')">
+                <span class="game-card-icon">🔤</span>
+                <span class="game-card-title">Scrabble</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Sequence', '🔴')">
+                <span class="game-card-icon">🔴</span>
+                <span class="game-card-title">Sequence</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Solitaire', '🃏')">
+                <span class="game-card-icon">🃏</span>
+                <span class="game-card-title">Solitaire</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Texas Holdem', '♠️')">
+                <span class="game-card-icon">♠️</span>
+                <span class="game-card-title">Texas Holdem</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Tiny Kingdoms', '🏰')">
+                <span class="game-card-icon">🏰</span>
+                <span class="game-card-title">Tiny Kingdoms</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Crew Trivia', '🧠')">
+                <span class="game-card-icon">🧠</span>
+                <span class="game-card-title">Trivia</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Battle Uno', '🃏')">
+                <span class="game-card-icon">🃏</span>
+                <span class="game-card-title">UNO</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('Yahtzee', '🎲')">
+                <span class="game-card-icon">🎲</span>
+                <span class="game-card-title">Yahtzee</span>
+            </div>
+            <div class="game-card-btn" onclick="launchGameEngine('7 Wonders', '🏛️')">
+                <span class="game-card-icon">🏛️</span>
+                <span class="game-card-title">7 Wonders</span>
+            </div>
+        </div>
+    </div>
+
     <div id="chatMessages"></div>
 
     <div id="chatInputArea">
@@ -990,6 +1158,20 @@
             <button id="chatSendBtn" class="inline-send-btn" type="button">
                 <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
             </button>
+        </div>
+    </div>
+
+    <div id="activeGameStage">
+        <div id="gameCanvasContainer">
+            <div id="gamePlaceholderMsg">
+                <div id="gamePlaceholderIcon"></div>
+                <div id="gamePlaceholderTitle"></div>
+                <div id="gamePlaceholderNote">This game isn't wired up in this test yet — coming in a future update.</div>
+            </div>
+        </div>
+        <div class="canvas-exit-anchor-box" id="gameExitBtn">
+            <span class="canvas-exit-x-glyph">✕</span>
+            <span class="canvas-exit-label-str">Exit Game</span>
         </div>
     </div>
 </div>
@@ -2339,6 +2521,16 @@
     function startSmoothTo(newLat, newLng, animateCamera) {
         const me = selfMarkerEl();
 
+        // Ignore movement below a few meters — that's just GPS noise
+        // (e.g. sitting still), not real motion. Without this, tiny back
+        // and forth jitter in the fix makes the marker visibly bounce as
+        // it re-animates toward each noisy point.
+        const MIN_MOVE_METERS = 3;
+        if (smoothToLat !== null) {
+            const jitter = distanceMeters(smoothToLat, smoothToLng, newLat, newLng);
+            if (jitter < MIN_MOVE_METERS) return;
+        }
+
         // Animate from wherever the marker currently is shown (or the new
         // point if we've nothing to animate from yet).
         if (smoothToLat !== null) {
@@ -3133,10 +3325,45 @@
         if (e.key === "Enter") { e.preventDefault(); sendGroupMessage(); }
     });
 
-    // Games button placeholder — the arcade itself is the next chunk.
+    /* ========================= Game hub (shell) ========================= */
+    /* Menu, launch, and exit are fully wired. Each game itself is still a
+       placeholder — the actual per-game engines (EUC Drift, Catan, etc.)
+       get ported one at a time in future sessions, since each is its own
+       large system in the real app (several live in their own files —
+       games/eucdrift.js, games/settlers.js, etc. — others like Hangman,
+       Sequence, Solitaire, Trivia, and UNO still live inline in games.js).
+       This shell is what those will plug into. */
+
+    const gameHubOverlay = el("gameHubOverlay");
+    const activeGameStage = el("activeGameStage");
+
+    function openGameHub() {
+        gameHubOverlay.classList.add("open");
+    }
+
+    function closeGameHub() {
+        gameHubOverlay.classList.remove("open");
+    }
+
+    window.launchGameEngine = function (gameName, icon) {
+        closeGameHub();
+        el("gamePlaceholderIcon").textContent = icon || "🎮";
+        el("gamePlaceholderTitle").textContent = gameName;
+        activeGameStage.classList.add("open");
+    };
+
+    function exitActiveGame() {
+        activeGameStage.classList.remove("open");
+        // Future per-game engines should tear down their own state/timers
+        // here before this fires, same as the real app's exit sequence.
+    }
+
     el("chatGamesTriggerBtn").addEventListener("click", () => {
-        showRouteStatus("Games are coming in the next update", true);
+        if (gameHubOverlay.classList.contains("open")) closeGameHub();
+        else openGameHub();
     });
+
+    el("gameExitBtn").addEventListener("click", exitActiveGame);
 
     /* ========================= Voice input ========================= */
 
