@@ -2694,11 +2694,26 @@
         const isStationary = speedKnown && coords.speed < MIN_MOVING_SPEED_MPS;
 
         if (!isStationary) {
-            if (Number.isFinite(coords.heading)) {
-                lastHeading = coords.heading;
-            } else if (lastHeadingLat !== null) {
+            // Prefer computing bearing directly from the last two real
+            // fixes over trusting coords.heading. Many phones' own
+            // location providers internally smooth/filter that value —
+            // it stays accurate going straight, but visibly lags for a
+            // few seconds through an actual turn (matches "spins fine
+            // driving straight, barely turns at a corner, catches up a
+            // bit later"). A direct bearing between two real points has
+            // no such filtering — it reflects the path just traveled
+            // immediately, so turns register right away instead of lagging.
+            let movementBearing = null;
+
+            if (lastHeadingLat !== null) {
                 const moved = distanceMeters(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
-                if (moved >= 2) lastHeading = bearingDegrees(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+                if (moved >= 2) movementBearing = bearingDegrees(lastHeadingLat, lastHeadingLng, lastLat, lastLng);
+            }
+
+            if (movementBearing !== null) {
+                lastHeading = movementBearing;
+            } else if (Number.isFinite(coords.heading)) {
+                lastHeading = coords.heading;
             }
         }
 
@@ -3085,6 +3100,13 @@
 
     /* ========================= Button positioning (matches real app) ========================= */
 
+    // Matches the right-side column's own edge offset (.side-btn uses
+    // right:15px) so the left column sits the same distance from its
+    // edge, and the right column lines up in the exact same column as
+    // the bullseye/room lock/chat buttons below it — not centered under
+    // the zoom pill/radius toggle, which is what looked off before.
+    const SIDE_EDGE_OFFSET = 15;
+
     function positionEvButton() {
         const btn = el("evToggleBtn");
         const zoomEl = el("zoomPill");
@@ -3093,23 +3115,15 @@
 
         const z = zoomEl.getBoundingClientRect();
         const r = radiusEl.getBoundingClientRect();
-        const size = 38;
         const row1Height = 42;
         const gapAfterTopRow = 14;
         const gapBetweenRows = 10;
 
-        const leftX = z.left + (z.width / 2);
         const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
         const row2Top = row1Top + row1Height + gapBetweenRows;
 
-        let left = leftX - (size / 2);
-        let top = row2Top;
-
-        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
-        top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
-
-        btn.style.left = left + "px";
-        btn.style.top = top + "px";
+        btn.style.left = SIDE_EDGE_OFFSET + "px";
+        btn.style.top = Math.max(8, row2Top) + "px";
     }
 
     function positionModeButton() {
@@ -3120,20 +3134,12 @@
 
         const z = zoomEl.getBoundingClientRect();
         const r = radiusEl.getBoundingClientRect();
-        const size = 42;
         const gapAfterTopRow = 14;
 
-        const leftX = z.left + (z.width / 2);
         const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
 
-        let left = leftX - (size / 2);
-        let top = row1Top;
-
-        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
-        top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
-
-        btn.style.left = left + "px";
-        btn.style.top = top + "px";
+        btn.style.left = SIDE_EDGE_OFFSET + "px";
+        btn.style.top = Math.max(40, row1Top) + "px";
     }
 
     function positionCompassButton() {
@@ -3147,17 +3153,11 @@
         const size = 42;
         const gapAfterTopRow = 14;
 
-        const rightX = r.left + (r.width / 2);
         const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
-
-        let left = rightX - (size / 2);
-        let top = row1Top;
-
-        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
-        top = Math.max(40, Math.min(window.innerHeight - size - 8, top));
+        const left = window.innerWidth - SIDE_EDGE_OFFSET - size;
 
         btn.style.left = left + "px";
-        btn.style.top = top + "px";
+        btn.style.top = Math.max(40, row1Top) + "px";
     }
 
     // Auto-rotate on by default (map turns with your heading in self
@@ -4673,18 +4673,17 @@
         const row1Height = 42;
         const gapAfterTopRow = 14;
         const gapBetweenRows = 10;
+        const SIDE_EDGE_OFFSET = 15; // matches .side-btn's right:15px
 
-        // Same grid as car/bike (top-left), compass (top-right), and EV
-        // (bottom-left): this sits bottom-right, directly under the
-        // compass, mirroring EV on the other side.
-        const rightX = r.left + (r.width / 2);
+        // Same right-edge column as compass, the bullseye, room lock,
+        // and chat buttons below it — not centered under the radius
+        // toggle, which is what looked off before.
         const row1Top = Math.max(z.bottom, r.bottom) + gapAfterTopRow;
         const row2Top = row1Top + row1Height + gapBetweenRows;
+        const left = window.innerWidth - SIDE_EDGE_OFFSET - size;
 
-        let left = rightX - (size / 2);
         let top = row2Top;
 
-        left = Math.max(8, Math.min(window.innerWidth - size - 8, left));
         top = Math.max(8, Math.min(window.innerHeight - size - 8, top));
 
         btn.style.left = left + "px";
