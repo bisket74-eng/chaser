@@ -1,3 +1,4 @@
+/* ENCODING-SAFE ASCII VERSION: Unicode symbols use JavaScript \u escapes so Android/browser decoding cannot corrupt them. */
 /* CHASER WONDERS - COMPLETE SEPARATE GAME FILE
    Phone-first card-drafting civilization game for 3-7 players.
    Uses the existing Chaser room, player list and Supabase broadcast channel.
@@ -21,14 +22,14 @@ const RES_KEYS = RAW_RES.concat(GOODS_RES);
 const TYPE_ORDER = ["raw", "manufactured", "civilian", "commercial", "military", "science", "guild"];
 
 const RES_ICONS = {
-    wood: "ðŸªµ",
-    clay: "ðŸ§±",
-    stone: "ðŸª¨",
-    ore: "â›ï¸",
-    glass: "ðŸ”·",
-    papyrus: "ðŸ“œ",
-    cloth: "ðŸ§µ",
-    coins: "ðŸª™"
+    wood: "\uD83E\uDEB5",
+    clay: "\uD83E\uDDF1",
+    stone: "\uD83E\uDEA8",
+    ore: "\u26CF\uFE0F",
+    glass: "\uD83D\uDD37",
+    papyrus: "\uD83D\uDCDC",
+    cloth: "\uD83E\uDDF5",
+    coins: "\uD83E\uDE99"
 };
 
 const RES_NAMES = {
@@ -42,19 +43,19 @@ const RES_NAMES = {
 };
 
 const SCIENCE_ICONS = {
-    compass: "ðŸ§­",
-    gear: "âš™ï¸",
-    tablet: "ðŸ“"
+    compass: "\uD83E\uDDED",
+    gear: "\u2699\uFE0F",
+    tablet: "\uD83D\uDCD0"
 };
 
 const TYPE_INFO = {
-    raw: { label: "Raw Material", short: "Brown", symbol: "ðŸŸ«" },
-    manufactured: { label: "Manufactured Good", short: "Gray", symbol: "â¬œ" },
-    civilian: { label: "Civic Structure", short: "Blue", symbol: "ðŸ”µ" },
-    commercial: { label: "Commercial Structure", short: "Yellow", symbol: "ðŸŸ¡" },
-    military: { label: "Military Structure", short: "Red", symbol: "ðŸ”´" },
-    science: { label: "Scientific Structure", short: "Green", symbol: "ðŸŸ¢" },
-    guild: { label: "Guild", short: "Purple", symbol: "ðŸŸ£" }
+    raw: { label: "Raw Material", short: "Brown", symbol: "\uD83D\uDFEB" },
+    manufactured: { label: "Manufactured Good", short: "Gray", symbol: "\u2B1C" },
+    civilian: { label: "Civic Structure", short: "Blue", symbol: "\uD83D\uDD35" },
+    commercial: { label: "Commercial Structure", short: "Yellow", symbol: "\uD83D\uDFE1" },
+    military: { label: "Military Structure", short: "Red", symbol: "\uD83D\uDD34" },
+    science: { label: "Scientific Structure", short: "Green", symbol: "\uD83D\uDFE2" },
+    guild: { label: "Guild", short: "Purple", symbol: "\uD83D\uDFE3" }
 };
 
 /* --------------------------------------------------------------------------
@@ -68,9 +69,9 @@ const WONDER_BOARDS = {
         startResource: "glass",
         scene: "lighthouse",
         stages: [
-            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { ore: 2 }, effect: "flexRaw", label: "Choose 1 raw material each turn", icon: "ðŸªµ/ðŸ§±/ðŸª¨/â›ï¸" },
-            { cost: { glass: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { ore: 2 }, effect: "flexRaw", label: "Choose 1 raw material each turn", icon: "\uD83E\uDEB5/\uD83E\uDDF1/\uD83E\uDEA8/\u26CF\uFE0F" },
+            { cost: { glass: 2 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Babylon: {
@@ -78,9 +79,9 @@ const WONDER_BOARDS = {
         startResource: "clay",
         scene: "gardens",
         stages: [
-            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { wood: 3 }, effect: "scienceWild", label: "One science symbol of your choice", icon: "ðŸ§­/âš™ï¸/ðŸ“" },
-            { cost: { clay: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { wood: 3 }, effect: "scienceWild", label: "One science symbol of your choice", icon: "\uD83E\uDDED/\u2699\uFE0F/\uD83D\uDCD0" },
+            { cost: { clay: 4 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Ephesos: {
@@ -88,9 +89,9 @@ const WONDER_BOARDS = {
         startResource: "papyrus",
         scene: "temple",
         stages: [
-            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { wood: 2 }, coins: 9, label: "Gain 9 coins", icon: "ðŸª™9" },
-            { cost: { papyrus: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { wood: 2 }, coins: 9, label: "Gain 9 coins", icon: "\uD83E\uDE999" },
+            { cost: { papyrus: 2 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Giza: {
@@ -98,9 +99,9 @@ const WONDER_BOARDS = {
         startResource: "stone",
         scene: "pyramid",
         stages: [
-            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { wood: 3 }, vp: 5, label: "5 victory points", icon: "ðŸ†5" },
-            { cost: { stone: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { wood: 3 }, vp: 5, label: "5 victory points", icon: "\uD83C\uDFC65" },
+            { cost: { stone: 4 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Halikarnassos: {
@@ -108,9 +109,9 @@ const WONDER_BOARDS = {
         startResource: "cloth",
         scene: "mausoleum",
         stages: [
-            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { ore: 3 }, effect: "buildDiscard", label: "Build 1 discarded card for free", icon: "â™»ï¸" },
-            { cost: { cloth: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { ore: 3 }, effect: "buildDiscard", label: "Build 1 discarded card for free", icon: "\u267B\uFE0F" },
+            { cost: { cloth: 2 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Olympia: {
@@ -118,9 +119,9 @@ const WONDER_BOARDS = {
         startResource: "wood",
         scene: "zeus",
         stages: [
-            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { stone: 2 }, effect: "olympiaFree", label: "Build 1 Age card free each Age", icon: "âœ¨1/Age" },
-            { cost: { ore: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { stone: 2 }, effect: "olympiaFree", label: "Build 1 Age card free each Age", icon: "\u27281/Age" },
+            { cost: { ore: 2 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     },
     Rhodos: {
@@ -128,9 +129,9 @@ const WONDER_BOARDS = {
         startResource: "ore",
         scene: "colossus",
         stages: [
-            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
-            { cost: { clay: 3 }, shields: 2, label: "Gain 2 shields", icon: "ðŸ›¡ï¸ðŸ›¡ï¸" },
-            { cost: { ore: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
+            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "\uD83C\uDFC63" },
+            { cost: { clay: 3 }, shields: 2, label: "Gain 2 shields", icon: "\uD83D\uDEE1\uFE0F\uD83D\uDEE1\uFE0F" },
+            { cost: { ore: 4 }, vp: 7, label: "7 victory points", icon: "\uD83C\uDFC67" }
         ]
     }
 };
@@ -364,7 +365,7 @@ function setHeader() {
     const headerBtns = document.getElementById("headerActionButtonsContainer");
     const chatHeader = document.getElementById("chatHeader");
 
-    if (roomDisplay) roomDisplay.innerText = "ðŸ›ï¸ Wonders";
+    if (roomDisplay) roomDisplay.innerText = "\uD83C\uDFDB\uFE0F Wonders";
     if (headerBtns) headerBtns.style.display = "none";
     if (chatHeader) chatHeader.classList.add("game-active-mode");
 }
@@ -684,12 +685,12 @@ function normalizeResourceCost(cost) {
 function planLabel(plan) {
     if (!plan) return "Not affordable";
     const parts = [];
-    if (plan.bankCoins) parts.push("Bank " + plan.bankCoins + "ðŸª™");
+    if (plan.bankCoins) parts.push("Bank " + plan.bankCoins + "\uD83E\uDE99");
     const leftRes = resourceList(plan.leftResources, false);
     const rightRes = resourceList(plan.rightResources, false);
-    if (leftRes) parts.push("â† " + leftRes + " (" + plan.leftCoins + "ðŸª™)");
-    if (rightRes) parts.push("â†’ " + rightRes + " (" + plan.rightCoins + "ðŸª™)");
-    return parts.length ? parts.join(" Â· ") : "Use your own resources";
+    if (leftRes) parts.push("\u2190 " + leftRes + " (" + plan.leftCoins + "\uD83E\uDE99)");
+    if (rightRes) parts.push("\u2192 " + rightRes + " (" + plan.rightCoins + "\uD83E\uDE99)");
+    return parts.length ? parts.join(" \u00B7 ") : "Use your own resources";
 }
 
 function findPaymentPlans(st, player, cost, freeMode) {
@@ -993,7 +994,7 @@ function resolveRound() {
     });
 
     st.players.forEach(function (p) { p.pendingChoice = null; });
-    st.message = messages.join(" Â· ") + ".";
+    st.message = messages.join(" \u00B7 ") + ".";
     st.history.push("Age " + romanAge(st.age) + ", Round " + st.round + ": " + st.message);
     if (st.history.length > 30) st.history.shift();
 
@@ -1273,7 +1274,7 @@ function finishGame(st) {
     st.phase = "ended";
     st.specialPlayerId = null;
     st.message = ranked[0].name + " wins with " + ranked[0].finalScore + " points!";
-    st.lastResult = ranked.map(function (p) { return p.name + ": " + p.finalScore; }).join(" Â· ");
+    st.lastResult = ranked.map(function (p) { return p.name + ": " + p.finalScore; }).join(" \u00B7 ");
 }
 
 /* --------------------------------------------------------------------------
@@ -1577,7 +1578,7 @@ function resourceList(resources, includeZero) {
 function costHtml(cost) {
     if (!cost || !Object.keys(cost).length) return "FREE";
     const parts = [];
-    if (cost.coins) parts.push("ðŸª™" + cost.coins);
+    if (cost.coins) parts.push("\uD83E\uDE99" + cost.coins);
     RES_KEYS.forEach(function (k) {
         if (cost[k]) parts.push(RES_ICONS[k] + (cost[k] > 1 ? cost[k] : ""));
     });
@@ -1588,41 +1589,41 @@ function productionIcon(cardDef) {
     if (!cardDef.production) return "";
     return cardDef.production.map(function (src) {
         const joined = src.options.map(function (k) { return RES_ICONS[k]; }).join("/");
-        return (src.count || 1) > 1 ? joined + "Ã—" + src.count : joined;
+        return (src.count || 1) > 1 ? joined + "\u00D7" + src.count : joined;
     }).join(" ");
 }
 
 function primaryEffectHtml(cardDef) {
     if (cardDef.production) return productionIcon(cardDef);
-    if (cardDef.vp) return "<span class='wo-vp-big'>" + cardDef.vp + "</span><span class='wo-wreath'>â§</span>";
-    if (cardDef.shields) return "<span class='wo-shield-row'>" + "ðŸ›¡ï¸".repeat(cardDef.shields) + "</span>";
+    if (cardDef.vp) return "<span class='wo-vp-big'>" + cardDef.vp + "</span><span class='wo-wreath'>\u2767</span>";
+    if (cardDef.shields) return "<span class='wo-shield-row'>" + "\uD83D\uDEE1\uFE0F".repeat(cardDef.shields) + "</span>";
     if (cardDef.science) return "<span class='wo-science-big'>" + SCIENCE_ICONS[cardDef.science] + "</span>";
-    if (cardDef.coins) return "<span class='wo-coin-big'>ðŸª™" + cardDef.coins + "</span>";
+    if (cardDef.coins) return "<span class='wo-coin-big'>\uD83E\uDE99" + cardDef.coins + "</span>";
     if (cardDef.discount) {
-        const arrow = cardDef.discount.side === "left" ? "â†" : cardDef.discount.side === "right" ? "â†’" : "â†”";
-        const icons = cardDef.discount.group === "raw" ? "ðŸªµðŸ§±ðŸª¨â›ï¸" : "ðŸ”·ðŸ“œðŸ§µ";
-        return "<span class='wo-trade-big'>" + arrow + " ðŸª™1<br><small>" + icons + "</small></span>";
+        const arrow = cardDef.discount.side === "left" ? "\u2190" : cardDef.discount.side === "right" ? "\u2192" : "\u2194";
+        const icons = cardDef.discount.group === "raw" ? "\uD83E\uDEB5\uD83E\uDDF1\uD83E\uDEA8\u26CF\uFE0F" : "\uD83D\uDD37\uD83D\uDCDC\uD83E\uDDF5";
+        return "<span class='wo-trade-big'>" + arrow + " \uD83E\uDE991<br><small>" + icons + "</small></span>";
     }
     if (cardDef.coinsPer) {
         const typeSymbol = TYPE_INFO[cardDef.coinsPer.type].symbol;
-        return "<span class='wo-formula-big'>" + typeSymbol + " Ã— " + cardDef.coinsPer.multiplier + "ðŸª™</span>";
+        return "<span class='wo-formula-big'>" + typeSymbol + " \u00D7 " + cardDef.coinsPer.multiplier + "\uD83E\uDE99</span>";
     }
     if (cardDef.commerceScore) {
-        const basis = cardDef.commerceScore.basis === "wonderStage" ? "ðŸ›ï¸" : TYPE_INFO[cardDef.commerceScore.basis].symbol;
-        return "<span class='wo-formula-big'>" + basis + " Ã— " + cardDef.commerceScore.coinMultiplier + "ðŸª™<br>" + basis + " Ã— " + cardDef.commerceScore.vpMultiplier + "ðŸ†</span>";
+        const basis = cardDef.commerceScore.basis === "wonderStage" ? "\uD83C\uDFDB\uFE0F" : TYPE_INFO[cardDef.commerceScore.basis].symbol;
+        return "<span class='wo-formula-big'>" + basis + " \u00D7 " + cardDef.commerceScore.coinMultiplier + "\uD83E\uDE99<br>" + basis + " \u00D7 " + cardDef.commerceScore.vpMultiplier + "\uD83C\uDFC6</span>";
     }
     if (cardDef.guild) return guildEffectIcon(cardDef.guild);
-    return "âœ¦";
+    return "\u2726";
 }
 
 function guildEffectIcon(rule) {
-    if (!rule) return "ðŸ‘‘";
-    if (rule.kind === "neighborsType") return "â† " + TYPE_INFO[rule.type].symbol + " Ã— " + rule.multiplier + "ðŸ† â†’";
-    if (rule.kind === "wonderStagesAll") return "â† ðŸ›ï¸ + ðŸ›ï¸ + ðŸ›ï¸ â†’";
-    if (rule.kind === "selfTypes") return "ðŸŸ« + â¬œ + ðŸŸ£";
-    if (rule.kind === "scienceWild") return "ðŸ§­ / âš™ï¸ / ðŸ“";
-    if (rule.kind === "neighborDefeats") return "â† -1 Ã— ðŸ† â†’";
-    return "ðŸ‘‘";
+    if (!rule) return "\uD83D\uDC51";
+    if (rule.kind === "neighborsType") return "\u2190 " + TYPE_INFO[rule.type].symbol + " \u00D7 " + rule.multiplier + "\uD83C\uDFC6 \u2192";
+    if (rule.kind === "wonderStagesAll") return "\u2190 \uD83C\uDFDB\uFE0F + \uD83C\uDFDB\uFE0F + \uD83C\uDFDB\uFE0F \u2192";
+    if (rule.kind === "selfTypes") return "\uD83D\uDFEB + \u2B1C + \uD83D\uDFE3";
+    if (rule.kind === "scienceWild") return "\uD83E\uDDED / \u2699\uFE0F / \uD83D\uDCD0";
+    if (rule.kind === "neighborDefeats") return "\u2190 -1 \u00D7 \uD83C\uDFC6 \u2192";
+    return "\uD83D\uDC51";
 }
 
 function chainFromLabel(cardDef) {
@@ -1632,7 +1633,7 @@ function chainFromLabel(cardDef) {
 
 function chainToLabel(cardDef) {
     if (!cardDef.chainTo || !cardDef.chainTo.length) return "";
-    return "BUILDS FREE: " + cardDef.chainTo.join(" Â· ");
+    return "BUILDS FREE: " + cardDef.chainTo.join(" \u00B7 ");
 }
 
 function thresholdLabel(cardDef) {
@@ -1654,10 +1655,10 @@ function cardFrontHtml(cardDef, options) {
         "<div class=\"" + classes.join(" ") + "\"" + (click ? " onclick=\"" + click + "\"" : "") + ">" +
             "<div class=\"wo-card-cost\">" + costHtml(cardDef.cost) + "</div>" +
             "<div class=\"wo-card-age\">" + romanAge(cardDef.age) + "</div>" +
-            (cardDef.chainFrom && cardDef.chainFrom.length ? "<div class=\"wo-chain-in\">â›“</div>" : "") +
+            (cardDef.chainFrom && cardDef.chainFrom.length ? "<div class=\"wo-chain-in\">\u26D3</div>" : "") +
             "<div class=\"wo-card-effect\">" + primaryEffectHtml(cardDef) + "</div>" +
             "<div class=\"wo-card-name\">" + escapeHtml(cardDef.name) + "</div>" +
-            (cardDef.chainTo && cardDef.chainTo.length ? "<div class=\"wo-chain-out\">â›“ " + escapeHtml(cardDef.chainTo.join(" Â· ")) + "</div>" : "") +
+            (cardDef.chainTo && cardDef.chainTo.length ? "<div class=\"wo-chain-out\">\u26D3 " + escapeHtml(cardDef.chainTo.join(" \u00B7 ")) + "</div>" : "") +
             "<div class=\"wo-card-count\">" + escapeHtml(thresholdLabel(cardDef)) + "</div>" +
         "</div>"
     );
@@ -1701,7 +1702,7 @@ function wonderBoardHtml(player, interactive) {
                     "<div class='wo-stage-number'>" + (index + 1) + "</div>" +
                     "<div class='wo-stage-cost'>" + costHtml(stage.cost) + "</div>" +
                     "<div class='wo-stage-effect'>" + escapeHtml(stage.icon || stage.label) + "</div>" +
-                    (built ? "<div class='wo-stage-check'>âœ“</div>" : "") +
+                    (built ? "<div class='wo-stage-check'>\u2713</div>" : "") +
                 "</div>" +
             "</div>"
         );
@@ -1728,8 +1729,8 @@ function opponentsHtml(st, me) {
         return (
             "<button class='wo-opponent " + (ready ? "wo-opponent-ready" : "") + "' onclick=\"window.wondersOpenOpponent('" + enc(p.id) + "')\">" +
                 "<span class='wo-avatar'>" + escapeHtml(initials) + "</span>" +
-                "<span class='wo-opp-info'><b>" + escapeHtml(p.name) + "</b><small>" + escapeHtml(p.wonder) + " Â· ðŸ›¡ï¸" + shieldCount(p) + " Â· ðŸª™" + p.coins + "</small><span class='wo-opp-trade'>" + trade + "</span></span>" +
-                "<span class='wo-ready-dot'>" + (ready ? "âœ“" : "â€¦") + "</span>" +
+                "<span class='wo-opp-info'><b>" + escapeHtml(p.name) + "</b><small>" + escapeHtml(p.wonder) + " \u00B7 \uD83D\uDEE1\uFE0F" + shieldCount(p) + " \u00B7 \uD83E\uDE99" + p.coins + "</small><span class='wo-opp-trade'>" + trade + "</span></span>" +
+                "<span class='wo-ready-dot'>" + (ready ? "\u2713" : "\u2026") + "</span>" +
             "</button>"
         );
     }).join("");
@@ -1744,8 +1745,8 @@ function resourceAndTradeHtml(st, me) {
     return (
         "<section class='wo-resource-panel'>" +
             "<div class='wo-resource-cell wo-own-res'><span class='wo-res-title'>YOUR PRODUCTION</span><div>" + own + "</div></div>" +
-            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.left.id) + "')\"><span class='wo-res-title'>â† BUY FROM " + escapeHtml(n.left.name) + "</span><div>" + left + "</div></button>" +
-            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.right.id) + "')\"><span class='wo-res-title'>BUY FROM " + escapeHtml(n.right.name) + " â†’</span><div>" + right + "</div></button>" +
+            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.left.id) + "')\"><span class='wo-res-title'>\u2190 BUY FROM " + escapeHtml(n.left.name) + "</span><div>" + left + "</div></button>" +
+            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.right.id) + "')\"><span class='wo-res-title'>BUY FROM " + escapeHtml(n.right.name) + " \u2192</span><div>" + right + "</div></button>" +
         "</section>"
     );
 }
@@ -1774,7 +1775,7 @@ function tableauHtml(player) {
 
 function handHtml(st, me) {
     if (me.pendingChoice || localUi.submittedRoundKey === roundKey(st)) {
-        return "<div class='wo-waiting-panel'><div class='wo-hourglass'>âŒ›</div><b>Choice locked in</b><span>Waiting for the other cities.</span></div>";
+        return "<div class='wo-waiting-panel'><div class='wo-hourglass'>\u231B</div><b>Choice locked in</b><span>Waiting for the other cities.</span></div>";
     }
 
     return (
@@ -1808,7 +1809,7 @@ function actionBarHtml(st, me) {
             "<button class='wo-action wo-stage-action' " + (!wonder.legal ? "disabled" : "") + " onclick='window.wondersWonderSelected()'>WONDER</button>" +
             "<button class='wo-action wo-sell' onclick='window.wondersSellSelected()'>SELL +3</button>" +
         "</div>" +
-        (olympia ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>âœ¨ Use Olympia: build this card free</button>" : "") +
+        (olympia ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>\u2728 Use Olympia: build this card free</button>" : "") +
         (wonder.legal ? "<div class='wo-wonder-payment'>Wonder stage: " + escapeHtml(bestWonder) + "</div>" : "")
     );
 }
@@ -1830,7 +1831,7 @@ function scoreBoardHtml(st) {
                         "<div class='wo-rank'>" + (idx + 1) + "</div>" +
                         "<div class='wo-score-name'><b>" + escapeHtml(p.name) + "</b><small>" + escapeHtml(p.wonder) + "</small></div>" +
                         "<div class='wo-score-total'>" + p.finalScore + "</div>" +
-                        "<div class='wo-score-breakdown'>ðŸ›¡ï¸" + b.military + " Â· ðŸª™" + b.coins + " Â· ðŸ›ï¸" + b.wonder + " Â· ðŸ”µ" + b.civilian + " Â· ðŸŸ¢" + b.science + " Â· ðŸŸ¡" + b.commercial + " Â· ðŸŸ£" + b.guilds + "</div>" +
+                        "<div class='wo-score-breakdown'>\uD83D\uDEE1\uFE0F" + b.military + " \u00B7 \uD83E\uDE99" + b.coins + " \u00B7 \uD83C\uDFDB\uFE0F" + b.wonder + " \u00B7 \uD83D\uDD35" + b.civilian + " \u00B7 \uD83D\uDFE2" + b.science + " \u00B7 \uD83D\uDFE1" + b.commercial + " \u00B7 \uD83D\uDFE3" + b.guilds + "</div>" +
                     "</div>"
                 );
             }).join("") + "</div>" +
@@ -1845,7 +1846,7 @@ function modalShell(title, body, extraClass) {
     return (
         "<div class='wo-modal-overlay' onclick='window.wondersCloseModal()'>" +
             "<div class='wo-modal-box " + (extraClass || "") + "' onclick='event.stopPropagation()'>" +
-                "<button class='wo-modal-x' onclick='window.wondersCloseModal()'>Ã—</button>" +
+                "<button class='wo-modal-x' onclick='window.wondersCloseModal()'>\u00D7</button>" +
                 (title ? "<div class='wo-modal-title'>" + escapeHtml(title) + "</div>" : "") +
                 body +
             "</div>" +
@@ -1877,7 +1878,7 @@ function cardModalHtml(st) {
                 "<button class='wo-action wo-stage-action' " + (!wonderStatus.legal ? "disabled" : "") + " onclick='window.wondersWonderSelected()'>WONDER</button>" +
                 "<button class='wo-action wo-sell' onclick='window.wondersSellSelected()'>SELL +3</button>" +
             "</div>" +
-            (canUseOlympiaFreeBuild(me) && !hasBuiltName(me, c.name) ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>âœ¨ Build free with Olympia</button>" : "")
+            (canUseOlympiaFreeBuild(me) && !hasBuiltName(me, c.name) ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>\u2728 Build free with Olympia</button>" : "")
         );
     }
 
@@ -1890,8 +1891,8 @@ function cardModalHtml(st) {
         "<div class='wo-card-details'>" +
             "<div class='wo-detail-grid'><span>COLOR</span><b>" + escapeHtml(TYPE_INFO[c.type].label) + "</b><span>COST</span><b>" + costHtml(c.cost) + "</b></div>" +
             "<p>" + escapeHtml(c.description || "") + "</p>" +
-            (chainFromLabel(c) ? "<div class='wo-chain-detail wo-chain-free'>â›“ " + escapeHtml(chainFromLabel(c)) + "</div>" : "") +
-            (chainToLabel(c) ? "<div class='wo-chain-detail'>â›“ " + escapeHtml(chainToLabel(c)) + "</div>" : "") +
+            (chainFromLabel(c) ? "<div class='wo-chain-detail wo-chain-free'>\u26D3 " + escapeHtml(chainFromLabel(c)) + "</div>" : "") +
+            (chainToLabel(c) ? "<div class='wo-chain-detail'>\u26D3 " + escapeHtml(chainToLabel(c)) + "</div>" : "") +
             (chainFree ? "<div class='wo-free-banner'>YOU MAY BUILD THIS FREE BY CHAIN</div>" : "") +
             (isOwnHand ? "<div class='wo-payment-preview'>" + escapeHtml(buildLine) + "</div>" : "") +
         "</div>" + actionButtons
@@ -1906,7 +1907,7 @@ function opponentModalHtml(st) {
     const trade = tradableResourceSummary(p);
     const body = (
         "<div class='wo-opponent-summary'>" +
-            "<span>ðŸª™ " + p.coins + "</span><span>ðŸ›¡ï¸ " + shieldCount(p) + "</span><span>ðŸ›ï¸ " + p.wonderStage + "/3</span>" +
+            "<span>\uD83E\uDE99 " + p.coins + "</span><span>\uD83D\uDEE1\uFE0F " + shieldCount(p) + "</span><span>\uD83C\uDFDB\uFE0F " + p.wonderStage + "/3</span>" +
         "</div>" +
         wonderBoardHtml(p, false) +
         "<div class='wo-modal-section-title'>Resources neighbors may buy</div>" +
@@ -1914,7 +1915,7 @@ function opponentModalHtml(st) {
         "<div class='wo-modal-section-title'>Built city</div>" +
         "<div class='wo-modal-city'>" + tableauHtml(p) + "</div>"
     );
-    return modalShell(p.name + " â€” " + p.wonder, body, "wo-opponent-modal");
+    return modalShell(p.name + " \u2014 " + p.wonder, body, "wo-opponent-modal");
 }
 
 function paymentModalHtml(st) {
@@ -1948,7 +1949,7 @@ function specialModalHtml(st) {
             return "<div class='wo-discard-choice' onclick=\"window.wondersChooseDiscardSpecial('" + enc(c.uid) + "')\">" + cardFrontHtml(c, { compact: true }) + "</div>";
         }).join("") + "</div>"
     );
-    return modalShell("Halikarnassos â€” build from discard", body, "wo-special-modal");
+    return modalShell("Halikarnassos \u2014 build from discard", body, "wo-special-modal");
 }
 
 function historyModalHtml(st) {
@@ -2047,7 +2048,7 @@ function renderSevenWonders() {
                 "<div class='wo-status'>" +
                     "<div class='wo-game-name'>WONDERS</div>" +
                     "<div class='wo-age-box'><small>AGE</small><b>" + romanAge(st.age) + "</b><small>ROUND " + st.round + "</small></div>" +
-                    "<div class='wo-money-box'><span>ðŸª™" + me.coins + "</span><span>ðŸ›¡ï¸" + shieldCount(me) + "</span><button class='wo-history-btn' onclick='window.wondersOpenHistory()'>â˜°</button></div>" +
+                    "<div class='wo-money-box'><span>\uD83E\uDE99" + me.coins + "</span><span>\uD83D\uDEE1\uFE0F" + shieldCount(me) + "</span><button class='wo-history-btn' onclick='window.wondersOpenHistory()'>\u2630</button></div>" +
                 "</div>" +
                 "<div class='wo-opponents-strip'>" + opponentsHtml(st, me) + "</div>" +
                 (st.message ? "<div class='wo-message'>" + escapeHtml(st.message) + "</div>" : "") +
