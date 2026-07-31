@@ -1,6 +1,13 @@
-/* CHASER 7 WONDERS - SEPARATE GAME FILE
-Card-drafting civilization builder, 3-7 players (synced rooms)
-Host fills any empty seats with AI civilization leaders on Start
+/* CHASER WONDERS - COMPLETE SEPARATE GAME FILE
+   Phone-first card-drafting civilization game for 3-7 players.
+   Uses the existing Chaser room, player list and Supabase broadcast channel.
+
+   IMPORTANT:
+   - Screen title is "Wonders".
+   - The visual design is original, but uses the familiar functional card colors:
+     brown resources, gray goods, blue civic, yellow trade, red military,
+     green science and purple guilds.
+   - Keeps the existing Chaser entry-point names so no index.html change is needed.
 */
 ;(function () {
 "use strict";
@@ -8,96 +15,128 @@ Host fills any empty seats with AI civilization leaders on Start
 const MIN_PLAYERS = 3;
 const MAX_PLAYERS = 7;
 const CARDS_PER_HAND = 7;
-
-const RES_KEYS = ["wood", "clay", "stone", "ore", "glass", "papyrus", "cloth"];
+const RAW_RES = ["wood", "clay", "stone", "ore"];
+const GOODS_RES = ["glass", "papyrus", "cloth"];
+const RES_KEYS = RAW_RES.concat(GOODS_RES);
+const TYPE_ORDER = ["raw", "manufactured", "civilian", "commercial", "military", "science", "guild"];
 
 const RES_ICONS = {
-    wood: "🪵", clay: "🧱", stone: "🪨", ore: "⛏️",
-    glass: "🔷", papyrus: "📜", cloth: "🧵", coins: "💰"
+    wood: "ðŸªµ",
+    clay: "ðŸ§±",
+    stone: "ðŸª¨",
+    ore: "â›ï¸",
+    glass: "ðŸ”·",
+    papyrus: "ðŸ“œ",
+    cloth: "ðŸ§µ",
+    coins: "ðŸª™"
 };
 
-const SCIENCE_SYMBOLS = { compass: "🧭", gear: "⚙️", tablet: "📐" };
+const RES_NAMES = {
+    wood: "Wood",
+    clay: "Clay",
+    stone: "Stone",
+    ore: "Ore",
+    glass: "Glass",
+    papyrus: "Papyrus",
+    cloth: "Cloth"
+};
 
-/* ---- Wonder boards: starting resource + 3 build stages each (side A) ----
-   Corrected against cross-referenced retail rules/strategy sources. The
-   real pattern on side A for six of the seven boards is: Stage 1 = 3 VP,
-   Stage 2 = the wonder's unique special power, Stage 3 = 7 VP. Giza is
-   the outlier — no special power, just 3/5/7 VP across all three stages.
-   Several of these were previously assigned to the wrong stage (e.g.
-   Babylon's science-symbol power and Halikarnassos's discard-pull power
-   were both spread across all 3 stages instead of just stage 2; Rhodes'
-   and Alexandria's stage 1 was giving coins instead of the correct 3 VP).
-   One honest caveat: the *resource costs* on each stage (the exact
-   "how many wood/clay/etc." numbers) are printed only on the physical
-   card art, not in any text rulebook I can pull from search — so those
-   are my best-sourced estimate rather than a verified transcription. If
-   you want those numbers pixel-perfect, a photo of your boards would let
-   me nail them exactly. */
+const SCIENCE_ICONS = {
+    compass: "ðŸ§­",
+    gear: "âš™ï¸",
+    tablet: "ðŸ“"
+};
+
+const TYPE_INFO = {
+    raw: { label: "Raw Material", short: "Brown", symbol: "ðŸŸ«" },
+    manufactured: { label: "Manufactured Good", short: "Gray", symbol: "â¬œ" },
+    civilian: { label: "Civic Structure", short: "Blue", symbol: "ðŸ”µ" },
+    commercial: { label: "Commercial Structure", short: "Yellow", symbol: "ðŸŸ¡" },
+    military: { label: "Military Structure", short: "Red", symbol: "ðŸ”´" },
+    science: { label: "Scientific Structure", short: "Green", symbol: "ðŸŸ¢" },
+    guild: { label: "Guild", short: "Purple", symbol: "ðŸŸ£" }
+};
+
+/* --------------------------------------------------------------------------
+   WONDER BOARDS
+   Original-side-A style, matching the version the previous file was based on.
+   A card used for a stage is tucked under the board and is not discarded.
+---------------------------------------------------------------------------- */
 const WONDER_BOARDS = {
     Alexandria: {
+        subtitle: "The Lighthouse",
         startResource: "glass",
+        scene: "lighthouse",
         stages: [
-            { cost: { stone: 2 }, effect: "3 VP" },
-            { cost: { ore: 2 }, effect: "+1 any resource/turn" },
-            { cost: { papyrus: 1, cloth: 1, glass: 1 }, effect: "7 VP" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { ore: 2 }, effect: "flexRaw", label: "Choose 1 raw material each turn", icon: "ðŸªµ/ðŸ§±/ðŸª¨/â›ï¸" },
+            { cost: { glass: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Babylon: {
+        subtitle: "The Hanging Gardens",
         startResource: "clay",
+        scene: "gardens",
         stages: [
-            { cost: { clay: 2 }, effect: "3 VP" },
-            { cost: { wood: 1, papyrus: 1 }, effect: "Choose a Science symbol" },
-            { cost: { clay: 1, glass: 1, papyrus: 1 }, effect: "7 VP" }
+            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { wood: 3 }, effect: "scienceWild", label: "One science symbol of your choice", icon: "ðŸ§­/âš™ï¸/ðŸ“" },
+            { cost: { clay: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Ephesos: {
+        subtitle: "The Temple",
         startResource: "papyrus",
+        scene: "temple",
         stages: [
-            { cost: { stone: 2 }, effect: "3 VP" },
-            { cost: { wood: 2 }, effect: "+4 Coins" },
-            { cost: { papyrus: 1, cloth: 1, glass: 1 }, effect: "7 VP" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { wood: 2 }, coins: 9, label: "Gain 9 coins", icon: "ðŸª™9" },
+            { cost: { papyrus: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Giza: {
+        subtitle: "The Great Pyramid",
         startResource: "stone",
+        scene: "pyramid",
         stages: [
-            { cost: { wood: 2 }, effect: "3 VP" },
-            { cost: { clay: 3 }, effect: "5 VP" },
-            { cost: { stone: 4 }, effect: "7 VP" }
+            { cost: { stone: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { wood: 3 }, vp: 5, label: "5 victory points", icon: "ðŸ†5" },
+            { cost: { stone: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Halikarnassos: {
-        startResource: "ore",
+        subtitle: "The Mausoleum",
+        startResource: "cloth",
+        scene: "mausoleum",
         stages: [
-            { cost: { ore: 2 }, effect: "3 VP" },
-            { cost: { clay: 3 }, effect: "Build free from discard" },
-            { cost: { cloth: 1, glass: 1, papyrus: 1 }, effect: "7 VP" }
+            { cost: { clay: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { ore: 3 }, effect: "buildDiscard", label: "Build 1 discarded card for free", icon: "â™»ï¸" },
+            { cost: { cloth: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Olympia: {
+        subtitle: "The Statue of Zeus",
         startResource: "wood",
+        scene: "zeus",
         stages: [
-            { cost: { wood: 2 }, effect: "3 VP" },
-            { cost: { stone: 2 }, effect: "Build 1 free/Age" },
-            { cost: { ore: 2, cloth: 1 }, effect: "7 VP" }
+            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { stone: 2 }, effect: "olympiaFree", label: "Build 1 Age card free each Age", icon: "âœ¨1/Age" },
+            { cost: { ore: 2 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     },
     Rhodos: {
+        subtitle: "The Colossus",
         startResource: "ore",
+        scene: "colossus",
         stages: [
-            { cost: { wood: 2 }, effect: "3 VP" },
-            { cost: { clay: 3 }, effect: "+2 Shields" },
-            { cost: { ore: 4 }, effect: "7 VP" }
+            { cost: { wood: 2 }, vp: 3, label: "3 victory points", icon: "ðŸ†3" },
+            { cost: { clay: 3 }, shields: 2, label: "Gain 2 shields", icon: "ðŸ›¡ï¸ðŸ›¡ï¸" },
+            { cost: { ore: 4 }, vp: 7, label: "7 victory points", icon: "ðŸ†7" }
         ]
     }
 };
 
 const WONDER_NAMES = Object.keys(WONDER_BOARDS);
 
-/* AI civilization leaders, grouped by the wonder they're thematically
-   tied to. Each AI is named to match whichever wonder board they are
-   randomly assigned, so "Nebuchadnezzar" always ends up leading
-   Babylon, never Giza. */
 const AI_LEADER_NAMES = {
     Alexandria: ["Sostratus", "Ptolemy"],
     Babylon: ["Nebuchadnezzar", "Semiramis"],
@@ -108,94 +147,134 @@ const AI_LEADER_NAMES = {
     Rhodos: ["Chares", "Helios"]
 };
 
-/* ---- Card pool per Age. -----------------------------------------
-   Each entry carries a `qty` (how many copies exist in the physical
-   deck) instead of relying on a single copy per unique card, which
-   is what was silently starving hands in games with more than 2
-   players. buildAgeDeck() below expands qty into real instances and,
-   as a safety net, tops the deck up with extra shuffled copies if a
-   given table size still needs more than the base pool provides
-   (7-player games need 49 cards in Age I alone). This is a curated
-   set inspired by the retail game's categories/colors/costs rather
-   than a guaranteed exact reprint of the official print run — happy
-   to tighten specific cards to match your physical set if you want
-   to send me the numbers off the cards themselves.
------------------------------------------------------------------- */
-const CARD_POOL = {
+/* --------------------------------------------------------------------------
+   CARD DATA
+   thresholds: one physical copy is included for every listed player-count
+   threshold at or below the table size. The fallback deck balancer below
+   guarantees exactly seven cards per player even if this file is customized.
+---------------------------------------------------------------------------- */
+function card(def) {
+    return Object.assign({
+        age: 1,
+        type: "civilian",
+        thresholds: [3],
+        cost: {},
+        chainFrom: [],
+        chainTo: [],
+        description: ""
+    }, def);
+}
+
+const AGE_CARDS = {
     1: [
-        { name: "Lumber Yard", type: "raw", produces: { wood: 1 }, cost: {}, qty: 3 },
-        { name: "Clay Pool", type: "raw", produces: { clay: 1 }, cost: {}, qty: 3 },
-        { name: "Stone Pit", type: "raw", produces: { stone: 1 }, cost: {}, qty: 3 },
-        { name: "Ore Vein", type: "raw", produces: { ore: 1 }, cost: {}, qty: 3 },
-        { name: "Glassworks", type: "manufactured", produces: { glass: 1 }, cost: {}, qty: 2 },
-        { name: "Press", type: "manufactured", produces: { papyrus: 1 }, cost: {}, qty: 2 },
-        { name: "Loom", type: "manufactured", produces: { cloth: 1 }, cost: {}, qty: 2 },
-        { name: "Pawnshop", type: "civilian", cost: {}, vp: 3, qty: 2 },
-        { name: "Theater", type: "civilian", cost: {}, vp: 3, chainTo: "Statue", qty: 2 },
-        { name: "Baths", type: "civilian", cost: { stone: 1 }, vp: 3, chainTo: "Aqueduct", qty: 2 },
-        { name: "Altar", type: "civilian", cost: {}, vp: 2, chainTo: "Temple", qty: 2 },
-        { name: "Tavern", type: "commercial", cost: {}, coins: 4, qty: 3 },
-        { name: "Stockade", type: "military", cost: { wood: 1 }, shields: 1, qty: 2 },
-        { name: "Barracks", type: "military", cost: { ore: 1 }, shields: 1, qty: 2 },
-        { name: "Guard Tower", type: "military", cost: { clay: 1 }, shields: 1, qty: 2 },
-        { name: "Apothecary", type: "science", cost: { cloth: 1 }, science: "compass", chainTo: "Dispensary", qty: 2 },
-        { name: "Workshop", type: "science", cost: { glass: 1 }, science: "gear", chainTo: "School", qty: 2 },
-        { name: "Scriptorium", type: "science", cost: { papyrus: 1 }, science: "tablet", chainTo: "Library", qty: 2 }
+        card({ name: "Lumber Yard", age: 1, type: "raw", thresholds: [3, 4], production: [{ options: ["wood"], count: 1, tradable: true }], description: "Produces 1 Wood each turn." }),
+        card({ name: "Clay Pool", age: 1, type: "raw", thresholds: [3, 5], production: [{ options: ["clay"], count: 1, tradable: true }], description: "Produces 1 Clay each turn." }),
+        card({ name: "Stone Pit", age: 1, type: "raw", thresholds: [3, 5], production: [{ options: ["stone"], count: 1, tradable: true }], description: "Produces 1 Stone each turn." }),
+        card({ name: "Ore Vein", age: 1, type: "raw", thresholds: [3, 4], production: [{ options: ["ore"], count: 1, tradable: true }], description: "Produces 1 Ore each turn." }),
+        card({ name: "Clay Pit", age: 1, type: "raw", thresholds: [3], cost: { coins: 1 }, production: [{ options: ["clay", "ore"], count: 1, tradable: true }], description: "Produces either 1 Clay or 1 Ore each turn." }),
+        card({ name: "Timber Yard", age: 1, type: "raw", thresholds: [3], cost: { coins: 1 }, production: [{ options: ["stone", "wood"], count: 1, tradable: true }], description: "Produces either 1 Stone or 1 Wood each turn." }),
+        card({ name: "Excavation", age: 1, type: "raw", thresholds: [4], cost: { coins: 1 }, production: [{ options: ["stone", "clay"], count: 1, tradable: true }], description: "Produces either 1 Stone or 1 Clay each turn." }),
+        card({ name: "Forest Cave", age: 1, type: "raw", thresholds: [5], cost: { coins: 1 }, production: [{ options: ["wood", "ore"], count: 1, tradable: true }], description: "Produces either 1 Wood or 1 Ore each turn." }),
+        card({ name: "Tree Farm", age: 1, type: "raw", thresholds: [6], cost: { coins: 1 }, production: [{ options: ["wood", "clay"], count: 1, tradable: true }], description: "Produces either 1 Wood or 1 Clay each turn." }),
+        card({ name: "Mine", age: 1, type: "raw", thresholds: [6], cost: { coins: 1 }, production: [{ options: ["ore", "stone"], count: 1, tradable: true }], description: "Produces either 1 Ore or 1 Stone each turn." }),
+
+        card({ name: "Glassworks", age: 1, type: "manufactured", thresholds: [3, 6], production: [{ options: ["glass"], count: 1, tradable: true }], description: "Produces 1 Glass each turn." }),
+        card({ name: "Press", age: 1, type: "manufactured", thresholds: [3, 6], production: [{ options: ["papyrus"], count: 1, tradable: true }], description: "Produces 1 Papyrus each turn." }),
+        card({ name: "Loom", age: 1, type: "manufactured", thresholds: [3, 6], production: [{ options: ["cloth"], count: 1, tradable: true }], description: "Produces 1 Cloth each turn." }),
+
+        card({ name: "Baths", age: 1, type: "civilian", thresholds: [3, 7], cost: { stone: 1 }, vp: 3, chainTo: ["Aqueduct"], description: "Worth 3 victory points." }),
+        card({ name: "Altar", age: 1, type: "civilian", thresholds: [3, 5], vp: 2, chainTo: ["Temple"], description: "Worth 2 victory points." }),
+        card({ name: "Theater", age: 1, type: "civilian", thresholds: [3, 6], vp: 2, chainTo: ["Statue"], description: "Worth 2 victory points." }),
+        card({ name: "Pawnshop", age: 1, type: "civilian", thresholds: [4, 7], vp: 3, description: "Worth 3 victory points." }),
+
+        card({ name: "East Trading Post", age: 1, type: "commercial", thresholds: [3, 7], discount: { side: "right", group: "raw" }, chainTo: ["Forum"], description: "Starting next turn, raw materials bought from your right neighbor cost 1 coin each." }),
+        card({ name: "West Trading Post", age: 1, type: "commercial", thresholds: [3, 7], discount: { side: "left", group: "raw" }, chainTo: ["Forum"], description: "Starting next turn, raw materials bought from your left neighbor cost 1 coin each." }),
+        card({ name: "Marketplace", age: 1, type: "commercial", thresholds: [3, 6], discount: { side: "both", group: "goods" }, chainTo: ["Caravansery"], description: "Starting next turn, manufactured goods bought from either neighbor cost 1 coin each." }),
+        card({ name: "Tavern", age: 1, type: "commercial", thresholds: [4, 5, 7], coins: 5, description: "Gain 5 coins when built." }),
+
+        card({ name: "Stockade", age: 1, type: "military", thresholds: [3, 7], cost: { wood: 1 }, shields: 1, description: "Provides 1 shield." }),
+        card({ name: "Barracks", age: 1, type: "military", thresholds: [3, 5], cost: { ore: 1 }, shields: 1, description: "Provides 1 shield." }),
+        card({ name: "Guard Tower", age: 1, type: "military", thresholds: [3, 4], cost: { clay: 1 }, shields: 1, description: "Provides 1 shield." }),
+
+        card({ name: "Apothecary", age: 1, type: "science", thresholds: [3, 5], cost: { cloth: 1 }, science: "compass", chainTo: ["Dispensary", "Stables"], description: "Adds 1 Compass science symbol." }),
+        card({ name: "Workshop", age: 1, type: "science", thresholds: [3, 7], cost: { glass: 1 }, science: "gear", chainTo: ["Laboratory", "Archery Range"], description: "Adds 1 Gear science symbol." }),
+        card({ name: "Scriptorium", age: 1, type: "science", thresholds: [3, 4], cost: { papyrus: 1 }, science: "tablet", chainTo: ["Library", "Courthouse"], description: "Adds 1 Tablet science symbol." })
     ],
+
     2: [
-        { name: "Sawmill", type: "raw", produces: { wood: 2 }, cost: { coins: 1 }, qty: 2 },
-        { name: "Brickyard", type: "raw", produces: { clay: 2 }, cost: { coins: 1 }, qty: 2 },
-        { name: "Quarry", type: "raw", produces: { stone: 2 }, cost: { coins: 1 }, qty: 2 },
-        { name: "Foundry", type: "raw", produces: { ore: 2 }, cost: { coins: 1 }, qty: 2 },
-        { name: "Glass Furnace", type: "manufactured", produces: { glass: 1 }, cost: {}, qty: 2 },
-        { name: "Drying Room", type: "manufactured", produces: { papyrus: 1 }, cost: {}, qty: 2 },
-        { name: "Weaver's Guild", type: "manufactured", produces: { cloth: 1 }, cost: {}, qty: 2 },
-        { name: "Aqueduct", type: "civilian", cost: { stone: 3 }, vp: 5, qty: 2 },
-        { name: "Temple", type: "civilian", cost: { wood: 1, clay: 1, glass: 1 }, vp: 4, chainTo: "Pantheon", qty: 2 },
-        { name: "Statue", type: "civilian", cost: { ore: 2, wood: 1 }, vp: 4, chainTo: "Gardens", qty: 2 },
-        { name: "Courthouse", type: "civilian", cost: { clay: 2, cloth: 1 }, vp: 4, qty: 2 },
-        { name: "Amphitheater", type: "civilian", cost: { stone: 2, papyrus: 1 }, vp: 5, qty: 2 },
-        { name: "Forum", type: "commercial", cost: { clay: 2 }, coins: 3, qty: 2 },
-        { name: "Caravansery", type: "commercial", cost: { wood: 2 }, coins: 2, qty: 2 },
-        { name: "Walls", type: "military", cost: { stone: 3 }, shields: 2, qty: 2 },
-        { name: "Training Ground", type: "military", cost: { ore: 2, wood: 1 }, shields: 2, qty: 2 },
-        { name: "Dispensary", type: "science", cost: { ore: 2, glass: 1 }, science: "compass", chainTo: "Arsenal", qty: 2 },
-        { name: "Library", type: "science", cost: { stone: 2, cloth: 1 }, science: "tablet", chainTo: "University", qty: 2 },
-        { name: "School", type: "science", cost: { wood: 1, papyrus: 1 }, science: "gear", chainTo: "Academy", qty: 2 }
+        card({ name: "Sawmill", age: 2, type: "raw", thresholds: [3, 4], cost: { coins: 1 }, production: [{ options: ["wood"], count: 2, tradable: true }], description: "Produces 2 Wood each turn." }),
+        card({ name: "Brickyard", age: 2, type: "raw", thresholds: [3, 4], cost: { coins: 1 }, production: [{ options: ["clay"], count: 2, tradable: true }], description: "Produces 2 Clay each turn." }),
+        card({ name: "Quarry", age: 2, type: "raw", thresholds: [3, 4], cost: { coins: 1 }, production: [{ options: ["stone"], count: 2, tradable: true }], description: "Produces 2 Stone each turn." }),
+        card({ name: "Foundry", age: 2, type: "raw", thresholds: [3, 4], cost: { coins: 1 }, production: [{ options: ["ore"], count: 2, tradable: true }], description: "Produces 2 Ore each turn." }),
+
+        card({ name: "Glassworks", age: 2, type: "manufactured", thresholds: [3, 5], production: [{ options: ["glass"], count: 1, tradable: true }], description: "Produces 1 Glass each turn." }),
+        card({ name: "Press", age: 2, type: "manufactured", thresholds: [3, 5], production: [{ options: ["papyrus"], count: 1, tradable: true }], description: "Produces 1 Papyrus each turn." }),
+        card({ name: "Loom", age: 2, type: "manufactured", thresholds: [3, 5], production: [{ options: ["cloth"], count: 1, tradable: true }], description: "Produces 1 Cloth each turn." }),
+
+        card({ name: "Aqueduct", age: 2, type: "civilian", thresholds: [3, 7], cost: { stone: 3 }, vp: 5, chainFrom: ["Baths"], description: "Worth 5 victory points." }),
+        card({ name: "Temple", age: 2, type: "civilian", thresholds: [3, 6], cost: { wood: 1, clay: 1, glass: 1 }, vp: 3, chainFrom: ["Altar"], chainTo: ["Pantheon"], description: "Worth 3 victory points." }),
+        card({ name: "Statue", age: 2, type: "civilian", thresholds: [3, 7], cost: { wood: 1, ore: 2 }, vp: 4, chainFrom: ["Theater"], chainTo: ["Gardens"], description: "Worth 4 victory points." }),
+        card({ name: "Courthouse", age: 2, type: "civilian", thresholds: [3, 5], cost: { clay: 2, cloth: 1 }, vp: 4, chainFrom: ["Scriptorium"], chainTo: ["Senate"], description: "Worth 4 victory points." }),
+
+        card({ name: "Walls", age: 2, type: "military", thresholds: [3, 7], cost: { stone: 3 }, shields: 2, chainTo: ["Fortifications"], description: "Provides 2 shields." }),
+        card({ name: "Training Ground", age: 2, type: "military", thresholds: [4, 6, 7], cost: { wood: 1, ore: 2 }, shields: 2, chainTo: ["Circus"], description: "Provides 2 shields." }),
+        card({ name: "Stables", age: 2, type: "military", thresholds: [3, 5], cost: { wood: 1, clay: 1, ore: 1 }, shields: 2, chainFrom: ["Apothecary"], description: "Provides 2 shields." }),
+        card({ name: "Archery Range", age: 2, type: "military", thresholds: [3, 6], cost: { wood: 2, ore: 1 }, shields: 2, chainFrom: ["Workshop"], description: "Provides 2 shields." }),
+
+        card({ name: "Dispensary", age: 2, type: "science", thresholds: [3, 4], cost: { ore: 2, glass: 1 }, science: "compass", chainFrom: ["Apothecary"], chainTo: ["Lodge", "Arena"], description: "Adds 1 Compass science symbol." }),
+        card({ name: "Laboratory", age: 2, type: "science", thresholds: [3, 5], cost: { clay: 2, papyrus: 1 }, science: "gear", chainFrom: ["Workshop"], chainTo: ["Observatory", "Siege Workshop"], description: "Adds 1 Gear science symbol." }),
+        card({ name: "Library", age: 2, type: "science", thresholds: [3, 6], cost: { stone: 2, cloth: 1 }, science: "tablet", chainFrom: ["Scriptorium"], chainTo: ["University", "Senate"], description: "Adds 1 Tablet science symbol." }),
+        card({ name: "School", age: 2, type: "science", thresholds: [3, 6, 7], cost: { wood: 1, papyrus: 1 }, science: "tablet", chainTo: ["Academy", "Study"], description: "Adds 1 Tablet science symbol." }),
+
+        card({ name: "Forum", age: 2, type: "commercial", thresholds: [3, 6, 7], cost: { clay: 2 }, chainFrom: ["East Trading Post", "West Trading Post"], production: [{ options: GOODS_RES, count: 1, tradable: false }], description: "Produces one manufactured good of your choice each turn. Neighbors cannot buy it." }),
+        card({ name: "Caravansery", age: 2, type: "commercial", thresholds: [3, 5], cost: { wood: 2 }, chainFrom: ["Marketplace"], production: [{ options: RAW_RES, count: 1, tradable: false }], description: "Produces one raw material of your choice each turn. Neighbors cannot buy it." }),
+        card({ name: "Vineyard", age: 2, type: "commercial", thresholds: [3, 6], coinsPer: { type: "raw", scope: "selfNeighbors", multiplier: 1 }, description: "Gain 1 coin for each brown card in your city and both neighboring cities when built." }),
+        card({ name: "Bazar", age: 2, type: "commercial", thresholds: [4, 7], coinsPer: { type: "manufactured", scope: "selfNeighbors", multiplier: 2 }, description: "Gain 2 coins for each gray card in your city and both neighboring cities when built." })
     ],
+
     3: [
-        { name: "Pantheon", type: "civilian", cost: { clay: 2, ore: 1, papyrus: 1, cloth: 1, glass: 1 }, vp: 7, qty: 2 },
-        { name: "Gardens", type: "civilian", cost: { clay: 2, wood: 1 }, vp: 6, qty: 2 },
-        { name: "Town Hall", type: "civilian", cost: { stone: 2, ore: 1, glass: 1 }, vp: 6, qty: 2 },
-        { name: "Palace", type: "civilian", cost: { wood: 1, stone: 1, clay: 1, ore: 1, glass: 1, papyrus: 1, cloth: 1 }, vp: 8, qty: 2 },
-        { name: "Senate", type: "civilian", cost: { wood: 2, stone: 1, ore: 1 }, vp: 6, qty: 2 },
-        { name: "Arsenal", type: "military", cost: { ore: 3, wood: 2 }, shields: 3, qty: 2 },
-        { name: "Fortifications", type: "military", cost: { ore: 3, stone: 1 }, shields: 3, qty: 2 },
-        { name: "Siege Workshop", type: "military", cost: { wood: 3, clay: 1 }, shields: 3, qty: 2 },
-        { name: "Lodge", type: "science", cost: { clay: 2, papyrus: 1 }, science: "compass", qty: 2 },
-        { name: "Observatory", type: "science", cost: { ore: 2, glass: 1, papyrus: 1 }, science: "gear", qty: 2 },
-        { name: "University", type: "science", cost: { wood: 2, papyrus: 1, glass: 1 }, science: "tablet", qty: 2 },
-        {
-            name: "Merchants Guild", type: "guild", cost: { stone: 1, clay: 1, cloth: 1 }, qty: 2,
-            guild: { countType: "commercial", perCard: 1, scope: "neighbors" }
-        },
-        {
-            name: "Builders Guild", type: "guild", cost: { stone: 2, clay: 2, glass: 1 }, qty: 2,
-            guild: { countType: "wonderStage", perCard: 1, scope: "neighbors" }
-        },
-        {
-            name: "Craftsmen's Guild", type: "guild", cost: { ore: 2, stone: 2 }, qty: 2,
-            guild: { countType: "manufactured", perCard: 2, scope: "neighbors" }
-        },
-        {
-            name: "Magistrates Guild", type: "guild", cost: { wood: 3, stone: 1, cloth: 1 }, qty: 2,
-            guild: { countType: "civilian", perCard: 1, scope: "neighbors" }
-        }
+        card({ name: "Pantheon", age: 3, type: "civilian", thresholds: [3, 7], cost: { clay: 2, ore: 1, glass: 1, papyrus: 1, cloth: 1 }, vp: 7, chainFrom: ["Temple"], description: "Worth 7 victory points." }),
+        card({ name: "Gardens", age: 3, type: "civilian", thresholds: [3, 5], cost: { clay: 2, wood: 1 }, vp: 5, chainFrom: ["Statue"], description: "Worth 5 victory points." }),
+        card({ name: "Town Hall", age: 3, type: "civilian", thresholds: [3, 4, 6], cost: { stone: 2, ore: 1, glass: 1 }, vp: 6, description: "Worth 6 victory points." }),
+        card({ name: "Palace", age: 3, type: "civilian", thresholds: [3, 7], cost: { wood: 1, clay: 1, stone: 1, ore: 1, glass: 1, papyrus: 1, cloth: 1 }, vp: 8, description: "Worth 8 victory points." }),
+        card({ name: "Senate", age: 3, type: "civilian", thresholds: [3, 6], cost: { wood: 2, stone: 1, ore: 1 }, vp: 6, chainFrom: ["Courthouse", "Library"], description: "Worth 6 victory points." }),
+
+        card({ name: "Fortifications", age: 3, type: "military", thresholds: [3, 5], cost: { stone: 1, ore: 3 }, shields: 3, chainFrom: ["Walls"], description: "Provides 3 shields." }),
+        card({ name: "Arsenal", age: 3, type: "military", thresholds: [3, 4, 7], cost: { wood: 2, ore: 1, cloth: 1 }, shields: 3, description: "Provides 3 shields." }),
+        card({ name: "Siege Workshop", age: 3, type: "military", thresholds: [3, 5], cost: { wood: 1, clay: 3 }, shields: 3, chainFrom: ["Laboratory"], description: "Provides 3 shields." }),
+        card({ name: "Circus", age: 3, type: "military", thresholds: [4, 7], cost: { stone: 3, ore: 1 }, shields: 3, chainFrom: ["Training Ground"], description: "Provides 3 shields." }),
+
+        card({ name: "Lodge", age: 3, type: "science", thresholds: [3, 5], cost: { clay: 2, papyrus: 1, cloth: 1 }, science: "compass", chainFrom: ["Dispensary"], description: "Adds 1 Compass science symbol." }),
+        card({ name: "Observatory", age: 3, type: "science", thresholds: [3, 6], cost: { ore: 2, glass: 1, cloth: 1 }, science: "gear", chainFrom: ["Laboratory"], description: "Adds 1 Gear science symbol." }),
+        card({ name: "University", age: 3, type: "science", thresholds: [3, 4, 7], cost: { wood: 2, papyrus: 1, glass: 1 }, science: "tablet", chainFrom: ["Library"], description: "Adds 1 Tablet science symbol." }),
+        card({ name: "Academy", age: 3, type: "science", thresholds: [3, 6], cost: { stone: 3, glass: 1 }, science: "compass", chainFrom: ["School"], description: "Adds 1 Compass science symbol." }),
+        card({ name: "Study", age: 3, type: "science", thresholds: [3, 5], cost: { wood: 1, papyrus: 1, cloth: 1 }, science: "gear", chainFrom: ["School"], description: "Adds 1 Gear science symbol." }),
+
+        card({ name: "Arena", age: 3, type: "commercial", thresholds: [3, 6], cost: { stone: 2, ore: 1 }, chainFrom: ["Dispensary"], commerceScore: { basis: "wonderStage", coinMultiplier: 3, vpMultiplier: 1 }, description: "Gain 3 coins per completed Wonder stage now; worth 1 point per completed stage at game end." }),
+        card({ name: "Haven", age: 3, type: "commercial", thresholds: [3, 5], cost: { wood: 1, ore: 1, cloth: 1 }, commerceScore: { basis: "raw", coinMultiplier: 1, vpMultiplier: 1 }, description: "Gain 1 coin per brown card now; worth 1 point per brown card at game end." }),
+        card({ name: "Lighthouse", age: 3, type: "commercial", thresholds: [3, 4, 7], cost: { stone: 1, glass: 1 }, chainFrom: ["Caravansery"], commerceScore: { basis: "commercial", coinMultiplier: 1, vpMultiplier: 1 }, description: "Gain 1 coin per yellow card now; worth 1 point per yellow card at game end." }),
+        card({ name: "Chamber of Commerce", age: 3, type: "commercial", thresholds: [4, 6], cost: { clay: 2, papyrus: 1 }, chainFrom: ["Forum"], commerceScore: { basis: "manufactured", coinMultiplier: 2, vpMultiplier: 2 }, description: "Gain 2 coins per gray card now; worth 2 points per gray card at game end." })
     ]
 };
 
+const GUILD_CARDS = [
+    card({ name: "Workers Guild", age: 3, type: "guild", cost: { ore: 2, stone: 1, clay: 1, cloth: 1 }, guild: { kind: "neighborsType", type: "raw", multiplier: 1 }, description: "Worth 1 point per brown card in both neighboring cities." }),
+    card({ name: "Craftsmens Guild", age: 3, type: "guild", cost: { ore: 2, stone: 2 }, guild: { kind: "neighborsType", type: "manufactured", multiplier: 2 }, description: "Worth 2 points per gray card in both neighboring cities." }),
+    card({ name: "Traders Guild", age: 3, type: "guild", cost: { glass: 1, papyrus: 1, cloth: 1 }, guild: { kind: "neighborsType", type: "commercial", multiplier: 1 }, description: "Worth 1 point per yellow card in both neighboring cities." }),
+    card({ name: "Philosophers Guild", age: 3, type: "guild", cost: { clay: 3, papyrus: 1, cloth: 1 }, guild: { kind: "neighborsType", type: "science", multiplier: 1 }, description: "Worth 1 point per green card in both neighboring cities." }),
+    card({ name: "Spies Guild", age: 3, type: "guild", cost: { clay: 3, glass: 1 }, guild: { kind: "neighborsType", type: "military", multiplier: 1 }, description: "Worth 1 point per red card in both neighboring cities." }),
+    card({ name: "Magistrates Guild", age: 3, type: "guild", cost: { wood: 3, stone: 1, cloth: 1 }, guild: { kind: "neighborsType", type: "civilian", multiplier: 1 }, description: "Worth 1 point per blue card in both neighboring cities." }),
+    card({ name: "Builders Guild", age: 3, type: "guild", cost: { stone: 2, clay: 2, glass: 1 }, guild: { kind: "wonderStagesAll", multiplier: 1 }, description: "Worth 1 point per completed Wonder stage in your city and both neighboring cities." }),
+    card({ name: "Shipowners Guild", age: 3, type: "guild", cost: { wood: 3, glass: 1, papyrus: 1 }, guild: { kind: "selfTypes", types: ["raw", "manufactured", "guild"], multiplier: 1 }, description: "Worth 1 point per brown, gray and purple card in your own city, including this Guild." }),
+    card({ name: "Scientists Guild", age: 3, type: "guild", cost: { wood: 2, ore: 2, papyrus: 1 }, guild: { kind: "scienceWild" }, description: "Adds one science symbol of your choice when science is scored." }),
+    card({ name: "Strategists Guild", age: 3, type: "guild", cost: { ore: 2, stone: 1, cloth: 1 }, guild: { kind: "neighborDefeats", multiplier: 1 }, description: "Worth 1 point per military defeat token held by both neighboring cities." })
+];
+
+/* --------------------------------------------------------------------------
+   BASIC HELPERS
+---------------------------------------------------------------------------- */
 function getMyId() {
-    if (typeof window.myId === "function") return window.myId();
+    if (typeof window.myId === "function") return String(window.myId());
     if (typeof window.myId === "string") return window.myId;
     return localStorage.getItem("rider_id") || "local-player";
 }
@@ -205,17 +284,74 @@ function myName() {
     return (input && input.value.trim()) || localStorage.getItem("rider_saved_name") || "Player";
 }
 
+function getChannel() {
+    if (window.channel) return window.channel;
+    if (typeof channel !== "undefined") return channel;
+    return null;
+}
+
+function isHost() {
+    return !!(window.chaserGame && window.chaserGame.hostId === getMyId());
+}
+
+function currentRoomGameId() {
+    return window.chaserGame && window.chaserGame.activeGameId ? window.chaserGame.activeGameId : null;
+}
+
 function canvas() {
     return document.getElementById("gameCanvasContainer");
 }
 
 function escapeHtml(value) {
-    return String(value || "")
+    return String(value == null ? "" : value)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function enc(value) {
+    return encodeURIComponent(String(value == null ? "" : value));
+}
+
+function clone(value) {
+    return JSON.parse(JSON.stringify(value));
+}
+
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = a[i];
+        a[i] = a[j];
+        a[j] = tmp;
+    }
+    return a;
+}
+
+function emptyResources() {
+    return { wood: 0, clay: 0, stone: 0, ore: 0, glass: 0, papyrus: 0, cloth: 0 };
+}
+
+function resourceVectorKey(vec) {
+    return RES_KEYS.map(function (k) { return vec[k] || 0; }).join(",");
+}
+
+function sumObject(obj) {
+    return Object.keys(obj || {}).reduce(function (sum, k) { return sum + (obj[k] || 0); }, 0);
+}
+
+function romanAge(age) {
+    return age === 1 ? "I" : age === 2 ? "II" : "III";
+}
+
+function roundKey(st) {
+    return [st.gameToken, st.age, st.round].join(":");
+}
+
+function makeUid(prefix) {
+    return prefix + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 9);
 }
 
 function openStage() {
@@ -228,104 +364,92 @@ function setHeader() {
     const headerBtns = document.getElementById("headerActionButtonsContainer");
     const chatHeader = document.getElementById("chatHeader");
 
-    if (roomDisplay) roomDisplay.innerText = "🏛️ 7 Wonders";
+    if (roomDisplay) roomDisplay.innerText = "ðŸ›ï¸ Wonders";
     if (headerBtns) headerBtns.style.display = "none";
     if (chatHeader) chatHeader.classList.add("game-active-mode");
 }
 
-function syncSevenWonders() {
-    if (typeof channel !== "undefined" && channel && window.sevenWondersState) {
-        channel.send({
-            type: "broadcast",
-            event: "sevenwonders-sync-state",
-            payload: {
-                state: window.sevenWondersState,
-                roomGameId: window.chaserGame && window.chaserGame.activeGameId ? window.chaserGame.activeGameId : null
-            }
+/* --------------------------------------------------------------------------
+   DECK BUILDING
+---------------------------------------------------------------------------- */
+function cloneCardInstance(def, ageNum, index) {
+    const copy = clone(def);
+    copy.uid = "w" + ageNum + "-" + index + "-" + Math.random().toString(36).slice(2, 8);
+    return copy;
+}
+
+function expandByThreshold(cards, playerCount) {
+    const result = [];
+    cards.forEach(function (def) {
+        (def.thresholds || [3]).forEach(function (threshold) {
+            if (playerCount >= threshold) result.push(def);
         });
-    }
-}
-
-function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        const t = a[i];
-        a[i] = a[j];
-        a[j] = t;
-    }
-    return a;
-}
-
-/* ---- THE CORE FIX ---------------------------------------------
-   Old code did: shuffle(CARD_POOL[age]).slice(0, 7 * seats)
-   CARD_POOL[1] only had 15 *unique* card definitions (1 copy each),
-   so with 3+ players it needed 21+ cards but the pool only ever had
-   15 to give out. .slice() on a too-short array just quietly hands
-   back whatever's left — so whichever seat came last in the deal
-   order got a tiny leftover hand (sometimes just 1 card), and every
-   other seat that rotates a hand in from them inherits that same
-   shortfall on later turns. That's exactly the "7 cards, then 1
-   card" bug.
-
-   Fix: expand each card's `qty` into real copies, and if the table
-   still needs more than that (e.g. a full 7-player game), keep
-   adding shuffled full copies of the pool until there's enough for
-   everyone. This makes it structurally impossible to run out.
------------------------------------------------------------------- */
-function buildAgeDeck(ageNum, playerCount) {
-    const base = CARD_POOL[ageNum];
-    let expanded = [];
-    base.forEach(function (card) {
-        const copies = card.qty || 1;
-        for (let i = 0; i < copies; i++) {
-            expanded.push(Object.assign({}, card));
-        }
     });
-
-    const needed = CARDS_PER_HAND * playerCount;
-    let safety = 0;
-    while (expanded.length < needed && safety < 20) {
-        base.forEach(function (card) {
-            expanded.push(Object.assign({}, card));
-        });
-        safety++;
-    }
-
-    return shuffle(expanded).slice(0, needed);
+    return result;
 }
 
-/* Fills any seats beyond the human players already in the lobby with
-   AI civilization leaders, up to targetCount. Mirrors the role
-   Texas Hold'em's DEALER_BOT_ID plays, but supports any number of
-   fill-ins rather than exactly one. */
+function balanceDeck(defs, needed, fillerDefs) {
+    let list = defs.slice();
+    const fillers = (fillerDefs && fillerDefs.length ? fillerDefs : defs).slice();
+
+    while (list.length < needed) {
+        list.push(fillers[list.length % fillers.length]);
+    }
+
+    if (list.length > needed) list = shuffle(list).slice(0, needed);
+    return list;
+}
+
+function buildAgeDeck(ageNum, playerCount) {
+    const needed = CARDS_PER_HAND * playerCount;
+    let defs;
+
+    if (ageNum === 3) {
+        const guildCount = playerCount + 2;
+        const nonGuildNeeded = needed - guildCount;
+        const nonGuildDefs = balanceDeck(
+            expandByThreshold(AGE_CARDS[3], playerCount),
+            nonGuildNeeded,
+            AGE_CARDS[3]
+        );
+        defs = nonGuildDefs.concat(shuffle(GUILD_CARDS).slice(0, guildCount));
+    } else {
+        defs = balanceDeck(
+            expandByThreshold(AGE_CARDS[ageNum], playerCount),
+            needed,
+            AGE_CARDS[ageNum]
+        );
+    }
+
+    return shuffle(defs).map(function (def, idx) {
+        return cloneCardInstance(def, ageNum, idx);
+    });
+}
+
+/* --------------------------------------------------------------------------
+   PLAYERS AND STATE
+---------------------------------------------------------------------------- */
 function buildSeatedPlayers(targetCount) {
-    const lobbyPlayers = window.chaserGame && window.chaserGame.players && window.chaserGame.players.length
+    const lobbyPlayers = window.chaserGame && Array.isArray(window.chaserGame.players) && window.chaserGame.players.length
         ? window.chaserGame.players
         : [{ id: getMyId(), name: myName(), seat: 0 }];
 
-    const humanSeats = lobbyPlayers.slice(0, MAX_PLAYERS);
-    const finalCount = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, targetCount || humanSeats.length));
-
-    const availableWonders = shuffle(WONDER_NAMES);
+    const humans = lobbyPlayers.slice(0, MAX_PLAYERS);
+    const finalCount = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, targetCount || humans.length || MIN_PLAYERS));
+    const wonders = shuffle(WONDER_NAMES);
     const seats = [];
 
-    humanSeats.forEach(function (p, idx) {
-        const wonder = availableWonders[idx % availableWonders.length];
-        seats.push(makeSeat(p.id, p.name || "Player " + (idx + 1), false, wonder));
+    humans.forEach(function (p, idx) {
+        const wonder = wonders[idx % wonders.length];
+        seats.push(makeSeat(String(p.id), p.name || ("Player " + (idx + 1)), false, wonder));
     });
 
-    let aiNeeded = Math.max(0, finalCount - seats.length);
     let aiIndex = 0;
-
-    while (aiNeeded > 0) {
-        const wonder = availableWonders[seats.length % availableWonders.length];
-        const namePool = AI_LEADER_NAMES[wonder] || ["Leader"];
-        const aiName = namePool[aiIndex % namePool.length];
-
-        seats.push(makeSeat("7wonders-ai-" + seats.length, aiName, true, wonder));
-
-        aiNeeded--;
+    while (seats.length < finalCount) {
+        const wonder = wonders[seats.length % wonders.length];
+        const pool = AI_LEADER_NAMES[wonder] || ["Leader"];
+        const aiName = pool[aiIndex % pool.length];
+        seats.push(makeSeat("wonders-ai-" + seats.length, aiName, true, wonder));
         aiIndex++;
     }
 
@@ -333,784 +457,1565 @@ function buildSeatedPlayers(targetCount) {
 }
 
 function makeSeat(id, name, isComputer, wonder) {
-    const board = WONDER_BOARDS[wonder];
-    const resources = { wood: 0, clay: 0, stone: 0, ore: 0, glass: 0, papyrus: 0, cloth: 0 };
-    resources[board.startResource] += 1;
-
     return {
         id: id,
         name: name,
-        isComputer: isComputer,
+        isComputer: !!isComputer,
         wonder: wonder,
         wonderStage: 0,
-        resources: resources,
-        coins: 3,
+        wonderCards: [],
         tableau: [],
-        shields: 0,
-        science: { compass: 0, gear: 0, tablet: 0 },
         hand: [],
-        pendingChoice: null
+        coins: 3,
+        militaryVP: 0,
+        defeatTokens: 0,
+        victoryTokens: [],
+        usedFreeBuildThisAge: false,
+        pendingChoice: null,
+        finalScore: null,
+        scoreBreakdown: null
     };
 }
 
 function createState(targetCount) {
     const players = buildSeatedPlayers(targetCount);
-
     return {
-        phase: "table",
+        version: 4,
+        gameToken: makeUid("wonders"),
+        phase: "playing",
         age: 1,
         round: 1,
         direction: 1,
         players: players,
         discardPile: [],
+        specialQueue: [],
+        specialPlayerId: null,
         message: "Dealing Age I...",
-        lastResult: ""
+        lastResult: "",
+        turnStartCoins: {},
+        history: []
     };
 }
 
+function findPlayer(st, id) {
+    if (!st || !Array.isArray(st.players)) return null;
+    return st.players.find(function (p) { return p.id === id; }) || null;
+}
+
 function myPlayer() {
-    const st = window.sevenWondersState;
-    if (!st) return null;
-    return st.players.find(function (p) { return p.id === getMyId(); }) || null;
+    return findPlayer(window.sevenWondersState, getMyId());
 }
 
-function canAfford(player, cost) {
-    if (!cost) return true;
-    if (player.coins < (cost.coins || 0)) return false;
-    for (let i = 0; i < RES_KEYS.length; i++) {
-        const k = RES_KEYS[i];
-        if (cost[k] && player.resources[k] < cost[k]) return false;
-    }
-    return true;
+function playerIndex(st, playerId) {
+    return st.players.findIndex(function (p) { return p.id === playerId; });
 }
 
-function payCost(player, cost) {
-    if (!cost) return;
-    if (cost.coins) player.coins -= cost.coins;
-    RES_KEYS.forEach(function (k) {
-        if (cost[k]) player.resources[k] -= cost[k];
+function neighborsOf(st, playerId) {
+    const idx = playerIndex(st, playerId);
+    if (idx < 0) return { left: null, right: null, leftIndex: -1, rightIndex: -1 };
+    const n = st.players.length;
+    const leftIndex = (idx - 1 + n) % n;
+    const rightIndex = (idx + 1) % n;
+    return {
+        left: st.players[leftIndex],
+        right: st.players[rightIndex],
+        leftIndex: leftIndex,
+        rightIndex: rightIndex
+    };
+}
+
+function snapshotTurnCoins(st) {
+    st.turnStartCoins = {};
+    st.players.forEach(function (p) {
+        st.turnStartCoins[p.id] = p.coins;
     });
-}
-
-function hasChainInto(player, cardName) {
-    return player.tableau.some(function (c) { return c.chainTo === cardName; });
-}
-
-/* ---- Wonder special-effect helpers ---- */
-
-function hasWonderStage(player, stageIndex) {
-    return player.wonderStage > stageIndex;
-}
-
-function canUseOlympiaFreeBuild(player) {
-    return player.wonder === "Olympia" && hasWonderStage(player, 1) && !player.usedFreeBuildThisAge;
-}
-
-function applyAlexandriaFlexResource(player) {
-    if (player.wonder !== "Alexandria" || !hasWonderStage(player, 1)) return;
-
-    let lowestKey = RES_KEYS[0];
-    RES_KEYS.forEach(function (k) {
-        if (player.resources[k] < player.resources[lowestKey]) lowestKey = k;
-    });
-
-    player.resources[lowestKey] += 1;
-}
-
-function buildCard(player, card, viaFreeOlympia) {
-    const chainFree = hasChainInto(player, card.name);
-    const olympiaFree = !chainFree && viaFreeOlympia;
-
-    if (!chainFree && !olympiaFree) {
-        payCost(player, card.cost);
-    }
-
-    if (olympiaFree) player.usedFreeBuildThisAge = true;
-
-    if (card.produces) {
-        Object.keys(card.produces).forEach(function (k) {
-            player.resources[k] += card.produces[k];
-        });
-    }
-    if (card.coins) player.coins += card.coins;
-    if (card.shields) player.shields += card.shields;
-    if (card.science) player.science[card.science] += 1;
-
-    player.tableau.push(card);
-    return { free: chainFree, olympiaFree: olympiaFree };
 }
 
 function dealAge(st, ageNum) {
-    const seats = st.players.length;
-    const pool = buildAgeDeck(ageNum, seats);
+    const deck = buildAgeDeck(ageNum, st.players.length);
 
     st.players.forEach(function (p, idx) {
-        p.hand = pool.slice(idx * CARDS_PER_HAND, (idx + 1) * CARDS_PER_HAND);
+        p.hand = deck.slice(idx * CARDS_PER_HAND, (idx + 1) * CARDS_PER_HAND);
         p.pendingChoice = null;
-        p.usedFreeBuildThisAge = false; // Olympia stage 1 resets each Age
+        p.usedFreeBuildThisAge = false;
     });
 
-    st.direction = ageNum === 2 ? -1 : 1;
+    st.age = ageNum;
     st.round = 1;
+    st.direction = ageNum === 2 ? -1 : 1;
+    st.phase = "playing";
+    st.specialQueue = [];
+    st.specialPlayerId = null;
+    snapshotTurnCoins(st);
 }
 
-/* ---- AI choice: picks build > wonder > Halikarnassos discard-pull > discard ---- */
-function computerChoose(player, st) {
-    const hand = player.hand;
-    const affordableIdx = [];
+/* --------------------------------------------------------------------------
+   PUBLIC CITY INFORMATION
+---------------------------------------------------------------------------- */
+function hasBuiltName(player, cardName) {
+    return player.tableau.some(function (c) { return c.name === cardName; });
+}
 
-    hand.forEach(function (c, i) {
-        if (canAfford(player, c.cost) || hasChainInto(player, c.name)) affordableIdx.push(i);
+function hasChainInto(player, cardDef) {
+    return (cardDef.chainFrom || []).some(function (requiredName) {
+        return hasBuiltName(player, requiredName);
+    });
+}
+
+function hasWonderEffect(player, effectName) {
+    const board = WONDER_BOARDS[player.wonder];
+    for (let i = 0; i < player.wonderStage; i++) {
+        if (board.stages[i] && board.stages[i].effect === effectName) return true;
+    }
+    return false;
+}
+
+function canUseOlympiaFreeBuild(player) {
+    return hasWonderEffect(player, "olympiaFree") && !player.usedFreeBuildThisAge;
+}
+
+function shieldCount(player) {
+    let total = 0;
+    player.tableau.forEach(function (c) { total += c.shields || 0; });
+    const board = WONDER_BOARDS[player.wonder];
+    for (let i = 0; i < player.wonderStage; i++) total += (board.stages[i].shields || 0);
+    return total;
+}
+
+function scienceCounts(player) {
+    const result = { compass: 0, gear: 0, tablet: 0, wild: 0 };
+    player.tableau.forEach(function (c) {
+        if (c.science) result[c.science] += 1;
+        if (c.guild && c.guild.kind === "scienceWild") result.wild += 1;
+    });
+    if (hasWonderEffect(player, "scienceWild")) result.wild += 1;
+    return result;
+}
+
+function cardCountByType(player, type) {
+    return player.tableau.filter(function (c) { return c.type === type; }).length;
+}
+
+function wonderVP(player) {
+    const board = WONDER_BOARDS[player.wonder];
+    let total = 0;
+    for (let i = 0; i < player.wonderStage; i++) total += board.stages[i].vp || 0;
+    return total;
+}
+
+/* --------------------------------------------------------------------------
+   RESOURCE PRODUCTION AND NEIGHBOR TRADING
+---------------------------------------------------------------------------- */
+function getProductionSources(player, tradableOnly) {
+    const board = WONDER_BOARDS[player.wonder];
+    const sources = [{ options: [board.startResource], count: 1, tradable: true, origin: "Wonder board" }];
+
+    player.tableau.forEach(function (c) {
+        (c.production || []).forEach(function (src) {
+            if (!tradableOnly || src.tradable !== false) {
+                sources.push({
+                    options: (src.options || []).slice(),
+                    count: src.count || 1,
+                    tradable: src.tradable !== false,
+                    origin: c.name
+                });
+            }
+        });
     });
 
-    if (affordableIdx.length > 0) {
-        const idx = affordableIdx[Math.floor(Math.random() * affordableIdx.length)];
-        return { action: "build", cardIdx: idx };
+    if (!tradableOnly && hasWonderEffect(player, "flexRaw")) {
+        sources.push({ options: RAW_RES.slice(), count: 1, tradable: false, origin: "Alexandria" });
     }
 
-    if (canUseOlympiaFreeBuild(player) && hand.length) {
-        return { action: "build", cardIdx: 0 };
-    }
-
-    if (player.wonder === "Halikarnassos" && hasWonderStage(player, 1) && st && st.discardPile.length && hand.length) {
-        for (let i = 0; i < st.discardPile.length; i++) {
-            const pileCard = st.discardPile[i];
-            if (canAfford(player, pileCard.cost) || hasChainInto(player, pileCard.name)) {
-                return { action: "discardFromPile", cardIdx: 0, discardIdx: i };
-            }
-        }
-    }
-
-    const board = WONDER_BOARDS[player.wonder];
-    const nextStage = board.stages[player.wonderStage];
-
-    if (nextStage && canAfford(player, nextStage.cost) && hand.length) {
-        return { action: "wonder", cardIdx: 0 };
-    }
-
-    return { action: "discard", cardIdx: 0 };
+    return sources;
 }
 
-function applyPerTurnWonderEffects(player) {
-    applyAlexandriaFlexResource(player);
-}
+function productionVectors(player, tradableOnly, maxNeed) {
+    const sources = getProductionSources(player, tradableOnly);
+    let vectors = [emptyResources()];
 
-function applyChoice(st, player, choice) {
-    if (choice.action === "build") {
-        const card = player.hand[choice.cardIdx];
-        if (!card) return;
+    sources.forEach(function (src) {
+        const next = [];
+        const seen = new Set();
+        const options = src.options && src.options.length ? src.options : [];
 
-        const useOlympia = choice.forceOlympiaFree ||
-            (!hasChainInto(player, card.name) && !canAfford(player, card.cost) && canUseOlympiaFreeBuild(player));
-        const result = buildCard(player, card, useOlympia);
-
-        let suffix = "";
-        if (result.free) suffix = " (free chain!)";
-        else if (result.olympiaFree) suffix = " (free via Olympia!)";
-
-        st.message = player.name + " built " + card.name + suffix + ".";
-        player.hand.splice(choice.cardIdx, 1);
-
-    } else if (choice.action === "wonder") {
-        const board = WONDER_BOARDS[player.wonder];
-        const stageIndexBuilt = player.wonderStage;
-        const stage = board.stages[stageIndexBuilt];
-        if (!stage) return;
-
-        payCost(player, stage.cost);
-        player.wonderStage += 1;
-
-        const usedCard = player.hand[choice.cardIdx];
-        if (usedCard) {
-            st.discardPile.push(usedCard);
-            player.hand.splice(choice.cardIdx, 1);
-        }
-
-        st.message = player.name + " built a Wonder stage: " + stage.effect + ".";
-
-        // Babylon Stage 2 (the real A-side power): grants one Science
-        // symbol of the player's choice, once, immediately. There's no
-        // in-UI picker for this yet, so it auto-picks whichever symbol
-        // the player has the fewest of — which tends to help complete a
-        // matching set, the strongest way to spend it.
-        if (player.wonder === "Babylon" && stageIndexBuilt === 1) {
-            let weakest = "compass";
-            ["compass", "gear", "tablet"].forEach(function (s) {
-                if (player.science[s] < player.science[weakest]) weakest = s;
+        vectors.forEach(function (vec) {
+            options.forEach(function (resource) {
+                const copyVec = Object.assign({}, vec);
+                copyVec[resource] = (copyVec[resource] || 0) + (src.count || 1);
+                if (maxNeed && maxNeed[resource] != null) {
+                    copyVec[resource] = Math.min(copyVec[resource], maxNeed[resource]);
+                }
+                const key = resourceVectorKey(copyVec);
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    next.push(copyVec);
+                }
             });
-            player.science[weakest] += 1;
-            st.message += " Gained a free " + weakest + " symbol.";
-        }
+        });
 
-    } else if (choice.action === "discardFromPile") {
-        const card = st.discardPile[choice.discardIdx];
-        if (!card) return;
+        vectors = next.length ? next : vectors;
+    });
 
-        buildCard(player, card, false);
-        st.discardPile.splice(choice.discardIdx, 1);
-        st.message = player.name + " pulled " + card.name + " from the discard pile (Halikarnassos).";
-
-        const handCard = player.hand[choice.cardIdx];
-        if (handCard) {
-            st.discardPile.push(handCard);
-            player.hand.splice(choice.cardIdx, 1);
-        }
-
-    } else {
-        const card = player.hand[choice.cardIdx];
-        player.coins += 3;
-        st.message = player.name + " sold a card for 3 coins.";
-        if (card) {
-            st.discardPile.push(card);
-            player.hand.splice(choice.cardIdx, 1);
-        }
-    }
-
-    applyPerTurnWonderEffects(player);
-    player.pendingChoice = null;
+    return vectors;
 }
 
-function allChoicesIn(st) {
-    return st.players.every(function (p) { return p.isComputer || p.pendingChoice !== null; });
+function tradeUnitCost(buyer, side, resource) {
+    const raw = RAW_RES.indexOf(resource) >= 0;
+    const goods = GOODS_RES.indexOf(resource) >= 0;
+    let discounted = false;
+
+    buyer.tableau.forEach(function (c) {
+        if (!c.discount) return;
+        const sideMatch = c.discount.side === "both" || c.discount.side === side;
+        const groupMatch = (c.discount.group === "raw" && raw) || (c.discount.group === "goods" && goods);
+        if (sideMatch && groupMatch) discounted = true;
+    });
+
+    return discounted ? 1 : 2;
+}
+
+function normalizeResourceCost(cost) {
+    const result = emptyResources();
+    RES_KEYS.forEach(function (k) { result[k] = (cost && cost[k]) || 0; });
+    return result;
+}
+
+function planLabel(plan) {
+    if (!plan) return "Not affordable";
+    const parts = [];
+    if (plan.bankCoins) parts.push("Bank " + plan.bankCoins + "ðŸª™");
+    const leftRes = resourceList(plan.leftResources, false);
+    const rightRes = resourceList(plan.rightResources, false);
+    if (leftRes) parts.push("â† " + leftRes + " (" + plan.leftCoins + "ðŸª™)");
+    if (rightRes) parts.push("â†’ " + rightRes + " (" + plan.rightCoins + "ðŸª™)");
+    return parts.length ? parts.join(" Â· ") : "Use your own resources";
+}
+
+function findPaymentPlans(st, player, cost, freeMode) {
+    if (freeMode === "chain" || freeMode === "olympia" || freeMode === "discardFree") {
+        return [{
+            bankCoins: 0,
+            leftCoins: 0,
+            rightCoins: 0,
+            totalCoins: 0,
+            leftResources: emptyResources(),
+            rightResources: emptyResources(),
+            freeMode: freeMode
+        }];
+    }
+
+    const resourceCost = normalizeResourceCost(cost || {});
+    const bankCoins = (cost && cost.coins) || 0;
+    const availableCoins = st.turnStartCoins && st.turnStartCoins[player.id] != null
+        ? st.turnStartCoins[player.id]
+        : player.coins;
+
+    if (bankCoins > availableCoins) return [];
+
+    const neighbors = neighborsOf(st, player.id);
+    if (!neighbors.left || !neighbors.right) return [];
+
+    const ownVectors = productionVectors(player, false, resourceCost);
+    const leftVectors = productionVectors(neighbors.left, true, resourceCost);
+    const rightVectors = productionVectors(neighbors.right, true, resourceCost);
+    const plans = [];
+    const seenPlans = new Set();
+
+    ownVectors.forEach(function (own) {
+        const missing = emptyResources();
+        RES_KEYS.forEach(function (k) {
+            missing[k] = Math.max(0, resourceCost[k] - (own[k] || 0));
+        });
+
+        leftVectors.forEach(function (leftCap) {
+            rightVectors.forEach(function (rightCap) {
+                const choices = [{
+                    left: emptyResources(),
+                    right: emptyResources(),
+                    leftCoins: 0,
+                    rightCoins: 0
+                }];
+
+                let viable = true;
+                RES_KEYS.forEach(function (resource) {
+                    if (!viable) return;
+                    const need = missing[resource] || 0;
+                    if (!need) return;
+
+                    const newChoices = [];
+                    choices.forEach(function (baseChoice) {
+                        const maxLeft = Math.min(need, leftCap[resource] || 0);
+                        for (let leftQty = 0; leftQty <= maxLeft; leftQty++) {
+                            const rightQty = need - leftQty;
+                            if (rightQty > (rightCap[resource] || 0)) continue;
+
+                            const nextChoice = {
+                                left: Object.assign({}, baseChoice.left),
+                                right: Object.assign({}, baseChoice.right),
+                                leftCoins: baseChoice.leftCoins,
+                                rightCoins: baseChoice.rightCoins
+                            };
+                            nextChoice.left[resource] = leftQty;
+                            nextChoice.right[resource] = rightQty;
+                            nextChoice.leftCoins += leftQty * tradeUnitCost(player, "left", resource);
+                            nextChoice.rightCoins += rightQty * tradeUnitCost(player, "right", resource);
+                            newChoices.push(nextChoice);
+                        }
+                    });
+
+                    choices.length = 0;
+                    Array.prototype.push.apply(choices, newChoices);
+                    if (!choices.length) viable = false;
+                });
+
+                if (!viable) return;
+
+                choices.forEach(function (choice) {
+                    const totalCoins = bankCoins + choice.leftCoins + choice.rightCoins;
+                    if (totalCoins > availableCoins) return;
+
+                    const key = resourceVectorKey(choice.left) + "|" + resourceVectorKey(choice.right) + "|" + totalCoins;
+                    if (seenPlans.has(key)) return;
+                    seenPlans.add(key);
+
+                    plans.push({
+                        bankCoins: bankCoins,
+                        leftCoins: choice.leftCoins,
+                        rightCoins: choice.rightCoins,
+                        totalCoins: totalCoins,
+                        leftResources: choice.left,
+                        rightResources: choice.right,
+                        freeMode: null
+                    });
+                });
+            });
+        });
+    });
+
+    plans.sort(function (a, b) {
+        if (a.totalCoins !== b.totalCoins) return a.totalCoins - b.totalCoins;
+        const aSpread = Math.abs(a.leftCoins - a.rightCoins);
+        const bSpread = Math.abs(b.leftCoins - b.rightCoins);
+        return aSpread - bSpread;
+    });
+
+    return plans.slice(0, 10);
+}
+
+function cheapestPlan(st, player, cost, freeMode) {
+    const plans = findPaymentPlans(st, player, cost, freeMode);
+    return plans.length ? plans[0] : null;
+}
+
+function canBuildCard(st, player, cardDef) {
+    if (!cardDef || hasBuiltName(player, cardDef.name)) return { legal: false, reason: "You already built this structure.", plans: [] };
+    if (hasChainInto(player, cardDef)) {
+        return { legal: true, reason: "Free chain", plans: findPaymentPlans(st, player, cardDef.cost, "chain"), chainFree: true };
+    }
+    const plans = findPaymentPlans(st, player, cardDef.cost, null);
+    return { legal: plans.length > 0, reason: plans.length ? "" : "Not enough resources or coins.", plans: plans, chainFree: false };
+}
+
+function canBuildWonder(st, player) {
+    const board = WONDER_BOARDS[player.wonder];
+    const stage = board.stages[player.wonderStage];
+    if (!stage) return { legal: false, reason: "Your Wonder is complete.", plans: [] };
+    const plans = findPaymentPlans(st, player, stage.cost, null);
+    return { legal: plans.length > 0, reason: plans.length ? "" : "Not enough resources or coins.", plans: plans, stage: stage };
+}
+
+/* --------------------------------------------------------------------------
+   PAYMENT AND EFFECT RESOLUTION
+---------------------------------------------------------------------------- */
+function applyPayment(st, player, plan) {
+    if (!plan) return;
+    const neighbors = neighborsOf(st, player.id);
+    player.coins -= plan.totalCoins || 0;
+    if (neighbors.left) neighbors.left.coins += plan.leftCoins || 0;
+    if (neighbors.right) neighbors.right.coins += plan.rightCoins || 0;
+}
+
+function countScopeType(st, player, type, scope) {
+    if (scope === "self") return cardCountByType(player, type);
+    const n = neighborsOf(st, player.id);
+    if (scope === "neighbors") return cardCountByType(n.left, type) + cardCountByType(n.right, type);
+    return cardCountByType(player, type) + cardCountByType(n.left, type) + cardCountByType(n.right, type);
+}
+
+function commerceBasisCount(player, basis) {
+    if (basis === "wonderStage") return player.wonderStage;
+    return cardCountByType(player, basis);
+}
+
+function applyImmediateCardIncome(st, player, builtCard) {
+    let gain = builtCard.coins || 0;
+    if (builtCard.coinsPer) {
+        gain += countScopeType(st, player, builtCard.coinsPer.type, builtCard.coinsPer.scope) * builtCard.coinsPer.multiplier;
+    }
+    if (builtCard.commerceScore) {
+        gain += commerceBasisCount(player, builtCard.commerceScore.basis) * builtCard.commerceScore.coinMultiplier;
+    }
+    player.coins += gain;
+    return gain;
+}
+
+function applyWonderStageImmediate(player, stage) {
+    if (stage.coins) player.coins += stage.coins;
+}
+
+function removeCardFromHand(player, cardUid) {
+    const idx = player.hand.findIndex(function (c) { return c.uid === cardUid; });
+    if (idx < 0) return null;
+    return player.hand.splice(idx, 1)[0];
+}
+
+function validatePaymentPlan(st, player, cost, submittedPlan, freeMode) {
+    const plans = findPaymentPlans(st, player, cost, freeMode);
+    if (!plans.length) return null;
+    if (!submittedPlan) return plans[0];
+
+    const wantedKey = resourceVectorKey(submittedPlan.leftResources || emptyResources()) + "|" +
+        resourceVectorKey(submittedPlan.rightResources || emptyResources()) + "|" +
+        (submittedPlan.totalCoins || 0);
+
+    return plans.find(function (p) {
+        const key = resourceVectorKey(p.leftResources) + "|" + resourceVectorKey(p.rightResources) + "|" + p.totalCoins;
+        return key === wantedKey;
+    }) || plans[0];
+}
+
+function validateChoice(st, player, choice) {
+    if (!choice || choice.roundKey !== roundKey(st)) return null;
+    const handCard = player.hand.find(function (c) { return c.uid === choice.cardUid; });
+    if (!handCard) return null;
+
+    if (choice.action === "discard") {
+        return { action: "discard", cardUid: handCard.uid, roundKey: choice.roundKey };
+    }
+
+    if (choice.action === "wonder") {
+        const board = WONDER_BOARDS[player.wonder];
+        const stage = board.stages[player.wonderStage];
+        if (!stage) return null;
+        const plan = validatePaymentPlan(st, player, stage.cost, choice.payment, null);
+        if (!plan) return null;
+        return { action: "wonder", cardUid: handCard.uid, payment: plan, roundKey: choice.roundKey };
+    }
+
+    if (choice.action === "build") {
+        if (hasBuiltName(player, handCard.name)) return null;
+        let freeMode = null;
+        if (choice.freeMode === "olympia" && canUseOlympiaFreeBuild(player)) freeMode = "olympia";
+        else if (hasChainInto(player, handCard)) freeMode = "chain";
+
+        const plan = validatePaymentPlan(st, player, handCard.cost, choice.payment, freeMode);
+        if (!plan) return null;
+        return { action: "build", cardUid: handCard.uid, payment: plan, freeMode: freeMode, roundKey: choice.roundKey };
+    }
+
+    return null;
 }
 
 function resolveRound() {
     const st = window.sevenWondersState;
-    if (!st) return;
-
-    const isFinalPickOfAge = st.players[0].hand.length === 2;
+    if (!st || !isHost() || st.phase !== "playing") return;
 
     st.players.forEach(function (p) {
-        if (p.isComputer) {
-            p.pendingChoice = computerChoose(p, st);
+        if (p.isComputer && !p.pendingChoice) p.pendingChoice = computerChoose(p, st);
+    });
+
+    if (!allChoicesIn(st)) return;
+
+    const validated = [];
+    st.players.forEach(function (p) {
+        let choice = validateChoice(st, p, p.pendingChoice);
+        if (!choice) {
+            const fallbackCard = p.hand[0];
+            choice = fallbackCard ? { action: "discard", cardUid: fallbackCard.uid, roundKey: roundKey(st) } : null;
+        }
+        validated.push({ player: p, choice: choice });
+    });
+
+    const builtThisTurn = [];
+    const wonderBuiltThisTurn = [];
+    const messages = [];
+
+    /* Pay first. Income received this turn cannot be used to make the choice,
+       because every choice was validated against turnStartCoins. */
+    validated.forEach(function (entry) {
+        if (!entry.choice) return;
+        if (entry.choice.action === "build" || entry.choice.action === "wonder") {
+            applyPayment(st, entry.player, entry.choice.payment);
         }
     });
 
-    st.players.forEach(function (p) {
-        if (p.pendingChoice) applyChoice(st, p, p.pendingChoice);
-    });
+    /* Place cards and Wonder stages. */
+    validated.forEach(function (entry) {
+        const p = entry.player;
+        const choice = entry.choice;
+        if (!choice) return;
 
-    if (isFinalPickOfAge) {
-        st.players.forEach(function (p) {
-            const leftoverCard = p.hand[0];
-            if (!leftoverCard) return;
-
-            st.discardPile.push(leftoverCard);
-            p.hand = [];
-        });
-    }
-
-    if (st.players[0].hand.length === 0) {
-        scoreMilitaryForAge(st, st.age);
-
-        st.age += 1;
-
-        if (st.age > 3) {
-            finishGame(st);
+        if (choice.action === "build") {
+            const built = removeCardFromHand(p, choice.cardUid);
+            if (!built) return;
+            p.tableau.push(built);
+            if (choice.freeMode === "olympia") p.usedFreeBuildThisAge = true;
+            builtThisTurn.push({ player: p, card: built });
+            messages.push(p.name + " built " + built.name + (choice.freeMode ? " for free" : ""));
             return;
         }
 
-        dealAge(st, st.age);
-        st.message = "Age " + (st.age === 2 ? "II" : "III") + " begins.";
+        if (choice.action === "wonder") {
+            const used = removeCardFromHand(p, choice.cardUid);
+            if (!used) return;
+            const board = WONDER_BOARDS[p.wonder];
+            const stageIndex = p.wonderStage;
+            const stage = board.stages[stageIndex];
+            p.wonderCards.push({ stageIndex: stageIndex, card: used });
+            p.wonderStage += 1;
+            wonderBuiltThisTurn.push({ player: p, stage: stage, stageIndex: stageIndex });
+            applyWonderStageImmediate(p, stage);
+            if (stage.effect === "buildDiscard") st.specialQueue.push(p.id);
+            messages.push(p.name + " completed Wonder stage " + (stageIndex + 1));
+            return;
+        }
+
+        const sold = removeCardFromHand(p, choice.cardUid);
+        if (sold) st.discardPile.push(sold);
+        p.coins += 3;
+        messages.push(p.name + " sold a card");
+    });
+
+    /* Immediate income cards count every structure placed this turn. */
+    builtThisTurn.forEach(function (entry) {
+        applyImmediateCardIncome(st, entry.player, entry.card);
+    });
+
+    st.players.forEach(function (p) { p.pendingChoice = null; });
+    st.message = messages.join(" Â· ") + ".";
+    st.history.push("Age " + romanAge(st.age) + ", Round " + st.round + ": " + st.message);
+    if (st.history.length > 30) st.history.shift();
+
+    if (st.specialQueue.length) {
+        beginNextSpecial(st);
     } else {
-        rotateHands(st);
-        st.round += 1;
+        finalizeResolvedRound(st);
     }
 
     syncSevenWonders();
     renderSevenWonders();
-    maybeComputerAutoResolve();
+}
+
+function beginNextSpecial(st) {
+    while (st.specialQueue.length) {
+        const playerId = st.specialQueue.shift();
+        const p = findPlayer(st, playerId);
+        if (!p) continue;
+
+        const legal = st.discardPile.filter(function (c) { return !hasBuiltName(p, c.name); });
+        if (!legal.length) continue;
+
+        st.phase = "special";
+        st.specialPlayerId = p.id;
+        st.message = p.name + " may build one card from the discard pile for free.";
+
+        if (p.isComputer) {
+            const chosen = bestDiscardCardForAI(p, legal);
+            applyDiscardSpecial(st, p, chosen.uid);
+            continue;
+        }
+        return;
+    }
+
+    st.phase = "playing";
+    st.specialPlayerId = null;
+    finalizeResolvedRound(st);
+}
+
+function applyDiscardSpecial(st, player, cardUid) {
+    const idx = st.discardPile.findIndex(function (c) { return c.uid === cardUid; });
+    if (idx < 0) return false;
+    const chosen = st.discardPile[idx];
+    if (hasBuiltName(player, chosen.name)) return false;
+
+    st.discardPile.splice(idx, 1);
+    player.tableau.push(chosen);
+    applyImmediateCardIncome(st, player, chosen);
+    st.message = player.name + " rebuilt " + chosen.name + " from the discard pile.";
+    return true;
+}
+
+function finalizeResolvedRound(st) {
+    const finalPick = st.players.length && st.players[0].hand.length === 1;
+
+    if (finalPick) {
+        st.players.forEach(function (p) {
+            if (p.hand[0]) st.discardPile.push(p.hand[0]);
+            p.hand = [];
+        });
+    }
+
+    if (!st.players.length || st.players[0].hand.length === 0) {
+        scoreMilitaryForAge(st, st.age);
+
+        if (st.age >= 3) {
+            finishGame(st);
+            return;
+        }
+
+        const nextAge = st.age + 1;
+        dealAge(st, nextAge);
+        st.message = "Age " + romanAge(nextAge) + " begins. Choose one card.";
+        return;
+    }
+
+    rotateHands(st);
+    st.round += 1;
+    snapshotTurnCoins(st);
+    st.message = "Hands passed " + (st.direction === 1 ? "left" : "right") + ". Choose one card.";
 }
 
 function rotateHands(st) {
-    const seats = st.players;
-    const hands = seats.map(function (p) { return p.hand; });
-    const n = seats.length;
-
-    seats.forEach(function (p, idx) {
+    const hands = st.players.map(function (p) { return p.hand; });
+    const n = st.players.length;
+    st.players.forEach(function (p, idx) {
         const sourceIdx = ((idx - st.direction) % n + n) % n;
         p.hand = hands[sourceIdx];
     });
 }
 
-function scoreMilitaryForAge(st, ageJustEnded) {
-    const n = st.players.length;
-    const ageMultiplier = { 1: 1, 2: 3, 3: 5 };
-    const winPoints = ageMultiplier[ageJustEnded] || 1;
-
-    st.players.forEach(function (p) {
-        p.militaryVP = p.militaryVP || 0;
-        p.conflictLog = p.conflictLog || [];
-    });
-
-    st.players.forEach(function (p, idx) {
-        const leftIdx = (idx - 1 + n) % n;
-        const rightIdx = (idx + 1) % n;
-
-        [leftIdx, rightIdx].forEach(function (neighborIdx) {
-            const neighbor = st.players[neighborIdx];
-
-            if (p.shields > neighbor.shields) {
-                p.militaryVP += winPoints;
-                p.conflictLog.push("Age " + ageJustEnded + ": won vs " + neighbor.name + " (+" + winPoints + ")");
-            } else if (p.shields < neighbor.shields) {
-                p.militaryVP -= 1;
-                p.conflictLog.push("Age " + ageJustEnded + ": lost vs " + neighbor.name + " (-1)");
-            }
-        });
-    });
+function allChoicesIn(st) {
+    return st.players.every(function (p) { return p.isComputer || !!p.pendingChoice; });
 }
 
-/* Guild (purple) cards score based on neighbors' and/or your own
-   tableau at game end. countType matches against a card's `type`
-   field, except "wonderStage" which counts built wonder stages. */
-function scoreGuilds(st) {
+/* --------------------------------------------------------------------------
+   AI
+---------------------------------------------------------------------------- */
+function cardHeuristic(player, cardDef) {
+    let value = 0;
+    value += (cardDef.vp || 0) * 4;
+    value += (cardDef.shields || 0) * 4;
+    value += cardDef.science ? 8 : 0;
+    value += (cardDef.coins || 0) * 0.8;
+    value += cardDef.production ? 7 : 0;
+    value += cardDef.discount ? 5 : 0;
+    value += cardDef.coinsPer ? 5 : 0;
+    value += cardDef.commerceScore ? 8 : 0;
+    value += cardDef.guild ? 9 : 0;
+    value += (cardDef.chainTo || []).length * 1.5;
+    if (hasBuiltName(player, cardDef.name)) value = -999;
+    return value;
+}
+
+function wonderStageHeuristic(player) {
+    const stage = WONDER_BOARDS[player.wonder].stages[player.wonderStage];
+    if (!stage) return -999;
+    return (stage.vp || 0) * 4 + (stage.coins || 0) + (stage.shields || 0) * 5 + (stage.effect ? 10 : 0);
+}
+
+function computerChoose(player, st) {
+    const choices = [];
+
+    player.hand.forEach(function (c) {
+        const build = canBuildCard(st, player, c);
+        if (build.legal) {
+            choices.push({
+                score: cardHeuristic(player, c) - (build.plans[0].totalCoins || 0) * 0.6,
+                choice: { action: "build", cardUid: c.uid, payment: build.plans[0], roundKey: roundKey(st) }
+            });
+        } else if (canUseOlympiaFreeBuild(player) && !hasBuiltName(player, c.name)) {
+            choices.push({
+                score: cardHeuristic(player, c) - 1,
+                choice: { action: "build", cardUid: c.uid, payment: findPaymentPlans(st, player, c.cost, "olympia")[0], freeMode: "olympia", roundKey: roundKey(st) }
+            });
+        }
+    });
+
+    const wonder = canBuildWonder(st, player);
+    if (wonder.legal && player.hand.length) {
+        choices.push({
+            score: wonderStageHeuristic(player) - (wonder.plans[0].totalCoins || 0) * 0.5,
+            choice: { action: "wonder", cardUid: player.hand[player.hand.length - 1].uid, payment: wonder.plans[0], roundKey: roundKey(st) }
+        });
+    }
+
+    if (!choices.length) {
+        return { action: "discard", cardUid: player.hand[0].uid, roundKey: roundKey(st) };
+    }
+
+    choices.sort(function (a, b) { return b.score - a.score; });
+    return choices[0].choice;
+}
+
+function bestDiscardCardForAI(player, cards) {
+    return cards.slice().sort(function (a, b) {
+        return cardHeuristic(player, b) - cardHeuristic(player, a);
+    })[0];
+}
+
+/* --------------------------------------------------------------------------
+   MILITARY AND FINAL SCORING
+---------------------------------------------------------------------------- */
+function scoreMilitaryForAge(st, ageNum) {
+    const winValue = ageNum === 1 ? 1 : ageNum === 2 ? 3 : 5;
+    const seen = new Set();
     const n = st.players.length;
 
-    st.players.forEach(function (p, idx) {
-        let guildVP = 0;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        const key = [Math.min(i, j), Math.max(i, j)].join("-");
+        if (seen.has(key)) continue;
+        seen.add(key);
 
-        p.tableau.forEach(function (card) {
-            if (card.type !== "guild" || !card.guild) return;
+        const a = st.players[i];
+        const b = st.players[j];
+        const aShields = shieldCount(a);
+        const bShields = shieldCount(b);
 
-            const targets = [];
-            if (card.guild.scope === "neighbors" || card.guild.scope === "all") {
-                const leftIdx = (idx - 1 + n) % n;
-                const rightIdx = (idx + 1) % n;
-                targets.push(st.players[leftIdx], st.players[rightIdx]);
-            }
-            if (card.guild.scope === "self" || card.guild.scope === "all") {
-                targets.push(p);
-            }
+        if (aShields > bShields) {
+            a.militaryVP += winValue;
+            a.victoryTokens.push(winValue);
+            b.militaryVP -= 1;
+            b.defeatTokens += 1;
+        } else if (bShields > aShields) {
+            b.militaryVP += winValue;
+            b.victoryTokens.push(winValue);
+            a.militaryVP -= 1;
+            a.defeatTokens += 1;
+        }
+    }
+}
 
-            targets.forEach(function (target) {
-                if (!target) return;
-                let count = 0;
-                if (card.guild.countType === "wonderStage") {
-                    count = target.wonderStage;
-                } else {
-                    count = target.tableau.filter(function (c) { return c.type === card.guild.countType; }).length;
-                }
-                guildVP += count * card.guild.perCard;
-            });
-        });
+function scoreScienceWithWilds(science) {
+    let best = -Infinity;
+    const wild = science.wild || 0;
 
-        p.guildVP = guildVP;
-    });
+    for (let a = 0; a <= wild; a++) {
+        for (let b = 0; b <= wild - a; b++) {
+            const c = wild - a - b;
+            const compass = science.compass + a;
+            const gear = science.gear + b;
+            const tablet = science.tablet + c;
+            const sets = Math.min(compass, gear, tablet);
+            const score = compass * compass + gear * gear + tablet * tablet + sets * 7;
+            if (score > best) best = score;
+        }
+    }
+
+    return best === -Infinity ? 0 : best;
+}
+
+function guildScoreForCard(st, player, guildCard) {
+    const rule = guildCard.guild;
+    if (!rule) return 0;
+    const n = neighborsOf(st, player.id);
+
+    if (rule.kind === "neighborsType") {
+        return (cardCountByType(n.left, rule.type) + cardCountByType(n.right, rule.type)) * rule.multiplier;
+    }
+    if (rule.kind === "wonderStagesAll") {
+        return (player.wonderStage + n.left.wonderStage + n.right.wonderStage) * rule.multiplier;
+    }
+    if (rule.kind === "selfTypes") {
+        let count = 0;
+        rule.types.forEach(function (type) { count += cardCountByType(player, type); });
+        return count * rule.multiplier;
+    }
+    if (rule.kind === "neighborDefeats") {
+        return (n.left.defeatTokens + n.right.defeatTokens) * rule.multiplier;
+    }
+    return 0;
+}
+
+function commercialEndVP(player) {
+    return player.tableau.reduce(function (sum, c) {
+        if (!c.commerceScore) return sum;
+        return sum + commerceBasisCount(player, c.commerceScore.basis) * c.commerceScore.vpMultiplier;
+    }, 0);
+}
+
+function totalGuildVP(st, player) {
+    return player.tableau.reduce(function (sum, c) {
+        return sum + (c.type === "guild" ? guildScoreForCard(st, player, c) : 0);
+    }, 0);
 }
 
 function finishGame(st) {
-    scoreGuilds(st);
-
     st.players.forEach(function (p) {
-        const civilianVP = p.tableau.reduce(function (sum, c) { return sum + (c.vp || 0); }, 0);
-        const coinVP = Math.floor(p.coins / 3);
-        const scienceVP = scoreScience(p.science);
-        p.finalScore = civilianVP + coinVP + scienceVP + (p.militaryVP || 0) + (p.guildVP || 0);
+        const civilian = p.tableau.reduce(function (sum, c) { return sum + (c.vp || 0); }, 0);
+        const coins = Math.floor(p.coins / 3);
+        const wonder = wonderVP(p);
+        const science = scoreScienceWithWilds(scienceCounts(p));
+        const commercial = commercialEndVP(p);
+        const guilds = totalGuildVP(st, p);
+        const military = p.militaryVP || 0;
+        const total = civilian + coins + wonder + science + commercial + guilds + military;
+
+        p.scoreBreakdown = {
+            military: military,
+            coins: coins,
+            wonder: wonder,
+            civilian: civilian,
+            science: science,
+            commercial: commercial,
+            guilds: guilds,
+            total: total
+        };
+        p.finalScore = total;
     });
 
-    const ranked = st.players.slice().sort(function (a, b) { return b.finalScore - a.finalScore; });
+    const ranked = st.players.slice().sort(function (a, b) {
+        if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+        return b.coins - a.coins;
+    });
 
     st.phase = "ended";
+    st.specialPlayerId = null;
     st.message = ranked[0].name + " wins with " + ranked[0].finalScore + " points!";
-    st.lastResult = ranked.map(function (p) { return p.name + ": " + p.finalScore; }).join(" · ");
+    st.lastResult = ranked.map(function (p) { return p.name + ": " + p.finalScore; }).join(" Â· ");
 }
 
-function scoreScience(science) {
-    const sets = Math.min(science.compass, science.gear, science.tablet);
-    const squares = (science.compass * science.compass) + (science.gear * science.gear) + (science.tablet * science.tablet);
-    return squares + (sets * 7);
+/* --------------------------------------------------------------------------
+   NETWORKING - HOST AUTHORITATIVE
+   Non-host devices send only their locked choice. The host resolves the round
+   and broadcasts the resulting state, preventing whole-state overwrite races.
+---------------------------------------------------------------------------- */
+function syncSevenWonders() {
+    const ch = getChannel();
+    if (!ch || !window.sevenWondersState) return;
+    ch.send({
+        type: "broadcast",
+        event: "sevenwonders-sync-state",
+        payload: {
+            state: window.sevenWondersState,
+            roomGameId: currentRoomGameId()
+        }
+    });
 }
 
-function maybeComputerAutoResolve() {
-    const st = window.sevenWondersState;
-    if (!st || st.phase !== "table") return;
-    if (!window.chaserGame || window.chaserGame.hostId !== getMyId()) return;
+function sendNetworkEvent(eventName, payload) {
+    const ch = getChannel();
+    if (!ch) return false;
+    ch.send({ type: "broadcast", event: eventName, payload: payload });
+    return true;
 }
 
-/* ---- Player actions ---- */
+function roomPayloadMatches(payload) {
+    if (!payload) return false;
+    const activeId = currentRoomGameId();
+    return !payload.roomGameId || !activeId || payload.roomGameId === activeId;
+}
 
-window.sevenWondersChooseCard = function (idx) {
+function registerNetworkHandlers() {
+    if (window.__wondersNetworkRegistered) return;
+    const ch = getChannel();
+    if (!ch || typeof ch.on !== "function") return;
+
+    ch.on("broadcast", { event: "wonders-submit-action" }, function (message) {
+        const payload = message && message.payload ? message.payload : message;
+        if (!isHost() || !roomPayloadMatches(payload)) return;
+        hostReceiveAction(payload);
+    });
+
+    ch.on("broadcast", { event: "wonders-special-choice" }, function (message) {
+        const payload = message && message.payload ? message.payload : message;
+        if (!isHost() || !roomPayloadMatches(payload)) return;
+        hostReceiveSpecialChoice(payload);
+    });
+
+    ch.on("broadcast", { event: "wonders-request-state" }, function (message) {
+        const payload = message && message.payload ? message.payload : message;
+        if (!isHost() || !roomPayloadMatches(payload)) return;
+        syncSevenWonders();
+    });
+
+    window.__wondersNetworkRegistered = true;
+}
+
+function hostReceiveAction(payload) {
     const st = window.sevenWondersState;
-    const me = myPlayer();
-    if (!st || !me || me.pendingChoice) return;
-    if (!me.hand[idx]) return;
+    if (!st || st.phase !== "playing" || !payload || !payload.playerId || !payload.choice) return;
+    if (payload.choice.roundKey !== roundKey(st)) return;
 
-    me.pendingChoice = { action: "select", cardIdx: idx };
-    renderSevenWonders();
-};
+    const p = findPlayer(st, payload.playerId);
+    if (!p || p.isComputer || p.pendingChoice) return;
 
-window.sevenWondersConfirmBuild = function () {
-    const st = window.sevenWondersState;
-    const me = myPlayer();
-    if (!st || !me || !me.pendingChoice) return;
+    const valid = validateChoice(st, p, payload.choice);
+    if (!valid) return;
 
-    const card = me.hand[me.pendingChoice.cardIdx];
-    if (!card) return;
-    if (!canAfford(me, card.cost) && !hasChainInto(me, card.name)) return;
-
-    me.pendingChoice = { action: "build", cardIdx: me.pendingChoice.cardIdx };
-    finishMyTurnIfHost();
-};
-
-window.sevenWondersConfirmWonder = function () {
-    const st = window.sevenWondersState;
-    const me = myPlayer();
-    if (!st || !me || !me.pendingChoice) return;
-
-    const board = WONDER_BOARDS[me.wonder];
-    const stage = board.stages[me.wonderStage];
-    if (!stage || !canAfford(me, stage.cost)) return;
-
-    me.pendingChoice = { action: "wonder", cardIdx: me.pendingChoice.cardIdx };
-    finishMyTurnIfHost();
-};
-
-window.sevenWondersConfirmDiscard = function () {
-    const st = window.sevenWondersState;
-    const me = myPlayer();
-    if (!st || !me || !me.pendingChoice) return;
-
-    me.pendingChoice = { action: "discard", cardIdx: me.pendingChoice.cardIdx };
-    finishMyTurnIfHost();
-};
-
-window.sevenWondersConfirmOlympiaFree = function () {
-    const me = myPlayer();
-    if (!me || !me.pendingChoice || !canUseOlympiaFreeBuild(me)) return;
-
-    me.pendingChoice = { action: "build", cardIdx: me.pendingChoice.cardIdx, forceOlympiaFree: true };
-    finishMyTurnIfHost();
-};
-
-window.sevenWondersOpenDiscardPile = function () {
-    const st = window.sevenWondersState;
-    const me = myPlayer();
-    if (!st || !me || !me.pendingChoice) return;
-
-    const modal = document.getElementById("swModalOverlay");
-    const title = document.getElementById("swModalTitle");
-    const content = document.getElementById("swModalContent");
-    if (!modal || !title || !content) return;
-
-    title.textContent = "Build from the discard pile";
-
-    if (!st.discardPile.length) {
-        content.innerHTML = "<div style='font-size:13px;opacity:.7;'>The discard pile is empty.</div>";
-    } else {
-        content.innerHTML = "<div style='display:flex;flex-wrap:wrap;gap:8px;'>" +
-            st.discardPile.map(function (card, i) {
-                const affordable = canAfford(me, card.cost) || hasChainInto(me, card.name);
-                return (
-                    "<div class=\"sw-tab-card sw-type-" + card.type + "\" style=\"cursor:" + (affordable ? "pointer" : "not-allowed") + ";opacity:" + (affordable ? "1" : ".4") + ";\" " +
-                        (affordable ? "onclick=\"window.sevenWondersConfirmHalikarnassos(" + i + ")\"" : "") + ">" +
-                        "<div class=\"sw-tab-icon\">" + cardMainIcon(card) + "</div>" +
-                        "<div class=\"sw-tab-name\">" + escapeHtml(card.name) + "</div>" +
-                    "</div>"
-                );
-            }).join("") +
-        "</div>";
-    }
-
-    modal.classList.add("sw-show");
-};
-
-window.sevenWondersConfirmHalikarnassos = function (discardIdx) {
-    const me = myPlayer();
-    if (!me || !me.pendingChoice) return;
-
-    const pileCard = window.sevenWondersState.discardPile[discardIdx];
-    if (!pileCard) return;
-    if (!canAfford(me, pileCard.cost) && !hasChainInto(me, pileCard.name)) return;
-
-    me.pendingChoice = { action: "discardFromPile", cardIdx: me.pendingChoice.cardIdx, discardIdx: discardIdx };
-    window.sevenWondersCloseModal();
-    finishMyTurnIfHost();
-};
-
-function finishMyTurnIfHost() {
-    const st = window.sevenWondersState;
+    p.pendingChoice = valid;
+    st.message = p.name + " locked in a choice.";
     syncSevenWonders();
     renderSevenWonders();
 
-    const amHost = window.chaserGame && window.chaserGame.hostId === getMyId();
-    if (amHost && allChoicesIn(st)) {
-        setTimeout(resolveRound, 400);
-    }
+    if (allChoicesIn(st)) setTimeout(resolveRound, 250);
 }
 
-window.sevenWondersOpenOpponent = function (playerId) {
+function submitMyChoice(choice) {
     const st = window.sevenWondersState;
-    if (!st) return;
-    const p = st.players.find(function (x) { return x.id === playerId; });
+    const me = myPlayer();
+    if (!st || !me || me.pendingChoice || st.phase !== "playing") return;
+
+    choice.roundKey = roundKey(st);
+    const valid = validateChoice(st, me, choice);
+    if (!valid) return;
+
+    if (isHost()) {
+        me.pendingChoice = valid;
+        st.message = me.name + " locked in a choice.";
+        syncSevenWonders();
+        renderSevenWonders();
+        if (allChoicesIn(st)) setTimeout(resolveRound, 250);
+        return;
+    }
+
+    localUi.submittedRoundKey = roundKey(st);
+    localUi.selectedCardUid = null;
+    const sent = sendNetworkEvent("wonders-submit-action", {
+        roomGameId: currentRoomGameId(),
+        playerId: me.id,
+        choice: valid
+    });
+    if (!sent) {
+        localUi.submittedRoundKey = null;
+        st.message = "The room connection is not ready. Try the choice again.";
+    }
+    renderSevenWonders();
+}
+
+function hostReceiveSpecialChoice(payload) {
+    const st = window.sevenWondersState;
+    if (!st || st.phase !== "special" || !payload) return;
+    if (payload.playerId !== st.specialPlayerId) return;
+    const p = findPlayer(st, payload.playerId);
     if (!p) return;
 
-    const modal = document.getElementById("swModalOverlay");
-    const title = document.getElementById("swModalTitle");
-    const content = document.getElementById("swModalContent");
-    if (!modal || !title || !content) return;
-
-    title.textContent = p.name + "'s city — " + p.wonder;
-
-    const resLine = RES_KEYS.filter(function (k) { return p.resources[k] > 0; })
-        .map(function (k) { return RES_ICONS[k] + p.resources[k]; }).join(" ") || "No resources yet";
-
-    const tableauHtml = p.tableau.length
-        ? p.tableau.map(function (c) { return swTabCardHtml(c); }).join("")
-        : "<span style='font-size:12px;opacity:.6;'>Nothing built yet</span>";
-
-    content.innerHTML =
-        "<div style='margin-bottom:8px;font-size:13px;'>💰 " + p.coins + " &nbsp; ⚔️ " + p.shields + " shields &nbsp; 🏛️ stage " + p.wonderStage + "/3</div>" +
-        "<div style='margin-bottom:10px;font-size:13px;'>" + escapeHtml(resLine) + "</div>" +
-        "<div style='display:flex;flex-wrap:wrap;gap:5px;'>" + tableauHtml + "</div>";
-
-    modal.classList.add("sw-show");
-};
-
-window.sevenWondersCloseModal = function () {
-    const modal = document.getElementById("swModalOverlay");
-    if (modal) modal.classList.remove("sw-show");
-};
-
-/* ---- Card visuals ---- */
-
-function cardMainIcon(card) {
-    if (card.produces) {
-        const keys = Object.keys(card.produces);
-        if (keys.length === 1) return RES_ICONS[keys[0]];
-        return keys.map(function (k) { return RES_ICONS[k]; }).join("");
-    }
-    if (card.science) return SCIENCE_SYMBOLS[card.science];
-    if (card.shields) return "⚔️".repeat(Math.min(card.shields, 3));
-    if (card.type === "guild") return "👑";
-    if (card.type === "civilian") return "🏛️";
-    if (card.coins) return "💰";
-    if (card.type === "commercial") return "🤝";
-    return "❔";
+    if (!applyDiscardSpecial(st, p, payload.cardUid)) return;
+    st.specialPlayerId = null;
+    beginNextSpecial(st);
+    syncSevenWonders();
+    renderSevenWonders();
 }
 
-function costLabel(cost) {
-    if (!cost || Object.keys(cost).length === 0) return "Free";
+function requestState() {
+    sendNetworkEvent("wonders-request-state", {
+        roomGameId: currentRoomGameId(),
+        playerId: getMyId()
+    });
+}
+
+/* --------------------------------------------------------------------------
+   LOCAL UI ACTIONS
+---------------------------------------------------------------------------- */
+const localUi = {
+    selectedCardUid: null,
+    modal: null,
+    modalData: null,
+    submittedRoundKey: null,
+    paymentContext: null
+};
+
+function selectedHandCard() {
+    const me = myPlayer();
+    if (!me || !localUi.selectedCardUid) return null;
+    return me.hand.find(function (c) { return c.uid === localUi.selectedCardUid; }) || null;
+}
+
+window.wondersTapHandCard = function (cardUidEncoded) {
+    const uid = decodeURIComponent(cardUidEncoded);
+    const me = myPlayer();
+    if (!me || me.pendingChoice) return;
+    const found = me.hand.find(function (c) { return c.uid === uid; });
+    if (!found) return;
+    localUi.selectedCardUid = uid;
+    localUi.modal = "card";
+    localUi.modalData = { playerId: me.id, cardUid: uid, fromHand: true };
+    renderSevenWonders();
+};
+
+window.wondersOpenBuiltCard = function (playerIdEncoded, cardUidEncoded) {
+    localUi.modal = "card";
+    localUi.modalData = {
+        playerId: decodeURIComponent(playerIdEncoded),
+        cardUid: decodeURIComponent(cardUidEncoded),
+        fromHand: false
+    };
+    renderSevenWonders();
+};
+
+window.wondersCloseModal = function () {
+    localUi.modal = null;
+    localUi.modalData = null;
+    localUi.paymentContext = null;
+    renderSevenWonders();
+};
+
+window.wondersOpenOpponent = function (playerIdEncoded) {
+    localUi.modal = "opponent";
+    localUi.modalData = { playerId: decodeURIComponent(playerIdEncoded) };
+    renderSevenWonders();
+};
+
+window.wondersOpenHistory = function () {
+    localUi.modal = "history";
+    localUi.modalData = null;
+    renderSevenWonders();
+};
+
+window.wondersBuildSelected = function () {
+    beginSelectedPayment("build");
+};
+
+window.wondersBuildSelectedFree = function () {
+    const st = window.sevenWondersState;
+    const me = myPlayer();
+    const selected = selectedHandCard();
+    if (!st || !me || !selected || !canUseOlympiaFreeBuild(me) || hasBuiltName(me, selected.name)) return;
+    const plan = findPaymentPlans(st, me, selected.cost, "olympia")[0];
+    submitMyChoice({ action: "build", cardUid: selected.uid, payment: plan, freeMode: "olympia" });
+    window.wondersCloseModal();
+};
+
+window.wondersWonderSelected = function () {
+    beginSelectedPayment("wonder");
+};
+
+window.wondersSellSelected = function () {
+    const selected = selectedHandCard();
+    if (!selected) return;
+    submitMyChoice({ action: "discard", cardUid: selected.uid });
+    window.wondersCloseModal();
+};
+
+function beginSelectedPayment(actionType) {
+    const st = window.sevenWondersState;
+    const me = myPlayer();
+    const selected = selectedHandCard();
+    if (!st || !me || !selected) return;
+
+    let plans = [];
+    let freeMode = null;
+
+    if (actionType === "build") {
+        if (hasBuiltName(me, selected.name)) return;
+        if (hasChainInto(me, selected)) freeMode = "chain";
+        plans = findPaymentPlans(st, me, selected.cost, freeMode);
+    } else {
+        const board = WONDER_BOARDS[me.wonder];
+        const stage = board.stages[me.wonderStage];
+        if (!stage) return;
+        plans = findPaymentPlans(st, me, stage.cost, null);
+    }
+
+    if (!plans.length) return;
+
+    if (plans.length === 1 || plans[0].totalCoins === 0) {
+        submitMyChoice({
+            action: actionType,
+            cardUid: selected.uid,
+            payment: plans[0],
+            freeMode: freeMode
+        });
+        window.wondersCloseModal();
+        return;
+    }
+
+    localUi.modal = "payment";
+    localUi.paymentContext = {
+        actionType: actionType,
+        cardUid: selected.uid,
+        freeMode: freeMode,
+        plans: plans
+    };
+    renderSevenWonders();
+}
+
+window.wondersChoosePayment = function (planIndex) {
+    const ctx = localUi.paymentContext;
+    if (!ctx || !ctx.plans[planIndex]) return;
+    submitMyChoice({
+        action: ctx.actionType,
+        cardUid: ctx.cardUid,
+        payment: ctx.plans[planIndex],
+        freeMode: ctx.freeMode
+    });
+    window.wondersCloseModal();
+};
+
+window.wondersChooseDiscardSpecial = function (cardUidEncoded) {
+    const st = window.sevenWondersState;
+    const me = myPlayer();
+    if (!st || !me || st.phase !== "special" || st.specialPlayerId !== me.id) return;
+    const cardUid = decodeURIComponent(cardUidEncoded);
+
+    if (isHost()) {
+        hostReceiveSpecialChoice({ playerId: me.id, cardUid: cardUid });
+    } else {
+        sendNetworkEvent("wonders-special-choice", {
+            roomGameId: currentRoomGameId(),
+            playerId: me.id,
+            cardUid: cardUid
+        });
+        localUi.modal = null;
+        renderSevenWonders();
+    }
+};
+
+/* --------------------------------------------------------------------------
+   VISUAL HELPERS
+---------------------------------------------------------------------------- */
+function resourceList(resources, includeZero) {
     const parts = [];
-    if (cost.coins) parts.push("💰" + cost.coins);
-    RES_KEYS.forEach(function (k) { if (cost[k]) parts.push(RES_ICONS[k] + cost[k]); });
+    RES_KEYS.forEach(function (k) {
+        const qty = (resources && resources[k]) || 0;
+        if (qty > 0 || includeZero) parts.push(RES_ICONS[k] + (qty > 1 ? qty : ""));
+    });
     return parts.join(" ");
 }
 
-/* The prominent value line shown directly under the card name —
-   VP for civilian/guild cards, coin gain for commercial, shield
-   count for military, science symbol count for science. */
-function valueLabel(card) {
-    if (card.type === "guild" && card.guild) return "👑 Guild";
-    if (card.vp) return "🏆 " + card.vp + " VP";
-    if (card.coins) return "+" + card.coins + " 💰";
-    if (card.shields) return "+" + card.shields + " ⚔️";
-    if (card.science) return "+1 " + SCIENCE_SYMBOLS[card.science];
-    if (card.produces) {
-        const entries = Object.entries(card.produces);
-        if (entries.length === 1 && entries[0][1] > 1) return "×" + entries[0][1];
+function costHtml(cost) {
+    if (!cost || !Object.keys(cost).length) return "FREE";
+    const parts = [];
+    if (cost.coins) parts.push("ðŸª™" + cost.coins);
+    RES_KEYS.forEach(function (k) {
+        if (cost[k]) parts.push(RES_ICONS[k] + (cost[k] > 1 ? cost[k] : ""));
+    });
+    return parts.join(" ");
+}
+
+function productionIcon(cardDef) {
+    if (!cardDef.production) return "";
+    return cardDef.production.map(function (src) {
+        const joined = src.options.map(function (k) { return RES_ICONS[k]; }).join("/");
+        return (src.count || 1) > 1 ? joined + "Ã—" + src.count : joined;
+    }).join(" ");
+}
+
+function primaryEffectHtml(cardDef) {
+    if (cardDef.production) return productionIcon(cardDef);
+    if (cardDef.vp) return "<span class='wo-vp-big'>" + cardDef.vp + "</span><span class='wo-wreath'>â§</span>";
+    if (cardDef.shields) return "<span class='wo-shield-row'>" + "ðŸ›¡ï¸".repeat(cardDef.shields) + "</span>";
+    if (cardDef.science) return "<span class='wo-science-big'>" + SCIENCE_ICONS[cardDef.science] + "</span>";
+    if (cardDef.coins) return "<span class='wo-coin-big'>ðŸª™" + cardDef.coins + "</span>";
+    if (cardDef.discount) {
+        const arrow = cardDef.discount.side === "left" ? "â†" : cardDef.discount.side === "right" ? "â†’" : "â†”";
+        const icons = cardDef.discount.group === "raw" ? "ðŸªµðŸ§±ðŸª¨â›ï¸" : "ðŸ”·ðŸ“œðŸ§µ";
+        return "<span class='wo-trade-big'>" + arrow + " ðŸª™1<br><small>" + icons + "</small></span>";
     }
+    if (cardDef.coinsPer) {
+        const typeSymbol = TYPE_INFO[cardDef.coinsPer.type].symbol;
+        return "<span class='wo-formula-big'>" + typeSymbol + " Ã— " + cardDef.coinsPer.multiplier + "ðŸª™</span>";
+    }
+    if (cardDef.commerceScore) {
+        const basis = cardDef.commerceScore.basis === "wonderStage" ? "ðŸ›ï¸" : TYPE_INFO[cardDef.commerceScore.basis].symbol;
+        return "<span class='wo-formula-big'>" + basis + " Ã— " + cardDef.commerceScore.coinMultiplier + "ðŸª™<br>" + basis + " Ã— " + cardDef.commerceScore.vpMultiplier + "ðŸ†</span>";
+    }
+    if (cardDef.guild) return guildEffectIcon(cardDef.guild);
+    return "âœ¦";
+}
+
+function guildEffectIcon(rule) {
+    if (!rule) return "ðŸ‘‘";
+    if (rule.kind === "neighborsType") return "â† " + TYPE_INFO[rule.type].symbol + " Ã— " + rule.multiplier + "ðŸ† â†’";
+    if (rule.kind === "wonderStagesAll") return "â† ðŸ›ï¸ + ðŸ›ï¸ + ðŸ›ï¸ â†’";
+    if (rule.kind === "selfTypes") return "ðŸŸ« + â¬œ + ðŸŸ£";
+    if (rule.kind === "scienceWild") return "ðŸ§­ / âš™ï¸ / ðŸ“";
+    if (rule.kind === "neighborDefeats") return "â† -1 Ã— ðŸ† â†’";
+    return "ðŸ‘‘";
+}
+
+function chainFromLabel(cardDef) {
+    if (!cardDef.chainFrom || !cardDef.chainFrom.length) return "";
+    return "FREE WITH: " + cardDef.chainFrom.join(" OR ");
+}
+
+function chainToLabel(cardDef) {
+    if (!cardDef.chainTo || !cardDef.chainTo.length) return "";
+    return "BUILDS FREE: " + cardDef.chainTo.join(" Â· ");
+}
+
+function thresholdLabel(cardDef) {
+    return (cardDef.thresholds || [3]).map(function (n) { return n + "+"; }).join(" ");
+}
+
+function cardFrontHtml(cardDef, options) {
+    const opts = options || {};
+    const selected = !!opts.selected;
+    const compact = !!opts.compact;
+    const disabled = !!opts.disabled;
+    const click = opts.onclick || "";
+    const classes = ["wo-card", "wo-type-" + cardDef.type];
+    if (selected) classes.push("wo-selected");
+    if (compact) classes.push("wo-card-compact");
+    if (disabled) classes.push("wo-card-disabled");
+
+    return (
+        "<div class=\"" + classes.join(" ") + "\"" + (click ? " onclick=\"" + click + "\"" : "") + ">" +
+            "<div class=\"wo-card-cost\">" + costHtml(cardDef.cost) + "</div>" +
+            "<div class=\"wo-card-age\">" + romanAge(cardDef.age) + "</div>" +
+            (cardDef.chainFrom && cardDef.chainFrom.length ? "<div class=\"wo-chain-in\">â›“</div>" : "") +
+            "<div class=\"wo-card-effect\">" + primaryEffectHtml(cardDef) + "</div>" +
+            "<div class=\"wo-card-name\">" + escapeHtml(cardDef.name) + "</div>" +
+            (cardDef.chainTo && cardDef.chainTo.length ? "<div class=\"wo-chain-out\">â›“ " + escapeHtml(cardDef.chainTo.join(" Â· ")) + "</div>" : "") +
+            "<div class=\"wo-card-count\">" + escapeHtml(thresholdLabel(cardDef)) + "</div>" +
+        "</div>"
+    );
+}
+
+function tradableResourceSummary(player) {
+    const max = { wood: 9, clay: 9, stone: 9, ore: 9, glass: 9, papyrus: 9, cloth: 9 };
+    const vectors = productionVectors(player, true, max);
+    const maximum = emptyResources();
+    vectors.forEach(function (vec) {
+        RES_KEYS.forEach(function (k) { maximum[k] = Math.max(maximum[k], vec[k] || 0); });
+    });
+    return maximum;
+}
+
+function ownResourceSummary(player) {
+    const max = { wood: 9, clay: 9, stone: 9, ore: 9, glass: 9, papyrus: 9, cloth: 9 };
+    const vectors = productionVectors(player, false, max);
+    const maximum = emptyResources();
+    vectors.forEach(function (vec) {
+        RES_KEYS.forEach(function (k) { maximum[k] = Math.max(maximum[k], vec[k] || 0); });
+    });
+    return maximum;
+}
+
+function compactResourceChips(resources) {
+    return RES_KEYS.filter(function (k) { return resources[k] > 0; }).map(function (k) {
+        return "<span class='wo-mini-resource'>" + RES_ICONS[k] + (resources[k] > 1 ? resources[k] : "") + "</span>";
+    }).join("") || "<span class='wo-faint'>none</span>";
+}
+
+function wonderBoardHtml(player, interactive) {
+    const board = WONDER_BOARDS[player.wonder];
+    const stages = board.stages.map(function (stage, index) {
+        const built = index < player.wonderStage;
+        const tucked = player.wonderCards.find(function (x) { return x.stageIndex === index; });
+        return (
+            "<div class='wo-stage-wrap'>" +
+                (tucked ? "<div class='wo-tucked-card'><span>AGE " + romanAge(tucked.card.age) + "</span></div>" : "") +
+                "<div class='wo-stage " + (built ? "wo-stage-built" : "") + "'>" +
+                    "<div class='wo-stage-number'>" + (index + 1) + "</div>" +
+                    "<div class='wo-stage-cost'>" + costHtml(stage.cost) + "</div>" +
+                    "<div class='wo-stage-effect'>" + escapeHtml(stage.icon || stage.label) + "</div>" +
+                    (built ? "<div class='wo-stage-check'>âœ“</div>" : "") +
+                "</div>" +
+            "</div>"
+        );
+    }).join("");
+
+    return (
+        "<section class='wo-wonder wo-scene-" + board.scene + "'>" +
+            "<div class='wo-sky-glow'></div>" +
+            "<div class='wo-landmark' aria-hidden='true'></div>" +
+            "<div class='wo-wonder-heading'>" +
+                "<div><div class='wo-wonder-city'>" + escapeHtml(player.wonder) + "</div><div class='wo-wonder-subtitle'>" + escapeHtml(board.subtitle) + "</div></div>" +
+                "<div class='wo-start-resource'><span>START</span>" + RES_ICONS[board.startResource] + "</div>" +
+            "</div>" +
+            "<div class='wo-stage-row'>" + stages + "</div>" +
+        "</section>"
+    );
+}
+
+function opponentsHtml(st, me) {
+    return st.players.filter(function (p) { return p.id !== me.id; }).map(function (p) {
+        const ready = p.pendingChoice || p.isComputer;
+        const initials = (p.name || "?").trim().slice(0, 1).toUpperCase();
+        const trade = compactResourceChips(tradableResourceSummary(p));
+        return (
+            "<button class='wo-opponent " + (ready ? "wo-opponent-ready" : "") + "' onclick=\"window.wondersOpenOpponent('" + enc(p.id) + "')\">" +
+                "<span class='wo-avatar'>" + escapeHtml(initials) + "</span>" +
+                "<span class='wo-opp-info'><b>" + escapeHtml(p.name) + "</b><small>" + escapeHtml(p.wonder) + " Â· ðŸ›¡ï¸" + shieldCount(p) + " Â· ðŸª™" + p.coins + "</small><span class='wo-opp-trade'>" + trade + "</span></span>" +
+                "<span class='wo-ready-dot'>" + (ready ? "âœ“" : "â€¦") + "</span>" +
+            "</button>"
+        );
+    }).join("");
+}
+
+function resourceAndTradeHtml(st, me) {
+    const own = compactResourceChips(ownResourceSummary(me));
+    const n = neighborsOf(st, me.id);
+    const left = compactResourceChips(tradableResourceSummary(n.left));
+    const right = compactResourceChips(tradableResourceSummary(n.right));
+
+    return (
+        "<section class='wo-resource-panel'>" +
+            "<div class='wo-resource-cell wo-own-res'><span class='wo-res-title'>YOUR PRODUCTION</span><div>" + own + "</div></div>" +
+            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.left.id) + "')\"><span class='wo-res-title'>â† BUY FROM " + escapeHtml(n.left.name) + "</span><div>" + left + "</div></button>" +
+            "<button class='wo-resource-cell' onclick=\"window.wondersOpenOpponent('" + enc(n.right.id) + "')\"><span class='wo-res-title'>BUY FROM " + escapeHtml(n.right.name) + " â†’</span><div>" + right + "</div></button>" +
+        "</section>"
+    );
+}
+
+function tableauHtml(player) {
+    if (!player.tableau.length) {
+        return "<div class='wo-empty-city'>Your first built card will appear here.</div>";
+    }
+
+    return TYPE_ORDER.map(function (type) {
+        const cards = player.tableau.filter(function (c) { return c.type === type; });
+        if (!cards.length) return "";
+        return (
+            "<div class='wo-city-row wo-city-row-" + type + "'>" +
+                "<div class='wo-city-row-label'>" + TYPE_INFO[type].symbol + " " + escapeHtml(TYPE_INFO[type].label) + "</div>" +
+                "<div class='wo-city-cards'>" + cards.map(function (c) {
+                    return cardFrontHtml(c, {
+                        compact: true,
+                        onclick: "window.wondersOpenBuiltCard('" + enc(player.id) + "','" + enc(c.uid) + "')"
+                    });
+                }).join("") + "</div>" +
+            "</div>"
+        );
+    }).join("");
+}
+
+function handHtml(st, me) {
+    if (me.pendingChoice || localUi.submittedRoundKey === roundKey(st)) {
+        return "<div class='wo-waiting-panel'><div class='wo-hourglass'>âŒ›</div><b>Choice locked in</b><span>Waiting for the other cities.</span></div>";
+    }
+
+    return (
+        "<div class='wo-hand-scroll'>" + me.hand.map(function (c) {
+            const status = canBuildCard(st, me, c);
+            const disabled = hasBuiltName(me, c.name);
+            return cardFrontHtml(c, {
+                selected: c.uid === localUi.selectedCardUid,
+                disabled: disabled,
+                onclick: "window.wondersTapHandCard('" + enc(c.uid) + "')"
+            });
+        }).join("") + "</div>"
+    );
+}
+
+function actionBarHtml(st, me) {
+    if (me.pendingChoice || localUi.submittedRoundKey === roundKey(st) || st.phase !== "playing") return "";
+    const selected = selectedHandCard();
+    if (!selected) return "<div class='wo-action-hint'>Tap a card to enlarge it and choose what to do.</div>";
+
+    const build = canBuildCard(st, me, selected);
+    const wonder = canBuildWonder(st, me);
+    const olympia = canUseOlympiaFreeBuild(me) && !hasBuiltName(me, selected.name);
+    const bestBuild = build.plans && build.plans[0] ? planLabel(build.plans[0]) : build.reason;
+    const bestWonder = wonder.plans && wonder.plans[0] ? planLabel(wonder.plans[0]) : wonder.reason;
+
+    return (
+        "<div class='wo-selected-summary'><b>" + escapeHtml(selected.name) + "</b><span>Build: " + escapeHtml(bestBuild) + "</span></div>" +
+        "<div class='wo-action-row'>" +
+            "<button class='wo-action wo-build' " + (!build.legal ? "disabled" : "") + " onclick='window.wondersBuildSelected()'>BUILD</button>" +
+            "<button class='wo-action wo-stage-action' " + (!wonder.legal ? "disabled" : "") + " onclick='window.wondersWonderSelected()'>WONDER</button>" +
+            "<button class='wo-action wo-sell' onclick='window.wondersSellSelected()'>SELL +3</button>" +
+        "</div>" +
+        (olympia ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>âœ¨ Use Olympia: build this card free</button>" : "") +
+        (wonder.legal ? "<div class='wo-wonder-payment'>Wonder stage: " + escapeHtml(bestWonder) + "</div>" : "")
+    );
+}
+
+function scoreBoardHtml(st) {
+    const ranked = st.players.slice().sort(function (a, b) {
+        if (b.finalScore !== a.finalScore) return b.finalScore - a.finalScore;
+        return b.coins - a.coins;
+    });
+
+    return (
+        "<div class='wo-end-screen'>" +
+            "<div class='wo-end-title'>WONDERS COMPLETE</div>" +
+            "<div class='wo-winner'>" + escapeHtml(st.message) + "</div>" +
+            "<div class='wo-score-list'>" + ranked.map(function (p, idx) {
+                const b = p.scoreBreakdown;
+                return (
+                    "<div class='wo-score-card " + (idx === 0 ? "wo-first" : "") + "'>" +
+                        "<div class='wo-rank'>" + (idx + 1) + "</div>" +
+                        "<div class='wo-score-name'><b>" + escapeHtml(p.name) + "</b><small>" + escapeHtml(p.wonder) + "</small></div>" +
+                        "<div class='wo-score-total'>" + p.finalScore + "</div>" +
+                        "<div class='wo-score-breakdown'>ðŸ›¡ï¸" + b.military + " Â· ðŸª™" + b.coins + " Â· ðŸ›ï¸" + b.wonder + " Â· ðŸ”µ" + b.civilian + " Â· ðŸŸ¢" + b.science + " Â· ðŸŸ¡" + b.commercial + " Â· ðŸŸ£" + b.guilds + "</div>" +
+                    "</div>"
+                );
+            }).join("") + "</div>" +
+        "</div>"
+    );
+}
+
+/* --------------------------------------------------------------------------
+   MODALS
+---------------------------------------------------------------------------- */
+function modalShell(title, body, extraClass) {
+    return (
+        "<div class='wo-modal-overlay' onclick='window.wondersCloseModal()'>" +
+            "<div class='wo-modal-box " + (extraClass || "") + "' onclick='event.stopPropagation()'>" +
+                "<button class='wo-modal-x' onclick='window.wondersCloseModal()'>Ã—</button>" +
+                (title ? "<div class='wo-modal-title'>" + escapeHtml(title) + "</div>" : "") +
+                body +
+            "</div>" +
+        "</div>"
+    );
+}
+
+function cardModalHtml(st) {
+    const data = localUi.modalData || {};
+    const p = findPlayer(st, data.playerId);
+    if (!p) return "";
+
+    let c = null;
+    if (data.fromHand && p.id === getMyId()) c = p.hand.find(function (x) { return x.uid === data.cardUid; });
+    if (!c) c = p.tableau.find(function (x) { return x.uid === data.cardUid; });
+    if (!c) return "";
+
+    const me = myPlayer();
+    const isOwnHand = data.fromHand && me && p.id === me.id;
+    const buildStatus = isOwnHand ? canBuildCard(st, me, c) : null;
+    const wonderStatus = isOwnHand ? canBuildWonder(st, me) : null;
+    const chainFree = isOwnHand && hasChainInto(me, c);
+
+    let actionButtons = "";
+    if (isOwnHand && !me.pendingChoice && st.phase === "playing") {
+        actionButtons = (
+            "<div class='wo-modal-actions'>" +
+                "<button class='wo-action wo-build' " + (!buildStatus.legal ? "disabled" : "") + " onclick='window.wondersBuildSelected()'>BUILD</button>" +
+                "<button class='wo-action wo-stage-action' " + (!wonderStatus.legal ? "disabled" : "") + " onclick='window.wondersWonderSelected()'>WONDER</button>" +
+                "<button class='wo-action wo-sell' onclick='window.wondersSellSelected()'>SELL +3</button>" +
+            "</div>" +
+            (canUseOlympiaFreeBuild(me) && !hasBuiltName(me, c.name) ? "<button class='wo-olympia-free' onclick='window.wondersBuildSelectedFree()'>âœ¨ Build free with Olympia</button>" : "")
+        );
+    }
+
+    const buildLine = isOwnHand
+        ? (buildStatus.legal ? planLabel(buildStatus.plans[0]) : buildStatus.reason)
+        : "";
+
+    const body = (
+        "<div class='wo-large-card-wrap'>" + cardFrontHtml(c, {}) + "</div>" +
+        "<div class='wo-card-details'>" +
+            "<div class='wo-detail-grid'><span>COLOR</span><b>" + escapeHtml(TYPE_INFO[c.type].label) + "</b><span>COST</span><b>" + costHtml(c.cost) + "</b></div>" +
+            "<p>" + escapeHtml(c.description || "") + "</p>" +
+            (chainFromLabel(c) ? "<div class='wo-chain-detail wo-chain-free'>â›“ " + escapeHtml(chainFromLabel(c)) + "</div>" : "") +
+            (chainToLabel(c) ? "<div class='wo-chain-detail'>â›“ " + escapeHtml(chainToLabel(c)) + "</div>" : "") +
+            (chainFree ? "<div class='wo-free-banner'>YOU MAY BUILD THIS FREE BY CHAIN</div>" : "") +
+            (isOwnHand ? "<div class='wo-payment-preview'>" + escapeHtml(buildLine) + "</div>" : "") +
+        "</div>" + actionButtons
+    );
+
+    return modalShell(c.name, body, "wo-card-modal");
+}
+
+function opponentModalHtml(st) {
+    const p = findPlayer(st, localUi.modalData && localUi.modalData.playerId);
+    if (!p) return "";
+    const trade = tradableResourceSummary(p);
+    const body = (
+        "<div class='wo-opponent-summary'>" +
+            "<span>ðŸª™ " + p.coins + "</span><span>ðŸ›¡ï¸ " + shieldCount(p) + "</span><span>ðŸ›ï¸ " + p.wonderStage + "/3</span>" +
+        "</div>" +
+        wonderBoardHtml(p, false) +
+        "<div class='wo-modal-section-title'>Resources neighbors may buy</div>" +
+        "<div class='wo-modal-resources'>" + compactResourceChips(trade) + "</div>" +
+        "<div class='wo-modal-section-title'>Built city</div>" +
+        "<div class='wo-modal-city'>" + tableauHtml(p) + "</div>"
+    );
+    return modalShell(p.name + " â€” " + p.wonder, body, "wo-opponent-modal");
+}
+
+function paymentModalHtml(st) {
+    const ctx = localUi.paymentContext;
+    if (!ctx) return "";
+    const me = myPlayer();
+    const selected = selectedHandCard();
+    if (!me || !selected) return "";
+
+    const body = (
+        "<div class='wo-payment-intro'>Choose which neighbor receives the trade coins. Your own resources are always used first.</div>" +
+        "<div class='wo-payment-options'>" + ctx.plans.map(function (plan, idx) {
+            return (
+                "<button class='wo-payment-option' onclick='window.wondersChoosePayment(" + idx + ")'>" +
+                    "<b>Pay " + plan.totalCoins + " coin" + (plan.totalCoins === 1 ? "" : "s") + "</b>" +
+                    "<span>" + escapeHtml(planLabel(plan)) + "</span>" +
+                "</button>"
+            );
+        }).join("") + "</div>"
+    );
+    return modalShell(ctx.actionType === "wonder" ? "Pay for Wonder stage" : "Pay for " + selected.name, body, "wo-payment-modal");
+}
+
+function specialModalHtml(st) {
+    const me = myPlayer();
+    if (!me || st.phase !== "special" || st.specialPlayerId !== me.id) return "";
+    const legal = st.discardPile.filter(function (c) { return !hasBuiltName(me, c.name); });
+    const body = (
+        "<div class='wo-payment-intro'>Choose one discarded Age card. It is built free and does not use the card currently under your Wonder.</div>" +
+        "<div class='wo-discard-grid'>" + legal.map(function (c) {
+            return "<div class='wo-discard-choice' onclick=\"window.wondersChooseDiscardSpecial('" + enc(c.uid) + "')\">" + cardFrontHtml(c, { compact: true }) + "</div>";
+        }).join("") + "</div>"
+    );
+    return modalShell("Halikarnassos â€” build from discard", body, "wo-special-modal");
+}
+
+function historyModalHtml(st) {
+    const lines = st.history.length ? st.history.slice().reverse() : ["No turns have resolved yet."];
+    return modalShell("Game history", "<div class='wo-history-list'>" + lines.map(function (line) { return "<div>" + escapeHtml(line) + "</div>"; }).join("") + "</div>", "wo-history-modal");
+}
+
+function activeModalHtml(st) {
+    if (st.phase === "special" && st.specialPlayerId === getMyId()) return specialModalHtml(st);
+    if (localUi.modal === "card") return cardModalHtml(st);
+    if (localUi.modal === "opponent") return opponentModalHtml(st);
+    if (localUi.modal === "payment") return paymentModalHtml(st);
+    if (localUi.modal === "history") return historyModalHtml(st);
     return "";
 }
 
-function swCardHtml(card, idx, me, selected) {
-    const freeChain = hasChainInto(me, card.name);
-    const affordable = freeChain || canAfford(me, card.cost);
-    const val = valueLabel(card);
-
-    return (
-        "<div class=\"sw-card sw-type-" + card.type + (selected ? " sw-selected" : "") + (affordable ? "" : " sw-unafford") + "\" onclick=\"window.sevenWondersChooseCard(" + idx + ")\">" +
-            "<div class=\"sw-card-top\">" +
-                "<div class=\"sw-cost-badge\">" + (freeChain ? "FREE" : costLabel(card.cost)) + "</div>" +
-                (card.chainTo ? "<div class=\"sw-chain-badge\" title=\"chains to " + escapeHtml(card.chainTo) + "\">⛓</div>" : "<div></div>") +
-            "</div>" +
-            "<div class=\"sw-card-body\">" +
-                "<div class=\"sw-card-icon\">" + cardMainIcon(card) + "</div>" +
-            "</div>" +
-            "<div class=\"sw-card-name\">" + escapeHtml(card.name) + "</div>" +
-            (val ? "<div class=\"sw-card-value\">" + escapeHtml(val) + "</div>" : "") +
-        "</div>"
-    );
-}
-
-function swTabCardHtml(card) {
-    const val = valueLabel(card);
-    return (
-        "<div class=\"sw-tab-card sw-type-" + card.type + "\">" +
-            "<div class=\"sw-tab-icon\">" + cardMainIcon(card) + "</div>" +
-            "<div class=\"sw-tab-name\">" + escapeHtml(card.name) + "</div>" +
-            (val ? "<div class=\"sw-tab-value\">" + escapeHtml(val) + "</div>" : "") +
-        "</div>"
-    );
-}
-
-function swWonderBoardHtml(me) {
-    const board = WONDER_BOARDS[me.wonder];
-
-    const stagesHtml = board.stages.map(function (stage, i) {
-        const built = i < me.wonderStage;
-        const costStr = Object.keys(stage.cost).length
-            ? Object.entries(stage.cost).map(function (e) { return RES_ICONS[e[0]] + e[1]; }).join(" ")
-            : "Free";
-
-        return (
-            "<div class=\"sw-wstage" + (built ? " sw-built" : "") + "\">" +
-                (built ? "<div class=\"sw-wcheck\">✓</div>" : "") +
-                "<div class=\"sw-wcost\">" + costStr + "</div>" +
-                "<div class=\"sw-weffect\">" + escapeHtml(stage.effect) + "</div>" +
-            "</div>"
-        );
-    }).join("");
-
-    return (
-        "<div class=\"sw-wonder-board\">" +
-            "<div class=\"sw-wonder-header\">" +
-                "<div class=\"sw-wonder-title\">" + escapeHtml(me.wonder) + "</div>" +
-                "<div class=\"sw-wonder-start\">" + RES_ICONS[board.startResource] + " produces 1/turn</div>" +
-            "</div>" +
-            "<div class=\"sw-wstage-row\">" + stagesHtml + "</div>" +
-        "</div>"
-    );
-}
-
-function swResourceBarHtml(me) {
-    let html = "<div class=\"sw-res-chip sw-res-coins\">💰" + me.coins + "</div>";
-    RES_KEYS.forEach(function (k) {
-        if (me.resources[k] > 0) {
-            html += "<div class=\"sw-res-chip\">" + RES_ICONS[k] + me.resources[k] + "</div>";
-        }
-    });
-    return html;
-}
-
-function swOpponentsHtml(st, me) {
-    return st.players.filter(function (p) { return p.id !== me.id; }).map(function (p) {
-        const badge = p.shields > 0 ? "<div class=\"sw-mil-badge\">" + p.shields + "</div>" : "";
-        return (
-            "<div class=\"sw-opp-avatar\" onclick=\"window.sevenWondersOpenOpponent('" + p.id + "')\">" +
-                escapeHtml(p.name[0]) + badge +
-            "</div>"
-        );
-    }).join("");
-}
-
-function swActionBarHtml(me, st) {
-    const choice = me.pendingChoice;
-    const hasSelection = !!(choice && choice.action === "select" && me.hand[choice.cardIdx]);
-    const card = hasSelection ? me.hand[choice.cardIdx] : null;
-    const locked = !!(choice && choice.action !== "select");
-
-    const buildDisabled = !hasSelection || locked || !(canAfford(me, card.cost) || hasChainInto(me, card.name));
-    const board = WONDER_BOARDS[me.wonder];
-    const nextStage = board.stages[me.wonderStage];
-    const wonderDisabled = !hasSelection || locked || me.wonderStage >= 3 || !nextStage || !canAfford(me, nextStage.cost);
-    const discardDisabled = !hasSelection || locked;
-
-    if (locked) {
-        return "<div class=\"sw-waiting-msg\">Choice locked in. Waiting for other players...</div>";
-    }
-
-    let extraButtons = "";
-
-    const olympiaAvailable = hasSelection && canUseOlympiaFreeBuild(me) && card && !hasChainInto(me, card.name);
-    if (olympiaAvailable) {
-        extraButtons += "<button class=\"sw-btn sw-btn-olympia\" onclick=\"window.sevenWondersConfirmOlympiaFree()\">Build Free (Olympia)</button>";
-    }
-
-    const halikarnassosAvailable = hasSelection && me.wonder === "Halikarnassos" && hasWonderStage(me, 1) &&
-        st && st.discardPile && st.discardPile.length > 0;
-
-    if (halikarnassosAvailable) {
-        extraButtons += "<button class=\"sw-btn sw-btn-halikarnassos\" onclick=\"window.sevenWondersOpenDiscardPile()\">Build from Discard</button>";
-    }
-
-    return (
-        "<div class=\"sw-action-bar\">" +
-            "<button class=\"sw-btn sw-btn-build\" " + (buildDisabled ? "disabled" : "") + " onclick=\"window.sevenWondersConfirmBuild()\">Build</button>" +
-            "<button class=\"sw-btn sw-btn-wonder\" " + (wonderDisabled ? "disabled" : "") + " onclick=\"window.sevenWondersConfirmWonder()\">Build Wonder</button>" +
-            "<button class=\"sw-btn sw-btn-discard\" " + (discardDisabled ? "disabled" : "") + " onclick=\"window.sevenWondersConfirmDiscard()\">Sell for 💰3</button>" +
-        "</div>" +
-        (extraButtons ? "<div class=\"sw-action-bar sw-action-bar-extra\">" + extraButtons + "</div>" : "")
-    );
-}
-
-/* ---- Styles: sized up considerably ("zoomed in") vs. the original.
-   Base font bumped, wonder board/card/hand card dimensions increased,
-   so the whole table reads clearly on a phone screen. ---- */
+/* --------------------------------------------------------------------------
+   STYLES
+---------------------------------------------------------------------------- */
 function swStyles() {
-    return (
-        "<style>" +
-            ".sw-wrap{height:100%;overflow:auto;box-sizing:border-box;font-family:Georgia,'Times New Roman',serif;color:#e8dcc4;background:linear-gradient(180deg,#1d1611,#2b2017);padding-bottom:84px;font-size:16px;}" +
-            ".sw-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:rgba(0,0,0,.25);border-bottom:1px solid rgba(201,162,39,.3);}" +
-            ".sw-opponents{display:flex;gap:8px;flex-wrap:wrap;}" +
-            ".sw-opp-avatar{width:42px;height:42px;border-radius:50%;border:2px solid #c9a227;display:flex;align-items:center;justify-content:center;font-size:17px;background:#6b6359;position:relative;cursor:pointer;color:#fff;}" +
-            ".sw-mil-badge{position:absolute;bottom:-5px;right:-5px;background:#b3342c;border-radius:50%;width:19px;height:19px;font-size:11px;display:flex;align-items:center;justify-content:center;border:1px solid #1d1611;}" +
-            ".sw-age-indicator{text-align:right;font-size:12px;color:#c9a227;text-transform:uppercase;}" +
-            ".sw-age-line{font-size:19px;font-weight:bold;color:#e8dcc4;}" +
-            ".sw-age-line .sw-age-label{color:#c9a227;font-size:12px;margin-right:5px;}" +
-            ".sw-round-line{font-size:11px;opacity:.7;margin-top:2px;}" +
-            ".sw-wonder-board{margin:10px 12px 0;border-radius:10px;background:linear-gradient(160deg,#d9c89a,#c4b07e);border:2px solid #8a6f1c;padding:12px;color:#2b2017;}" +
-            ".sw-wonder-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}" +
-            ".sw-wonder-title{font-weight:bold;font-size:19px;}" +
-            ".sw-wonder-start{font-size:13px;background:rgba(0,0,0,.12);padding:3px 10px;border-radius:12px;font-weight:bold;}" +
-            ".sw-wstage-row{display:flex;gap:8px;}" +
-            ".sw-wstage{flex:1;background:rgba(255,255,255,.35);border:1.5px dashed rgba(43,32,23,.4);border-radius:8px;padding:10px 6px;text-align:center;min-height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;}" +
-            ".sw-wstage.sw-built{background:#c9a227;border-style:solid;border-color:#8a6f1c;}" +
-            ".sw-wcost{font-size:19px;font-weight:bold;margin-bottom:5px;line-height:1;}" +
-            ".sw-weffect{font-size:13px;font-weight:600;line-height:1.25;}" +
-            ".sw-wcheck{position:absolute;top:3px;right:5px;font-size:16px;}" +
-            ".sw-res-bar{display:flex;gap:10px;padding:10px 14px;overflow-x:auto;background:rgba(0,0,0,.2);margin-top:8px;font-size:15px;}" +
-            ".sw-res-chip{padding:4px 10px;border-radius:12px;background:rgba(255,255,255,.08);white-space:nowrap;flex-shrink:0;}" +
-            ".sw-res-coins{background:rgba(201,162,39,.25);color:#c9a227;font-weight:bold;}" +
-            ".sw-tableau-area{padding:14px 14px;}" +
-            ".sw-tableau-label{font-size:13px;text-transform:uppercase;color:rgba(232,220,196,.5);margin-bottom:8px;}" +
-            ".sw-tableau{display:flex;flex-wrap:wrap;gap:8px;}" +
-            ".sw-tab-card{width:70px;height:92px;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;border:1px solid rgba(255,255,255,.15);padding:4px;color:#fff;}" +
-            ".sw-tab-icon{font-size:26px;line-height:1;}" +
-            ".sw-tab-name{font-size:9.5px;line-height:1.15;}" +
-            ".sw-tab-value{font-size:9.5px;font-weight:bold;color:#ffd700;}" +
-            ".sw-empty-tableau{font-size:14px;color:rgba(232,220,196,.35);font-style:italic;padding:16px 0;}" +
-            ".sw-hand-area{background:rgba(0,0,0,.35);border-top:1px solid rgba(201,162,39,.3);padding:12px 0 14px;}" +
-            ".sw-hand-label{font-size:13px;text-transform:uppercase;color:#c9a227;padding:0 14px 8px;display:flex;justify-content:space-between;}" +
-            ".sw-hand-scroll{display:flex;gap:10px;overflow-x:auto;padding:0 14px 6px;}" +
-            ".sw-card{flex-shrink:0;width:120px;height:180px;border-radius:9px;padding:0;border:2px solid rgba(0,0,0,.35);cursor:pointer;background:#e8dcc4;overflow:hidden;display:flex;flex-direction:column;position:relative;}" +
-            ".sw-card.sw-selected{transform:translateY(-10px);box-shadow:0 5px 18px rgba(201,162,39,.6);border-color:#c9a227;}" +
-            ".sw-card.sw-unafford{opacity:.5;}" +
-            ".sw-card-top{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 6px 0;height:22px;}" +
-            ".sw-cost-badge{background:rgba(255,255,255,.85);color:#2b2017;border-radius:9px;padding:2px 6px;font-size:11px;font-weight:bold;border:1px solid rgba(0,0,0,.2);white-space:nowrap;}" +
-            ".sw-chain-badge{background:#fff;border-radius:50%;width:19px;height:19px;display:flex;align-items:center;justify-content:center;font-size:11px;border:1px solid rgba(0,0,0,.3);}" +
-            ".sw-card-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:4px;text-align:center;}" +
-            ".sw-card-icon{font-size:46px;line-height:1;letter-spacing:-2px;}" +
-            ".sw-card-name{background:rgba(0,0,0,.55);color:#fff;font-size:11.5px;font-weight:bold;text-align:center;padding:5px 4px 2px;line-height:1.2;}" +
-            ".sw-card-value{background:rgba(0,0,0,.55);color:#ffd700;font-size:12px;font-weight:900;text-align:center;padding:0 4px 6px;line-height:1.2;}" +
-            ".sw-type-raw .sw-card-body{background:linear-gradient(160deg,#6b4226,#4a2d18);}" +
-            ".sw-type-manufactured .sw-card-body{background:linear-gradient(160deg,#8d8d90,#6b6b6e);}" +
-            ".sw-type-civilian .sw-card-body{background:linear-gradient(160deg,#3b6ea5,#2a4f78);}" +
-            ".sw-type-commercial .sw-card-body{background:linear-gradient(160deg,#e0a82e,#b8851c);}" +
-            ".sw-type-military .sw-card-body{background:linear-gradient(160deg,#b3342c,#8a241e);}" +
-            ".sw-type-science .sw-card-body{background:linear-gradient(160deg,#3f8f5f,#2c6943);}" +
-            ".sw-type-guild .sw-card-body{background:linear-gradient(160deg,#7b4397,#5c2f73);}" +
-            ".sw-tab-card.sw-type-raw{background:#6b4226;} .sw-tab-card.sw-type-manufactured{background:#8d8d90;} .sw-tab-card.sw-type-civilian{background:#3b6ea5;} .sw-tab-card.sw-type-commercial{background:#e0a82e;color:#2b2017;} .sw-tab-card.sw-type-military{background:#b3342c;} .sw-tab-card.sw-type-science{background:#3f8f5f;} .sw-tab-card.sw-type-guild{background:#7b4397;}" +
-            ".sw-action-bar{display:flex;gap:10px;padding:0 14px;margin-top:10px;}" +
-            ".sw-btn{flex:1;padding:13px;border-radius:8px;border:none;font-size:14px;font-weight:bold;text-transform:uppercase;cursor:pointer;}" +
-            ".sw-btn-build{background:#c9a227;color:#2b2017;}" +
-            ".sw-btn-wonder{background:rgba(255,255,255,.12);color:#e8dcc4;}" +
-            ".sw-btn-discard{background:rgba(179,52,44,.4);color:#e8dcc4;}" +
-            ".sw-btn:disabled{opacity:.35;cursor:not-allowed;}" +
-            ".sw-action-bar-extra{margin-top:8px;}" +
-            ".sw-btn-olympia{background:rgba(63,143,95,.55);color:#fff;}" +
-            ".sw-btn-halikarnassos{background:rgba(123,67,151,.55);color:#fff;}" +
-            ".sw-waiting-msg{text-align:center;font-size:15px;color:#c9a227;font-weight:bold;padding:8px 14px;}" +
-            ".sw-message{text-align:center;color:#ffd700;font-weight:900;font-size:16px;padding:8px 14px;}" +
-            "#swModalOverlay{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}" +
-            "#swModalOverlay.sw-show{display:flex;}" +
-            "#swModalBox{background:#2b2017;border:1px solid #c9a227;border-radius:12px;padding:18px;width:100%;max-width:400px;max-height:72vh;overflow-y:auto;color:#e8dcc4;}" +
-            "#swModalBox h3{margin:0 0 12px;color:#c9a227;font-size:18px;}" +
-            "#swModalClose{display:block;margin:16px auto 0;background:#c9a227;color:#2b2017;border:none;padding:9px 22px;border-radius:7px;font-weight:bold;font-size:14px;}" +
-        "</style>"
-    );
+    return "<style>" +
+        ".wo-root{--ink:#21160f;--parchment:#ead9b7;--gold:#d7ad49;--deep:#17100c;position:relative;height:100%;overflow:auto;background:radial-gradient(circle at 50% -15%,#6d5138 0,#2e2118 42%,#17100c 100%);color:#f7edd8;font-family:Georgia,'Times New Roman',serif;box-sizing:border-box;padding-bottom:110px;-webkit-overflow-scrolling:touch;}" +
+        ".wo-root *{box-sizing:border-box}.wo-root button{font-family:inherit;}" +
+        ".wo-top{position:sticky;top:0;z-index:12;background:linear-gradient(180deg,rgba(18,12,8,.98),rgba(31,21,14,.94));border-bottom:1px solid rgba(215,173,73,.45);box-shadow:0 5px 18px rgba(0,0,0,.35);}" +
+        ".wo-status{display:flex;align-items:center;justify-content:space-between;padding:8px 11px 6px;gap:8px;}" +
+        ".wo-game-name{font-size:20px;letter-spacing:2px;font-weight:900;color:#f3d784;text-shadow:0 2px 5px #000;}" +
+        ".wo-age-box{text-align:center;line-height:1;min-width:74px}.wo-age-box b{display:block;font-size:22px;color:#f3d784}.wo-age-box small{font-size:10px;letter-spacing:1px;opacity:.7;}" +
+        ".wo-money-box{display:flex;gap:9px;align-items:center;font-size:14px;font-weight:bold}.wo-history-btn{width:30px;height:30px;border:1px solid rgba(215,173,73,.5);border-radius:50%;background:rgba(255,255,255,.07);color:#f3d784;font-size:15px;}" +
+        ".wo-opponents-strip{display:flex;gap:7px;overflow-x:auto;padding:0 9px 8px;scrollbar-width:none}.wo-opponents-strip::-webkit-scrollbar{display:none;}" +
+        ".wo-opponent{min-width:155px;max-width:175px;border:1px solid rgba(215,173,73,.28);border-radius:9px;background:rgba(255,255,255,.055);color:#f7edd8;padding:6px;display:flex;align-items:center;gap:6px;text-align:left;position:relative;}" +
+        ".wo-opponent-ready{border-color:rgba(104,190,121,.65);}.wo-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#8f7453,#433224);border:1px solid #d7ad49;font-weight:bold;flex:0 0 auto;}" +
+        ".wo-opp-info{min-width:0;display:block;flex:1}.wo-opp-info b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}.wo-opp-info small{font-size:9px;opacity:.72;display:block;white-space:nowrap}.wo-opp-trade{display:flex;gap:1px;margin-top:2px;overflow:hidden;height:14px}.wo-ready-dot{font-size:12px;color:#79d58b;}" +
+        ".wo-message{padding:7px 12px;text-align:center;color:#f5d66f;font-size:12px;font-weight:bold;background:rgba(0,0,0,.18);border-bottom:1px solid rgba(255,255,255,.05);}" +
+
+        ".wo-wonder{position:relative;margin:10px;border-radius:13px;min-height:218px;overflow:hidden;border:2px solid #b98e35;box-shadow:0 9px 24px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.2);background:linear-gradient(180deg,#8cc5d3 0,#d9ba7b 56%,#6e5034 100%);}" +
+        ".wo-sky-glow{position:absolute;inset:0;background:radial-gradient(circle at 72% 15%,rgba(255,245,188,.8),transparent 28%),linear-gradient(180deg,rgba(255,255,255,.1),transparent 60%);}" +
+        ".wo-landmark{position:absolute;left:7%;right:7%;top:38px;bottom:57px;opacity:.72;filter:drop-shadow(0 5px 5px rgba(0,0,0,.35));}" +
+        ".wo-scene-pyramid .wo-landmark{clip-path:polygon(50% 4%,95% 94%,5% 94%);background:linear-gradient(120deg,#d8bd77 0 49%,#9e7842 50% 100%);}" +
+        ".wo-scene-lighthouse .wo-landmark{left:39%;right:39%;clip-path:polygon(35% 0,65% 0,70% 16%,76% 16%,82% 100%,18% 100%,24% 16%,30% 16%);background:linear-gradient(90deg,#d9d2bd,#f5ead1 50%,#8f806e);}" +
+        ".wo-scene-gardens .wo-landmark{clip-path:polygon(4% 86%,4% 65%,18% 65%,18% 45%,34% 45%,34% 25%,66% 25%,66% 45%,82% 45%,82% 65%,96% 65%,96% 86%);background:linear-gradient(180deg,#5f9f57,#8fb66b 50%,#bca66a 51%);}" +
+        ".wo-scene-temple .wo-landmark{clip-path:polygon(8% 26%,50% 0,92% 26%,86% 26%,86% 92%,76% 92%,76% 34%,64% 34%,64% 92%,55% 92%,55% 34%,45% 34%,45% 92%,36% 92%,36% 34%,24% 34%,24% 92%,14% 92%,14% 26%);background:linear-gradient(90deg,#bca57c,#f1dfb4,#9b8057);}" +
+        ".wo-scene-mausoleum .wo-landmark{clip-path:polygon(17% 90%,17% 42%,28% 42%,28% 27%,39% 27%,39% 13%,50% 0,61% 13%,61% 27%,72% 27%,72% 42%,83% 42%,83% 90%);background:linear-gradient(90deg,#b8b0a0,#ebe1cc,#8f8678);}" +
+        ".wo-scene-zeus .wo-landmark{left:34%;right:34%;clip-path:polygon(40% 0,60% 0,70% 14%,68% 32%,82% 52%,72% 100%,28% 100%,18% 52%,32% 32%,30% 14%);background:linear-gradient(90deg,#9d7f42,#f0d989,#87652c);}" +
+        ".wo-scene-colossus .wo-landmark{left:34%;right:34%;clip-path:polygon(37% 0,63% 0,70% 18%,62% 43%,82% 100%,60% 100%,50% 62%,40% 100%,18% 100%,38% 43%,30% 18%);background:linear-gradient(90deg,#8e6e3a,#e2bc64,#755226);}" +
+        ".wo-wonder-heading{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;padding:11px 12px;color:#24170d;text-shadow:0 1px rgba(255,255,255,.3)}.wo-wonder-city{font-size:22px;font-weight:900;letter-spacing:1px;text-transform:uppercase}.wo-wonder-subtitle{font-size:11px;font-style:italic;opacity:.78}.wo-start-resource{display:flex;align-items:center;gap:4px;background:rgba(249,239,205,.8);border:1px solid rgba(64,38,17,.35);border-radius:20px;padding:4px 8px;font-size:18px;font-weight:bold}.wo-start-resource span{font-size:8px;letter-spacing:1px;}" +
+        ".wo-stage-row{position:absolute;z-index:3;left:8px;right:8px;bottom:8px;display:flex;gap:7px;align-items:flex-end}.wo-stage-wrap{position:relative;flex:1;padding-top:12px}.wo-stage{position:relative;min-height:66px;border-radius:8px;border:2px solid rgba(52,31,14,.72);background:linear-gradient(180deg,rgba(247,230,180,.92),rgba(188,149,83,.94));color:#2b1a0c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px;text-align:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.32)}.wo-stage-built{background:linear-gradient(180deg,#e6c465,#a77b28);}.wo-stage-number{position:absolute;top:3px;left:5px;font-size:9px;border:1px solid rgba(0,0,0,.3);border-radius:50%;width:15px;height:15px;display:grid;place-items:center}.wo-stage-cost{font-size:13px;font-weight:bold;white-space:nowrap}.wo-stage-effect{font-size:11px;font-weight:900;margin-top:4px;line-height:1.1}.wo-stage-check{position:absolute;right:5px;top:2px;font-size:18px;color:#1d6d2b}.wo-tucked-card{position:absolute;z-index:-1;left:11%;right:11%;top:0;height:31px;border-radius:5px 5px 0 0;background:repeating-linear-gradient(45deg,#3d2a1a,#3d2a1a 4px,#61452c 4px,#61452c 8px);border:1px solid #1c1009;color:#e8ca7d;text-align:center;font-size:8px;padding-top:3px;transform:rotate(-1deg);}" +
+
+        ".wo-resource-panel{margin:0 10px 10px;display:grid;grid-template-columns:1.15fr 1fr 1fr;border:1px solid rgba(215,173,73,.28);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.22)}.wo-resource-cell{min-width:0;border:0;border-right:1px solid rgba(215,173,73,.18);background:transparent;color:#f7edd8;padding:7px 6px;text-align:center}.wo-resource-cell:last-child{border-right:0}.wo-res-title{font-size:8px;letter-spacing:.5px;color:#d9bd78;display:block;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-mini-resource{display:inline-block;font-size:13px;margin:0 1px}.wo-faint{font-size:10px;opacity:.45}.wo-own-res{background:rgba(215,173,73,.08)}" +
+        ".wo-city-section{padding:0 10px 12px}.wo-section-heading{display:flex;justify-content:space-between;align-items:center;margin:5px 1px 7px;font-size:11px;letter-spacing:1px;color:#d9bd78;text-transform:uppercase}.wo-section-heading span:last-child{opacity:.6}.wo-empty-city{border:1px dashed rgba(255,255,255,.18);border-radius:9px;padding:18px;text-align:center;font-size:12px;opacity:.55}.wo-city-row{margin-bottom:7px}.wo-city-row-label{font-size:9px;opacity:.65;margin:0 0 3px 2px;text-transform:uppercase}.wo-city-cards{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}.wo-city-cards::-webkit-scrollbar{display:none;}" +
+
+        ".wo-hand-section{border-top:1px solid rgba(215,173,73,.3);background:linear-gradient(180deg,rgba(8,5,3,.25),rgba(8,5,3,.55));padding:10px 0 14px}.wo-hand-heading{display:flex;justify-content:space-between;padding:0 11px 8px;color:#e8cd86;font-size:11px;letter-spacing:.7px;text-transform:uppercase}.wo-hand-scroll{display:flex;gap:9px;overflow-x:auto;padding:7px 11px 13px;scroll-snap-type:x proximity;scrollbar-width:none}.wo-hand-scroll::-webkit-scrollbar{display:none;}" +
+        ".wo-card{position:relative;flex:0 0 112px;width:112px;height:170px;border-radius:8px;overflow:hidden;border:2px solid rgba(20,12,7,.65);box-shadow:0 6px 12px rgba(0,0,0,.34);scroll-snap-align:center;cursor:pointer;transform-origin:center bottom;transition:transform .15s,filter .15s;background:#ddd}.wo-card:active{transform:scale(.98)}.wo-card.wo-selected{transform:translateY(-8px);outline:3px solid #f4d66c;box-shadow:0 8px 20px rgba(240,199,74,.5)}.wo-card-disabled{filter:grayscale(.7);opacity:.47}.wo-card-cost{position:absolute;z-index:3;top:5px;left:5px;max-width:80px;border-radius:10px;background:rgba(249,242,218,.92);color:#21160f;padding:2px 5px;font-size:9px;font-weight:900;white-space:nowrap}.wo-card-age{position:absolute;z-index:3;right:5px;top:5px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(24,16,10,.78);color:#f7e4aa;border:1px solid rgba(255,255,255,.42);font-size:10px;font-weight:bold}.wo-chain-in{position:absolute;z-index:3;left:5px;top:29px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.88);color:#222;font-size:10px}.wo-card-effect{position:absolute;left:0;right:0;top:0;bottom:45px;display:flex;align-items:center;justify-content:center;text-align:center;padding:35px 7px 8px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.75);font-size:31px;font-weight:900}.wo-card-name{position:absolute;z-index:2;bottom:17px;left:0;right:0;min-height:28px;padding:5px 3px 2px;background:rgba(13,9,6,.72);color:#fff;text-align:center;font-size:10px;font-weight:900;line-height:1.05}.wo-chain-out{position:absolute;z-index:3;left:3px;right:3px;bottom:3px;color:#f7e6b2;font-size:6.5px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-card-count{position:absolute;z-index:4;right:4px;bottom:3px;color:#fff;font-size:6px;opacity:.7}.wo-vp-big{font-size:46px}.wo-wreath{font-size:22px;color:#dbdf82}.wo-shield-row{font-size:24px;letter-spacing:-8px;padding-right:7px}.wo-science-big{font-size:46px}.wo-coin-big{font-size:30px}.wo-trade-big{font-size:27px;line-height:1}.wo-trade-big small{font-size:12px}.wo-formula-big{font-size:20px;line-height:1.35}.wo-type-raw .wo-card-effect{background:linear-gradient(145deg,#7a4829,#4b2817)}.wo-type-manufactured .wo-card-effect{background:linear-gradient(145deg,#a4a5a7,#696a6d)}.wo-type-civilian .wo-card-effect{background:linear-gradient(145deg,#2e7db1,#164d79)}.wo-type-commercial .wo-card-effect{background:linear-gradient(145deg,#e8b52f,#b97805)}.wo-type-military .wo-card-effect{background:linear-gradient(145deg,#cf3830,#7e1818)}.wo-type-science .wo-card-effect{background:linear-gradient(145deg,#3a9964,#1c653d)}.wo-type-guild .wo-card-effect{background:linear-gradient(145deg,#8d4cad,#4e216a)}" +
+        ".wo-card-compact{flex-basis:67px;width:67px;height:92px;border-width:1px;border-radius:5px;box-shadow:0 3px 7px rgba(0,0,0,.3)}.wo-card-compact .wo-card-cost{top:2px;left:2px;font-size:6px;padding:1px 3px;max-width:48px}.wo-card-compact .wo-card-age{width:14px;height:14px;top:2px;right:2px;font-size:6px}.wo-card-compact .wo-chain-in{display:none}.wo-card-compact .wo-card-effect{bottom:28px;padding:20px 3px 2px;font-size:20px}.wo-card-compact .wo-vp-big{font-size:26px}.wo-card-compact .wo-wreath{font-size:12px}.wo-card-compact .wo-science-big{font-size:25px}.wo-card-compact .wo-shield-row{font-size:13px;letter-spacing:-5px}.wo-card-compact .wo-coin-big{font-size:16px}.wo-card-compact .wo-formula-big,.wo-card-compact .wo-trade-big{font-size:11px}.wo-card-compact .wo-card-name{bottom:8px;min-height:20px;font-size:6.5px;padding:3px 2px 1px}.wo-card-compact .wo-chain-out{font-size:4px;bottom:1px}.wo-card-compact .wo-card-count{display:none}" +
+
+        ".wo-selected-summary{margin:0 11px 6px;display:flex;flex-direction:column;align-items:center;text-align:center}.wo-selected-summary b{font-size:14px;color:#f2d270}.wo-selected-summary span{font-size:10px;opacity:.72;margin-top:2px}.wo-action-row,.wo-modal-actions{display:flex;gap:7px;padding:0 11px}.wo-action{flex:1;min-height:44px;border:0;border-radius:8px;font-weight:900;font-size:12px;letter-spacing:.5px;color:#fff;box-shadow:inset 0 -3px rgba(0,0,0,.2)}.wo-action:disabled{opacity:.27;filter:grayscale(1)}.wo-build{background:linear-gradient(#3c9a60,#246840)}.wo-stage-action{background:linear-gradient(#c79835,#806019)}.wo-sell{background:linear-gradient(#a84a43,#6d2a26)}.wo-olympia-free{display:block;width:calc(100% - 22px);margin:7px 11px 0;border:1px solid #7dd89b;border-radius:8px;background:rgba(43,137,79,.35);color:#dff9e8;padding:9px;font-weight:bold}.wo-wonder-payment{text-align:center;font-size:9px;opacity:.65;padding-top:5px}.wo-action-hint{margin:3px 11px 0;border:1px dashed rgba(255,255,255,.22);border-radius:8px;padding:11px;text-align:center;font-size:11px;color:#e2c77e}.wo-waiting-panel{margin:5px 11px 8px;border:1px solid rgba(215,173,73,.28);border-radius:10px;padding:18px;text-align:center;display:flex;flex-direction:column;gap:4px;color:#e8cc81}.wo-waiting-panel span{font-size:11px;opacity:.7}.wo-hourglass{font-size:24px}" +
+
+        ".wo-modal-overlay{position:absolute;z-index:80;inset:0;min-height:100%;background:rgba(7,4,2,.82);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px 40px;overflow:auto}.wo-modal-box{position:relative;width:100%;max-width:440px;border-radius:14px;background:linear-gradient(180deg,#332319,#1d140f);border:1px solid #c9a14a;color:#f7edd8;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.65)}.wo-modal-x{position:absolute;z-index:5;right:8px;top:7px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:rgba(0,0,0,.5);color:#fff;font-size:25px;line-height:28px}.wo-modal-title{text-align:center;color:#f0cf75;font-weight:900;font-size:18px;padding:2px 38px 12px;text-transform:uppercase;letter-spacing:.7px}.wo-large-card-wrap{display:flex;justify-content:center;padding:4px 0 13px}.wo-large-card-wrap .wo-card{width:190px;height:286px;flex-basis:190px;border-radius:12px}.wo-large-card-wrap .wo-card-cost{font-size:14px;padding:4px 8px;top:8px;left:8px;max-width:145px}.wo-large-card-wrap .wo-card-age{width:33px;height:33px;font-size:15px;top:8px;right:8px}.wo-large-card-wrap .wo-chain-in{top:48px;left:8px;width:28px;height:28px;font-size:15px}.wo-large-card-wrap .wo-card-effect{bottom:72px;padding-top:55px;font-size:50px}.wo-large-card-wrap .wo-vp-big{font-size:78px}.wo-large-card-wrap .wo-wreath{font-size:34px}.wo-large-card-wrap .wo-science-big{font-size:78px}.wo-large-card-wrap .wo-shield-row{font-size:38px}.wo-large-card-wrap .wo-card-name{bottom:28px;min-height:46px;font-size:18px;padding:9px 6px 4px}.wo-large-card-wrap .wo-chain-out{bottom:7px;font-size:10px;left:6px;right:6px}.wo-large-card-wrap .wo-card-count{font-size:9px;bottom:7px}.wo-card-details{border-top:1px solid rgba(215,173,73,.23);padding-top:11px}.wo-card-details p{font-size:13px;line-height:1.4;margin:10px 0}.wo-detail-grid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px 8px;align-items:center;font-size:11px}.wo-detail-grid span{opacity:.55;font-size:9px}.wo-chain-detail{border-radius:7px;background:rgba(255,255,255,.06);padding:7px;margin:5px 0;font-size:10px}.wo-chain-free{color:#8de0a1}.wo-free-banner{background:#2b7b49;color:#fff;border-radius:7px;padding:8px;text-align:center;font-weight:bold;font-size:11px}.wo-payment-preview{text-align:center;color:#ecd27f;font-size:11px;margin:8px 0}.wo-modal-actions{padding:8px 0 0}" +
+        ".wo-opponent-summary{display:flex;justify-content:center;gap:16px;font-weight:bold;margin-bottom:8px}.wo-opponent-modal .wo-wonder{margin:8px 0}.wo-modal-section-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#d5b763;margin:14px 0 6px}.wo-modal-resources{background:rgba(255,255,255,.05);border-radius:8px;padding:10px;text-align:center}.wo-modal-city .wo-city-row{margin-bottom:9px}.wo-payment-intro{font-size:12px;line-height:1.4;opacity:.8;margin-bottom:10px;text-align:center}.wo-payment-options{display:flex;flex-direction:column;gap:8px}.wo-payment-option{border:1px solid rgba(215,173,73,.35);border-radius:9px;background:rgba(255,255,255,.06);color:#fff;padding:11px;text-align:left}.wo-payment-option b{display:block;color:#efd078;font-size:14px}.wo-payment-option span{display:block;font-size:10px;opacity:.72;margin-top:3px}.wo-discard-grid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}.wo-discard-choice{cursor:pointer}.wo-history-list{display:flex;flex-direction:column;gap:7px}.wo-history-list div{font-size:11px;line-height:1.35;padding:8px;background:rgba(255,255,255,.045);border-radius:7px}" +
+
+        ".wo-end-screen{padding:24px 12px 40px;text-align:center}.wo-end-title{font-size:28px;color:#f2d475;font-weight:900;letter-spacing:2px}.wo-winner{margin:10px 0 18px;font-size:16px}.wo-score-list{display:flex;flex-direction:column;gap:9px}.wo-score-card{display:grid;grid-template-columns:34px 1fr 58px;grid-template-rows:auto auto;align-items:center;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(215,173,73,.25);border-radius:10px;padding:9px}.wo-score-card.wo-first{border-color:#efd15d;background:rgba(215,173,73,.15)}.wo-rank{grid-row:1/3;font-size:22px;color:#e8c65c;text-align:center}.wo-score-name b{display:block}.wo-score-name small{opacity:.65}.wo-score-total{grid-row:1/3;grid-column:3;font-size:28px;font-weight:900;color:#f2d475;text-align:right}.wo-score-breakdown{font-size:9px;opacity:.68;margin-top:4px}" +
+        "@media (max-width:360px){.wo-card{flex-basis:104px;width:104px;height:158px}.wo-resource-panel{grid-template-columns:1fr 1fr}.wo-own-res{grid-column:1/3}.wo-wonder{min-height:210px}.wo-stage-effect{font-size:9px}.wo-opponent{min-width:145px}.wo-game-name{font-size:17px}}" +
+    "</style>";
 }
 
+/* --------------------------------------------------------------------------
+   MAIN RENDER
+---------------------------------------------------------------------------- */
 function renderSevenWonders() {
     const el = canvas();
     const st = window.sevenWondersState;
@@ -1118,128 +2023,121 @@ function renderSevenWonders() {
 
     const me = myPlayer();
     if (!me) {
-        el.innerHTML = "<div style='color:white;padding:20px;text-align:center;'>You are not seated at this table.</div>";
+        el.innerHTML = swStyles() + "<div class='wo-root'><div style='padding:30px;text-align:center'>You are not seated at this Wonders table.</div></div>";
         return;
+    }
+
+    if (localUi.submittedRoundKey && localUi.submittedRoundKey !== roundKey(st)) {
+        localUi.submittedRoundKey = null;
+        localUi.selectedCardUid = null;
+    }
+
+    if (localUi.selectedCardUid && !me.hand.some(function (c) { return c.uid === localUi.selectedCardUid; })) {
+        localUi.selectedCardUid = null;
     }
 
     if (st.phase === "ended") {
-        el.innerHTML = swStyles() +
-            "<div class=\"sw-wrap\" style=\"display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:24px;\">" +
-                "<div style=\"font-size:30px;color:#ffd700;font-weight:900;\">GAME OVER</div>" +
-                "<div style=\"font-size:18px;color:#e8dcc4;font-weight:bold;\">" + escapeHtml(st.message) + "</div>" +
-                "<div style=\"font-size:14px;color:#a3cfbb;\">" + escapeHtml(st.lastResult || "") + "</div>" +
-            "</div>";
+        el.innerHTML = swStyles() + "<div class='wo-root'>" + scoreBoardHtml(st) + activeModalHtml(st) + "</div>";
         return;
     }
 
-    const ageWords = { 1: "I", 2: "II", 3: "III" };
-
-    el.innerHTML =
-        swStyles() +
-        "<div class=\"sw-wrap\">" +
-            "<div class=\"sw-topbar\">" +
-                "<div class=\"sw-opponents\">" + swOpponentsHtml(st, me) + "</div>" +
-                "<div class=\"sw-age-indicator\">" +
-                    "<div class=\"sw-age-line\"><span class=\"sw-age-label\">AGE</span>" + ageWords[st.age] + "</div>" +
-                    "<div class=\"sw-round-line\">ROUND " + st.round + "</div>" +
+    el.innerHTML = swStyles() +
+        "<div class='wo-root'>" +
+            "<header class='wo-top'>" +
+                "<div class='wo-status'>" +
+                    "<div class='wo-game-name'>WONDERS</div>" +
+                    "<div class='wo-age-box'><small>AGE</small><b>" + romanAge(st.age) + "</b><small>ROUND " + st.round + "</small></div>" +
+                    "<div class='wo-money-box'><span>ðŸª™" + me.coins + "</span><span>ðŸ›¡ï¸" + shieldCount(me) + "</span><button class='wo-history-btn' onclick='window.wondersOpenHistory()'>â˜°</button></div>" +
                 "</div>" +
-            "</div>" +
+                "<div class='wo-opponents-strip'>" + opponentsHtml(st, me) + "</div>" +
+                (st.message ? "<div class='wo-message'>" + escapeHtml(st.message) + "</div>" : "") +
+            "</header>" +
 
-            swWonderBoardHtml(me) +
+            wonderBoardHtml(me, true) +
+            resourceAndTradeHtml(st, me) +
 
-            "<div class=\"sw-res-bar\">" + swResourceBarHtml(me) + "</div>" +
+            "<section class='wo-city-section'>" +
+                "<div class='wo-section-heading'><span>Your city</span><span>Tap any card to enlarge</span></div>" +
+                tableauHtml(me) +
+            "</section>" +
 
-            (st.message ? "<div class=\"sw-message\">" + escapeHtml(st.message) + "</div>" : "") +
+            "<section class='wo-hand-section'>" +
+                "<div class='wo-hand-heading'><span>Your hand</span><span>" + me.hand.length + " cards</span></div>" +
+                handHtml(st, me) +
+                actionBarHtml(st, me) +
+            "</section>" +
 
-            "<div class=\"sw-tableau-area\">" +
-                "<div class=\"sw-tableau-label\">Your city</div>" +
-                "<div class=\"sw-tableau\">" +
-                    (me.tableau.length ? me.tableau.map(swTabCardHtml).join("") : "<div class=\"sw-empty-tableau\">Nothing built yet — your first pick will start your city.</div>") +
-                "</div>" +
-            "</div>" +
-
-            "<div class=\"sw-hand-area\">" +
-                "<div class=\"sw-hand-label\"><span>Your hand — pick a card</span><span>💰" + me.coins + "</span></div>" +
-                "<div class=\"sw-hand-scroll\">" +
-                    me.hand.map(function (card, idx) {
-                        const selected = me.pendingChoice && me.pendingChoice.action === "select" && me.pendingChoice.cardIdx === idx;
-                        return swCardHtml(card, idx, me, selected);
-                    }).join("") +
-                "</div>" +
-                swActionBarHtml(me, st) +
-            "</div>" +
-
-            "<div id=\"swModalOverlay\">" +
-                "<div id=\"swModalBox\">" +
-                    "<h3 id=\"swModalTitle\">Player</h3>" +
-                    "<div id=\"swModalContent\"></div>" +
-                    "<button id=\"swModalClose\" onclick=\"window.sevenWondersCloseModal()\">Close</button>" +
-                "</div>" +
-            "</div>" +
+            activeModalHtml(st) +
         "</div>";
 }
 
-/* ---- Lobby integration ---- */
-
+/* --------------------------------------------------------------------------
+   CHASER ENTRY POINTS AND INCOMING STATE
+---------------------------------------------------------------------------- */
 window.initSevenWondersGame = function () {
     window.chaserGame = window.chaserGame || {};
-    window.chaserGame.activeGame = "7 Wonders";
+    window.chaserGame.activeGame = "Wonders";
 
     openStage();
     setHeader();
+    registerNetworkHandlers();
 
-    const amHost = window.chaserGame && window.chaserGame.hostId === getMyId();
-
-    if (amHost || !window.sevenWondersState) {
-        const targetCount = window.chaserGame.expectedPlayers || (window.chaserGame.players ? window.chaserGame.players.length : MIN_PLAYERS);
-        window.sevenWondersState = createState(targetCount);
-        dealAge(window.sevenWondersState, 1);
-        window.sevenWondersState.message = "Age I begins. Pick a card.";
-        syncSevenWonders();
+    if (isHost()) {
+        if (!window.sevenWondersState || window.sevenWondersState.version !== 4 || window.sevenWondersState.phase === "ended") {
+            const humanCount = window.chaserGame.players ? window.chaserGame.players.length : 1;
+            const requested = window.chaserGame.expectedPlayers || humanCount;
+            const targetCount = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, requested));
+            window.sevenWondersState = createState(targetCount);
+            dealAge(window.sevenWondersState, 1);
+            window.sevenWondersState.message = "Age I begins. Tap a card to inspect it.";
+            syncSevenWonders();
+        }
+    } else if (!window.sevenWondersState) {
+        requestState();
     }
 
     renderSevenWonders();
 };
 
-/* Incoming syncs used to blow away your in-progress card selection if
-   another player's action synced first (you'd tap a card, then it
-   would silently deselect because the whole state object gets
-   replaced wholesale). Now we snapshot a local, not-yet-broadcast
-   "select" choice and re-apply it after the incoming state lands. */
 window.handleIncomingSevenWondersSync = function (payload) {
-    if (!payload || !payload.state) return;
+    if (!payload || !payload.state || !roomPayloadMatches(payload)) return;
 
-    if (
-        payload.roomGameId &&
-        window.chaserGame &&
-        window.chaserGame.activeGameId &&
-        payload.roomGameId !== window.chaserGame.activeGameId
-    ) {
-        return;
+    const incoming = payload.state;
+    if (!incoming.players || !incoming.players.length) return;
+
+    window.sevenWondersState = incoming;
+    if (window.chaserGame) window.chaserGame.activeGame = "Wonders";
+
+    const me = myPlayer();
+    if (me && me.pendingChoice) localUi.submittedRoundKey = roundKey(incoming);
+    if (incoming.phase !== "special" || incoming.specialPlayerId !== getMyId()) {
+        if (localUi.modal === "special") localUi.modal = null;
     }
-
-    const myId = getMyId();
-    const previous = window.sevenWondersState;
-    const previousMe = previous && previous.players ? previous.players.find(function (p) { return p.id === myId; }) : null;
-    const unsyncedSelection = (previousMe && previousMe.pendingChoice && previousMe.pendingChoice.action === "select")
-        ? previousMe.pendingChoice
-        : null;
-
-    window.sevenWondersState = payload.state;
-
-    if (unsyncedSelection) {
-        const newMe = window.sevenWondersState.players.find(function (p) { return p.id === myId; });
-        if (newMe && !newMe.pendingChoice && newMe.hand[unsyncedSelection.cardIdx]) {
-            newMe.pendingChoice = unsyncedSelection;
-        }
-    }
-
-    if (window.chaserGame) window.chaserGame.activeGame = "7 Wonders";
 
     renderSevenWonders();
 };
 
 window.startSevenWondersFromLobby = window.initSevenWondersGame;
 window.startSevenWondersGame = window.initSevenWondersGame;
+window.renderSevenWonders = renderSevenWonders;
+
+/* Small debug surface for syntax/deck/simulation checks. */
+window.__wondersDebug = {
+    AGE_CARDS: AGE_CARDS,
+    GUILD_CARDS: GUILD_CARDS,
+    WONDER_BOARDS: WONDER_BOARDS,
+    buildAgeDeck: buildAgeDeck,
+    createState: createState,
+    dealAge: dealAge,
+    productionVectors: productionVectors,
+    findPaymentPlans: findPaymentPlans,
+    scoreScienceWithWilds: scoreScienceWithWilds,
+    computerChoose: computerChoose,
+    resolveRound: resolveRound,
+    shieldCount: shieldCount,
+    scienceCounts: scienceCounts,
+    finishGame: finishGame,
+    render: renderSevenWonders
+};
 
 })();
