@@ -140,13 +140,13 @@ const WONDER_BOARDS = {
 const WONDER_NAMES = Object.keys(WONDER_BOARDS);
 
 const AI_LEADER_NAMES = {
-    Alexandria: ["Sostratus", "Ptolemy"],
-    Babylon: ["Nebuchadnezzar", "Semiramis"],
-    Ephesos: ["Chersiphron", "Artemisia"],
-    Giza: ["Khufu", "Hemiunu"],
-    Halikarnassos: ["Mausolus", "Pytheos"],
-    Olympia: ["Phidias", "Pelops"],
-    Rhodos: ["Chares", "Helios"]
+    Alexandria: ["Alex", "Maya"],
+    Babylon: ["Nadia", "Omar"],
+    Ephesos: ["Elena", "Theo"],
+    Giza: ["Amira", "Samir"],
+    Halikarnassos: ["Mina", "Leo"],
+    Olympia: ["Daphne", "Nico"],
+    Rhodos: ["Rhea", "Darius"]
 };
 
 /* --------------------------------------------------------------------------
@@ -384,7 +384,11 @@ function expandByThreshold(cards, playerCount) {
     const result = [];
     cards.forEach(function (def) {
         (def.thresholds || [3]).forEach(function (threshold) {
-            if (playerCount >= threshold) result.push(def);
+            if (playerCount >= threshold) {
+                const physicalCopy = Object.assign({}, def);
+                physicalCopy.minPlayers = threshold;
+                result.push(physicalCopy);
+            }
         });
     });
     return result;
@@ -392,7 +396,10 @@ function expandByThreshold(cards, playerCount) {
 
 function balanceDeck(defs, needed, fillerDefs) {
     let list = defs.slice();
-    const fillers = (fillerDefs && fillerDefs.length ? fillerDefs : defs).slice();
+    /* If the customized deck needs topping up, duplicate only copies that
+       are already legal for this table size. This keeps the printed 3+/4+...
+       marker accurate instead of pulling in an ineligible raw definition. */
+    const fillers = (defs && defs.length ? defs : (fillerDefs || [])).slice();
 
     while (list.length < needed) {
         list.push(fillers[list.length % fillers.length]);
@@ -1416,7 +1423,10 @@ const localUi = {
     modalData: null,
     submittedRoundKey: null,
     paymentContext: null,
-    zoomScale: 1
+    zoomScale: 1,
+    cardZoomScale: 1,
+    cardZoomX: null,
+    cardZoomY: null
 };
 
 function selectedHandCard() {
@@ -1434,6 +1444,9 @@ window.wondersTapHandCard = function (cardUidEncoded) {
     localUi.selectedCardUid = uid;
     localUi.modal = "card";
     localUi.modalData = { playerId: me.id, cardUid: uid, fromHand: true };
+    localUi.cardZoomScale = 1;
+    localUi.cardZoomX = null;
+    localUi.cardZoomY = null;
     renderSevenWonders();
 };
 
@@ -1444,6 +1457,9 @@ window.wondersOpenBuiltCard = function (playerIdEncoded, cardUidEncoded) {
         cardUid: decodeURIComponent(cardUidEncoded),
         fromHand: false
     };
+    localUi.cardZoomScale = 1;
+    localUi.cardZoomX = null;
+    localUi.cardZoomY = null;
     renderSevenWonders();
 };
 
@@ -1451,6 +1467,9 @@ window.wondersCloseModal = function () {
     localUi.modal = null;
     localUi.modalData = null;
     localUi.paymentContext = null;
+    localUi.cardZoomScale = 1;
+    localUi.cardZoomX = null;
+    localUi.cardZoomY = null;
     renderSevenWonders();
 };
 
@@ -1617,6 +1636,7 @@ function installWondersPinchZoom() {
     let pinch = null;
 
     root.addEventListener("touchstart", function (event) {
+        if (event.target && event.target.closest && event.target.closest(".wo-modal-overlay")) return;
         if (event.touches.length !== 2) return;
 
         const rect = root.getBoundingClientRect();
@@ -1636,6 +1656,7 @@ function installWondersPinchZoom() {
     }, { passive: false });
 
     root.addEventListener("touchmove", function (event) {
+        if (event.target && event.target.closest && event.target.closest(".wo-modal-overlay")) return;
         if (!pinch || event.touches.length !== 2) return;
 
         const rect = root.getBoundingClientRect();
@@ -1662,6 +1683,122 @@ function installWondersPinchZoom() {
     window.setTimeout(function () {
         applyWondersZoom(root, shell, surface, localUi.zoomScale || 1);
     }, 0);
+}
+
+/* --------------------------------------------------------------------------
+   PINCH-ZOOM FOR THE EXPANDED CARD ONLY
+   The modal card has its own zoom and pan surface. Touches inside this modal
+   never alter the Wonders board behind it.
+---------------------------------------------------------------------------- */
+function clampCardZoom(value) {
+    return Math.max(1, Math.min(3.5, value));
+}
+
+function clampCardPan(viewport, content, scale, x, y) {
+    const scaledWidth = content.offsetWidth * scale;
+    const scaledHeight = content.offsetHeight * scale;
+    const viewWidth = viewport.clientWidth;
+    const viewHeight = viewport.clientHeight;
+
+    if (scaledWidth <= viewWidth) x = (viewWidth - scaledWidth) / 2;
+    else x = Math.min(0, Math.max(viewWidth - scaledWidth, x));
+
+    if (scaledHeight <= viewHeight) y = (viewHeight - scaledHeight) / 2;
+    else y = Math.min(0, Math.max(viewHeight - scaledHeight, y));
+
+    return { x: x, y: y };
+}
+
+function installCardModalZoom() {
+    const viewport = document.querySelector("#gameCanvasContainer .wo-card-zoom-viewport");
+    const content = viewport && viewport.querySelector(".wo-card-zoom-content");
+    if (!viewport || !content) return;
+
+    let scale = clampCardZoom(localUi.cardZoomScale || 1);
+    let x = Number.isFinite(localUi.cardZoomX) ? localUi.cardZoomX : (viewport.clientWidth - content.offsetWidth) / 2;
+    let y = Number.isFinite(localUi.cardZoomY) ? localUi.cardZoomY : (viewport.clientHeight - content.offsetHeight) / 2;
+    let gesture = null;
+
+    function draw() {
+        const bounded = clampCardPan(viewport, content, scale, x, y);
+        x = bounded.x;
+        y = bounded.y;
+        localUi.cardZoomScale = scale;
+        localUi.cardZoomX = x;
+        localUi.cardZoomY = y;
+        content.style.transformOrigin = "0 0";
+        content.style.transform = "translate(" + x + "px," + y + "px) scale(" + scale + ")";
+        viewport.classList.toggle("wo-card-is-zoomed", scale > 1.01);
+    }
+
+    draw();
+
+    viewport.addEventListener("touchstart", function (event) {
+        event.stopPropagation();
+
+        if (event.touches.length === 2) {
+            const rect = viewport.getBoundingClientRect();
+            const midX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
+            const midY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
+
+            gesture = {
+                kind: "pinch",
+                distance: Math.max(1, touchDistance(event.touches[0], event.touches[1])),
+                startScale: scale,
+                contentX: (midX - x) / scale,
+                contentY: (midY - y) / scale
+            };
+            event.preventDefault();
+            return;
+        }
+
+        if (event.touches.length === 1 && scale > 1.01) {
+            gesture = {
+                kind: "pan",
+                startTouchX: event.touches[0].clientX,
+                startTouchY: event.touches[0].clientY,
+                startX: x,
+                startY: y
+            };
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    viewport.addEventListener("touchmove", function (event) {
+        event.stopPropagation();
+        if (!gesture) return;
+
+        if (gesture.kind === "pinch" && event.touches.length === 2) {
+            const rect = viewport.getBoundingClientRect();
+            const midX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
+            const midY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
+            const ratio = touchDistance(event.touches[0], event.touches[1]) / gesture.distance;
+            scale = clampCardZoom(gesture.startScale * ratio);
+            x = midX - (gesture.contentX * scale);
+            y = midY - (gesture.contentY * scale);
+            draw();
+            event.preventDefault();
+            return;
+        }
+
+        if (gesture.kind === "pan" && event.touches.length === 1) {
+            x = gesture.startX + (event.touches[0].clientX - gesture.startTouchX);
+            y = gesture.startY + (event.touches[0].clientY - gesture.startTouchY);
+            draw();
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    function endCardGesture(event) {
+        event.stopPropagation();
+        if (event.touches && event.touches.length >= 2) return;
+        gesture = null;
+    }
+
+    viewport.addEventListener("touchend", endCardGesture, { passive: true });
+    viewport.addEventListener("touchcancel", endCardGesture, { passive: true });
+
+    window.setTimeout(draw, 0);
 }
 
 /* --------------------------------------------------------------------------
@@ -1738,7 +1875,11 @@ function chainToLabel(cardDef) {
 }
 
 function thresholdLabel(cardDef) {
-    return (cardDef.thresholds || [3]).map(function (n) { return n + "+"; }).join(" ");
+    /* A physical card copy has one minimum-player marker. A definition may
+       create several copies at different table sizes, but those numbers do
+       not belong together on the same visible card. */
+    const minimum = cardDef.minPlayers || ((cardDef.thresholds || [3])[0]);
+    return minimum + "+";
 }
 
 function cardFrontHtml(cardDef, options) {
@@ -2008,7 +2149,11 @@ function cardModalHtml(st) {
 
     const body = (
         "<div class='wo-card-modal-content'>" +
-            "<div class='wo-large-card-wrap'>" + cardFrontHtml(c, { onclick: "window.wondersCloseModal()" }) + "</div>" +
+            "<div class='wo-card-zoom-viewport'>" +
+                "<div class='wo-card-zoom-content'>" +
+                    "<div class='wo-large-card-wrap'>" + cardFrontHtml(c, { onclick: "window.wondersCloseModal()" }) + "</div>" +
+                "</div>" +
+            "</div>" +
             actionButtons +
         "</div>"
     );
@@ -2134,7 +2279,7 @@ function swStyles() {
 
         ".wo-end-screen{padding:24px 12px 40px;text-align:center}.wo-end-title{font-size:28px;color:#f2d475;font-weight:900;letter-spacing:2px}.wo-winner{margin:10px 0 18px;font-size:16px}.wo-score-list{display:flex;flex-direction:column;gap:9px}.wo-score-card{display:grid;grid-template-columns:34px 1fr 58px;grid-template-rows:auto auto;align-items:center;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(215,173,73,.25);border-radius:10px;padding:9px}.wo-score-card.wo-first{border-color:#efd15d;background:rgba(215,173,73,.15)}.wo-rank{grid-row:1/3;font-size:22px;color:#e8c65c;text-align:center}.wo-score-name b{display:block}.wo-score-name small{opacity:.65}.wo-score-total{grid-row:1/3;grid-column:3;font-size:28px;font-weight:900;color:#f2d475;text-align:right}.wo-score-breakdown{font-size:9px;opacity:.68;margin-top:4px}" +
         ".wo-card-type-label,.wo-card-rule-text,.wo-card-chain-panel{display:none}" +
-        ".wo-card-modal-overlay{align-items:center;padding:8px;overflow:hidden}.wo-card-modal{box-sizing:border-box;width:100%;max-width:360px;max-height:calc(100% - 12px);overflow:hidden;padding:10px 10px 12px}.wo-card-modal .wo-modal-x{right:5px;top:5px;width:31px;height:31px;font-size:23px;line-height:25px;background:rgba(20,12,7,.82)}.wo-card-modal-content{display:flex;flex-direction:column;align-items:stretch}.wo-card-modal .wo-large-card-wrap{padding:0 0 8px}.wo-card-modal .wo-large-card-wrap .wo-card{width:184px;height:270px;flex-basis:184px;border-radius:11px}.wo-card-modal .wo-large-card-wrap .wo-card-cost{font-size:13px;padding:4px 8px;top:8px;left:8px;max-width:138px}.wo-card-modal .wo-large-card-wrap .wo-card-age{min-width:54px;height:25px;top:8px;right:8px;padding:0 6px;gap:3px}.wo-card-modal .wo-large-card-wrap .wo-card-age span{font-size:6.5px}.wo-card-modal .wo-large-card-wrap .wo-card-age b{font-size:10.5px}.wo-card-modal .wo-large-card-wrap .wo-chain-in,.wo-card-modal .wo-large-card-wrap .wo-chain-out{display:none}.wo-card-modal .wo-large-card-wrap .wo-card-type-label{display:block;position:absolute;z-index:4;top:48px;left:18px;right:18px;text-align:center;font-size:12px;line-height:1.1;font-weight:900;color:#fff;background:rgba(18,12,8,.34);border:1px solid rgba(255,255,255,.26);border-radius:12px;padding:4px 6px;text-shadow:0 1px 2px rgba(0,0,0,.75)}.wo-card-modal .wo-large-card-wrap .wo-card-effect{bottom:118px;padding:72px 8px 38px;font-size:43px}.wo-card-modal .wo-large-card-wrap .wo-vp-big{font-size:68px}.wo-card-modal .wo-large-card-wrap .wo-vp-trophy{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-science-big{font-size:66px}.wo-card-modal .wo-large-card-wrap .wo-shield-row{font-size:34px}.wo-card-modal .wo-large-card-wrap .wo-coin-big{font-size:38px}.wo-card-modal .wo-large-card-wrap .wo-trade-big{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-formula-big{font-size:22px}.wo-card-modal .wo-large-card-wrap .wo-card-rule-text{display:block;position:absolute;z-index:4;left:10px;right:10px;bottom:82px;max-height:34px;overflow:hidden;text-align:center;font-size:9.5px;line-height:1.12;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8)}.wo-card-modal .wo-large-card-wrap .wo-card-chain-panel{display:flex;position:absolute;z-index:5;left:9px;right:9px;bottom:57px;min-height:22px;flex-direction:column;justify-content:center;gap:1px;text-align:center;background:rgba(22,14,9,.38);border-radius:7px;padding:3px 5px;color:#ffe8a0;font-size:8.5px;line-height:1.08;font-weight:900}.wo-card-modal .wo-large-card-wrap .wo-card-chain-from{color:#a8efb9}.wo-card-modal .wo-large-card-wrap .wo-card-name{bottom:17px;min-height:38px;font-size:17px;padding:8px 5px 4px}.wo-card-modal .wo-large-card-wrap .wo-card-count{font-size:8px;bottom:4px;right:5px}.wo-card-modal .wo-modal-actions{padding:0;gap:7px}.wo-card-modal .wo-action{min-height:42px;font-size:12px}.wo-card-modal .wo-olympia-free{width:100%;margin:7px 0 0;padding:8px}.wo-card-modal .wo-card-details,.wo-card-modal .wo-detail-grid,.wo-card-modal .wo-chain-detail,.wo-card-modal .wo-free-banner,.wo-card-modal .wo-payment-preview{display:none}" +
+        ".wo-card-modal-overlay{align-items:center;padding:8px;overflow:hidden}.wo-card-modal{box-sizing:border-box;width:100%;max-width:360px;max-height:calc(100% - 12px);overflow:hidden;padding:10px 10px 12px}.wo-card-modal .wo-modal-x{right:5px;top:5px;width:31px;height:31px;font-size:23px;line-height:25px;background:rgba(20,12,7,.82)}.wo-card-modal-content{display:flex;flex-direction:column;align-items:stretch}.wo-card-zoom-viewport{position:relative;width:100%;height:278px;overflow:hidden;touch-action:none;overscroll-behavior:contain;border-radius:11px}.wo-card-zoom-content{position:absolute;left:0;top:0;width:184px;height:270px;will-change:transform;transform-origin:0 0}.wo-card-is-zoomed{cursor:grab}.wo-card-is-zoomed:active{cursor:grabbing}.wo-card-modal .wo-large-card-wrap{width:184px;height:270px;padding:0}.wo-card-modal .wo-large-card-wrap .wo-card{width:184px;height:270px;flex-basis:184px;border-radius:11px}.wo-card-modal .wo-large-card-wrap .wo-card-cost{font-size:13px;padding:4px 8px;top:8px;left:8px;max-width:138px}.wo-card-modal .wo-large-card-wrap .wo-card-age{min-width:54px;height:25px;top:8px;right:8px;padding:0 6px;gap:3px}.wo-card-modal .wo-large-card-wrap .wo-card-age span{font-size:6.5px}.wo-card-modal .wo-large-card-wrap .wo-card-age b{font-size:10.5px}.wo-card-modal .wo-large-card-wrap .wo-chain-in,.wo-card-modal .wo-large-card-wrap .wo-chain-out{display:none}.wo-card-modal .wo-large-card-wrap .wo-card-type-label{display:block;position:absolute;z-index:4;top:48px;left:18px;right:18px;text-align:center;font-size:12px;line-height:1.1;font-weight:900;color:#fff;background:rgba(18,12,8,.34);border:1px solid rgba(255,255,255,.26);border-radius:12px;padding:4px 6px;text-shadow:0 1px 2px rgba(0,0,0,.75)}.wo-card-modal .wo-large-card-wrap .wo-card-effect{bottom:118px;padding:72px 8px 38px;font-size:43px;transform:translateY(11px)}.wo-card-modal .wo-large-card-wrap .wo-vp-big{font-size:68px}.wo-card-modal .wo-large-card-wrap .wo-vp-trophy{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-science-big{font-size:66px}.wo-card-modal .wo-large-card-wrap .wo-shield-row{font-size:34px}.wo-card-modal .wo-large-card-wrap .wo-coin-big{font-size:38px}.wo-card-modal .wo-large-card-wrap .wo-trade-big{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-formula-big{font-size:22px}.wo-card-modal .wo-large-card-wrap .wo-card-rule-text{display:block;position:absolute;z-index:4;left:10px;right:10px;bottom:82px;max-height:34px;overflow:hidden;text-align:center;font-size:9.5px;line-height:1.12;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8)}.wo-card-modal .wo-large-card-wrap .wo-card-chain-panel{display:flex;position:absolute;z-index:5;left:9px;right:9px;bottom:57px;min-height:22px;flex-direction:column;justify-content:center;gap:1px;text-align:center;background:rgba(22,14,9,.38);border-radius:7px;padding:3px 5px;color:#ffe8a0;font-size:8.5px;line-height:1.08;font-weight:900}.wo-card-modal .wo-large-card-wrap .wo-card-chain-from{color:#a8efb9}.wo-card-modal .wo-large-card-wrap .wo-card-name{bottom:17px;min-height:38px;font-size:17px;padding:8px 5px 4px}.wo-card-modal .wo-large-card-wrap .wo-card-count{font-size:8px;bottom:4px;right:5px}.wo-card-modal .wo-modal-actions{padding:0;gap:7px}.wo-card-modal .wo-action{min-height:42px;font-size:12px}.wo-card-modal .wo-olympia-free{width:100%;margin:7px 0 0;padding:8px}.wo-card-modal .wo-card-details,.wo-card-modal .wo-detail-grid,.wo-card-modal .wo-chain-detail,.wo-card-modal .wo-free-banner,.wo-card-modal .wo-payment-preview{display:none}" +
         "@media (max-height:700px){.wo-board-modal .wo-wonder{min-height:330px}.wo-board-modal .wo-stage{min-height:88px}.wo-board-modal .wo-wonder-city{font-size:25px}.wo-board-modal .wo-start-resource{font-size:20px}.wo-board-modal .wo-stage-cost{font-size:16px}.wo-board-modal .wo-stage-effect{font-size:12px}}@media (max-width:360px){.wo-card{flex-basis:104px;width:104px;height:158px}.wo-resource-panel{grid-template-columns:1fr 1fr}.wo-own-res{grid-column:1/3}.wo-wonder{min-height:210px}.wo-stage-effect{font-size:9px}.wo-opponent{min-width:145px}.wo-game-name{font-size:17px}}" +
     "</style>";
 }
@@ -2169,6 +2314,7 @@ function renderSevenWonders() {
                 activeModalHtml(st) +
             "</div>";
         installWondersPinchZoom();
+        installCardModalZoom();
         return;
     }
 
@@ -2203,6 +2349,7 @@ function renderSevenWonders() {
         "</div>";
 
     installWondersPinchZoom();
+    installCardModalZoom();
 }
 
 /* --------------------------------------------------------------------------
