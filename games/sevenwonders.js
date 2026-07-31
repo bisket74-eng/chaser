@@ -60,7 +60,8 @@ const TYPE_INFO = {
 
 /* --------------------------------------------------------------------------
    WONDER BOARDS
-   Original-side-A style, matching the version the previous file was based on.
+   Day/Side-A boards only. Night/Side-B boards are not included in this file.
+   The AGE I/II/III mark on a card identifies its card deck, not a board side.
    A card used for a stage is tucked under the board and is not discarded.
 ---------------------------------------------------------------------------- */
 const WONDER_BOARDS = {
@@ -1414,7 +1415,8 @@ const localUi = {
     modal: null,
     modalData: null,
     submittedRoundKey: null,
-    paymentContext: null
+    paymentContext: null,
+    zoomScale: 1
 };
 
 function selectedHandCard() {
@@ -1454,6 +1456,12 @@ window.wondersCloseModal = function () {
 
 window.wondersOpenOpponent = function (playerIdEncoded) {
     localUi.modal = "opponent";
+    localUi.modalData = { playerId: decodeURIComponent(playerIdEncoded) };
+    renderSevenWonders();
+};
+
+window.wondersOpenBoard = function (playerIdEncoded) {
+    localUi.modal = "board";
     localUi.modalData = { playerId: decodeURIComponent(playerIdEncoded) };
     renderSevenWonders();
 };
@@ -1563,6 +1571,95 @@ window.wondersChooseDiscardSpecial = function (cardUidEncoded) {
     }
 };
 
+
+/* --------------------------------------------------------------------------
+   PINCH-TO-ZOOM FOR THE WHOLE WONDERS PLAY AREA
+   This is self-contained inside the game canvas, so Chaser's surrounding
+   controls do not need to change and the main index file can stay untouched.
+---------------------------------------------------------------------------- */
+function clampWondersZoom(value) {
+    return Math.max(1, Math.min(2.6, value));
+}
+
+function touchDistance(a, b) {
+    const dx = b.clientX - a.clientX;
+    const dy = b.clientY - a.clientY;
+    return Math.sqrt((dx * dx) + (dy * dy));
+}
+
+function applyWondersZoom(root, shell, surface, scale) {
+    if (!root || !shell || !surface) return;
+    const next = clampWondersZoom(scale);
+    localUi.zoomScale = next;
+
+    const baseWidth = Math.max(1, root.clientWidth);
+    surface.style.width = baseWidth + "px";
+    surface.style.transformOrigin = "0 0";
+    surface.style.transform = "scale(" + next + ")";
+
+    shell.style.width = Math.ceil(baseWidth * next) + "px";
+    shell.style.height = Math.ceil(surface.scrollHeight * next) + "px";
+    root.classList.toggle("wo-is-zoomed", next > 1.01);
+}
+
+function installWondersPinchZoom() {
+    const root = document.querySelector("#gameCanvasContainer .wo-root");
+    const shell = root && root.querySelector(".wo-zoom-shell");
+    const surface = shell && shell.querySelector(".wo-zoom-surface");
+    if (!root || !shell || !surface) return;
+
+    applyWondersZoom(root, shell, surface, localUi.zoomScale || 1);
+
+    let pinch = null;
+
+    root.addEventListener("touchstart", function (event) {
+        if (event.touches.length !== 2) return;
+
+        const rect = root.getBoundingClientRect();
+        const midX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
+        const midY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
+        const startScale = localUi.zoomScale || 1;
+
+        pinch = {
+            distance: Math.max(1, touchDistance(event.touches[0], event.touches[1])),
+            scale: startScale,
+            contentX: (root.scrollLeft + midX) / startScale,
+            contentY: (root.scrollTop + midY) / startScale
+        };
+
+        root.classList.add("wo-pinching");
+        event.preventDefault();
+    }, { passive: false });
+
+    root.addEventListener("touchmove", function (event) {
+        if (!pinch || event.touches.length !== 2) return;
+
+        const rect = root.getBoundingClientRect();
+        const midX = ((event.touches[0].clientX + event.touches[1].clientX) / 2) - rect.left;
+        const midY = ((event.touches[0].clientY + event.touches[1].clientY) / 2) - rect.top;
+        const ratio = touchDistance(event.touches[0], event.touches[1]) / pinch.distance;
+        const nextScale = clampWondersZoom(pinch.scale * ratio);
+
+        applyWondersZoom(root, shell, surface, nextScale);
+        root.scrollLeft = Math.max(0, (pinch.contentX * nextScale) - midX);
+        root.scrollTop = Math.max(0, (pinch.contentY * nextScale) - midY);
+        event.preventDefault();
+    }, { passive: false });
+
+    function endPinch(event) {
+        if (event.touches && event.touches.length >= 2) return;
+        pinch = null;
+        root.classList.remove("wo-pinching");
+    }
+
+    root.addEventListener("touchend", endPinch, { passive: true });
+    root.addEventListener("touchcancel", endPinch, { passive: true });
+
+    window.setTimeout(function () {
+        applyWondersZoom(root, shell, surface, localUi.zoomScale || 1);
+    }, 0);
+}
+
 /* --------------------------------------------------------------------------
    VISUAL HELPERS
 ---------------------------------------------------------------------------- */
@@ -1595,7 +1692,7 @@ function productionIcon(cardDef) {
 
 function primaryEffectHtml(cardDef) {
     if (cardDef.production) return productionIcon(cardDef);
-    if (cardDef.vp) return "<span class='wo-vp-big'>" + cardDef.vp + "</span><span class='wo-wreath'>\u2767</span>";
+    if (cardDef.vp) return "<span class='wo-vp-big'>" + cardDef.vp + "</span><span class='wo-vp-trophy'>\uD83C\uDFC6</span>";
     if (cardDef.shields) return "<span class='wo-shield-row'>" + "\uD83D\uDEE1\uFE0F".repeat(cardDef.shields) + "</span>";
     if (cardDef.science) return "<span class='wo-science-big'>" + SCIENCE_ICONS[cardDef.science] + "</span>";
     if (cardDef.coins) return "<span class='wo-coin-big'>\uD83E\uDE99" + cardDef.coins + "</span>";
@@ -1651,12 +1748,23 @@ function cardFrontHtml(cardDef, options) {
     if (compact) classes.push("wo-card-compact");
     if (disabled) classes.push("wo-card-disabled");
 
+    const chainLines = [];
+    if (cardDef.chainFrom && cardDef.chainFrom.length) {
+        chainLines.push("<div class=\"wo-card-chain-from\">FREE WITH: " + escapeHtml(cardDef.chainFrom.join(" OR ")) + "</div>");
+    }
+    if (cardDef.chainTo && cardDef.chainTo.length) {
+        chainLines.push("<div class=\"wo-card-chain-to\">BUILDS FREE: " + escapeHtml(cardDef.chainTo.join(" \u00B7 ")) + "</div>");
+    }
+
     return (
         "<div class=\"" + classes.join(" ") + "\"" + (click ? " onclick=\"" + click + "\"" : "") + ">" +
             "<div class=\"wo-card-cost\">" + costHtml(cardDef.cost) + "</div>" +
-            "<div class=\"wo-card-age\">" + romanAge(cardDef.age) + "</div>" +
+            "<div class=\"wo-card-age\"><span>AGE</span><b>" + romanAge(cardDef.age) + "</b></div>" +
             (cardDef.chainFrom && cardDef.chainFrom.length ? "<div class=\"wo-chain-in\">\u26D3</div>" : "") +
+            "<div class=\"wo-card-type-label\">" + escapeHtml(TYPE_INFO[cardDef.type].label) + "</div>" +
             "<div class=\"wo-card-effect\">" + primaryEffectHtml(cardDef) + "</div>" +
+            "<div class=\"wo-card-rule-text\">" + escapeHtml(cardDef.description || "") + "</div>" +
+            (chainLines.length ? "<div class=\"wo-card-chain-panel\">" + chainLines.join("") + "</div>" : "") +
             "<div class=\"wo-card-name\">" + escapeHtml(cardDef.name) + "</div>" +
             (cardDef.chainTo && cardDef.chainTo.length ? "<div class=\"wo-chain-out\">\u26D3 " + escapeHtml(cardDef.chainTo.join(" \u00B7 ")) + "</div>" : "") +
             "<div class=\"wo-card-count\">" + escapeHtml(thresholdLabel(cardDef)) + "</div>" +
@@ -1690,6 +1798,13 @@ function compactResourceChips(resources) {
     }).join("") || "<span class='wo-faint'>none</span>";
 }
 
+function wonderStageEffectHtml(stage) {
+    if (stage.vp) {
+        return "<span class='wo-stage-vp'><b>" + stage.vp + "</b><span>\uD83C\uDFC6</span></span>";
+    }
+    return escapeHtml(stage.icon || stage.label);
+}
+
 function wonderBoardHtml(player, interactive) {
     const board = WONDER_BOARDS[player.wonder];
     const stages = board.stages.map(function (stage, index) {
@@ -1701,15 +1816,18 @@ function wonderBoardHtml(player, interactive) {
                 "<div class='wo-stage " + (built ? "wo-stage-built" : "") + "'>" +
                     "<div class='wo-stage-number'>" + (index + 1) + "</div>" +
                     "<div class='wo-stage-cost'>" + costHtml(stage.cost) + "</div>" +
-                    "<div class='wo-stage-effect'>" + escapeHtml(stage.icon || stage.label) + "</div>" +
+                    "<div class='wo-stage-effect'>" + wonderStageEffectHtml(stage) + "</div>" +
                     (built ? "<div class='wo-stage-check'>\u2713</div>" : "") +
                 "</div>" +
             "</div>"
         );
     }).join("");
 
+    const boardClick = interactive ? " onclick=\"window.wondersOpenBoard('" + enc(player.id) + "')\"" : "";
+    const boardClass = interactive ? " wo-wonder-tappable" : "";
+
     return (
-        "<section class='wo-wonder wo-scene-" + board.scene + "'>" +
+        "<section class='wo-wonder wo-scene-" + board.scene + boardClass + "'" + boardClick + ">" +
             "<div class='wo-sky-glow'></div>" +
             "<div class='wo-landmark' aria-hidden='true'></div>" +
             "<div class='wo-wonder-heading'>" +
@@ -1717,6 +1835,7 @@ function wonderBoardHtml(player, interactive) {
                 "<div class='wo-start-resource'><span>START</span>" + RES_ICONS[board.startResource] + "</div>" +
             "</div>" +
             "<div class='wo-stage-row'>" + stages + "</div>" +
+            (interactive ? "<div class='wo-board-zoom-hint'>\uD83D\uDD0D TAP TO ENLARGE</div>" : "") +
         "</section>"
     );
 }
@@ -1843,9 +1962,11 @@ function scoreBoardHtml(st) {
    MODALS
 ---------------------------------------------------------------------------- */
 function modalShell(title, body, extraClass) {
+    const boxClass = extraClass || "";
+    const overlayClass = boxClass ? " " + boxClass + "-overlay" : "";
     return (
-        "<div class='wo-modal-overlay' onclick='window.wondersCloseModal()'>" +
-            "<div class='wo-modal-box " + (extraClass || "") + "' onclick='event.stopPropagation()'>" +
+        "<div class='wo-modal-overlay" + overlayClass + "' onclick='window.wondersCloseModal()'>" +
+            "<div class='wo-modal-box " + boxClass + "' onclick='event.stopPropagation()'>" +
                 "<button class='wo-modal-x' onclick='window.wondersCloseModal()'>\u00D7</button>" +
                 (title ? "<div class='wo-modal-title'>" + escapeHtml(title) + "</div>" : "") +
                 body +
@@ -1868,7 +1989,6 @@ function cardModalHtml(st) {
     const isOwnHand = data.fromHand && me && p.id === me.id;
     const buildStatus = isOwnHand ? canBuildCard(st, me, c) : null;
     const wonderStatus = isOwnHand ? canBuildWonder(st, me) : null;
-    const chainFree = isOwnHand && hasChainInto(me, c);
 
     let actionButtons = "";
     if (isOwnHand && !me.pendingChoice && st.phase === "playing") {
@@ -1882,23 +2002,21 @@ function cardModalHtml(st) {
         );
     }
 
-    const buildLine = isOwnHand
-        ? (buildStatus.legal ? planLabel(buildStatus.plans[0]) : buildStatus.reason)
-        : "";
-
     const body = (
-        "<div class='wo-large-card-wrap'>" + cardFrontHtml(c, {}) + "</div>" +
-        "<div class='wo-card-details'>" +
-            "<div class='wo-detail-grid'><span>COLOR</span><b>" + escapeHtml(TYPE_INFO[c.type].label) + "</b><span>COST</span><b>" + costHtml(c.cost) + "</b></div>" +
-            "<p>" + escapeHtml(c.description || "") + "</p>" +
-            (chainFromLabel(c) ? "<div class='wo-chain-detail wo-chain-free'>\u26D3 " + escapeHtml(chainFromLabel(c)) + "</div>" : "") +
-            (chainToLabel(c) ? "<div class='wo-chain-detail'>\u26D3 " + escapeHtml(chainToLabel(c)) + "</div>" : "") +
-            (chainFree ? "<div class='wo-free-banner'>YOU MAY BUILD THIS FREE BY CHAIN</div>" : "") +
-            (isOwnHand ? "<div class='wo-payment-preview'>" + escapeHtml(buildLine) + "</div>" : "") +
-        "</div>" + actionButtons
+        "<div class='wo-card-modal-content'>" +
+            "<div class='wo-large-card-wrap'>" + cardFrontHtml(c, { onclick: "window.wondersCloseModal()" }) + "</div>" +
+            actionButtons +
+        "</div>"
     );
 
-    return modalShell(c.name, body, "wo-card-modal");
+    return modalShell("", body, "wo-card-modal");
+}
+
+function boardModalHtml(st) {
+    const p = findPlayer(st, localUi.modalData && localUi.modalData.playerId);
+    if (!p) return "";
+    const body = "<div class='wo-zoomed-board-wrap'>" + wonderBoardHtml(p, false) + "</div>";
+    return modalShell(p.name + " \u2014 " + p.wonder, body, "wo-board-modal");
 }
 
 function opponentModalHtml(st) {
@@ -1960,6 +2078,7 @@ function historyModalHtml(st) {
 function activeModalHtml(st) {
     if (st.phase === "special" && st.specialPlayerId === getMyId()) return specialModalHtml(st);
     if (localUi.modal === "card") return cardModalHtml(st);
+    if (localUi.modal === "board") return boardModalHtml(st);
     if (localUi.modal === "opponent") return opponentModalHtml(st);
     if (localUi.modal === "payment") return paymentModalHtml(st);
     if (localUi.modal === "history") return historyModalHtml(st);
@@ -1971,8 +2090,8 @@ function activeModalHtml(st) {
 ---------------------------------------------------------------------------- */
 function swStyles() {
     return "<style>" +
-        ".wo-root{--ink:#21160f;--parchment:#ead9b7;--gold:#d7ad49;--deep:#17100c;position:relative;height:100%;overflow:auto;background:radial-gradient(circle at 50% -15%,#6d5138 0,#2e2118 42%,#17100c 100%);color:#f7edd8;font-family:Georgia,'Times New Roman',serif;box-sizing:border-box;padding-bottom:110px;-webkit-overflow-scrolling:touch;}" +
-        ".wo-root *{box-sizing:border-box}.wo-root button{font-family:inherit;}" +
+        ".wo-root{--ink:#21160f;--parchment:#ead9b7;--gold:#d7ad49;--deep:#17100c;position:relative;height:100%;overflow:auto;background:radial-gradient(circle at 50% -15%,#6d5138 0,#2e2118 42%,#17100c 100%);color:#f7edd8;font-family:Georgia,'Times New Roman',serif;box-sizing:border-box;padding-bottom:110px;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;overscroll-behavior:contain;}" +
+        ".wo-root *{box-sizing:border-box}.wo-root button{font-family:inherit}.wo-zoom-shell{position:relative;min-width:100%;min-height:100%}.wo-zoom-surface{position:relative;will-change:transform}.wo-pinching{user-select:none;-webkit-user-select:none}.wo-is-zoomed{cursor:grab}.wo-is-zoomed:active{cursor:grabbing}" +
         ".wo-top{position:sticky;top:0;z-index:12;background:linear-gradient(180deg,rgba(18,12,8,.98),rgba(31,21,14,.94));border-bottom:1px solid rgba(215,173,73,.45);box-shadow:0 5px 18px rgba(0,0,0,.35);}" +
         ".wo-status{display:flex;align-items:center;justify-content:space-between;padding:8px 11px 6px;gap:8px;}" +
         ".wo-game-name{font-size:20px;letter-spacing:2px;font-weight:900;color:#f3d784;text-shadow:0 2px 5px #000;}" +
@@ -1995,22 +2114,24 @@ function swStyles() {
         ".wo-scene-zeus .wo-landmark{left:34%;right:34%;clip-path:polygon(40% 0,60% 0,70% 14%,68% 32%,82% 52%,72% 100%,28% 100%,18% 52%,32% 32%,30% 14%);background:linear-gradient(90deg,#9d7f42,#f0d989,#87652c);}" +
         ".wo-scene-colossus .wo-landmark{left:34%;right:34%;clip-path:polygon(37% 0,63% 0,70% 18%,62% 43%,82% 100%,60% 100%,50% 62%,40% 100%,18% 100%,38% 43%,30% 18%);background:linear-gradient(90deg,#8e6e3a,#e2bc64,#755226);}" +
         ".wo-wonder-heading{position:relative;z-index:2;display:flex;justify-content:space-between;align-items:flex-start;padding:11px 12px;color:#24170d;text-shadow:0 1px rgba(255,255,255,.3)}.wo-wonder-city{font-size:22px;font-weight:900;letter-spacing:1px;text-transform:uppercase}.wo-wonder-subtitle{font-size:11px;font-style:italic;opacity:.78}.wo-start-resource{display:flex;align-items:center;gap:4px;background:rgba(249,239,205,.8);border:1px solid rgba(64,38,17,.35);border-radius:20px;padding:4px 8px;font-size:18px;font-weight:bold}.wo-start-resource span{font-size:8px;letter-spacing:1px;}" +
-        ".wo-stage-row{position:absolute;z-index:3;left:8px;right:8px;bottom:8px;display:flex;gap:7px;align-items:flex-end}.wo-stage-wrap{position:relative;flex:1;padding-top:12px}.wo-stage{position:relative;min-height:66px;border-radius:8px;border:2px solid rgba(52,31,14,.72);background:linear-gradient(180deg,rgba(247,230,180,.92),rgba(188,149,83,.94));color:#2b1a0c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px;text-align:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.32)}.wo-stage-built{background:linear-gradient(180deg,#e6c465,#a77b28);}.wo-stage-number{position:absolute;top:3px;left:5px;font-size:9px;border:1px solid rgba(0,0,0,.3);border-radius:50%;width:15px;height:15px;display:grid;place-items:center}.wo-stage-cost{font-size:13px;font-weight:bold;white-space:nowrap}.wo-stage-effect{font-size:11px;font-weight:900;margin-top:4px;line-height:1.1}.wo-stage-check{position:absolute;right:5px;top:2px;font-size:18px;color:#1d6d2b}.wo-tucked-card{position:absolute;z-index:-1;left:11%;right:11%;top:0;height:31px;border-radius:5px 5px 0 0;background:repeating-linear-gradient(45deg,#3d2a1a,#3d2a1a 4px,#61452c 4px,#61452c 8px);border:1px solid #1c1009;color:#e8ca7d;text-align:center;font-size:8px;padding-top:3px;transform:rotate(-1deg);}" +
+        ".wo-stage-row{position:absolute;z-index:3;left:8px;right:8px;bottom:8px;display:flex;gap:7px;align-items:flex-end}.wo-stage-wrap{position:relative;flex:1;padding-top:12px}.wo-stage{position:relative;min-height:66px;border-radius:8px;border:2px solid rgba(52,31,14,.72);background:linear-gradient(180deg,rgba(247,230,180,.92),rgba(188,149,83,.94));color:#2b1a0c;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px;text-align:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.32)}.wo-stage-built{background:linear-gradient(180deg,#e6c465,#a77b28);}.wo-stage-number{position:absolute;top:3px;left:5px;font-size:9px;border:1px solid rgba(0,0,0,.3);border-radius:50%;width:15px;height:15px;display:grid;place-items:center}.wo-stage-cost{font-size:13px;font-weight:bold;white-space:nowrap}.wo-stage-effect{font-size:11px;font-weight:900;margin-top:4px;line-height:1.1}.wo-stage-vp{display:inline-flex;align-items:center;justify-content:center;gap:2px}.wo-stage-vp b{font-size:17px}.wo-stage-vp span{font-size:14px}.wo-stage-check{position:absolute;right:5px;top:2px;font-size:18px;color:#1d6d2b}.wo-tucked-card{position:absolute;z-index:-1;left:11%;right:11%;top:0;height:31px;border-radius:5px 5px 0 0;background:repeating-linear-gradient(45deg,#3d2a1a,#3d2a1a 4px,#61452c 4px,#61452c 8px);border:1px solid #1c1009;color:#e8ca7d;text-align:center;font-size:8px;padding-top:3px;transform:rotate(-1deg);}" +
 
         ".wo-resource-panel{margin:0 10px 10px;display:grid;grid-template-columns:1.15fr 1fr 1fr;border:1px solid rgba(215,173,73,.28);border-radius:10px;overflow:hidden;background:rgba(0,0,0,.22)}.wo-resource-cell{min-width:0;border:0;border-right:1px solid rgba(215,173,73,.18);background:transparent;color:#f7edd8;padding:7px 6px;text-align:center}.wo-resource-cell:last-child{border-right:0}.wo-res-title{font-size:8px;letter-spacing:.5px;color:#d9bd78;display:block;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-mini-resource{display:inline-block;font-size:13px;margin:0 1px}.wo-faint{font-size:10px;opacity:.45}.wo-own-res{background:rgba(215,173,73,.08)}" +
         ".wo-city-section{padding:0 10px 12px}.wo-section-heading{display:flex;justify-content:space-between;align-items:center;margin:5px 1px 7px;font-size:11px;letter-spacing:1px;color:#d9bd78;text-transform:uppercase}.wo-section-heading span:last-child{opacity:.6}.wo-empty-city{border:1px dashed rgba(255,255,255,.18);border-radius:9px;padding:18px;text-align:center;font-size:12px;opacity:.55}.wo-city-row{margin-bottom:7px}.wo-city-row-label{font-size:9px;opacity:.65;margin:0 0 3px 2px;text-transform:uppercase}.wo-city-cards{display:flex;gap:5px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}.wo-city-cards::-webkit-scrollbar{display:none;}" +
 
         ".wo-hand-section{border-top:1px solid rgba(215,173,73,.3);background:linear-gradient(180deg,rgba(8,5,3,.25),rgba(8,5,3,.55));padding:10px 0 14px}.wo-hand-heading{display:flex;justify-content:space-between;padding:0 11px 8px;color:#e8cd86;font-size:11px;letter-spacing:.7px;text-transform:uppercase}.wo-hand-scroll{display:flex;gap:9px;overflow-x:auto;padding:7px 11px 13px;scroll-snap-type:x proximity;scrollbar-width:none}.wo-hand-scroll::-webkit-scrollbar{display:none;}" +
-        ".wo-card{position:relative;flex:0 0 112px;width:112px;height:170px;border-radius:8px;overflow:hidden;border:2px solid rgba(20,12,7,.65);box-shadow:0 6px 12px rgba(0,0,0,.34);scroll-snap-align:center;cursor:pointer;transform-origin:center bottom;transition:transform .15s,filter .15s;background:#ddd}.wo-card:active{transform:scale(.98)}.wo-card.wo-selected{transform:translateY(-8px);outline:3px solid #f4d66c;box-shadow:0 8px 20px rgba(240,199,74,.5)}.wo-card-disabled{filter:grayscale(.7);opacity:.47}.wo-card-cost{position:absolute;z-index:3;top:5px;left:5px;max-width:80px;border-radius:10px;background:rgba(249,242,218,.92);color:#21160f;padding:2px 5px;font-size:9px;font-weight:900;white-space:nowrap}.wo-card-age{position:absolute;z-index:3;right:5px;top:5px;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(24,16,10,.78);color:#f7e4aa;border:1px solid rgba(255,255,255,.42);font-size:10px;font-weight:bold}.wo-chain-in{position:absolute;z-index:3;left:5px;top:29px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.88);color:#222;font-size:10px}.wo-card-effect{position:absolute;left:0;right:0;top:0;bottom:45px;display:flex;align-items:center;justify-content:center;text-align:center;padding:35px 7px 8px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.75);font-size:31px;font-weight:900}.wo-card-name{position:absolute;z-index:2;bottom:17px;left:0;right:0;min-height:28px;padding:5px 3px 2px;background:rgba(13,9,6,.72);color:#fff;text-align:center;font-size:10px;font-weight:900;line-height:1.05}.wo-chain-out{position:absolute;z-index:3;left:3px;right:3px;bottom:3px;color:#f7e6b2;font-size:6.5px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-card-count{position:absolute;z-index:4;right:4px;bottom:3px;color:#fff;font-size:6px;opacity:.7}.wo-vp-big{font-size:46px}.wo-wreath{font-size:22px;color:#dbdf82}.wo-shield-row{font-size:24px;letter-spacing:-8px;padding-right:7px}.wo-science-big{font-size:46px}.wo-coin-big{font-size:30px}.wo-trade-big{font-size:27px;line-height:1}.wo-trade-big small{font-size:12px}.wo-formula-big{font-size:20px;line-height:1.35}.wo-type-raw .wo-card-effect{background:linear-gradient(145deg,#7a4829,#4b2817)}.wo-type-manufactured .wo-card-effect{background:linear-gradient(145deg,#a4a5a7,#696a6d)}.wo-type-civilian .wo-card-effect{background:linear-gradient(145deg,#2e7db1,#164d79)}.wo-type-commercial .wo-card-effect{background:linear-gradient(145deg,#e8b52f,#b97805)}.wo-type-military .wo-card-effect{background:linear-gradient(145deg,#cf3830,#7e1818)}.wo-type-science .wo-card-effect{background:linear-gradient(145deg,#3a9964,#1c653d)}.wo-type-guild .wo-card-effect{background:linear-gradient(145deg,#8d4cad,#4e216a)}" +
-        ".wo-card-compact{flex-basis:67px;width:67px;height:92px;border-width:1px;border-radius:5px;box-shadow:0 3px 7px rgba(0,0,0,.3)}.wo-card-compact .wo-card-cost{top:2px;left:2px;font-size:6px;padding:1px 3px;max-width:48px}.wo-card-compact .wo-card-age{width:14px;height:14px;top:2px;right:2px;font-size:6px}.wo-card-compact .wo-chain-in{display:none}.wo-card-compact .wo-card-effect{bottom:28px;padding:20px 3px 2px;font-size:20px}.wo-card-compact .wo-vp-big{font-size:26px}.wo-card-compact .wo-wreath{font-size:12px}.wo-card-compact .wo-science-big{font-size:25px}.wo-card-compact .wo-shield-row{font-size:13px;letter-spacing:-5px}.wo-card-compact .wo-coin-big{font-size:16px}.wo-card-compact .wo-formula-big,.wo-card-compact .wo-trade-big{font-size:11px}.wo-card-compact .wo-card-name{bottom:8px;min-height:20px;font-size:6.5px;padding:3px 2px 1px}.wo-card-compact .wo-chain-out{font-size:4px;bottom:1px}.wo-card-compact .wo-card-count{display:none}" +
+        ".wo-card{position:relative;flex:0 0 112px;width:112px;height:170px;border-radius:8px;overflow:hidden;border:2px solid rgba(20,12,7,.65);box-shadow:0 6px 12px rgba(0,0,0,.34);scroll-snap-align:center;cursor:pointer;transform-origin:center bottom;transition:transform .15s,filter .15s;background:#ddd}.wo-card:active{transform:scale(.98)}.wo-card.wo-selected{transform:translateY(-8px);outline:3px solid #f4d66c;box-shadow:0 8px 20px rgba(240,199,74,.5)}.wo-card-disabled{filter:grayscale(.7);opacity:.47}.wo-card-cost{position:absolute;z-index:3;top:5px;left:5px;max-width:80px;border-radius:10px;background:rgba(249,242,218,.92);color:#21160f;padding:2px 5px;font-size:9px;font-weight:900;white-space:nowrap}.wo-card-age{position:absolute;z-index:3;right:5px;top:5px;min-width:40px;height:20px;border-radius:11px;display:flex;align-items:center;justify-content:center;gap:2px;background:rgba(24,16,10,.78);color:#f7e4aa;border:1px solid rgba(255,255,255,.42);font-weight:bold;letter-spacing:.2px;padding:0 5px;white-space:nowrap}.wo-card-age span{font-size:5px;opacity:.78}.wo-card-age b{font-size:8px}.wo-chain-in{position:absolute;z-index:3;left:5px;top:29px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.88);color:#222;font-size:10px}.wo-card-effect{position:absolute;left:0;right:0;top:0;bottom:45px;display:flex;align-items:center;justify-content:center;text-align:center;padding:35px 7px 8px;color:#fff;text-shadow:0 2px 3px rgba(0,0,0,.75);font-size:31px;font-weight:900}.wo-card-name{position:absolute;z-index:2;bottom:17px;left:0;right:0;min-height:28px;padding:5px 3px 2px;background:rgba(13,9,6,.72);color:#fff;text-align:center;font-size:10px;font-weight:900;line-height:1.05}.wo-chain-out{position:absolute;z-index:3;left:3px;right:3px;bottom:3px;color:#f7e6b2;font-size:6.5px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wo-card-count{position:absolute;z-index:4;right:4px;bottom:3px;color:#fff;font-size:6px;opacity:.7}.wo-vp-big{font-size:46px}.wo-vp-trophy{font-size:23px;margin-left:2px}.wo-shield-row{font-size:24px;letter-spacing:-8px;padding-right:7px}.wo-science-big{font-size:46px}.wo-coin-big{font-size:30px}.wo-trade-big{font-size:27px;line-height:1}.wo-trade-big small{font-size:12px}.wo-formula-big{font-size:20px;line-height:1.35}.wo-type-raw .wo-card-effect{background:linear-gradient(145deg,#7a4829,#4b2817)}.wo-type-manufactured .wo-card-effect{background:linear-gradient(145deg,#a4a5a7,#696a6d)}.wo-type-civilian .wo-card-effect{background:linear-gradient(145deg,#2e7db1,#164d79)}.wo-type-commercial .wo-card-effect{background:linear-gradient(145deg,#e8b52f,#b97805)}.wo-type-military .wo-card-effect{background:linear-gradient(145deg,#cf3830,#7e1818)}.wo-type-science .wo-card-effect{background:linear-gradient(145deg,#3a9964,#1c653d)}.wo-type-guild .wo-card-effect{background:linear-gradient(145deg,#8d4cad,#4e216a)}" +
+        ".wo-card-compact{flex-basis:67px;width:67px;height:92px;border-width:1px;border-radius:5px;box-shadow:0 3px 7px rgba(0,0,0,.3)}.wo-card-compact .wo-card-cost{top:2px;left:2px;font-size:6px;padding:1px 3px;max-width:48px}.wo-card-compact .wo-card-age{min-width:27px;height:12px;top:2px;right:2px;padding:0 2px;gap:1px}.wo-card-compact .wo-card-age span{font-size:3px}.wo-card-compact .wo-card-age b{font-size:4.8px}.wo-card-compact .wo-chain-in{display:none}.wo-card-compact .wo-card-effect{bottom:28px;padding:20px 3px 2px;font-size:20px}.wo-card-compact .wo-vp-big{font-size:26px}.wo-card-compact .wo-vp-trophy{font-size:12px}.wo-card-compact .wo-science-big{font-size:25px}.wo-card-compact .wo-shield-row{font-size:13px;letter-spacing:-5px}.wo-card-compact .wo-coin-big{font-size:16px}.wo-card-compact .wo-formula-big,.wo-card-compact .wo-trade-big{font-size:11px}.wo-card-compact .wo-card-name{bottom:8px;min-height:20px;font-size:6.5px;padding:3px 2px 1px}.wo-card-compact .wo-chain-out{font-size:4px;bottom:1px}.wo-card-compact .wo-card-count{display:none}" +
 
         ".wo-selected-summary{margin:0 11px 6px;display:flex;flex-direction:column;align-items:center;text-align:center}.wo-selected-summary b{font-size:14px;color:#f2d270}.wo-selected-summary span{font-size:10px;opacity:.72;margin-top:2px}.wo-action-row,.wo-modal-actions{display:flex;gap:7px;padding:0 11px}.wo-action{flex:1;min-height:44px;border:0;border-radius:8px;font-weight:900;font-size:12px;letter-spacing:.5px;color:#fff;box-shadow:inset 0 -3px rgba(0,0,0,.2)}.wo-action:disabled{opacity:.27;filter:grayscale(1)}.wo-build{background:linear-gradient(#3c9a60,#246840)}.wo-stage-action{background:linear-gradient(#c79835,#806019)}.wo-sell{background:linear-gradient(#a84a43,#6d2a26)}.wo-olympia-free{display:block;width:calc(100% - 22px);margin:7px 11px 0;border:1px solid #7dd89b;border-radius:8px;background:rgba(43,137,79,.35);color:#dff9e8;padding:9px;font-weight:bold}.wo-wonder-payment{text-align:center;font-size:9px;opacity:.65;padding-top:5px}.wo-action-hint{margin:3px 11px 0;border:1px dashed rgba(255,255,255,.22);border-radius:8px;padding:11px;text-align:center;font-size:11px;color:#e2c77e}.wo-waiting-panel{margin:5px 11px 8px;border:1px solid rgba(215,173,73,.28);border-radius:10px;padding:18px;text-align:center;display:flex;flex-direction:column;gap:4px;color:#e8cc81}.wo-waiting-panel span{font-size:11px;opacity:.7}.wo-hourglass{font-size:24px}" +
 
-        ".wo-modal-overlay{position:absolute;z-index:80;inset:0;min-height:100%;background:rgba(7,4,2,.82);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px 40px;overflow:auto}.wo-modal-box{position:relative;width:100%;max-width:440px;border-radius:14px;background:linear-gradient(180deg,#332319,#1d140f);border:1px solid #c9a14a;color:#f7edd8;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.65)}.wo-modal-x{position:absolute;z-index:5;right:8px;top:7px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:rgba(0,0,0,.5);color:#fff;font-size:25px;line-height:28px}.wo-modal-title{text-align:center;color:#f0cf75;font-weight:900;font-size:18px;padding:2px 38px 12px;text-transform:uppercase;letter-spacing:.7px}.wo-large-card-wrap{display:flex;justify-content:center;padding:4px 0 13px}.wo-large-card-wrap .wo-card{width:190px;height:286px;flex-basis:190px;border-radius:12px}.wo-large-card-wrap .wo-card-cost{font-size:14px;padding:4px 8px;top:8px;left:8px;max-width:145px}.wo-large-card-wrap .wo-card-age{width:33px;height:33px;font-size:15px;top:8px;right:8px}.wo-large-card-wrap .wo-chain-in{top:48px;left:8px;width:28px;height:28px;font-size:15px}.wo-large-card-wrap .wo-card-effect{bottom:72px;padding-top:55px;font-size:50px}.wo-large-card-wrap .wo-vp-big{font-size:78px}.wo-large-card-wrap .wo-wreath{font-size:34px}.wo-large-card-wrap .wo-science-big{font-size:78px}.wo-large-card-wrap .wo-shield-row{font-size:38px}.wo-large-card-wrap .wo-card-name{bottom:28px;min-height:46px;font-size:18px;padding:9px 6px 4px}.wo-large-card-wrap .wo-chain-out{bottom:7px;font-size:10px;left:6px;right:6px}.wo-large-card-wrap .wo-card-count{font-size:9px;bottom:7px}.wo-card-details{border-top:1px solid rgba(215,173,73,.23);padding-top:11px}.wo-card-details p{font-size:13px;line-height:1.4;margin:10px 0}.wo-detail-grid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px 8px;align-items:center;font-size:11px}.wo-detail-grid span{opacity:.55;font-size:9px}.wo-chain-detail{border-radius:7px;background:rgba(255,255,255,.06);padding:7px;margin:5px 0;font-size:10px}.wo-chain-free{color:#8de0a1}.wo-free-banner{background:#2b7b49;color:#fff;border-radius:7px;padding:8px;text-align:center;font-weight:bold;font-size:11px}.wo-payment-preview{text-align:center;color:#ecd27f;font-size:11px;margin:8px 0}.wo-modal-actions{padding:8px 0 0}" +
+        ".wo-wonder-tappable{cursor:zoom-in}.wo-board-zoom-hint{position:absolute;z-index:5;right:9px;bottom:84px;background:rgba(30,19,10,.7);border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:3px 7px;color:#fff4cc;font-size:7px;font-weight:900;letter-spacing:.5px;pointer-events:none}.wo-board-modal-overlay{align-items:center;padding:6px;overflow:hidden}.wo-board-modal{box-sizing:border-box;width:100%;max-width:510px;max-height:calc(100% - 12px);overflow:hidden;padding:10px}.wo-zoomed-board-wrap{padding-top:22px}.wo-board-modal .wo-wonder{margin:0;min-height:410px;border-width:3px}.wo-board-modal .wo-wonder-city{font-size:31px}.wo-board-modal .wo-wonder-subtitle{font-size:14px}.wo-board-modal .wo-start-resource{font-size:25px;padding:7px 12px}.wo-board-modal .wo-start-resource span{font-size:10px}.wo-board-modal .wo-wonder-heading{padding:16px}.wo-board-modal .wo-stage-row{left:12px;right:12px;bottom:14px;gap:10px}.wo-board-modal .wo-stage{min-height:112px;padding:10px 6px}.wo-board-modal .wo-stage-number{width:22px;height:22px;font-size:12px}.wo-board-modal .wo-stage-cost{font-size:19px}.wo-board-modal .wo-stage-effect{font-size:15px;margin-top:8px}.wo-board-modal .wo-stage-vp b{font-size:28px}.wo-board-modal .wo-stage-vp span{font-size:23px}.wo-board-modal .wo-stage-check{font-size:25px}.wo-board-modal .wo-tucked-card{height:45px;font-size:10px;padding-top:5px}.wo-board-modal .wo-modal-x{z-index:20}.wo-modal-overlay{position:absolute;z-index:80;inset:0;min-height:100%;background:rgba(7,4,2,.82);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:18px 12px 40px;overflow:auto}.wo-modal-box{position:relative;width:100%;max-width:440px;border-radius:14px;background:linear-gradient(180deg,#332319,#1d140f);border:1px solid #c9a14a;color:#f7edd8;padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.65)}.wo-modal-x{position:absolute;z-index:5;right:8px;top:7px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.24);background:rgba(0,0,0,.5);color:#fff;font-size:25px;line-height:28px}.wo-modal-title{text-align:center;color:#f0cf75;font-weight:900;font-size:18px;padding:2px 38px 12px;text-transform:uppercase;letter-spacing:.7px}.wo-large-card-wrap{display:flex;justify-content:center;padding:4px 0 13px}.wo-large-card-wrap .wo-card{width:190px;height:286px;flex-basis:190px;border-radius:12px}.wo-large-card-wrap .wo-card-cost{font-size:14px;padding:4px 8px;top:8px;left:8px;max-width:145px}.wo-large-card-wrap .wo-card-age{min-width:55px;height:27px;top:8px;right:8px;padding:0 7px;gap:3px}.wo-large-card-wrap .wo-card-age span{font-size:7px}.wo-large-card-wrap .wo-card-age b{font-size:11px}.wo-large-card-wrap .wo-chain-in{top:48px;left:8px;width:28px;height:28px;font-size:15px}.wo-large-card-wrap .wo-card-effect{bottom:72px;padding-top:55px;font-size:50px}.wo-large-card-wrap .wo-vp-big{font-size:78px}.wo-large-card-wrap .wo-vp-trophy{font-size:35px}.wo-large-card-wrap .wo-science-big{font-size:78px}.wo-large-card-wrap .wo-shield-row{font-size:38px}.wo-large-card-wrap .wo-card-name{bottom:28px;min-height:46px;font-size:18px;padding:9px 6px 4px}.wo-large-card-wrap .wo-chain-out{bottom:7px;font-size:10px;left:6px;right:6px}.wo-large-card-wrap .wo-card-count{font-size:9px;bottom:7px}.wo-card-details{border-top:1px solid rgba(215,173,73,.23);padding-top:11px}.wo-card-details p{font-size:13px;line-height:1.4;margin:10px 0}.wo-detail-grid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:5px 8px;align-items:center;font-size:11px}.wo-detail-grid span{opacity:.55;font-size:9px}.wo-chain-detail{border-radius:7px;background:rgba(255,255,255,.06);padding:7px;margin:5px 0;font-size:10px}.wo-chain-free{color:#8de0a1}.wo-free-banner{background:#2b7b49;color:#fff;border-radius:7px;padding:8px;text-align:center;font-weight:bold;font-size:11px}.wo-payment-preview{text-align:center;color:#ecd27f;font-size:11px;margin:8px 0}.wo-modal-actions{padding:8px 0 0}" +
         ".wo-opponent-summary{display:flex;justify-content:center;gap:16px;font-weight:bold;margin-bottom:8px}.wo-opponent-modal .wo-wonder{margin:8px 0}.wo-modal-section-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#d5b763;margin:14px 0 6px}.wo-modal-resources{background:rgba(255,255,255,.05);border-radius:8px;padding:10px;text-align:center}.wo-modal-city .wo-city-row{margin-bottom:9px}.wo-payment-intro{font-size:12px;line-height:1.4;opacity:.8;margin-bottom:10px;text-align:center}.wo-payment-options{display:flex;flex-direction:column;gap:8px}.wo-payment-option{border:1px solid rgba(215,173,73,.35);border-radius:9px;background:rgba(255,255,255,.06);color:#fff;padding:11px;text-align:left}.wo-payment-option b{display:block;color:#efd078;font-size:14px}.wo-payment-option span{display:block;font-size:10px;opacity:.72;margin-top:3px}.wo-discard-grid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}.wo-discard-choice{cursor:pointer}.wo-history-list{display:flex;flex-direction:column;gap:7px}.wo-history-list div{font-size:11px;line-height:1.35;padding:8px;background:rgba(255,255,255,.045);border-radius:7px}" +
 
         ".wo-end-screen{padding:24px 12px 40px;text-align:center}.wo-end-title{font-size:28px;color:#f2d475;font-weight:900;letter-spacing:2px}.wo-winner{margin:10px 0 18px;font-size:16px}.wo-score-list{display:flex;flex-direction:column;gap:9px}.wo-score-card{display:grid;grid-template-columns:34px 1fr 58px;grid-template-rows:auto auto;align-items:center;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(215,173,73,.25);border-radius:10px;padding:9px}.wo-score-card.wo-first{border-color:#efd15d;background:rgba(215,173,73,.15)}.wo-rank{grid-row:1/3;font-size:22px;color:#e8c65c;text-align:center}.wo-score-name b{display:block}.wo-score-name small{opacity:.65}.wo-score-total{grid-row:1/3;grid-column:3;font-size:28px;font-weight:900;color:#f2d475;text-align:right}.wo-score-breakdown{font-size:9px;opacity:.68;margin-top:4px}" +
-        "@media (max-width:360px){.wo-card{flex-basis:104px;width:104px;height:158px}.wo-resource-panel{grid-template-columns:1fr 1fr}.wo-own-res{grid-column:1/3}.wo-wonder{min-height:210px}.wo-stage-effect{font-size:9px}.wo-opponent{min-width:145px}.wo-game-name{font-size:17px}}" +
+        ".wo-card-type-label,.wo-card-rule-text,.wo-card-chain-panel{display:none}" +
+        ".wo-card-modal-overlay{align-items:center;padding:8px;overflow:hidden}.wo-card-modal{box-sizing:border-box;width:100%;max-width:360px;max-height:calc(100% - 12px);overflow:hidden;padding:10px 10px 12px}.wo-card-modal .wo-modal-x{right:5px;top:5px;width:31px;height:31px;font-size:23px;line-height:25px;background:rgba(20,12,7,.82)}.wo-card-modal-content{display:flex;flex-direction:column;align-items:stretch}.wo-card-modal .wo-large-card-wrap{padding:0 0 8px}.wo-card-modal .wo-large-card-wrap .wo-card{width:184px;height:270px;flex-basis:184px;border-radius:11px}.wo-card-modal .wo-large-card-wrap .wo-card-cost{font-size:13px;padding:4px 8px;top:8px;left:8px;max-width:138px}.wo-card-modal .wo-large-card-wrap .wo-card-age{min-width:54px;height:25px;top:8px;right:8px;padding:0 6px;gap:3px}.wo-card-modal .wo-large-card-wrap .wo-card-age span{font-size:6.5px}.wo-card-modal .wo-large-card-wrap .wo-card-age b{font-size:10.5px}.wo-card-modal .wo-large-card-wrap .wo-chain-in,.wo-card-modal .wo-large-card-wrap .wo-chain-out{display:none}.wo-card-modal .wo-large-card-wrap .wo-card-type-label{display:block;position:absolute;z-index:4;top:48px;left:18px;right:18px;text-align:center;font-size:12px;line-height:1.1;font-weight:900;color:#fff;background:rgba(18,12,8,.34);border:1px solid rgba(255,255,255,.26);border-radius:12px;padding:4px 6px;text-shadow:0 1px 2px rgba(0,0,0,.75)}.wo-card-modal .wo-large-card-wrap .wo-card-effect{bottom:118px;padding:72px 8px 38px;font-size:43px}.wo-card-modal .wo-large-card-wrap .wo-vp-big{font-size:68px}.wo-card-modal .wo-large-card-wrap .wo-vp-trophy{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-science-big{font-size:66px}.wo-card-modal .wo-large-card-wrap .wo-shield-row{font-size:34px}.wo-card-modal .wo-large-card-wrap .wo-coin-big{font-size:38px}.wo-card-modal .wo-large-card-wrap .wo-trade-big{font-size:31px}.wo-card-modal .wo-large-card-wrap .wo-formula-big{font-size:22px}.wo-card-modal .wo-large-card-wrap .wo-card-rule-text{display:block;position:absolute;z-index:4;left:10px;right:10px;bottom:82px;max-height:34px;overflow:hidden;text-align:center;font-size:9.5px;line-height:1.12;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8)}.wo-card-modal .wo-large-card-wrap .wo-card-chain-panel{display:flex;position:absolute;z-index:5;left:9px;right:9px;bottom:57px;min-height:22px;flex-direction:column;justify-content:center;gap:1px;text-align:center;background:rgba(22,14,9,.58);border-radius:7px;padding:3px 5px;color:#ffe8a0;font-size:8.5px;line-height:1.08;font-weight:900}.wo-card-modal .wo-large-card-wrap .wo-card-chain-from{color:#a8efb9}.wo-card-modal .wo-large-card-wrap .wo-card-name{bottom:17px;min-height:38px;font-size:17px;padding:8px 5px 4px}.wo-card-modal .wo-large-card-wrap .wo-card-count{font-size:8px;bottom:4px;right:5px}.wo-card-modal .wo-modal-actions{padding:0;gap:7px}.wo-card-modal .wo-action{min-height:42px;font-size:12px}.wo-card-modal .wo-olympia-free{width:100%;margin:7px 0 0;padding:8px}.wo-card-modal .wo-card-details,.wo-card-modal .wo-detail-grid,.wo-card-modal .wo-chain-detail,.wo-card-modal .wo-free-banner,.wo-card-modal .wo-payment-preview{display:none}" +
+        "@media (max-height:700px){.wo-board-modal .wo-wonder{min-height:330px}.wo-board-modal .wo-stage{min-height:88px}.wo-board-modal .wo-wonder-city{font-size:25px}.wo-board-modal .wo-start-resource{font-size:20px}.wo-board-modal .wo-stage-cost{font-size:16px}.wo-board-modal .wo-stage-effect{font-size:12px}}@media (max-width:360px){.wo-card{flex-basis:104px;width:104px;height:158px}.wo-resource-panel{grid-template-columns:1fr 1fr}.wo-own-res{grid-column:1/3}.wo-wonder{min-height:210px}.wo-stage-effect{font-size:9px}.wo-opponent{min-width:145px}.wo-game-name{font-size:17px}}" +
     "</style>";
 }
 
@@ -2038,12 +2159,18 @@ function renderSevenWonders() {
     }
 
     if (st.phase === "ended") {
-        el.innerHTML = swStyles() + "<div class='wo-root'>" + scoreBoardHtml(st) + activeModalHtml(st) + "</div>";
+        el.innerHTML = swStyles() +
+            "<div class='wo-root'>" +
+                "<div class='wo-zoom-shell'><div class='wo-zoom-surface'>" + scoreBoardHtml(st) + "</div></div>" +
+                activeModalHtml(st) +
+            "</div>";
+        installWondersPinchZoom();
         return;
     }
 
     el.innerHTML = swStyles() +
         "<div class='wo-root'>" +
+            "<div class='wo-zoom-shell'><div class='wo-zoom-surface'>" +
             "<header class='wo-top'>" +
                 "<div class='wo-status'>" +
                     "<div class='wo-game-name'>WONDERS</div>" +
@@ -2067,9 +2194,11 @@ function renderSevenWonders() {
                 handHtml(st, me) +
                 actionBarHtml(st, me) +
             "</section>" +
-
+            "</div></div>" +
             activeModalHtml(st) +
         "</div>";
+
+    installWondersPinchZoom();
 }
 
 /* --------------------------------------------------------------------------
