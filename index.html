@@ -1323,6 +1323,7 @@ margin-left:0 !important;
         <span class="chat-room-title" id="roomDisplayCode">Chat Room</span>
         <div class="header-btn-row" id="headerActionButtonsContainer">
             <button id="chatGamesTriggerBtn" class="round-btn" type="button">Games</button>
+            <button id="eucTriggerBtn" class="round-btn" type="button">EUC</button>
             <button id="youtubePlaceholderBtn" class="round-btn" type="button" style="display:none;">YT</button>
         </div>
         <button id="closeChatBtn" type="button">✕</button>
@@ -10050,6 +10051,77 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     box-shadow:0 6px 20px rgba(0,0,0,.41) !important;
 }
 </style>
+
+<script>
+/* CHASER PATCH — EUC header button + Games nudged left (final) */
+(function () {
+    if (window.__chaserEucHeaderBtnInstalled) return;
+    window.__chaserEucHeaderBtnInstalled = true;
+
+    const EUC_URL = "https://bisket74-eng.github.io/euc/";
+
+    const style = document.createElement("style");
+    style.innerHTML = `
+        /* Games + EUC sit together, nudged left of center */
+        #headerActionButtonsContainer {
+            display:flex !important;
+            flex:1 1 auto !important;
+            justify-content:center !important;
+            align-items:center !important;
+            gap:7px !important;
+            padding-right:14px !important;
+        }
+
+        #chatGamesTriggerBtn {
+            margin:0 !important;
+        }
+
+        /* EUC button matches Games exactly */
+        #eucTriggerBtn {
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            margin:0 !important;
+            width:auto !important;
+            height:34px !important;
+            padding:0 14px !important;
+            border-radius:999px !important;
+            background:#ffd700 !important;
+            color:#1e4620 !important;
+            border:2px solid #ffffff !important;
+            font-size:13px !important;
+            font-weight:900 !important;
+            font-family:Arial,sans-serif !important;
+            text-transform:uppercase !important;
+            letter-spacing:0.5px !important;
+            box-sizing:border-box !important;
+            flex:0 0 auto !important;
+            opacity:1 !important;
+            pointer-events:auto !important;
+            cursor:pointer !important;
+        }
+
+        #eucTriggerBtn:active {
+            transform:scale(0.94);
+        }
+
+        /* Hide EUC while a game engine is running, same as Games */
+        #chatHeader.game-active-mode #eucTriggerBtn {
+            display:none !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    const eucBtn = document.getElementById("eucTriggerBtn");
+    if (eucBtn) {
+        eucBtn.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            window.open(EUC_URL, "_blank", "noopener,noreferrer");
+        });
+    }
+})();
+</script>
 
 </body>
 </html>
