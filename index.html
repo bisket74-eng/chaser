@@ -10123,5 +10123,507 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 })();
 </script>
 
+<script>
+/* CHASER PATCH — Help ( ? ) button + quick-start guide
+   A round "?" button under the zoom control opens a short, scrollable
+   guide covering every control on the page, in the order a new person
+   meets them. Auto-opens once on a person's very first visit so the
+   chat/games/EUC stuff actually gets discovered, then never again
+   unless they tap the ? themselves.
+*/
+(function () {
+    if (window.__chaserHelpPanelInstalled) return;
+    window.__chaserHelpPanelInstalled = true;
+
+    const LS_SEEN = "chaser_help_seen_v1";
+
+    function byId(id) { return document.getElementById(id); }
+
+    /* ============================== Styles ============================== */
+
+    function installStyles() {
+        if (byId("chaser-help-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-help-style";
+        style.innerHTML = `
+            #chaserHelpBtn {
+                position:fixed !important;
+                top:11px !important;
+                left:10px !important;
+                width:42px !important;
+                height:42px !important;
+                border-radius:50% !important;
+                border:2px solid rgba(30,70,32,0.85) !important;
+                background:rgba(226,240,217,0.82) !important;
+                color:#1e4620 !important;
+                font-family:Georgia,serif !important;
+                font-size:24px !important;
+                font-weight:bold !important;
+                line-height:1 !important;
+                z-index:15 !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:0 0 2px 0 !important;
+                margin:0 !important;
+                box-sizing:border-box !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                cursor:pointer !important;
+                touch-action:manipulation !important;
+                user-select:none !important;
+                -webkit-user-select:none !important;
+                -webkit-tap-highlight-color:transparent !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+            }
+
+            #chaserHelpBtn:active { transform:scale(.94) !important; }
+
+            body:has(#chatOverlay.open) #chaserHelpBtn { display:none !important; }
+
+            #chaserHelpOverlay {
+                position:fixed !important;
+                inset:0 !important;
+                background:rgba(0,0,0,0.55) !important;
+                z-index:50090 !important;
+                display:none !important;
+                align-items:center !important;
+                justify-content:center !important;
+                padding:14px !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserHelpOverlay.show { display:flex !important; }
+
+            #chaserHelpCard {
+                width:100% !important;
+                max-width:430px !important;
+                max-height:88vh !important;
+                background:#e2f0d9 !important;
+                border:3px solid #1e4620 !important;
+                border-radius:16px !important;
+                box-shadow:0 12px 40px rgba(0,0,0,.5) !important;
+                display:flex !important;
+                flex-direction:column !important;
+                overflow:hidden !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserHelpHead {
+                background:#1e4620 !important;
+                color:#e2f0d9 !important;
+                padding:12px 14px !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:space-between !important;
+                flex:0 0 auto !important;
+            }
+
+            #chaserHelpHead .chaser-help-title {
+                font-family:"Brush Script MT","Comic Sans MS",cursive !important;
+                font-size:30px !important;
+                line-height:1 !important;
+                letter-spacing:.5px !important;
+            }
+
+            #chaserHelpCloseX {
+                background:transparent !important;
+                border:none !important;
+                color:#e2f0d9 !important;
+                font-size:26px !important;
+                line-height:1 !important;
+                padding:0 4px !important;
+                cursor:pointer !important;
+            }
+
+            #chaserHelpBody {
+                overflow-y:auto !important;
+                -webkit-overflow-scrolling:touch !important;
+                padding:14px !important;
+                color:#1e3a1c !important;
+                font-family:Arial,Helvetica,sans-serif !important;
+                font-size:15px !important;
+                line-height:1.42 !important;
+            }
+
+            #chaserHelpBody h4 {
+                margin:18px 0 8px !important;
+                font-size:13px !important;
+                letter-spacing:1.2px !important;
+                text-transform:uppercase !important;
+                color:#2d6a30 !important;
+                border-bottom:2px solid rgba(45,106,48,.28) !important;
+                padding-bottom:4px !important;
+            }
+
+            #chaserHelpBody h4:first-child { margin-top:0 !important; }
+
+            #chaserHelpBody .chaser-help-row {
+                display:flex !important;
+                gap:10px !important;
+                margin:0 0 9px !important;
+                align-items:flex-start !important;
+            }
+
+            #chaserHelpBody .chaser-help-chip {
+                flex:0 0 auto !important;
+                min-width:30px !important;
+                height:30px !important;
+                padding:0 7px !important;
+                border-radius:999px !important;
+                background:#1e4620 !important;
+                color:#e2f0d9 !important;
+                font-size:15px !important;
+                font-weight:bold !important;
+                display:flex !important;
+                align-items:center !important;
+                justify-content:center !important;
+                box-sizing:border-box !important;
+            }
+
+            #chaserHelpBody .chaser-help-chip.gold {
+                background:#ffd700 !important;
+                color:#1e4620 !important;
+                font-size:11px !important;
+                letter-spacing:.5px !important;
+            }
+
+            #chaserHelpBody .chaser-help-text { flex:1 1 auto !important; padding-top:4px !important; }
+            #chaserHelpBody b { color:#1e4620 !important; }
+
+            #chaserHelpBody .chaser-help-note {
+                background:#fff8dc !important;
+                border-left:5px solid #ffd700 !important;
+                border-radius:6px !important;
+                padding:10px 12px !important;
+                margin:4px 0 10px !important;
+                font-size:14.5px !important;
+            }
+
+            #chaserHelpBody .chaser-help-soft {
+                font-size:13.5px !important;
+                font-style:italic !important;
+                opacity:.85 !important;
+                margin-top:12px !important;
+            }
+
+            #chaserHelpFoot {
+                flex:0 0 auto !important;
+                padding:10px 14px 14px !important;
+                background:#e2f0d9 !important;
+            }
+
+            #chaserHelpGotIt {
+                width:100% !important;
+                padding:13px !important;
+                border:none !important;
+                border-radius:10px !important;
+                background:#2d6a30 !important;
+                color:#fff !important;
+                font-size:16px !important;
+                font-weight:bold !important;
+                cursor:pointer !important;
+                font-family:Arial,Helvetica,sans-serif !important;
+            }
+
+            #chaserHelpGotIt:active { transform:scale(.98) !important; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /* ============================== Content ============================== */
+
+    function row(chip, text, gold) {
+        return `<div class="chaser-help-row">
+            <div class="chaser-help-chip${gold ? " gold" : ""}">${chip}</div>
+            <div class="chaser-help-text">${text}</div>
+        </div>`;
+    }
+
+    function helpHtml() {
+        return `
+            <h4>Get on the map</h4>
+            ${row("1", "Type your <b>name</b> in the top box and tap <b>Start Sharing Location</b>. The button turns red — that means you're live and your buddies can see you.")}
+            ${row("2", "Until you do that, nobody sees you and <b>chat stays locked</b>.")}
+            ${row("3", "<b>Destination</b> box is optional. Type where you're headed and buddies see it on your tag.")}
+            ${row("🎤", "Mic icons let you speak instead of type.")}
+            ${row("⌄", "Arrow next to Start hides the two boxes so you get more map.")}
+
+            <h4>Buttons down the right side</h4>
+            ${row("◎", "<b>Bull's-eye.</b> Rings showing = the map zooms out to fit everyone. Tap it and just the dot shows = zoomed in close on you. Either way the map keeps following you.")}
+            ${row("🔒", "<b>Padlock — locked room.</b> Tap the top box to create a 6-letter code, or type a friend's code and tap Join. Gold padlock = you're private: only people with that code see you and chat with you. Tap Leave to come back to the open map.")}
+            ${row("💬", "<b>Chat.</b> Grey until you're sharing location, then it lights up. A red number means unread messages.")}
+
+            <h4>Buttons on the map</h4>
+            ${row("r50", "<b>50 Mi Only</b> (top right) shows only riders within 50 miles. Uncheck it to see riders everywhere.")}
+            ${row("🚗", "<b>Car / Bike.</b> One tap swaps both the map style <i>and</i> the directions. Car = regular map, car routes. Bike = bike map, bike routes.")}
+            ${row("♪", "<b>Music.</b> Tap to jump straight to Spotify. If you've connected your own Spotify, it opens back / play-pause / skip right here instead. Press and hold to open the connect settings.")}
+            ${row("👥", "<b>Buddies Online</b> tag at the top: tap it over and over to hop from one buddy to the next. The map parks on them — tap the bull's-eye to come back to yourself.")}
+
+            <h4>Inside the chat box — don't skip this</h4>
+            <div class="chaser-help-note">
+                Chat isn't just chat. The two gold buttons at the top of the chat box are where the games and the EUC info live. Most people never find them because they don't bother opening chat.
+            </div>
+            ${row("Games", "The <b>Game Center</b>: Battleship, Catan, Cribbage, Coup, Hangman, Scrabble, Sequence, Solitaire, Texas Holdem, Tiny Kingdoms, Trivia, UNO, Yahtzee, 7 Wonders and EUC Thrills. Pick one and everyone in the room plays together.", true)}
+            ${row("EUC", "Opens the <b>EUC information</b> pages — wheels, specs and rider info.", true)}
+            ${row("✕", "Top right of the chat header closes chat and puts you back on the map. Tap the ✕ on one of your own messages to delete it.")}
+
+            <h4>Out on the road</h4>
+            ${row("📍", "Tap a rider's pin or name tag to zoom to them. Press and hold a buddy to route to them — the route keeps following as they move.")}
+            ${row("↻", "A faded buddy has gone quiet. Tap the ↻ on their tag to nudge their phone and wake them up.")}
+            ${row("⏱", "Speed and trip miles show while you ride. Tap <b>reset</b> to zero the trip. Chaser disconnects on its own after 2 hours of sitting still.")}
+
+            <h4>Destination routing</h4>
+            ${row("🚩", "Type a destination and Chaser draws the line and shows your next turn. If a few places match the name, tap the right one from the list.")}
+            ${row("👀", "The route only shows while the map is following you — it hides while you're browsing buddies, and comes right back.")}
+            <div class="chaser-help-soft">Routing is the newest piece of Chaser and still being built out, so expect it to get smarter over time.</div>
+        `;
+    }
+
+    /* ============================== Build ============================== */
+
+    function ensurePanel() {
+        let overlay = byId("chaserHelpOverlay");
+        if (overlay) return overlay;
+
+        overlay = document.createElement("div");
+        overlay.id = "chaserHelpOverlay";
+        overlay.innerHTML = `
+            <div id="chaserHelpCard">
+                <div id="chaserHelpHead">
+                    <span class="chaser-help-title">How Chaser works</span>
+                    <button id="chaserHelpCloseX" type="button" aria-label="Close">&times;</button>
+                </div>
+                <div id="chaserHelpBody">${helpHtml()}</div>
+                <div id="chaserHelpFoot">
+                    <button id="chaserHelpGotIt" type="button">Got it — let's ride</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener("click", e => {
+            if (e.target === overlay) closeHelp();
+        });
+
+        byId("chaserHelpCloseX").addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeHelp();
+        });
+
+        byId("chaserHelpGotIt").addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeHelp();
+        });
+
+        return overlay;
+    }
+
+    function openHelp() {
+        const overlay = ensurePanel();
+        overlay.classList.add("show");
+        const body = byId("chaserHelpBody");
+        if (body) body.scrollTop = 0;
+        try { localStorage.setItem(LS_SEEN, "1"); } catch (err) {}
+    }
+
+    function closeHelp() {
+        const overlay = byId("chaserHelpOverlay");
+        if (overlay) overlay.classList.remove("show");
+    }
+
+    function installButton() {
+        if (byId("chaserHelpBtn")) return;
+
+        const btn = document.createElement("button");
+        btn.id = "chaserHelpBtn";
+        btn.type = "button";
+        btn.title = "How Chaser works";
+        btn.setAttribute("aria-label", "Help");
+        btn.innerText = "?";
+
+        btn.addEventListener("click", e => {
+            e.preventDefault();
+            e.stopPropagation();
+            openHelp();
+        });
+
+        document.body.appendChild(btn);
+    }
+
+    function boot() {
+        installStyles();
+        installButton();
+        ensurePanel();
+
+        let seen = "1";
+        try { seen = localStorage.getItem(LS_SEEN); } catch (err) { seen = "1"; }
+        if (!seen) setTimeout(openHelp, 900);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot);
+    } else {
+        boot();
+    }
+})();
+</script>
+
+<script>
+/* CHASER PATCH — top row cleanup (final positioning authority)
+
+   Retires the Leaflet +/- zoom buttons (pinch to zoom instead) and puts
+   the help button and the car/bike toggle into that empty corner, so the
+   whole top of the screen reads as one row:
+
+        [ ? ] [ car/bike ]      [ ⚡ EV ]      [ r 50 Mi Only ]
+
+   The EV button and the music button keep the spots they already had —
+   EV riding in the middle of that row, music tucked under the 50 Mi box.
+   Every button keeps its existing size, color and icon; only the help
+   and car/bike buttons actually move.
+
+   Earlier patches re-position their own buttons on an 800ms timer, so
+   rather than unpicking those, the rules here are !important in a
+   stylesheet appended last — that outranks the inline styles those
+   timers write, so nothing fights and nothing jitters.
+*/
+(function () {
+    if (window.__chaserTopRowPatchInstalled) return;
+    window.__chaserTopRowPatchInstalled = true;
+
+    /* Tweak these to shift the pair in the corner. */
+    const EDGE_LEFT = 10;   // distance from the left edge of the screen
+    const ROW_TOP   = 10;   // top of the row (where zoom used to start)
+    const ROW_BAND  = 44;   // height of the old zoom control — the row's height
+    const BTN_SIZE  = 42;   // help and car/bike are both 42px
+    const GAP       = 10;   // space between the two
+
+    const BTN_TOP = ROW_TOP + Math.round((ROW_BAND - BTN_SIZE) / 2);
+    const COL_1 = EDGE_LEFT;
+    const COL_2 = EDGE_LEFT + BTN_SIZE + GAP;
+    const PAIR_RIGHT = COL_2 + BTN_SIZE;
+
+    const EV_SIZE = 38;
+    const EV_TOP = ROW_TOP + Math.round((ROW_BAND - EV_SIZE) / 2);
+
+    function installStaticStyles() {
+        if (document.getElementById("chaser-top-row-style")) return;
+
+        const style = document.createElement("style");
+        style.id = "chaser-top-row-style";
+        style.innerHTML = `
+            /* Zoom +/- retired — pinch to zoom instead. */
+            .leaflet-control-zoom {
+                display:none !important;
+                pointer-events:none !important;
+            }
+
+            /* Softer corners on the 50 Mi Only box. */
+            .radius-toggle-container {
+                border-radius:14px !important;
+            }
+
+            /* Upper left — help */
+            #chaserHelpBtn {
+                left:${COL_1}px !important;
+                top:${BTN_TOP}px !important;
+                transform:none !important;
+            }
+
+            #chaserHelpBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            /* Next to it — car / bike toggle */
+            #chaserMirrorRouteModeBtn {
+                left:${COL_2}px !important;
+                top:${BTN_TOP}px !important;
+                transform:none !important;
+            }
+
+            #chaserMirrorRouteModeBtn:active {
+                transform:scale(.94) !important;
+            }
+
+            /* EV keeps its own look; only its transform is pinned here so
+               it can't inherit the old centering fallback. Its left/top
+               are written live below. */
+            #chaserUnifiedEvBtn {
+                transform:none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /* ===================================================================
+       EV button — stays in the middle of the top row
+
+       It used to center itself between the zoom control and the 50 Mi
+       box. With zoom gone it now centers between the help/car pair and
+       the 50 Mi box, which lands it in the same spot on screen. Written
+       into a live stylesheet rather than inline, so the EV patch's own
+       timer can't drag it away.
+       =================================================================== */
+
+    let lastEvLeft = null;
+
+    function evStyleEl() {
+        let el = document.getElementById("chaser-top-row-ev-style");
+        if (!el) {
+            el = document.createElement("style");
+            el.id = "chaser-top-row-ev-style";
+            document.head.appendChild(el);
+        }
+        return el;
+    }
+
+    function positionEvInRow() {
+        const radius = document.querySelector(".radius-toggle-container");
+        if (!radius) return;
+
+        const r = radius.getBoundingClientRect();
+        if (!r.width) return;
+
+        let left = PAIR_RIGHT + ((r.left - PAIR_RIGHT) / 2) - (EV_SIZE / 2);
+        left = Math.max(PAIR_RIGHT + 8, Math.min(r.left - EV_SIZE - 8, left));
+        left = Math.round(left);
+
+        if (left === lastEvLeft) return;
+        lastEvLeft = left;
+
+        evStyleEl().innerHTML = `
+            #chaserUnifiedEvBtn {
+                left:${left}px !important;
+                top:${EV_TOP}px !important;
+            }
+        `;
+    }
+
+    function boot() {
+        installStaticStyles();
+        positionEvInRow();
+
+        // The 50 Mi box can shift as the map controls settle, so keep an
+        // eye on it. Cheap: only rewrites when the number actually moves.
+        setInterval(positionEvInRow, 900);
+
+        window.addEventListener("resize", positionEvInRow);
+        window.addEventListener("orientationchange", () => {
+            setTimeout(positionEvInRow, 500);
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", boot);
+    } else {
+        boot();
+    }
+})();
+</script>
+
 </body>
 </html>
