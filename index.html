@@ -10501,17 +10501,14 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     const ROW_TOP   = 10;   // top of the first row
     const ROW_BAND  = 44;   // height of the row (the old zoom control height)
     const ROW_GAP   = 10;   // vertical space between the two rows
-    const BTN_SIZE  = 42;   // help, car/bike and music are all 42px
-    const EV_SIZE   = 38;   // EV is a touch smaller
+    const BTN_SIZE  = 42;   // help, car/bike, music and EV are all 42px
 
-    // Each button is centered inside its row band, so the 42px and the
-    // 38px buttons still line up with each other.
+    // Each button is centered inside its row band.
     const ROW_1_MID = ROW_TOP + (ROW_BAND / 2);
     const ROW_2_MID = ROW_TOP + ROW_BAND + ROW_GAP + (ROW_BAND / 2);
 
     const BTN_ROW_1 = Math.round(ROW_1_MID - (BTN_SIZE / 2));
     const BTN_ROW_2 = Math.round(ROW_2_MID - (BTN_SIZE / 2));
-    const EV_ROW_2  = Math.round(ROW_2_MID - (EV_SIZE / 2));
 
     function installStyles() {
         if (document.getElementById("chaser-top-layout-style")) return;
@@ -10573,11 +10570,25 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 transform:none !important;
             }
 
+            /* EV shipped at 38px — bring it up to match the other three
+               so the two columns line up exactly. */
             #chaserUnifiedEvBtn {
                 left:${EDGE}px !important;
                 right:auto !important;
-                top:${EV_ROW_2}px !important;
+                top:${BTN_ROW_2}px !important;
+                width:${BTN_SIZE}px !important;
+                height:${BTN_SIZE}px !important;
+                min-width:${BTN_SIZE}px !important;
+                max-width:${BTN_SIZE}px !important;
+                min-height:${BTN_SIZE}px !important;
+                max-height:${BTN_SIZE}px !important;
                 transform:none !important;
+            }
+
+            /* Icon scaled with the button so it stays centered and even. */
+            #chaserUnifiedEvBtn svg {
+                width:25px !important;
+                height:25px !important;
             }
 
             /* ---------- Right column: car/bike over music ---------- */
@@ -10593,6 +10604,13 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 right:${EDGE}px !important;
                 top:${BTN_ROW_2}px !important;
                 transform:none !important;
+            }
+
+            /* Buddies Online tag — same dark green ring as the 50 Mi box
+               and the round buttons. */
+            #riderCounterWidget {
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
             }
 
             /* Consistent press feedback across all four. */
