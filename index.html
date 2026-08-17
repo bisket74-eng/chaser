@@ -10473,53 +10473,51 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 </script>
 
 <script>
-/* CHASER PATCH — top row cleanup (final positioning authority)
+/* CHASER PATCH — top control layout (final positioning authority)
 
-   Retires the Leaflet +/- zoom buttons (pinch to zoom instead) and puts
-   the help button and the car/bike toggle into that empty corner, so the
-   whole top of the screen reads as one row:
+   Retires the Leaflet +/- zoom buttons (pinch to zoom instead) and lays
+   the top of the screen out as two stacked pairs with the 50 Mi box
+   centered between them:
 
-        [ ? ] [ car/bike ]      [ ⚡ EV ]      [ r 50 Mi Only ]
+        [ ? ]      ( r 50 Mi Only )      [ car/bike ]
+        [ ⚡ ]                            [  music   ]
 
-   EV stays in that row, evenly spaced with the other two, and music
-   keeps its spot tucked under the 50 Mi box.
-   Every button keeps its existing size, color and icon; only the help
-   and car/bike buttons actually move.
+   The 50 Mi box is restyled to match the round buttons — pale green
+   fill, dark green outline and dark green text — instead of the plain
+   white Leaflet look.
 
    Earlier patches re-position their own buttons on an 800ms timer, so
    rather than unpicking those, the rules here are !important in a
    stylesheet appended last — that outranks the inline styles those
-   timers write, so nothing fights and nothing jitters.
+   timers write, so nothing fights and nothing jitters. The right-hand
+   column is pinned with right/left:auto so it holds on any screen width.
 */
 (function () {
-    if (window.__chaserTopRowPatchInstalled) return;
-    window.__chaserTopRowPatchInstalled = true;
+    if (window.__chaserTopLayoutInstalled) return;
+    window.__chaserTopLayoutInstalled = true;
 
-    /* Tweak these to shift the pair in the corner. */
-    const EDGE_LEFT = 10;   // distance from the left edge of the screen
-    const ROW_TOP   = 10;   // top of the row (where zoom used to start)
-    const ROW_BAND  = 44;   // height of the old zoom control — the row's height
-    const BTN_SIZE  = 42;   // help and car/bike are both 42px
-    const GAP       = 10;   // space between the two
+    /* Tweak these to move the whole arrangement. */
+    const EDGE      = 10;   // gap from the left and right screen edges
+    const ROW_TOP   = 10;   // top of the first row
+    const ROW_BAND  = 44;   // height of the row (the old zoom control height)
+    const ROW_GAP   = 10;   // vertical space between the two rows
+    const BTN_SIZE  = 42;   // help, car/bike and music are all 42px
+    const EV_SIZE   = 38;   // EV is a touch smaller
 
-    const BTN_TOP = ROW_TOP + Math.round((ROW_BAND - BTN_SIZE) / 2);
-    const COL_1 = EDGE_LEFT;
-    const COL_2 = EDGE_LEFT + BTN_SIZE + GAP;
+    // Each button is centered inside its row band, so the 42px and the
+    // 38px buttons still line up with each other.
+    const ROW_1_MID = ROW_TOP + (ROW_BAND / 2);
+    const ROW_2_MID = ROW_TOP + ROW_BAND + ROW_GAP + (ROW_BAND / 2);
 
-    const EV_SIZE = 38;
-    const EV_TOP = ROW_TOP + Math.round((ROW_BAND - EV_SIZE) / 2);
+    const BTN_ROW_1 = Math.round(ROW_1_MID - (BTN_SIZE / 2));
+    const BTN_ROW_2 = Math.round(ROW_2_MID - (BTN_SIZE / 2));
+    const EV_ROW_2  = Math.round(ROW_2_MID - (EV_SIZE / 2));
 
-    /* Equal center-to-center spacing across all three, so the middle
-       button reads as truly centered even though EV is 4px smaller. */
-    const CENTER_STEP = BTN_SIZE + GAP;
-    const EV_CENTER = COL_1 + (BTN_SIZE / 2) + (CENTER_STEP * 2);
-    const EV_LEFT = Math.round(EV_CENTER - (EV_SIZE / 2));
-
-    function installStaticStyles() {
-        if (document.getElementById("chaser-top-row-style")) return;
+    function installStyles() {
+        if (document.getElementById("chaser-top-layout-style")) return;
 
         const style = document.createElement("style");
-        style.id = "chaser-top-row-style";
+        style.id = "chaser-top-layout-style";
         style.innerHTML = `
             /* Zoom +/- retired — pinch to zoom instead. */
             .leaflet-control-zoom {
@@ -10527,67 +10525,89 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 pointer-events:none !important;
             }
 
-            /* 50 Mi Only box restyled to match the name/destination
-               fields in the control panel below: dark green fill, lighter
-               green outline, white bold text, softened corners. */
+            /* ---------- 50 Mi Only box: centered, round-button look ----------
+               Pulled out of Leaflet's top-right corner stack and fixed to
+               the middle of the screen. Colors copied from the circular
+               buttons so the whole row reads as one set. */
             .radius-toggle-container {
-                background:#1e4620 !important;
-                border:2px solid #2d6a30 !important;
-                border-radius:14px !important;
-                color:#fff !important;
-                box-shadow:0 4px 14px rgba(0,0,0,0.35) !important;
+                position:fixed !important;
+                top:${ROW_TOP}px !important;
+                left:50% !important;
+                right:auto !important;
+                transform:translateX(-50%) !important;
+                margin:0 !important;
+                float:none !important;
+                height:${ROW_BAND}px !important;
+                border:2px solid rgba(30, 70, 32, 0.85) !important;
+                border-radius:22px !important;
+                background:rgba(226, 240, 217, 0.92) !important;
+                color:#1e4620 !important;
+                box-shadow:0 4px 13px rgba(0,0,0,.30) !important;
+                backdrop-filter:blur(3px) !important;
+                -webkit-backdrop-filter:blur(3px) !important;
+                z-index:15 !important;
             }
 
             .radius-label-wrapper {
-                color:#fff !important;
+                color:#1e4620 !important;
             }
 
-            /* The script r sat in dark green — invisible on the new fill. */
             .radius-r {
-                color:#e2f0d9 !important;
+                color:#1e4620 !important;
             }
 
-            /* Cream checkbox with a dark check reads cleanly on dark green. */
             .radius-toggle-container input {
-                accent-color:#e2f0d9 !important;
+                accent-color:#2d6a30 !important;
             }
 
-            /* Upper left — help */
+            /* Hide it with the others while chat is open. */
+            body:has(#chatOverlay.open) .radius-toggle-container {
+                display:none !important;
+            }
+
+            /* ---------- Left column: help over EV ---------- */
             #chaserHelpBtn {
-                left:${COL_1}px !important;
-                top:${BTN_TOP}px !important;
+                left:${EDGE}px !important;
+                right:auto !important;
+                top:${BTN_ROW_1}px !important;
                 transform:none !important;
             }
 
-            #chaserHelpBtn:active {
-                transform:scale(.94) !important;
-            }
-
-            /* Next to it — car / bike toggle */
-            #chaserMirrorRouteModeBtn {
-                left:${COL_2}px !important;
-                top:${BTN_TOP}px !important;
-                transform:none !important;
-            }
-
-            #chaserMirrorRouteModeBtn:active {
-                transform:scale(.94) !important;
-            }
-
-            /* Third in the row — EV. Spaced center-to-center with the
-               other two so all three sit evenly. It is a touch smaller
-               (38px vs 42px), so it is placed by center, not by edge. */
             #chaserUnifiedEvBtn {
-                left:${EV_LEFT}px !important;
-                top:${EV_TOP}px !important;
+                left:${EDGE}px !important;
+                right:auto !important;
+                top:${EV_ROW_2}px !important;
                 transform:none !important;
+            }
+
+            /* ---------- Right column: car/bike over music ---------- */
+            #chaserMirrorRouteModeBtn {
+                left:auto !important;
+                right:${EDGE}px !important;
+                top:${BTN_ROW_1}px !important;
+                transform:none !important;
+            }
+
+            #chaserMusicBtn {
+                left:auto !important;
+                right:${EDGE}px !important;
+                top:${BTN_ROW_2}px !important;
+                transform:none !important;
+            }
+
+            /* Consistent press feedback across all four. */
+            #chaserHelpBtn:active,
+            #chaserUnifiedEvBtn:active,
+            #chaserMirrorRouteModeBtn:active,
+            #chaserMusicBtn:active {
+                transform:scale(.94) !important;
             }
         `;
         document.head.appendChild(style);
     }
 
     function boot() {
-        installStaticStyles();
+        installStyles();
     }
 
     if (document.readyState === "loading") {
