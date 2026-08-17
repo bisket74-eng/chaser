@@ -10481,8 +10481,8 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
 
         [ ? ] [ car/bike ]      [ ⚡ EV ]      [ r 50 Mi Only ]
 
-   The EV button and the music button keep the spots they already had —
-   EV riding in the middle of that row, music tucked under the 50 Mi box.
+   EV stays in that row, evenly spaced with the other two, and music
+   keeps its spot tucked under the 50 Mi box.
    Every button keeps its existing size, color and icon; only the help
    and car/bike buttons actually move.
 
@@ -10505,10 +10505,15 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
     const BTN_TOP = ROW_TOP + Math.round((ROW_BAND - BTN_SIZE) / 2);
     const COL_1 = EDGE_LEFT;
     const COL_2 = EDGE_LEFT + BTN_SIZE + GAP;
-    const PAIR_RIGHT = COL_2 + BTN_SIZE;
 
     const EV_SIZE = 38;
     const EV_TOP = ROW_TOP + Math.round((ROW_BAND - EV_SIZE) / 2);
+
+    /* Equal center-to-center spacing across all three, so the middle
+       button reads as truly centered even though EV is 4px smaller. */
+    const CENTER_STEP = BTN_SIZE + GAP;
+    const EV_CENTER = COL_1 + (BTN_SIZE / 2) + (CENTER_STEP * 2);
+    const EV_LEFT = Math.round(EV_CENTER - (EV_SIZE / 2));
 
     function installStaticStyles() {
         if (document.getElementById("chaser-top-row-style")) return;
@@ -10522,9 +10527,29 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 pointer-events:none !important;
             }
 
-            /* Softer corners on the 50 Mi Only box. */
+            /* 50 Mi Only box restyled to match the name/destination
+               fields in the control panel below: dark green fill, lighter
+               green outline, white bold text, softened corners. */
             .radius-toggle-container {
+                background:#1e4620 !important;
+                border:2px solid #2d6a30 !important;
                 border-radius:14px !important;
+                color:#fff !important;
+                box-shadow:0 4px 14px rgba(0,0,0,0.35) !important;
+            }
+
+            .radius-label-wrapper {
+                color:#fff !important;
+            }
+
+            /* The script r sat in dark green — invisible on the new fill. */
+            .radius-r {
+                color:#e2f0d9 !important;
+            }
+
+            /* Cream checkbox with a dark check reads cleanly on dark green. */
+            .radius-toggle-container input {
+                accent-color:#e2f0d9 !important;
             }
 
             /* Upper left — help */
@@ -10549,72 +10574,20 @@ if (exitLabel) exitLabel.innerText = "Exit Game";
                 transform:scale(.94) !important;
             }
 
-            /* EV keeps its own look; only its transform is pinned here so
-               it can't inherit the old centering fallback. Its left/top
-               are written live below. */
+            /* Third in the row — EV. Spaced center-to-center with the
+               other two so all three sit evenly. It is a touch smaller
+               (38px vs 42px), so it is placed by center, not by edge. */
             #chaserUnifiedEvBtn {
+                left:${EV_LEFT}px !important;
+                top:${EV_TOP}px !important;
                 transform:none !important;
             }
         `;
         document.head.appendChild(style);
     }
 
-    /* ===================================================================
-       EV button — stays in the middle of the top row
-
-       It used to center itself between the zoom control and the 50 Mi
-       box. With zoom gone it now centers between the help/car pair and
-       the 50 Mi box, which lands it in the same spot on screen. Written
-       into a live stylesheet rather than inline, so the EV patch's own
-       timer can't drag it away.
-       =================================================================== */
-
-    let lastEvLeft = null;
-
-    function evStyleEl() {
-        let el = document.getElementById("chaser-top-row-ev-style");
-        if (!el) {
-            el = document.createElement("style");
-            el.id = "chaser-top-row-ev-style";
-            document.head.appendChild(el);
-        }
-        return el;
-    }
-
-    function positionEvInRow() {
-        const radius = document.querySelector(".radius-toggle-container");
-        if (!radius) return;
-
-        const r = radius.getBoundingClientRect();
-        if (!r.width) return;
-
-        let left = PAIR_RIGHT + ((r.left - PAIR_RIGHT) / 2) - (EV_SIZE / 2);
-        left = Math.max(PAIR_RIGHT + 8, Math.min(r.left - EV_SIZE - 8, left));
-        left = Math.round(left);
-
-        if (left === lastEvLeft) return;
-        lastEvLeft = left;
-
-        evStyleEl().innerHTML = `
-            #chaserUnifiedEvBtn {
-                left:${left}px !important;
-                top:${EV_TOP}px !important;
-            }
-        `;
-    }
-
     function boot() {
         installStaticStyles();
-        positionEvInRow();
-
-        // The 50 Mi box can shift as the map controls settle, so keep an
-        // eye on it. Cheap: only rewrites when the number actually moves.
-        setInterval(positionEvInRow, 900);
-
-        window.addEventListener("resize", positionEvInRow);
-        window.addEventListener("orientationchange", () => {
-            setTimeout(positionEvInRow, 500);
-        });
     }
 
     if (document.readyState === "loading") {
